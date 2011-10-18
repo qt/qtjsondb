@@ -133,6 +133,8 @@ void                     btree_set_cmp(struct btree *bt, bt_cmp_func cmp);
 int			 btree_cmp(struct btree *bt, const struct btval *a,
 			     const struct btval *b);
 void			 btval_reset(struct btval *btv);
+int			 btval_ref(struct btval *btv);
+int			 btval_deref(struct btval *btv);
 
 void                     btree_dump(struct btree *bt);
 int                      btree_dump_page_from_file(const char *filename, unsigned int pagen);

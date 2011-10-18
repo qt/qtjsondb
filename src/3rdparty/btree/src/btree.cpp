@@ -641,6 +641,20 @@ btval_reset(struct btval *btv)
         }
 }
 
+int btval_ref(struct btval *btv)
+{
+        assert(btv);
+        assert(btv->mp);
+        return ++btv->mp->ref;
+}
+
+int btval_deref(struct btval *btv)
+{
+        assert(btv);
+        assert(btv->mp);
+        return --btv->mp->ref;
+}
+
 static int
 mpage_cmp(struct mpage *a, struct mpage *b)
 {
