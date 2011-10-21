@@ -77,6 +77,7 @@ private slots:
     void syncMarker();
     void corruptedPage();
     void tag();
+    void readFromTag();
 
 private:
     QBtree *db;
@@ -813,6 +814,58 @@ void TestQBtree::tag()
     QVERIFY(rtxn);
     QCOMPARE(rtxn->tag(), 64u);
     rtxn->abort();
+}
+
+void TestQBtree::readFromTag()
+{
+    QBtreeTxn *txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
+    QVERIFY(txn->commit(1));
+
+    txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("bla"), QByteArray("bla")));
+    QVERIFY(txn->put(QByteArray("zzz"), QByteArray("zzz")));
+    QVERIFY(txn->commit(2));
+
+    txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo"), QByteArray("zzz")));
+    QVERIFY(txn->remove(QByteArray("zzz")));
+    QVERIFY(txn->commit(3));
+
+    QByteArray value;
+
+    txn = db->beginRead();
+    QVERIFY(txn);
+    QCOMPARE(txn->tag(), quint32(3));
+    QVERIFY(!txn->get(QByteArray("zzz"), &value));
+    QVERIFY(txn->get(QByteArray("foo"), &value));
+    QCOMPARE(value, QByteArray("zzz"));
+    QVERIFY(txn->get(QByteArray("bla"), &value));
+    QCOMPARE(value, QByteArray("bla"));
+    txn->abort();
+
+    txn = db->beginRead(2);
+    QVERIFY(txn);
+    QCOMPARE(txn->tag(), quint32(2));
+    QVERIFY(txn->get(QByteArray("zzz"), &value));
+    QVERIFY(txn->get(QByteArray("foo"), &value));
+    QCOMPARE(value, QByteArray("bar"));
+    txn->abort();
+
+    txn = db->beginRead(1);
+    QVERIFY(txn);
+    QCOMPARE(txn->tag(), quint32(1));
+    QVERIFY(!txn->get(QByteArray("zzz"), &value));
+    QVERIFY(!txn->get(QByteArray("bla"), &value));
+    QVERIFY(txn->get(QByteArray("foo"), &value));
+    QCOMPARE(value, QByteArray("bar"));
+    txn->abort();
+
+    QVERIFY(!db->beginRead(4));
+    QVERIFY(!db->beginRead(-1u));
 }
 
 QTEST_MAIN(TestQBtree)

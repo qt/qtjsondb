@@ -108,6 +108,12 @@ public:
     enum TxnFlag { TxnReadWrite, TxnReadOnly };
     QBtreeTxn *begin(TxnFlag flag = TxnReadWrite);
 
+    QBtreeTxn *beginReadWrite()
+    { return begin(QBtree::TxnReadWrite); }
+    QBtreeTxn *beginRead()
+    { return begin(QBtree::TxnReadOnly); }
+    QBtreeTxn *beginRead(quint32 tag);
+
     int rollback();
 
     QString fileName() const { return mFilename; }

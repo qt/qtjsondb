@@ -295,6 +295,22 @@ QBtreeTxn *QBtree::begin(QBtree::TxnFlag flag)
     return new QBtreeTxn(this, txn);
 }
 
+QBtreeTxn *QBtree::beginRead(quint32 tag)
+{
+    Q_ASSERT(mBtree);
+    if (!mBtree) {
+        qCritical() << "QBtree::begin" << "no tree" << mFilename;
+        return 0;
+    }
+
+    btree_txn *txn = btree_txn_begin_with_tag(mBtree, tag);
+    if (!txn)
+        return 0;
+
+    return new QBtreeTxn(this, txn);
+}
+
+
 bool QBtreeTxn::commit(quint32 tag)
 {
     bool ret = false;

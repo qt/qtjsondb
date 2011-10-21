@@ -90,6 +90,7 @@ void			 btree_close(struct btree *bt);
 const struct btree_stat	*btree_stat(struct btree *bt);
 
 struct btree_txn	*btree_txn_begin(struct btree *bt, int rdonly);
+struct btree_txn	*btree_txn_begin_with_tag(struct btree *bt, unsigned int tag);
 unsigned int btree_txn_get_tag(struct btree_txn *txn);
 int			 btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags);
 void			 btree_txn_abort(struct btree_txn *txn);

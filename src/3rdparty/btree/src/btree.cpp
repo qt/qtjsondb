@@ -126,6 +126,7 @@ struct bt_meta {                                /* meta (footer) page content */
 #define BT_TOMBSTONE     0x01                   /* file is replaced */
 #define BT_MARKER        0x02                   /* flushed with fsync */
         uint32_t         flags;
+        pgno_t           pgno;                  /* this metapage page number */
         pgno_t           root;                  /* page number of root page */
         pgno_t           prev_meta;             /* previous meta page number */
         uint64_t         created_at;            /* time_t type */
@@ -295,6 +296,7 @@ static int               btree_write_header(struct btree *bt, int fd);
 static int               btree_read_header(struct btree *bt);
 static int               btree_is_meta_page(struct btree *bt, struct page *p);
 static int               btree_read_meta(struct btree *bt, pgno_t *p_next);
+static int               btree_read_meta_with_tag(struct btree *bt, unsigned int tag, pgno_t *p_root);
 static int               btree_write_meta(struct btree *bt, pgno_t root,
                                           unsigned int flags, uint32_t tag);
 static void              btree_ref(struct btree *bt);
@@ -923,6 +925,32 @@ btree_txn_begin(struct btree *bt, int rdonly)
         return txn;
 }
 
+struct btree_txn *
+btree_txn_begin_with_tag(struct btree *bt, unsigned int tag)
+{
+    struct btree_txn *txn;
+    pgno_t root_page;
+
+    if (btree_read_meta_with_tag(bt, tag, &root_page) != BT_SUCCESS) {
+            return NULL;
+    }
+
+    if ((txn = (btree_txn *)calloc(1, sizeof(*txn))) == NULL) {
+            DPRINTF("calloc: %s", strerror(errno));
+            return NULL;
+    }
+
+    txn->root  = root_page;
+    txn->bt    = bt;
+    txn->flags = BT_TXN_RDONLY;
+    txn->tag   = tag;
+    btree_ref(bt);
+
+    DPRINTF("begin transaction on btree %p, root page %u (tag %d)", bt, txn->root, txn->tag);
+
+    return txn;
+}
+
 void
 btree_txn_abort(struct btree_txn *txn)
 {
@@ -1224,7 +1252,8 @@ btree_write_meta(struct btree *bt, pgno_t root, unsigned int flags, uint32_t tag
         if ((mp = btree_new_page(bt, P_META)) == NULL)
                 return -1;
 
-        bt->meta.prev_meta = bt->meta.root;
+        bt->meta.prev_meta = bt->meta.pgno;
+        bt->meta.pgno = mp->pgno;
         bt->meta.root = root;
         bt->meta.flags = flags;
         bt->meta.created_at = time(0);
@@ -1379,6 +1408,57 @@ fail:
         return BT_FAIL;
 }
 
+static int
+btree_read_meta_with_tag(struct btree *bt, unsigned int tag, pgno_t *p_root)
+{
+        pgno_t pgno;
+        struct page *p;
+        struct bt_meta *meta;
+
+        assert(bt != NULL);
+        assert(p_root != NULL);
+
+        if (btree_read_meta(bt, NULL) != BT_SUCCESS)
+            return BT_FAIL;
+
+        if (bt->meta.tag == tag) {
+                *p_root = bt->meta.root;
+                return BT_SUCCESS;
+        }
+
+        if ((p = (page *)malloc(bt->head.psize)) == NULL) {
+                free(p);
+                return BT_FAIL;
+        }
+
+        pgno = bt->meta.prev_meta;
+        while (pgno != P_INVALID) {
+                if (btree_read_page(bt, pgno, p) != BT_SUCCESS) {
+                        free(p);
+                        return BT_FAIL;
+                }
+                if (!F_ISSET(p->flags, P_META)) {
+                        EPRINTF("corrupted meta page chain detected (page %d flags %d)", pgno, p->flags);
+                        free(p);
+                        return BT_FAIL;
+                }
+                if (!btree_is_meta_page(bt, p)) {
+                        EPRINTF("corrupted meta page found (page %d flags %d)", pgno, p->flags);
+                        free(p);
+                        return BT_FAIL;
+                }
+                meta = METADATA(p);
+                if (meta->tag == tag) {
+                        *p_root = meta->root;
+                        free(p);
+                        return BT_SUCCESS;
+                }
+                pgno = meta->prev_meta;
+        }
+        free(p);
+        return BT_FAIL;
+}
+
 struct btree *
 btree_open_fd(const char *path, int fd, unsigned int flags)
 {
@@ -1398,7 +1478,9 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
         bt->flags = flags;
         bt->flags &= ~BT_FIXPADDING;
         bt->ref = 1;
+        bt->meta.pgno = P_INVALID;
         bt->meta.root = P_INVALID;
+        bt->meta.prev_meta = P_INVALID;
 
         if ((bt->page_cache = (struct page_cache *)calloc(1, sizeof(*bt->page_cache))) == NULL)
               goto fail;
@@ -3952,6 +4034,7 @@ btree_dump_page_from_file(const char *filename, unsigned int pagen)
     if (p->flags & P_META) {
         bt_meta *m = METADATA(p);
         fprintf(stderr, "\n");
+        fprintf(stderr, "\tmeta->pgno: %d\n", m->pgno);
         fprintf(stderr, "\tmeta->flags: %d\n", m->flags);
         fprintf(stderr, "\tmeta->root: %d\n", m->root);
         fprintf(stderr, "\tmeta->prev_meta: %d\n", m->prev_meta);
