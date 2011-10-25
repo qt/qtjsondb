@@ -126,11 +126,11 @@ int JsonDbListModelPrivate::makeSpaceFor(int count, int insertAt)
     if (newCacheStart == cacheEnd) {
         // adding elements in the end.
     } else if (newCacheEnd == cacheStart) {
-        // adding elements in the begining.
+        // adding elements in the beginning.
         index = itemsInCache() - itemsToRemove;
     } else if (newCacheStart >= cacheStart && newCacheEnd <= cacheEnd) {
         // adding elements within the cached elements
-        // dont remove any, we should ignore duplicates.
+        // don't remove any, we should ignore duplicates.
         return 0;
     } else if (newCacheStart <= cacheStart && newCacheEnd >= cacheEnd) {
         // new cache will include the current one, so skip it
@@ -141,7 +141,7 @@ int JsonDbListModelPrivate::makeSpaceFor(int count, int insertAt)
         clearCache(insertAt);
         return itemsToRemove;
     } else if (newCacheEnd < cacheEnd) {
-        // adding items in the begining, with overlap.
+        // adding items in the beginning, with overlap.
         itemsToRemove -= (newCacheEnd - cacheStart);
         index = itemsInCache() - itemsToRemove;
     } else if (newCacheStart > cacheStart) {

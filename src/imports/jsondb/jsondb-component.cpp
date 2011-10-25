@@ -306,10 +306,10 @@ void JsonDbComponent::jsonDbResponse(int id, const QsonObject &result)
         if (mDebugOutput)
             qDebug() << "[JSONDB] response:" << scriptResult.toString();
 
-        // -- creating the notification object was successfull
+        // -- creating the notification object was successful
         if (info.type == JsonDbComponent::Notification) {
             if (mDebugOutput)
-                qDebug() << "successfull created notification with" << scriptResult.property(JsonDbString::kUuidStr).toString();
+                qDebug() << "successful created notification with" << scriptResult.property(JsonDbString::kUuidStr).toString();
 
             // -- finish the notification with the new uuid
             JsonDbNotification* notification = mPendingNotifications.take(id);
@@ -361,7 +361,7 @@ void JsonDbComponent::jsonDbErrorResponse(int id, int code, const QString& messa
             qDebug() << "[JSONDB] error:" << message;
 
         if (info.type == JsonDbComponent::Notification) {
-            // -- creating the notification object was successfull
+            // -- creating the notification object was successful
             qWarning() << "failed to create notification";
             mPendingNotifications.remove(id);
         }
