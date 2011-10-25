@@ -1,0 +1,62 @@
+[
+  {
+    "_type": "_schemaType",
+    "name": "ContactView",
+    "schema": {
+      "type": "object",
+      "extends": "View"
+    }
+  },
+  {
+    "_type": "_schemaType",
+    "name": "ContactView2",
+    "schema": {
+      "type": "object",
+      "extends": "View"
+    }
+  },
+  {
+    "_type": "Map",
+    "targetType": "ContactView",
+    "sourceType": "Contact2",
+    "map": "function map (c) { jsondb.emitViewObject(c.name.lastName, { displayName: c.displayName }); }"
+  },
+  {
+    "_type": "Map",
+    "targetType": "ContactView",
+    "sourceType": "Contact3",
+    "map": "function map (c) { jsondb.emitViewObject(c.name.lastName, { displayName: c.displayName, firstName: c.name.firstName });  }"
+  },
+  {
+    "_type": "Contact2",
+    "displayName": "Joe Smith",
+    "name": {
+      "firstName": "joe",
+      "lastName": "smith"
+    }
+  },
+  {
+    "_type": "Contact3",
+    "displayName": "Nancy Doe",
+    "name": {
+      "firstName": "nancy",
+      "lastName": "doe"
+    }
+  },
+  {
+    "_type": "Contact2",
+    "displayName": "Joe Johnson",
+    "name": {
+      "firstName": "joe",
+      "lastName": "johnson"
+    }
+  },
+  {
+    "_type": "Contact3",
+    "displayName": "Nancy Jones",
+    "name": {
+      "firstName": "nancy",
+      "lastName": "jones"
+    }
+  }
+]

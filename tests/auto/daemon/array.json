@@ -1,0 +1,116 @@
+[
+  {
+    "_type": "ContactInArray",
+    "displayName": "Joe Smith",
+    "name": {
+      "firstName": "joe",
+      "lastName": "smith"
+    },
+    "test": {
+      "45": "joe"
+    },
+    "test2": {
+      "56":  {
+          "firstName": "joe"
+        }
+    },
+    "preferredNumber": "+15555551212",
+    "foo": [
+        [
+            { "bar": "val00" },
+            { "bar": "val01" },
+            { "bar": "val02" }
+        ],
+        [
+            { "bar": "val10" },
+            { "bar": "val11" },
+            { "bar": "val12" }
+        ]
+    ],
+    "phoneNumbers": [
+      {
+	"type": "mobile",
+        "number": "+15555551212",
+        "validTime": [
+          {
+            "timeFrom": "09:00",
+            "timeTo": "13:00"
+          },
+          {
+            "timeFrom": "16:00",
+            "timeTo": "20:00"
+          }
+        ]
+      },
+      {
+	"type": "work",
+        "number": "+17812232323",
+        "validTime": [
+          {
+            "timeFrom": "21:00",
+            "timeTo": "23:00"
+          }
+        ]
+      },
+      {
+	"type": "home",
+	"number": "+16174532300"
+      }
+    ]
+  },
+  {
+    "_type": "ContactInArray",
+    "displayName": "Nancy Doe",
+    "name": {
+      "firstName": "nancy",
+      "lastName": "doe"
+    },
+    "test": {
+      "45": "nancy"
+    },
+    "test2": {
+      "56":  {
+          "firstName": "nancy"
+        }
+    },
+    "preferredNumber": "+14567891234",
+    "foo": [
+        [
+            { "bar": "val00" },
+            { "bar": "val01" },
+            { "bar": "val02" }
+        ],
+        [
+            { "bar": "val10" },
+            { "bar": "val11" },
+            { "bar": "val12" }
+        ]
+    ],
+    "phoneNumbers": [
+      {
+	"type": "mobile",
+        "number": "+14567891234",
+        "validTime": [
+          {
+            "timeFrom": "10:00",
+            "timeTo": "13:00"
+          },
+          {
+            "timeFrom": "16:00",
+            "timeTo": "20:00"
+          }
+        ]
+      },
+      {
+	"type": "home",
+        "number": "+16174532300",
+        "validTime": [
+          {
+            "timeFrom": "21:00",
+            "timeTo": "23:00"
+          }
+        ]
+      }
+    ]
+  }
+ ]

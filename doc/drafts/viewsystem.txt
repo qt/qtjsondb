@@ -1,0 +1,176 @@
+Assumptions:
+
+   * A view is a materialized query of some sort.
+   * Range queries are assumed to be a frequent access pattern.
+   * Therefore, a view as such is a dependent btree, i.e. its content is
+     generated purely out of persistent documents.
+   * Accelerating join operations between several documents is assumed to
+     be a frequent use case for views.
+   * Therefore, entries in the index are dependent on one ore more
+     document.
+   * If any of the documents an entry depends on are changed, we must
+     consider it invalid, i.e. recompute.
+   * As views are computational expensive, updates should be incremental.
+   * JsonDB is a distributed database, therefore the index definition
+     should be distributable too
+   * Using a high-level scripting language (specifically JS) appears to be
+     favorable as a) the language does not limit the capabilities and b) it
+     already exists
+   * We should allow for functions to be defined in other languages, even
+     if that's just for avoiding difficult questions
+
+Requirements:
+
+   * For each entry, we must be able to tell reliably what documents it is
+     based on (otherwise, we can't invalidate the view)
+  
+Challenges of using a scripting language:
+
+   * The halting problem makes detecting infinite loops in the view
+     function impossible. A safe guard mechanism (e.g. triggered based on time)
+     must be establish to kill off rogue functions.
+
+Arguments against having a view produce regular documents:
+
+   * Risk of infinite loops where views produce documents triggering views
+     to produce documents triggering the initial view and so on.
+   * View consistency requires locking write transactions. These locks
+     would be against the primary database. Only locking the view implies
+     capability for "time frozen" read transactions (i.e. the database should
+     not change while producing the view)
+
+Arguments against allowing the view to perform queries itself:
+
+   * Reliably mapping the dependency of view entry to source documents
+     gets very hard
+   * Additional complexity
+
+Proposal:
+
+   * Named views, i.e. each views get a globally unique name (just like
+     documents)
+   * A view is a b-tree with arbitrary key and value, they are not part of
+     the document space
+   * This allows a write transaction independent of the database
+   * Map functions visiting each updated document (i.e. no I/O by the
+     function)
+   * Two functions available inside a map function:
+      * emit(key, value) -> populates the resulting b-tree
+      * inject(doc-id, passed-information) -> schedule another document to
+        be visited including information to be passed
+   * A view may have more than one map function, a map function should
+     (always?) specify the entry type (otherwise each map function has to visit
+     every document)
+   * View updates are either triggered on read (i.e. lazy updates,
+     default) or on document updates (i.e. eager updates), but never inside the
+     db write transaction
+
+Example:
+
+{
+    "A": {
+        "_uuid": "A",
+        "_type": "Person",
+        "knows": "B"
+        },
+    "B": {
+        "_uuid": "B"
+        "_type": "Person",
+        "knows": "C"
+    },
+    "C": {
+        "_uuid": "C",
+        "_type": "Person",
+    },
+    "urn:example:foaf": {
+      "_uuid": "urn:example:foaf",
+      "_type": "View",
+      "lazyUpdates": true
+    },
+    "urn:example:map": {
+        "_uuid": "urn:example:map",
+        "_type": "MapFunction",
+        "targetView": "urn:example:foaf",
+        "startsOn": "Person"
+        
+        "implementation": {
+            "application/javascript": "function ..." 
+            // inlining sucks,but we don't have binaries yet
+        }
+    }
+}
+
+function foafMap(document, context) {
+    if (!context) { // context is undefined for initial document
+        if (document.knows) {
+            jsondb.lookup(document.knows, {
+                source: document._uuid
+            });
+        }
+    } else if (!context.middleman) {
+        if (document.knows) {
+            jsondb.lookup(document.knows, {
+                source: context.source,
+                middleman: document._uuid
+            });
+        }
+    } else {
+        jsondb.emit(context.source, {
+            foaf: document._uuid,
+            via: context.middleman
+        });
+    }
+}
+
+produces the following entry:
+
+{
+    "key": "A",
+    "value": {
+        "foaf": "C",
+        "via": "B"
+    }
+    "sources": [ a, b, c]
+}
+
+
+
+Imposed Restrictions:
+
+
+   * View system should track which documents have been visited and not
+     allow reentering
+   * (Currently) the map functions fails silently (i.e. inject("foo")
+     where "foo" does not exist would simply end the run)
+
+Required features of the underlying storage system:
+
+   * Document Store (otherwise we have to operate in the db write
+     transaction and operate on update)
+      * Give current state a name
+      * Provide changes since a named state
+      * Give stable read transaction, such that inject() will not advance
+        in time
+   * View Store
+      * The resulting b-tree must be double indexed (i.e. by emitted key
+        and by visited documents to invalidate entries on updates)
+
+ACL:
+
+   * Access to an entry should essentially be equivalent to accessing the
+     original documents it was constructed from
+   * Thanks to inject(), an entry may be constructed from more than one
+     context, making ACL a bit fuzzy
+   * Three possible approaches:
+      * The view is build as "root", but filtered on read (i.e. check read
+        access to all contexts of an entry)
+        * Pro: Minimal data overhead
+        * Con: Storage overhead (contexts per entry), one extra read per
+          context touched by the view, extra check per entry returned
+      * The view is build with ACLs of a certain user, access to a
+        specific user is granted all or nothing
+        * Pro: Minimal overhead
+        * Con: Potential information leak, does not line up well
+      * The view is build per user
+        * Pro: Simple
+        * Con: Redundancy in multi user systems

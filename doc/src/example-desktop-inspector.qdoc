@@ -1,0 +1,7 @@
+/*!
+    \example declarative/desktop-inspector
+    \title Desktop Database Inspector Example
+    \brief The Desktop Database Inspector Example demonstrates how to view any kind of object in the database.
+
+    \image{example-desktop-inspector.png}
+ */

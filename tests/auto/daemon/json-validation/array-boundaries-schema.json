@@ -1,0 +1,12 @@
+{
+    "description": "Check an array items count",
+    "type": "object",
+    "properties": {
+        "twoOrLess": {
+            "maxItems": 2
+        },
+        "twoOrMore": {
+            "minItems": 2
+        }
+    }
+}

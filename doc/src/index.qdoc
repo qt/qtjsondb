@@ -1,0 +1,106 @@
+/*!
+\title Qt JsonDb Reference
+\page index.html
+
+\section1 Introduction
+
+\section1 Accessing the Database.
+
+\section2 C++ API
+
+\generatelist annotatedclasses
+
+\section2 QML Elements
+
+\generatelist qmlclasses
+
+\section1 Using the Database
+
+\section2 Schemas
+
+\section2 Query Language
+
+Central to the use of a large object store is the ability to query efficiently
+for objects from within the object store. The JsonDB query language was
+originally modeled off of the JSON Query language, see
+\l {http://docs.persvr.org/documentation/jsonquery}. It has subsequently been
+updated for faster performance and features have been added that make it more
+suitable for our application.
+
+A simple query consists of square brackets surrounding an expression
+(e.g., [EXPR]). A complex query is a string of simple queries concatenated
+together (e.g., [EXPR1][EXPR2][EXPR3]). Each expression filters or applies an
+action.
+
+\section3 Valid Expressions
+
+\table
+\header
+\o Expression
+\o Description
+\row
+\o \c {? filter}
+\o Query for matching objects.
+\row
+\o \c {= fields}
+\o Restrict returned objects to particular fields.
+\row
+\o \c {/ field}
+\o Sort in ascending order by field.
+\row
+\o \c {\ field}
+\o Sort in descending order by field.
+\row
+\o \c {count}
+\o Aggregation operation.
+\row
+\o \c {*}
+\o Match all objects.
+\endtable
+
+See also \l {Expression Examples}
+
+\section3 Stability of Sort in JsonDb
+
+The database as a set of objects with no natural ordering. Any time that we need
+objects in a particular order, we use an index that orders the objects by a
+particular field and comparison operator. It is unlikely that the sorting in one
+index would be stable with respect to all other indexes on that object.
+
+\section2 Indexes
+
+\section3 Query optimization
+
+In general, sorting should only be done on properties for which JSON DB has an
+index. Any sorts done on non-indexed properties will result in all of the
+objects being sorted in-memory, which should be avoided for all but the
+smallest data sets.
+
+\section2 Views
+
+\section2 Notifications
+
+Notifications are created, updated, and removed by creating, updating, and
+removing notification objects, which have the following properties:
+
+\list
+\o _type: "NOTIFICATION"
+\o query: Notifications will be delivered for objects matching this query
+string (e.g., [?_type="com.nokia.mp.content.Image"])
+\o actions: A list specifying for which actions (create, update, remove)
+notifications will be delivered (e.g., ["create", "remove"])
+\endlist
+
+When a notification matches an action performed on the database, the
+application is notified through one of the client APIs. The notification is
+identified by the UUID of the matching notification. The object being acted
+upon and the name of the action are delivered along with the notification UUID
+to the client.
+
+\section1 Examples
+
+\list
+\o \l{declarative/simplelistmodel}{Simple List Model}
+\o \l{declarative/desktop-inspector}{Desktop Database Inspector Example}
+\endlist
+*/

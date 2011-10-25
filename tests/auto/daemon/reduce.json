@@ -1,0 +1,23 @@
+[
+  {
+    "_type": "_schemaType",
+    "name": "MyContactCount",
+    "schema": {
+      "type": "object",
+      "extends": "View",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "_type": "Reduce",
+    "targetType": "MyContactCount",
+    "sourceType": "MyContact",
+    "sourceKeyName": "firstName",
+    "add": "function add (k, z, c) { if (!z) {z = {count: 0}}; z.count += 1; return z;}",
+    "subtract": "function subtract (k, z, c) { if (!z) {z = {count: 0}}; z.count -= 1; if (z.count) return z;}"
+  }
+]

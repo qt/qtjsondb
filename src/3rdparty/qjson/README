@@ -1,0 +1,18 @@
+This is a Qt JSON Parser and serializer.
+
+The API is trivial:
+    QVariant Json::parse(jsonString)
+    QByteArray Json::stringize(QVariant)
+
+Compilation:
+    The code uses QLALR (in Qt respository. $QTDIR/util/qlalr). Just,
+    'qlalr json.g' produces the parser 'jsonparser.cpp'. This generated file is
+    checked into the respository for convenience, so that the user does
+    not need to build qlalr.
+
+Using in external projects:
+    Just drop 3 files - src/json.cpp src/json.h src/jsonparser.cpp into your code.
+    Add json.cpp to SOURCES and you are good to go. jsonparser.cpp is included by
+    json.cpp so you should not add it to SOURCES. You may add json.h to HEADERS but
+    it's not necessary since it does not contains any mocable content.
+

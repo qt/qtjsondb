@@ -1,0 +1,22 @@
+{
+    "description": "Check numbers boundaries",
+    "type": "object",
+    "properties": {
+        "oneOrLess": {
+            "type": "number",
+            "maximum": 1.1
+        },
+        "lessThenOne": {
+            "type": "number",
+            "exclusiveMaximum": 1.1
+        },
+        "oneOrMore": {
+            "type": "number",
+            "minimum": 1.1
+        },
+        "moreThenOne": {
+            "type": "number",
+            "exclusiveMinimum": 1.1
+        }
+    }
+}

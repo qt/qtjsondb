@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "ephemeral": "true",
+  "properties": {
+    "name": {
+      "properties": {
+        "first": {
+          "indexed": true,
+          "type": "string"
+        },
+        "last": {
+          "indexed": true,
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+

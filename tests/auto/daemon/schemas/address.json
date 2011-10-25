@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "properties": {
+        "street": {
+          "indexed": true,
+          "type": "string"
+        },
+        "number": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,33 @@
+{
+    "description": "check if a property type is correct",
+    "type": "object",
+    "properties": {
+        "string": {
+            "type": "string"
+        },
+        "number": {
+            "type": "number"
+        },
+        "integer": {
+            "type": "integer"
+        },
+        "boolean": {
+            "type": "boolean"
+        },
+        "object": {
+            "type": "object"
+        },
+        "array": {
+            "type": "array"
+        },
+        "null": {
+            "type": "null"
+        },
+        "any": {
+            "type": "any"
+        },
+        "mixed": {
+            "type": ["string", "integer"]
+        }
+    }
+}

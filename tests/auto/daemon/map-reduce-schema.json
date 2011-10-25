@@ -1,0 +1,92 @@
+[
+  {
+    "_type": "Contact",
+    "displayName": "Joe Smith",
+    "name": {
+      "firstName": "joe",
+      "lastName": "smith"
+    },
+    "preferredNumber": "+15555551212",
+    "phoneNumbers": [
+      {
+        "type": "mobile",
+        "number": "+15555551212"
+      },
+      {
+        "type": "work",
+        "number": "+17812232323"
+      },
+      {
+        "type": "home",
+        "number": "+16174532300"
+      }
+    ]
+  },
+  {
+    "_type": "Contact",
+    "displayName": "Nancy Doe",
+    "name": {
+      "firstName": "nancy",
+      "lastName": "doe"
+    },
+    "preferredNumber": "+14567891234",
+    "phoneNumbers": [
+      {
+        "type": "mobile",
+        "number": "+14567891234"
+      },
+      {
+        "type": "home",
+        "number": "+16174532300"
+      }
+    ]
+  },
+  {
+    "_type": "_schemaType",
+    "name": "Phone",
+    "schema": {
+      "type": "object",
+      "extends": "View",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "displayName": { "type":"string", "required": true }
+          }
+        }
+      }
+    }
+  },
+  {
+    "_type": "_schemaType",
+    "name": "PhoneCount",
+    "schema": {
+      "type": "object",
+      "extends": "View",
+      "properties": {
+        "value": {
+          "type": "object",
+          "properties": {
+            "count": { "type":"integer", "required": true }
+          }
+        }
+      }
+    }
+  },
+  {
+    "_type": "Map",
+    "targetType": "Phone",
+    "sourceType": "Contact",
+    "brokenMap": "function map (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emitViewObject(phone.number, { name: c.displayName }); }}",
+    "map": "function map (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emitViewObject(phone.number, { displayName: c.displayName}); }}"
+  },
+  {
+    "_type": "Reduce",
+    "targetType": "PhoneCount",
+    "sourceType": "Phone",
+    "sourceKeyName": "key",
+    "brokenAdd": "function add (k, z, c) { if (!z) {z = { phoneCount: 0 }}; z.phoneCount += 1; return z;}",
+    "add": "function add (k, z, c) { if (!z) {z = { count: 0 }}; z.count += 1; return z;}",
+    "subtract": "function subtract (k, z, c) {  if (!z) {z = { count: 0 }}; z.count -= 1; if (z.count > 0) return z;}"
+  }
+]

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<testdefinition version="0.1">
+  <suite domain="Functional" name="autotests" timeout="2000">
+    <set description=" Simple JSON DB auto tests " feature="JSONDB" level="System" name="jsondb-autotests" type="Functional"  timeout="2000">
+      <case name="tst_bdb" requirement="RAT" component="qt5jsondb"  timeout="300">
+        <description>BDB tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/bdb;date &amp;&amp; ./tst_bdb &amp;&amp; date</step>
+      </case>
+      <case name="tst_client" requirement="RAT" component="qt5jsondb"  timeout="100">
+        <description>Client library tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/client;date &amp;&amp; ./tst_client&amp;&amp; date</step>
+      </case>
+      <case name="tst_common" requirement="RAT" component="qt5jsondb"  timeout="100">
+        <description>Common functionality tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/common;date &amp;&amp; ./tst_common &amp;&amp; date</step>
+      </case>
+      <case name="tst_daemon" requirement="RAT" component="qt5jsondb"  timeout="2000">
+        <description> JsonDb daemon tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/daemon;date &amp;&amp; ./tst_daemon &amp;&amp; date</step>
+      </case>
+      <case name="tst_jsondb-listmodel" requirement="RAT" component="qt5jsondb"  timeout="2000">
+        <description>QML JsonDbListModel tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondb-listmodel;date &amp;&amp; ./tst_jsondb-listmodel -platform minimal&amp;&amp; date</step>
+      </case>
+      <case name="tst_qsonstream" requirement="RAT" component="qt5jsondb"  timeout="2000">
+        <description>Client-Server IPC tests</description>sphone
+        <step>cd /usr/lib/qt5jsondb-tests/auto/qsonstream;date &amp;&amp; ./tst_qsonstream &amp;&amp; date</step>
+      </case>
+    </set>
+  </suite>
+</testdefinition>

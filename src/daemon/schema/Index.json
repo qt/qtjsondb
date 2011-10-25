@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "primaryKey": ["_type", "fieldName"],
+  "properties": {
+    "fieldName": {
+      "type": "string",
+      "required": true,
+      "description": "Property to index"
+    },
+    "fieldType": {
+      "type": "string",
+      "required": true,
+      "description": "Type of values stored in that property."
+    },
+    "objectType": {
+      "type": "string",
+      "description": "Object type to index. Optional."
+    }
+  }
+}

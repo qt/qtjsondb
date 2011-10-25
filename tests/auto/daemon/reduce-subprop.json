@@ -1,0 +1,58 @@
+[
+  {
+    "_type": "Contact",
+    "displayName": "Joe Smith",
+    "name": {
+      "firstName": "joe",
+      "lastName": "smith"
+    }
+  },
+  {
+    "_type": "Contact",
+    "displayName": "Nancy Doe",
+    "name": {
+      "firstName": "nancy",
+      "lastName": "doe"
+    }
+  },
+  {
+    "_type": "Contact",
+    "displayName": "Nancy Doe",
+    "name": {
+      "firstName": "joe",
+      "lastName": "harrison"
+    }
+  },
+  {
+    "_type": "Contact",
+    "displayName": "Nancy Doe",
+    "name": {
+      "firstName": "nancy",
+      "lastName": "williams"
+    }
+  },
+  {
+    "_type": "Contact",
+    "displayName": "Nancy Doe",
+    "name": {
+      "firstName": "doug",
+      "lastName": "johnson"
+    }
+  },
+  {
+    "_type": "_schemaType",
+    "name": "NameCount",
+    "schema": {
+      "type": "object",
+      "extends": "View"
+    }
+  },
+  {
+    "_type": "Reduce",
+    "targetType": "NameCount",
+    "sourceType": "Contact",
+    "sourceKeyName": "name.firstName",
+    "add": "function add (k, z, c) { if (!z) { z = { count: 0 } }; z.count += 1; return z;}",
+    "subtract": "function subtract (k, z, c) { if (!z) {z = {count: 0}}; z.count -= 1; if (z.count) return z;}"
+  }
+]

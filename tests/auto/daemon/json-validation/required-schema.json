@@ -1,0 +1,12 @@
+{
+    "description": "check if a required property exists",
+    "type": "object",
+    "properties": {
+        "important": {
+            "required": true
+        },
+        "notimportant": {
+            "required": false
+        }
+    }
+}

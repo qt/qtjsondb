@@ -1,0 +1,19 @@
+{
+    "title": "Check string boundaries",
+    "description": "Checks for 5.16 - 5.18 points of spec",
+    "type": "object",
+    "properties": {
+        "max5chars": {
+            "type": "string",
+            "maxLength": 5
+        },
+        "min5chars": {
+            "type": "string",
+            "minLength": 5
+        },
+        "regexpPattern": {
+            "type": "string",
+            "pattern": "[a]+"
+        }
+    }
+}

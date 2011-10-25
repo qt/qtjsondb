@@ -1,0 +1,7 @@
+{ "object": [
+    { "id": 1, "foo": "pong!" },
+    { "id": 2, "foo": "pong!" },
+    { "id": 3, "foo": "pong!" },
+    { "id": 4, "foo": "pong!" }
+  ]
+}

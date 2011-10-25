@@ -1,0 +1,37 @@
+[
+  {
+    "_type": "Capability",
+    "name": "contacts",
+    "accessRules": {
+      "read": {
+	"read": ["[?_type=\"Contact\"]"]
+      },
+      "write": {
+	"write": ["[?_type=\"Contact\"]"]
+      }
+    }
+  },
+  {
+    "_type": "Capability",
+    "name": "email",
+    "accessRules": {
+      "read": {
+	"read": ["[?_type=\"Email\"]"]
+      },
+      "write": {
+	"write": ["[?_type=\"Email\"]"]
+      },
+      "send": {
+	"write": ["[?_type=\"OutgoingEmail\"]"]
+      }
+    }
+  },
+{
+  "_type": "CapabilitiesTest",
+  "identifier": "test1",
+  "capabilities": {
+    "email": ["send"],
+    "contacts": ["read", "write"]
+  }
+}
+]

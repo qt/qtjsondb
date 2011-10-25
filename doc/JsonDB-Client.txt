@@ -1,0 +1,106 @@
+JsonDB Client Library classes
+=============================
+
+
+The JsonDB wire protocol is serialized QVariant objects.  The
+VariantStream class handles the serialization.
+
+
+JsonDbConnection
+================
+
+The JsonDbConnection class encapsulates a single database connection.
+A database connection can be to a local unix socket or a remote TCP
+socket.  By default, the local socket used will be "jsondb".
+
+Each connection can have a security token.  The security token must be
+set before the connection to the database is made.  When the
+connection is made, the first message sent to the database informs the
+database of the security token.
+
+For example:
+
+  JsonDbConnection *connection = new JsonDbConnection;
+  connection->setToken("MyMagicToken");
+  connection->connectToServer("jsondb-test");
+
+or
+  
+  JsonDbConnection *connection = new JsonDbConnection;
+  connection->setToken("AnotherToken");
+  connection->connectToHost( "testserver.nrcc.noklab.com", 8801 );
+
+
+In most instances you will be connecting to the "jsondb" server on the
+local machine.  The static function "instance()" can be used to
+automatically retrieve the default connection.  For example:
+
+  JsonDbConnection::setDefaultToken( "MagicToken" );  // Set this once
+  ...
+
+  JsonDbConnection *connection = JsonDbConnection::instance();
+
+The first use of instance() will create a singleton connection object
+and connect it to the local database.
+
+
+To use the JsonDbConnection, you first connect to the "response",
+"error" and optionally "notified" signals.  Then create a request
+object.  The common request objects are provided through static
+convenience functions: makeFindRequest, makeQueryRequest, etc.  The
+"request" member function issues the database command and returns a
+request id.  Eventually either a reponse or error signal will be
+returned with that id.
+
+
+There are two static convenience functions for issuing a quick request
+and getting a direct answer.
+
+The "oneShot" static function makes a single request.  The response
+and error signal handling slots are connected just for the duration of
+the call.  For example:
+
+  JsonDbConnection *conn = JsonDbConnection::instance();
+  conn->oneShot(JsonDbRequest::makeQueryRequest("[?_type=\"IMAGE\"]"),
+                this, SLOT(handleOneShot(const QVariant&)));
+
+The "handleOneShot()" function will be called with the result of the
+query.  If you want to catch errors, pass an error function as well.
+Note: you don't have to pass any slots, in which case the result will
+be ignored.
+
+The "sync" static function makes a single request and blocks until a
+result is obtained.  You should not use this function in interactive
+or time-critical code.  For example:
+
+   QVariant result = JsonDbConnection::instance()->sync( 
+        JsonDbConnection::makeQueryRequest("[?_type=\"TURTLE\"]"));
+
+
+============
+JsonDbClient
+============
+
+The challenge with a JsonDbConnection object is that a single process
+may have several elements using the connection simultaneously.  Which
+means that the responses coming back from the database need to be
+de-multiplexed.  The JsonDbClient object handles the demultiplexing.
+
+Most client code should use JsonDbClient objects directly and avoid
+using the JsonDbConnection objects.
+
+Typical use:
+
+   JsonDbClient client;    // Constructs a client of the
+                           // JsonDbConnection->instance() object
+
+   connect(&client, SIGNAL(response(int,const QVariant&)),
+            this, SLOT(handleResponse(int, const QVariant&)));			   
+   int id = client.query("[?_type=\"Toad\"]);
+
+
+The JsonDbClient object has convenience member functions "find",
+"query", "create", "update", and "remove" which wrap appropriate
+JsonDbConnection::makeXXXRequest function calls and issue the request.
+
+

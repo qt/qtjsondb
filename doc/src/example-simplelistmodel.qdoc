@@ -1,0 +1,7 @@
+/*!
+    \example declarative/simplelistmodel
+    \title Simple List Model Example
+    \brief The Simple List Model Example demonstrates adding a contact with random-generated name to the database.
+
+    \image{example-simplelistmodel.png}
+ */

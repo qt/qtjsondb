@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/">
+        <file>schema/notification.json</file>
+        <file>schema/View.json</file>
+        <file>schema/Capability.json</file>
+        <file>schema/RootCapability.json</file>
+        <file>schema/Index.json</file>
+    </qresource>
+</RCC>

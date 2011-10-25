@@ -1,0 +1,293 @@
+The "jsondb" program is a simplified key-value store for JSON
+objects.  
+
+By default, data is stored in the current directory in 'database.db' file.
+
+
+Other programs communicate with jsondb over a local socket
+connection.  A remote database command is invoked by sending a request
+to the jsondb service.  The request is a single object serialized used
+JSON.
+
+It has three properties:
+
+   'action' - A string containing the action name
+   'object' - The JSON object being acted upon
+   'id'     - An opaque request id.  This will be returned to the caller. 
+
+Each request generates a single response.  The response object has
+three properties:
+
+   'result' - The result object (depends on the action)
+   'error'  - An error object.  Null if there was no error
+   'id'     - The id that was passed in the original request.
+
+Notification objects can be sent from the server.  They contain
+
+   'notify' - Information about the object that fired the notification
+   '_uuid'  - The ID of the notification object
+
+
+===========================================================================
+Authentication
+===========================================================================
+
+Action: Token
+
+   Sets the security token for this session.  The security token is an
+   opaque string object.
+
+   { action:"token", object:"XXXYYYZZZ", id: 1000 }
+
+    ---> { result:null, error:null, id:1000 }
+
+===========================================================================
+Database manipulation
+===========================================================================
+
+Action: Create
+
+   Adds the object to the database.  The object will be assigned a
+   unique '_uuid' field (if it already has one, it will be replaced).
+   The result object will contain just the new '_uuid' field.  For
+   example:
+
+   { action:"create", object:{ name:"Fred"}, id:1000}
+    
+    --->  { result:{_uuid:"1001-2022-3242323", _version:1}, error:null, id:1000 }
+
+   It is also valid to pass a list as the object, in which case
+   a series of objects will be created.  For example:
+
+   { action:"create", object: [{name:"Joe"},{name:"Sam"}], id:1000}
+
+   ---->  { result: {[{_uuid: "1001-2002", _version:"1"},
+                      {_uuid: "1001-2003", _version:"1"}]}, error: null, id: 1000 }
+
+
+Action: Update
+
+   Update the object in the database.  The object must contain a valid
+   '_uuid' field.  The result object will be null.  For example:
+
+   Current: { _uuid:"1001-2002", _version:1, firstname:"Fred", lastname:"Flintstone", age:30 }
+
+   { action:"update", 
+     object:{ _uuid:"1001-2002",
+              _version:1,
+              firstname:"Barney",
+              lastname:"Rubble" },
+     id:1000}
+    
+    --->  { result:{ count: 1
+                     _uuid:"1001-2002"
+                     version:2
+                     parent:parent },
+            error:null, 
+            id:1000}
+    Current: { _uuid:"1001-2002", firstname:"Barney", lastname:"Rubble"}
+    Updating an object replaces all its properties.
+
+    As with Create, is is valid to pass a list of objects.
+
+
+Action: Remove
+
+   Remove the object from the database.  The object only must contain
+   a valid '_uuid' field (everything else is optional).  For example
+
+   Current: { _uuid:"1001-2002", firstname:"Barney", lastname:"Rubble"}
+
+   { action:"remove", 
+     object:{ _uuid:"1001-2002" },
+     id:1000}
+    
+    --->  { result: { count: 1 }, error:null, id:1000}
+
+   It is also valid to pass a list of objects to Remove.
+
+   It is also possible to remove objects that match a query.  For example
+
+   { action:"remove",
+     object:{ query:"[?firstname=Barney]" },
+     id:1000 }
+
+   ---> { result: { count: 1,
+                     data:[{_uuid:"1001-2002"}],
+                    error:[{_uuid:"5005-6006", error:"error description"}] },
+           error:null, id:1000 }
+
+    result.error contains a list of objects that matched the query, but were
+    not successfully removed.
+
+Action: Find
+
+    Retrieve objects from the database.
+
+    { action:"find",
+      object: { query: QUERY_STRING,
+                limit: NUM,        # Limit number of records to return
+                offset: NUM        # Specify an offset into the list
+              }
+      id:1000 }
+
+    I'd like to get the QUERY_STRING to match JSONQuery.  
+
+    The result object:
+
+    { result: { length: NUM,      # Total number of matching records
+                offset: NUM,      # Offset we're starting with
+                data: [ { Record1 },
+                        { Record2 },
+                        ....
+                      ]},
+      error: null
+      id:    1000 }
+    
+
+When an error is returned, the message format looks like:
+
+    { result: null,
+      error: { code:	VALUE, 
+      	       message: STRING },
+      id: ID }
+
+The code is an integer value (defined in jsondb-error.h) The message is a
+human-readable string designed to be displayed in a debugger. 
+
+Action: Transaction
+
+   Processing of multiple heterogeneous requests as one transaction.  For example\
+
+   { action:"transaction",
+     object: [
+         { 1 : { create: {firstname:"Barney", lastname:"Stinsen"} } },
+         { 2 : { create: {firstname:"Blabla", lastname:"Doe"},
+                 insert: {spouse: { ref: 1, property: "_uuid" } } } }
+     ],
+     id:1000}
+
+    --->  { result: {
+                { 1 : { object: {_uuid:1001-1001, _version:1} } },
+                { 2 : { object: {_uuid:1001-2002, _version:1} } }
+              },
+            error:null,
+            id:1000 }
+
+   And the following documents were created:
+   {firstname:"Barney", lastname:"Stinsen", spouse:1001-2002}
+   {firstname:"Blabla", lastname:"Doe"}
+
+   The possible actions inside the transaction are "create", "update" and
+   "remove".
+
+Action: Changes Since
+
+    Retrieve all of the changes that have occurred in the database since it
+    was in a particular state.
+
+    { action: "changesSince",
+      object: { stateNumber: NUM,   # The state number to start from
+                collapse: BOOL      # Don't return both the before and after. Only return
+                                    # the after and provide a "Tombstone" object for removed
+                                    # items
+              }
+      id: 1000 }
+
+    --> { result: {
+                "count": NUM                # The number of changed objects returned
+                "startingStateNumber": NUM  # The state number of the first state used to build this
+                                            # history
+                "currentStateNumber": NUM   # The current state number of the database
+                "changes": [
+                    {
+                        "before": {_uuid:"1001-1001", _version: "1", "property1": "property1OldValue" },
+                        "after": {_uuid:"1001-1001", _version: "2", "name": "property1NewValue" }
+                    },
+                    {
+                        "before": null,
+                        "after" : {_uuid:"2002-2002", _version: "1", "property2": "property2Value" }
+                    },
+                    {
+                        "before": {_uuid:"3003-2003", _version: "1", "_type": "MyObject", "property3": "property3Value" },
+                        "after":  null
+                    }
+                ]
+            },
+          error: null,
+          id: 1000
+        }
+
+The "changes" property contains one object for every object that was changed
+during the specified period. For each of the objects in the "changes" property,
+if the "before" property is null, the change represents creating a new object.
+If the "after" property is null, the change represents the removal of an object.
+All other changes are updates. Objects that were both created and removed during
+the specified time are not included because both their "before" and "after" properties
+would be null.
+
+Asking for changesSince with stateNumber < the oldest state for which we have
+a change history will result in a full dump of the database (with all "before"
+properties having the value null). This condition can be recognized by the fact
+that the "startingStateNumber" will be greater than the stateNumber requested.
+
+===========================================================================
+Notifications
+===========================================================================
+
+Clients use notification objects to be informed of changes to the
+database.  Notification objects are created, updated, and removed
+exactly like other objects.  However, the life span of a notification
+object is tied to the individual connection.  When the connection is
+dropped, the notification object is automatically removed.
+
+Notification objects must match the following format:
+
+   { _type: "notification",
+     query: QUERY_STRING,
+     actions: [ ACTION, ... ] }
+
+ The QUERY_STRING is a standard JSONQuery string to be matched.  The
+ "actions" field contains a list of actions to be matched against.  It 
+can contain 'create', 'update', and 'remove'
+
+For example, to create a notification whenever a new e-mail messsage
+is received or removed, one could:
+
+   { action: "create",
+     object: { _type: "notification",
+               query: "[?_type=\"email\"]",
+               actions: ["create", "remove"] },
+     id: 1000 }
+
+    ---> { error: null, id: 1000, result: {_uuid: "{1111-2222}", _version: VERS }}
+
+The notification object can be updated and removed just like any other 
+object.
+
+
+When objects are created, updated, or removed from the database, all
+notification queries are checked against the object.  Matches are
+sent a notification message (see format above).
+
+For example, let's assume that some other client did this:
+
+   { action: "create",
+     object: { name: "Fred", _type="email" }, 
+     id: 100 }
+
+ and got in return:
+
+   { result: { _uuid: "{23423423-234234}", _version: 2 }, error: null, id: 100 }
+
+ The notify action would fire and send a message to the original
+ stream of the form:
+
+   { _uuid: "{1111-2222}",
+     notify: { object: { _uuid: "{23423423-234234}", 
+                      _version: 2,
+                          name: "Fred",
+                         _type: "email" },
+               action: "create" }
+
+

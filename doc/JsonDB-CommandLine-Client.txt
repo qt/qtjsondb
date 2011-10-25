@@ -1,0 +1,37 @@
+jclient is a thin wrapper for testing the jsondb database.
+
+You must specify fairly accurately formated JSON objects to get the
+database to respond. 
+
+Here's a sample session:
+
+jclient> create {"name":"Fred", "type":"CONTACT"}
+Received message: {"error" : null,"id" : 0,"result" : {"id" : "{b2c9c712-1ba3-41fd-a454-51c120ce1c8c}"}}
+
+jclient> notify {"query":"[?type='CONTACT']","actions":["create"]}
+Received message: {"error" : null,"id" : 1,"result" : {"active" : true}}
+
+jclient> create {"name":"Wilma","type":"CONTACT"}
+Received message: {"error" : null,"id" : 2,"result" : {"id" : "{35275206-e875-4c5d-a7b9-6cfd1cac67c2}"}}
+Received message: {"id" : 1,"notify" : {"action" : "create","object" : {"id" : "{35275206-e875-4c5d-a7b9-6cfd1cac67c2}","name" : "Wilma","type" : "CONTACT"}}}
+
+jclient> create {"name":"Quarry", "type":"LOCATION"}
+Received message: {"error" : null,"id" : 3,"result" : {"id" : "{0eba3c55-48ac-433a-833c-ca1a8c5c395d}"}}
+
+jclient> find {"query":".*"}
+Received message: {"error" : null,"id" : 4,"result" : {"data" : [{"id" : "{b2c9c712-1ba3-41fd-a454-51c120ce1c8c}","name" : "Fred","type" : "CONTACT"},{"id" : "{35275206-e875-4c5d-a7b9-6cfd1cac67c2}","name" : "Wilma","type" : "CONTACT"},{"id" : "{0eba3c55-48ac-433a-833c-ca1a8c5c395d}","name" : "Quarry","type" : "LOCATION"}],"length" : 3,"offset" : 0}}
+
+jclient> find {"query":"[?type~'location']"}
+Received message: {"error" : null,"id" : 5,"result" : {"data" : [{"id" : "{0eba3c55-48ac-433a-833c-ca1a8c5c395d}","name" : "Quarry","type" : "LOCATION"}],"length" : 1,"offset" : 0}}
+
+jclient> update {"name":"Fred Flintstone", "type":"CONTACT", "id":"{b2c9c712-1ba3-41fd-a454-51c120ce1c8c}"}
+Received message: {"error" : null,"id" : 9,"result" : null}
+
+jclient> find {"query":"[?type='CONTACT']"}
+Received message: {"error" : null,"id" : 10,"result" : {"data" : [{"id" : "{b2c9c712-1ba3-41fd-a454-51c120ce1c8c}","name" : "Fred Flintstone","type" : "CONTACT"},{"id" : "{35275206-e875-4c5d-a7b9-6cfd1cac67c2}","name" : "Wilma","type" : "CONTACT"}],"length" : 2,"offset" : 0}}
+
+jclient> delete {"id":"{35275206-e875-4c5d-a7b9-6cfd1cac67c2}"}
+Received message: {"error" : null,"id" : 11,"result" : null}
+
+jclient> find {"query":".*"}
+Received message: {"error" : null,"id" : 13,"result" : {"data" : [{"id" : "{b2c9c712-1ba3-41fd-a454-51c120ce1c8c}","name" : "Fred Flintstone","type" : "CONTACT"},{"id" : "{0eba3c55-48ac-433a-833c-ca1a8c5c395d}","name" : "Quarry","type" : "LOCATION"}],"length" : 2,"offset" : 0}}

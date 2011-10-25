@@ -1,0 +1,14 @@
+{
+    "type": "object",
+    "properties": {
+	"create-test": {
+	    "type": "number",
+	    "required": true
+	},
+	"another-field": {
+	    "type": "string",
+	    "format": "uri",
+	    "required": true
+	}
+    }
+}

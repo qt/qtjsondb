@@ -1,0 +1,70 @@
+ TODO
+======
+ * convenience API: getOrCreate, CreateOrIgnore
+
+ * API for querying via json object rather than a query string
+ * Separate find(), which returns objects in database, from query(), which returns data
+ * Define and implement joins as part of query()
+ * Fold the javascript wrapper into the client
+ * Implement attached content
+ * Implement jsondb:// scheme as part of QNetworkAccessManager
+ * Implement policy/demand based synchronization and caching of content
+ * Add full text indexing of object fields
+ * Implement table model
+ * Investigate speed of QVariant vs custom JsonDbValue
+ * Test indexing of int field type
+ * Test indexing of double field type
+ * Finish implementing addIndex with typeName for JsonDbSqlite 
+ * Specific index type for datetime?
+
+ * owner -> forward value
+ * quota for elements returned in query
+ * create indicies from jsonquery expressions
+ * use this to create per-app indices
+ * Move metadata from -Indexes to main table?
+ * procedure to rebuild metadata and indexes
+ * use multiple indexes in query based on statistics of the indexes?
+ * benchmark c++ client performance
+ * benchmark QML/Javascript client performance
+ * update/remove object properties
+ * increment/decrement fields containing numbers or sets of values
+
+List model:
+ * benchmark listmodel performance
+ * use range/limit instead of offset/limit?
+
+Access control
+ * default order query to allowed types or owners rather than uuid, based on populations of each
+ * set access control policy via policy objects? widget objects?
+
+EWS:
+ * EWS folder objects
+ * EWS message/calendar subsets (e.g., by date)
+ * EWS minimal calendar metadata
+ * EWS send meeting invites
+ * EWS send message
+ * EWS message flags update / message removal
+ * EWS calendar item create/up/removal
+ * EWS contact create/update/removal
+
+ Done
+======
+ * Add indexing of nested fields. -- done
+ * Reindex all objects when new index is added
+ * BDB: forward key QVariant fieldvalue
+ * BDB: reverse key QVariant fieldvalue
+ * Finish implementing addIndex with typeName for JsonDbBerkeley
+ * Use a key instead of TYPE in indexes
+ * Add chaff to contacts benchmark
+ * type -> forward value from forward key
+ * Use a key instead of UUID to identify objects in indexes
+ * Fix reindex objects in BDB backend!
+ * Fix indexObject in BDB backend!
+ * _owner -> mandatory object property
+ * create, update, and remove access control
+ * filter queries on allowed types
+ * filter queries on allowed owners
+ * query on field value in set
+ * listmodel instance of QAbstractItemModel as recommended?
+ * Implement string matching =~ "%a%" for unindexed queries
+ * Implement string prefix matching =~ "a%" for indexed queries

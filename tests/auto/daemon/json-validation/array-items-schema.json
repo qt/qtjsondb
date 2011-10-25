@@ -1,0 +1,24 @@
+{
+    "description": "Check specification of array:items (5.5)",
+    "type": "object",
+    "properties": {
+        "empty": {
+            "description": "that is a stupid edge case, but it should work",
+            "items": {}
+        },
+        "number": {
+            "items": {
+                "type": "number",
+                "maximum": 10
+            }
+        },
+        "object": {
+            "items": {
+                "properties": {
+                    "id": { "type": "integer", "required" : true },
+                    "foo": { "type": "string"}
+                }
+            }
+        }
+    }
+}

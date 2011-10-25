@@ -1,0 +1,12 @@
+{
+    "type": "object",
+    "ephemeral": "true",
+    "properties": {
+    "actions": {
+        "type": "array"
+		},
+	"query": {
+	"type": "string"
+	    }
+    }
+}

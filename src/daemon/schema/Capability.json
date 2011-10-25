@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "primaryKey": ["_type", "name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the capability"
+    },
+    "accessRules": {
+      "type": "object",
+      "patternProperties": {
+	".*": {
+	  "type": "array",
+	  "items": {
+	    "type": "string",
+	    "description": "A JsonDb query string. Objects matching this query will be allowed for this access type."
+	  }
+	}
+      }
+    },
+    "quotas": {
+    "type": "object",
+    "storage": {
+      "type": "number",
+      "description": "Current only one in quotas."
+      }
+    }
+  }
+}

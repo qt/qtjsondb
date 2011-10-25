@@ -1,0 +1,60 @@
+[
+  {
+    "_type": "_schemaType",
+    "name": "MagicView",
+    "schema": {
+      "type": "object",
+      "extends": "View"
+    }
+  },
+  {
+    "_type": "_schemaType",
+    "name": "Foo",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "magic": {
+          "type": "string",
+          "indexed": true
+        }
+      }
+    }
+  },
+  {
+    "_type": "_schemaType",
+    "name": "Bar",
+    "schema": {
+      "type": "object",
+      "extends": "Foo"
+    }
+  },
+  {
+    "_type": "Map",
+    "sourceType": "Foo",
+    "targetType": "MagicView",
+    "map": " \
+      function map(obj, context) { \
+        var foo, bar; \
+        if (!context) { \
+          foo = obj; \
+          jsondb.lookup('magic', foo.magic, foo); \
+        } else { \
+          foo = context; \
+          bar = obj; \
+          if (bar._type === 'Bar') { // Needed until the lookup API changes to include the _type \
+            jsondb.emitViewObject(foo.magic, { foo: foo._uuid, bar: bar._uuid, barExtra: bar.extra }); \
+          } else { \
+            // Got Foo actually \
+          } \
+       } \
+    } "
+  },
+  {
+    "_type": "Bar",
+    "magic": "xyzzy"
+  },
+  {
+    "_type": "Foo",
+    "magic": "xyzzy"
+  }
+]

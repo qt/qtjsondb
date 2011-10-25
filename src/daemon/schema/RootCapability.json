@@ -1,0 +1,14 @@
+{
+  "_type": "Capability",
+  "name": "root",
+  "accessRules": {
+    "all": {
+      "read": [".*"],
+      "write": [".*"],
+      "setOwner": [".*"]
+    }
+  },
+  "quotas": {
+    "storage": -1
+  }
+}

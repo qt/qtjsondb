@@ -1,0 +1,12 @@
+{
+  "_type": "Capability",
+  "name": "foobar",
+  "accessRules": {
+    "read": {
+      "read": ["[?_type=\"Contact\"]"]
+    },
+    "write": {
+      "write": ["[?_type=\"Contact\"]"]
+    }
+  }
+}

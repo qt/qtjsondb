@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "extends": "View",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  }
+}
+

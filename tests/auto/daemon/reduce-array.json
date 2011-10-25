@@ -1,0 +1,52 @@
+[
+  {
+    "_type": "_schemaType",
+    "name": "ArrayView",
+    "schema": {
+       "type": "object",
+       "extends": "View",
+       "properties": {
+          "arrayProp": { "type": "array" }
+       }
+     }
+  },
+  {
+    "_type": "Reduce",
+    "sourceType": "Human",
+    "sourceKeyName": "lastName",
+    "targetType": "ArrayView",
+    "add": " \
+      function add(key, previous, value) { \
+        if (!previous) previous = { firstNames: [] } \
+        previous.firstNames.push(value.firstName); \
+        return previous; \
+      } ",
+    "subtract": " \
+      function subtract(key, previous, value) { \
+        var idx; \ 
+        if ((idx = previous.firstNames.indexOf(value.firstName)) >= 0) \
+          previous.firstNames.splice(idx, 1); \
+        return previous; \
+      } " 
+  },
+  {
+    "_type": "Human",
+    "firstName": "Bob",
+    "lastName": "Smith"
+  },
+  {
+    "_type": "Human",
+    "firstName": "Hank",
+    "lastName": "Jones"
+  },
+  {
+    "_type": "Human",
+    "firstName": "Roger",
+    "lastName": "Smith"
+  },
+  {
+    "_type": "Human",
+    "firstName": "Julio",
+    "lastName": "Jones"
+  }
+]
