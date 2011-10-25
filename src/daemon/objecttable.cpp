@@ -241,6 +241,25 @@ QsonObject ObjectTable::addIndex(const QString &fieldname, const QString &fieldT
     return QsonObject();
 }
 
+QsonObject ObjectTable::removeIndex(const QString &fieldname, const QString &fieldType, const QString &objectType)
+{
+    if (!mIndexes.contains(fieldname))
+        return QsonObject();
+
+    IndexSpec &indexSpec = mIndexes[fieldname];
+    if (indexSpec.fieldType != fieldType || indexSpec.objectType != objectType)
+        return QsonMap();
+
+    if (mStorage->mBdbIndexes->remove(fieldname.toLatin1())) {
+        indexSpec.index->close();
+        QFile::remove(indexSpec.index->bdb()->fileName());
+        delete indexSpec.index;
+        mIndexes.remove(fieldname);
+    }
+
+    return QsonObject();
+}
+
 void ObjectTable::reindexObjects(const QString &fieldName, const QStringList &path, quint32 stateNumber, bool inTransaction)
 {
     if (gDebugRecovery) qDebug() << "reindexObjects" << fieldName << "{";

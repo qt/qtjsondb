@@ -154,6 +154,10 @@ protected:
                      const QString &partition = QString());
     void addIndex(QsonMap indexObject, const QString &partition);
 
+    QsonMap removeIndex(const QString &fieldName, const QString &typeName = QString("string"),
+                     const QString &objectType = QString(),
+                     const QString &partition = QString());
+
     void initMap(const QString &partition);
     void createMapDefinition(QsonMap mapDefinition, bool firstTime, const QString &partition);
     void removeMapDefinition(QsonMap mapDefinition);

@@ -158,6 +158,9 @@ public:
                         const QString &fieldType = QString("string"),
                         const QString &objectType = QString(),
                         bool lazy=true);
+    QsonObject removeIndex(const QString &fieldName,
+                        const QString &fieldType = QString("string"),
+                        const QString &objectType = QString());
 
     bool checkQuota(const JsonDbOwner *owner, int size) const;
     bool addToQuota(const JsonDbOwner *owner, int size);

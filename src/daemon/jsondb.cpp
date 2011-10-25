@@ -1256,6 +1256,13 @@ QsonMap JsonDb::addIndex(const QString &fieldName, const QString &fieldType, con
     return QsonMap();
 }
 
+QsonMap JsonDb::removeIndex(const QString &fieldName, const QString &fieldType, const QString &objectType, const QString &partition)
+{
+    if (JsonDbBtreeStorage *storage = findPartition(partition))
+        return storage->removeIndex(fieldName, fieldType, objectType);
+    return QsonMap();
+}
+
 void JsonDb::addIndex(QsonMap indexObject, const QString &partition)
 {
     QString fieldName = indexObject.valueString(kFieldStr);

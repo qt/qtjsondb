@@ -246,6 +246,8 @@ private slots:
     void expectedOrder();
     void indexQueryOnCommonValues();
 
+    void removeIndexes();
+
 public:
     void createContacts();
 
@@ -3918,6 +3920,21 @@ void TestJsonDb::indexQueryOnCommonValues()
     QCOMPARE(result.subObject("result").value<int>("length"), 1);
     QVERIFY(result.subObject("result").contains("data"));
     QCOMPARE(result.subObject("result").subList("data").size(), 1);
+}
+
+void TestJsonDb::removeIndexes()
+{
+    QsonMap indexObject;
+    indexObject.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
+    indexObject.insert("fieldName", QLatin1String("predicate"));
+    indexObject.insert("fieldType", QLatin1String("string"));
+
+    QsonMap result = mJsonDb->create(mOwner, indexObject);
+    verifyGoodResult(result);
+    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
+
+    mJsonDb->removeIndex("predicate");
+    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") == 0);
 }
 
 QTEST_MAIN(TestJsonDb)

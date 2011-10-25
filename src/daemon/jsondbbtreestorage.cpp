@@ -892,6 +892,16 @@ QsonObject JsonDbBtreeStorage::addIndex(const QString &fieldname, const QString 
     return QsonObject();
 }
 
+QsonObject JsonDbBtreeStorage::removeIndex(const QString &fieldname, const QString &fieldType, const QString &objectType)
+{
+    ObjectTable *table = findObjectTable(objectType);
+    const IndexSpec *indexSpec = table->indexSpec(fieldname);
+    if (!indexSpec)
+        return QsonObject();
+    table->removeIndex(fieldname, fieldType, objectType);
+    return QsonObject();
+}
+
 bool JsonDbBtreeStorage::checkStateConsistency()
 {
     return true;

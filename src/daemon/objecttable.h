@@ -123,6 +123,9 @@ public:
                         const QString &fieldType = QString("string"),
                         const QString &objectType = QString(),
                         bool lazy=true);
+    QsonObject removeIndex(const QString &fieldName,
+                        const QString &fieldType = QString("string"),
+                        const QString &objectType = QString());
     void reindexObjects(const QString &fieldName, const QStringList &path, quint32 stateNumber, bool inTransaction = false);
     void indexObject(const ObjectKey & objectKey, QsonMap object, quint32 stateNumber);
     void deindexObject(const ObjectKey &objectKey, QsonMap object, quint32 stateNumber);
