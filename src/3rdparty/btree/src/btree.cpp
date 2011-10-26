@@ -707,13 +707,6 @@ btree_read_page(struct btree *bt, pgno_t pgno, struct page *page)
 }
 
 int
-btree_sync_internal(struct btree *bt)
-{
-        if (!F_ISSET(bt->flags, BT_NOSYNC))
-                return fsync(bt->fd);
-        return 0;
-}
-int
 btree_sync(struct btree *bt)
 {
         if (!F_ISSET(bt->flags, BT_NOSYNC))
@@ -726,13 +719,13 @@ btree_sync(struct btree *bt)
                 return BT_FAIL;
             }
             if (fsync(bt->fd) != 0)
-                return BT_FAIL;
+                    return BT_FAIL;
             bt->txn = btree_txn_begin(bt, 0);
             if (bt->txn == 0)
-                return BT_FAIL;
+                    return BT_FAIL;
             if (btree_write_meta(bt, bt->meta.root, BT_MARKER, bt->meta.tag) == BT_FAIL) {
-                btree_txn_abort(bt->txn);
-                return BT_FAIL;
+                    btree_txn_abort(bt->txn);
+                    return BT_FAIL;
             }
             btree_txn_abort(bt->txn);
             return BT_SUCCESS;
@@ -874,13 +867,12 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
         }
 
         if (SIMPLEQ_EMPTY(txn->dirty_queue)) {
-            if (bt->stat.tag != tag) {
-                if (btree_write_meta(bt, txn->root, BT_MARKER, tag) != BT_SUCCESS) {
-                    btree_txn_abort(txn);
-                    return BT_FAIL;
+                if (bt->stat.tag != tag) {
+                        goto done;
+                } else {
+                        btree_txn_abort(txn);
+                        return BT_SUCCESS;
                 }
-            }
-            goto done;
         }
 
         if (F_ISSET(bt->flags, BT_FIXPADDING)) {
@@ -939,6 +931,7 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
                 }
         } while (!done);
 
+done:
         if (needfsync) {
                 if (fsync(bt->fd) != 0) {
                         btree_txn_abort(txn);
@@ -952,7 +945,6 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
                 return BT_FAIL;
         }
 
-done:
         mpage_prune(bt);
         btree_txn_abort(txn);
 
@@ -1072,6 +1064,7 @@ btree_write_meta(struct btree *bt, pgno_t root, unsigned int flags, uint32_t tag
         bt->meta.created_at = time(0);
         bt->meta.revisions++;
         bt->meta.tag = tag;
+
         SHA1((unsigned char *)&bt->meta, METAHASHLEN, bt->meta.hash);
 
         /* Copy the meta data changes to the new meta page. */
@@ -1196,8 +1189,8 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
                                 errno = ESTALE;
                                 return BT_FAIL;
                         } else if (F_ISSET(bt->flags, BT_USEMARKER) && !F_ISSET(meta->flags, BT_MARKER)) {
-                            DPRINTF("found a meta page %d but without marker, skipping...", meta_pgno);
-                            /* skipping this meta page */
+                                DPRINTF("found a meta page %d but without marker, skipping...", meta_pgno);
+                                /* skipping this meta page */
                         } else {
                                 /* Make copy of last meta page. */
                                 bcopy(meta, &bt->meta, sizeof(bt->meta));
@@ -1325,8 +1318,8 @@ btree_close(struct btree *bt)
         if (bt == NULL)
                 return;
 
-        if (bt->ref == 1 && F_ISSET(bt->flags, BT_USEMARKER))
-            btree_sync(bt);
+        if (bt->ref == 1)
+                btree_sync(bt);
 
         if (--bt->ref == 0) {
                 DPRINTF("ref is zero, closing btree %p:%s", bt, bt->path);
