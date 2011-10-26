@@ -50,6 +50,8 @@
 
 #include <QtJsonDbQson/private/qson_p.h>
 
+QT_BEGIN_HEADER
+
 namespace QtAddOn { namespace JsonDb {
 
 class JsonDbBtreeStorage;
@@ -170,5 +172,7 @@ private:
 };
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif

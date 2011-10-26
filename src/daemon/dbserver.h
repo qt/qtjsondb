@@ -50,6 +50,8 @@
 #include "notification.h"
 #include "jsondb.h"
 
+QT_BEGIN_HEADER
+
 class QIODevice;
 class QLocalServer;
 class QTcpServer;
@@ -108,5 +110,7 @@ private:
 };
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif // DBSERVER_H

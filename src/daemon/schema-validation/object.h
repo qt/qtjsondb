@@ -48,6 +48,8 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+QT_BEGIN_HEADER
+
 namespace SchemaValidation {
 
 ///**
@@ -248,5 +250,7 @@ private:
 }
 
 #include "checkpoints.h"
+
+QT_END_HEADER
 
 #endif // OBJECT_H

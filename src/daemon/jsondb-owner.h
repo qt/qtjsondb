@@ -52,6 +52,8 @@
 
 #include <QtJsonDbQson/private/qson_p.h>
 
+QT_BEGIN_HEADER
+
 class TestJsonDb;
 
 namespace QtAddOn { namespace JsonDb {
@@ -92,5 +94,7 @@ private:
 };
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif // JSONDB_OWNER_H

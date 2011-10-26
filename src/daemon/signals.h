@@ -43,6 +43,9 @@
 #define SIGNALS_H
 
 #include <QObject>
+
+QT_BEGIN_HEADER
+
 class QSocketNotifier;
 
 class Signals : public QObject
@@ -66,5 +69,7 @@ private:
     static int sSigFD[2];
     QSocketNotifier *mNotifier;
 };
+
+QT_END_HEADER
 
 #endif // SIGNALS_H

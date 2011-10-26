@@ -46,6 +46,8 @@
 #include <QtJsonDbQson/private/qson_p.h>
 #include <QtJsonDbQson/private/qsonparser_p.h>
 
+QT_BEGIN_HEADER
+
 namespace QtAddOn { namespace JsonDb {
 
 class QsonStream : public QObject
@@ -81,5 +83,7 @@ private:
 QsonStream& operator<<( QsonStream&, const QsonObject& );
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif // QSONSTREAM_H

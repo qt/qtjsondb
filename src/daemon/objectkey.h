@@ -49,6 +49,8 @@
 
 #include "jsondb-global.h"
 
+QT_BEGIN_HEADER
+
 namespace QtAddOn { namespace JsonDb {
 
 class ObjectKey
@@ -92,5 +94,7 @@ template <> inline QtAddOn::JsonDb::ObjectKey qFromBigEndian(const uchar *src)
     key.key = QUuid::fromRfc4122(QByteArray::fromRawData((const char *)src, 16));
     return key;
 }
+
+QT_END_HEADER
 
 #endif // OBJECT_KEY_H

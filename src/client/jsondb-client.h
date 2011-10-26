@@ -51,6 +51,8 @@
 #include "jsondb-global.h"
 #include "jsondb-error.h"
 
+QT_BEGIN_HEADER
+
 namespace QtAddOn { namespace JsonDb {
 
 class QsonObject;
@@ -114,5 +116,7 @@ private:
 } } // end namespace QtAddOn::JsonDb
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QtAddOn::JsonDb::JsonDbClient::NotifyTypes)
+
+QT_END_HEADER
 
 #endif // JSONDB_CLIENT_H

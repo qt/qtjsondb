@@ -51,6 +51,8 @@
 #include "aodb.h"
 #include "objectkey.h"
 
+QT_BEGIN_HEADER
+
 class Bdb;
 class AoDb;
 
@@ -128,4 +130,7 @@ public:
 };
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
+
 #endif

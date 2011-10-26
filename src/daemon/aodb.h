@@ -45,6 +45,8 @@
 #include <QFile>
 #include <QtEndian>
 
+QT_BEGIN_HEADER
+
 class btree;
 struct btree_txn;
 struct btval;
@@ -166,5 +168,7 @@ private:
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(AoDb::DbFlags)
+
+QT_END_HEADER
 
 #endif

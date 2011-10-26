@@ -47,6 +47,8 @@
 #ifndef CHECKPOINTS_H
 #define CHECKPOINTS_H
 
+QT_BEGIN_HEADER
+
 namespace SchemaValidation {
 
 /**
@@ -829,4 +831,7 @@ bool SchemaPrivate<T>::check(const Value &value) const
 }
 
 } // namespace SchemaValidation
+
+QT_END_HEADER
+
 #endif // CHECKPOINTS_H

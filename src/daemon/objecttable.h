@@ -54,6 +54,8 @@
 
 #include "objectkey.h"
 
+QT_BEGIN_HEADER
+
 class AoDb;
 
 namespace QtAddOn { namespace JsonDb {
@@ -161,5 +163,7 @@ bool isStateKey(const QByteArray &baStateKey);
 
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif

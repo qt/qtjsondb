@@ -57,6 +57,8 @@
 #include "notification.h"
 #include "schemamanager_p.h"
 
+QT_BEGIN_HEADER
+
 class TestJsonDb;
 class AoDb;
 
@@ -226,5 +228,7 @@ protected:
 };
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif /* JSONDB_H */

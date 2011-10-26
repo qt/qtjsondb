@@ -45,11 +45,15 @@
 #include <QtJsonDbQson/private/qsonobject_p.h>
 #include <QtDeclarative/qjsvalue.h>
 
+QT_BEGIN_HEADER
+
 namespace QtAddOn { namespace JsonDb {
 
 QJSValue qsonToJSValue(const QsonObject &object, QJSEngine *engine);
 QsonObject jsValueToQson(const QJSValue &object);
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif // QSONCONVERSION_H

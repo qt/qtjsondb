@@ -48,6 +48,8 @@
 
 #include "jsondb.h"
 
+QT_BEGIN_HEADER
+
 namespace QtAddOn { namespace JsonDb {
 
 class JsonDbProxy : public QObject {
@@ -110,5 +112,7 @@ public:
 };
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif

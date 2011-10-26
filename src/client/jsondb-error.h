@@ -44,6 +44,8 @@
 
 #include "jsondb-global.h"
 
+QT_BEGIN_HEADER
+
 namespace QtAddOn { namespace JsonDb {
 
 class JsonDbError {
@@ -73,5 +75,7 @@ public:
 };
 
 } } // namespace
+
+QT_END_HEADER
 
 #endif // JSONDB_ERRORS_H

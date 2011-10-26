@@ -54,6 +54,8 @@
 
 #include "objectkey.h"
 
+QT_BEGIN_HEADER
+
 class TestJsonDb;
 class AoDb;
 class AoDbCursor;
@@ -300,5 +302,7 @@ void forwardValueSplit(const QByteArray &forwardValue, ObjectKey &objectKey);
 QDebug &operator<<(QDebug &, const ObjectKey &);
 
 } } // end namespace QtAddOn::JsonDb
+
+QT_END_HEADER
 
 #endif /* JSONDB_H */

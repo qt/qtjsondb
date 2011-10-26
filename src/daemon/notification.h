@@ -47,6 +47,8 @@
 
 #include "jsondb-global.h"
 
+QT_BEGIN_HEADER
+
 namespace QtAddOn { namespace JsonDb {
 
 class JsonDbOwner;
@@ -78,5 +80,7 @@ private:
 } } // end namespace QtAddOn::JsonDb
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QtAddOn::JsonDb::Notification::Actions)
+
+QT_END_HEADER
 
 #endif
