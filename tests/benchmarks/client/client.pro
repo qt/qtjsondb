@@ -19,7 +19,3 @@ include($$PWD/../../shared/shared.pri)
 # Input
 HEADERS += client-benchmark.h
 SOURCES += client-benchmark.cpp
-
-check.target = check
-check.commands = LD_LIBRARY_PATH=../../../lib ./tst_bench_client -xunitxml -silent > ../../../tst_bench_client.xml
-QMAKE_EXTRA_TARGETS = check

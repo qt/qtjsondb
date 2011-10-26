@@ -5,6 +5,7 @@ INCLUDEPATH += .
 
 QT = core network testlib declarative jsondb-private jsondbqson-private
 CONFIG -= app_bundle
+CONFIG += testcase
 
 include($$PWD/../../../src/3rdparty/qjson/qjson.pri)
 
@@ -17,7 +18,3 @@ SOURCES += $$PWD/../../../src/imports/jsondb/jsondb-listmodel.cpp
 
 HEADERS += test-jsondb-listmodel.h
 SOURCES += test-jsondb-listmodel.cpp
-
-check.target = check
-check.commands = rm -f *.db* && LD_LIBRARY_PATH=$$PWD/../../../lib QT_QPA_PLATFORM=minimal ./tst_jsondb-listmodel -xunitxml -silent > ../../../tst_jsondb-listmodel.xml
-QMAKE_EXTRA_TARGETS = check

@@ -17,7 +17,3 @@ SOURCES += $$PWD/../../../src/imports/jsondb/jsondb-listmodel.cpp
 # Input
 HEADERS += listmodel-benchmark.h
 SOURCES += listmodel-benchmark.cpp
-
-check.target = check
-check.commands = QT_QPA_PLATFORM=minimal ./tst_bench_listmodel -xunitxml -silent > ../../../tst_bench_listmodel.xml
-QMAKE_EXTRA_TARGETS = check

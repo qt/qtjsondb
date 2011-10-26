@@ -3,6 +3,7 @@ TARGET = tst_daemon
 QT = network declarative testlib jsondbqson-private
 CONFIG -= app_bundle
 CONFIG += debug
+CONFIG += testcase
 
 INCLUDEPATH += $$PWD/../../../src/daemon
 LIBS += -L$$QT.jsondb.libs
@@ -15,8 +16,3 @@ RESOURCES += json-validation.qrc
 
 SOURCES += \
     testjsondb.cpp \
-
-
-check.target = check
-check.commands = rm -f *.db* && LD_LIBRARY_PATH=$$PWD/../../../lib QT_QPA_PLATFORM=xcb ./tst_daemon -xunitxml -silent > ../../../tst_server.xml
-QMAKE_EXTRA_TARGETS = check
