@@ -3773,6 +3773,15 @@ btree_dump_page_from_file(const char *filename, unsigned int pagen)
     fprintf(stderr, "\tb.fb_upper:%d\n", p->b.fb.fb_upper);
     fprintf(stderr, "\tb.pb_next_pgno:%d\n", p->b.pb_next_pgno);
 
+    if (p->flags & P_META) {
+        bt_meta *m = METADATA(p);
+        fprintf(stderr, "\n");
+        fprintf(stderr, "\tmeta->flags: %d\n", m->flags);
+        fprintf(stderr, "\tmeta->root: %d\n", m->root);
+        fprintf(stderr, "\tmeta->prev_meta: %d\n", m->prev_meta);
+        fprintf(stderr, "\tmeta->root: %s", ctime((const time_t *)&m->created_at));
+        fprintf(stderr, "\tmeta->tag: %d\n", m->tag);
+    }
     free(p);
     return 1;
 }
