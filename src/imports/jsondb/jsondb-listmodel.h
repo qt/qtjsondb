@@ -67,7 +67,7 @@ public:
     JsonDbSortKey();
     JsonDbSortKey(const QsonMap &object, const QStringList &directions, const QList<QStringList> &paths);
     JsonDbSortKey(const JsonDbSortKey&);
-    
+
     const QVariantList &keys() const;
     const QStringList &directions() const;
     QString toString() const;

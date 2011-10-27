@@ -152,8 +152,8 @@ public:
     JsonDbClient *mJsonDb; // TODO: shouldn't this be a singleton?
 
     struct RequestInfo {
-	RequestType type;
-	QJSValue object;
+        RequestType type;
+        QJSValue object;
         QJSValue successCallback;
         QJSValue errorCallback;
     };

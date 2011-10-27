@@ -1103,7 +1103,7 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QsonObject &v)
         requestIds.remove(id);
         requestInProgress = false;
         updateCache(v);
-    } else if(totalCountRequestId == id) {
+    } else if (totalCountRequestId == id) {
         QsonMap m = v.toMap();
         QsonList items = m.subList("data");
         m =  items.objectAt(0);
@@ -1115,7 +1115,7 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QsonObject &v)
         notificationObjectRequestIds.remove(id);
         QsonMap o = v.toMap();
         notifyUuid = o.value(JsonDbString::kUuidStr, QString());
-    } else if(updateRequestIds.constFind(id) != updateRequestIds.constEnd()) {
+    } else if (updateRequestIds.constFind(id) != updateRequestIds.constEnd()) {
         CallbackInfo info = updateRequestIds.value(id);
         if (info.successCallback.isFunction()) {
             QJSValueList args;
@@ -1126,7 +1126,7 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QsonObject &v)
             info.successCallback.call(QJSValue(), args);
         }
         updateRequestIds.remove(id);
-    } else if(sectionIndexRequestIds.constFind(id) != sectionIndexRequestIds.constEnd()) {
+    } else if (sectionIndexRequestIds.constFind(id) != sectionIndexRequestIds.constEnd()) {
         CallbackInfo info = sectionIndexRequestIds.value(id);
         if (info.successCallback.isFunction()) {
             QsonMap m = v.toMap();
@@ -1227,7 +1227,7 @@ void JsonDbListModelPrivate::_q_jsonDbErrorResponse(int id, int code, const QStr
     if (requestIds.contains(id)) {
         requestIds.remove(id);
         qWarning() << QString("JsonDb error: %1 %2").arg(code).arg(message);
-    }  else if(updateRequestIds.constFind(id) != updateRequestIds.constEnd()) {
+    }  else if (updateRequestIds.constFind(id) != updateRequestIds.constEnd()) {
         CallbackInfo info = updateRequestIds.value(id);
         if (info.errorCallback.isFunction()) {
             QJSValueList args;

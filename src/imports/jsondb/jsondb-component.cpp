@@ -84,13 +84,13 @@ QString JsonDbNotificationHandle::uuid() const
     if (mNotification.isNull())
         return QString();
     else
-        return mNotification->mUuid; 
+        return mNotification->mUuid;
 }
 
 void JsonDbNotificationHandle::remove()
 {
     if (!mNotification.isNull())
-        mNotification->remove(); 
+        mNotification->remove();
 }
 
 /*!
@@ -294,12 +294,12 @@ void JsonDbComponent::jsonDbResponse(int id, const QsonObject &result)
 
         QJSEngine *engine = info.object.engine();
         QJSValue scriptResult = qsonToJSValue(result, engine);
-	if (scriptResult.property(JsonDbString::kUuidStr).isValid())
-	    info.object.setProperty(JsonDbString::kUuidStr, scriptResult.property(JsonDbString::kUuidStr));
-	if (scriptResult.property(JsonDbString::kVersionStr).isValid())
-	    info.object.setProperty(JsonDbString::kVersionStr, scriptResult.property(JsonDbString::kVersionStr));
-	if (scriptResult.property(JsonDbString::kOwnerStr).isValid())
-	    info.object.setProperty(JsonDbString::kOwnerStr, scriptResult.property(JsonDbString::kOwnerStr));
+        if (scriptResult.property(JsonDbString::kUuidStr).isValid())
+            info.object.setProperty(JsonDbString::kUuidStr, scriptResult.property(JsonDbString::kUuidStr));
+        if (scriptResult.property(JsonDbString::kVersionStr).isValid())
+            info.object.setProperty(JsonDbString::kVersionStr, scriptResult.property(JsonDbString::kVersionStr));
+        if (scriptResult.property(JsonDbString::kOwnerStr).isValid())
+            info.object.setProperty(JsonDbString::kOwnerStr, scriptResult.property(JsonDbString::kOwnerStr));
 
         emit response(scriptResult, id);
 
