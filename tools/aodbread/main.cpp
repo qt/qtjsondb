@@ -44,12 +44,12 @@
 #include "aodb.h"
 #include "btree.h"
 
-#include "qson/qson.h"
-#include "qson/qsonparser.h"
+#include <QtJsonDbQson/private/qson_p.h>
+#include <QtJsonDbQson/private/qsonparser_p.h>
 
 #include "json.h"
 
-Q_USE_JSONDB_NAMESPACE
+using namespace QtAddOn::JsonDb;
 
 QString printable(const QByteArray &ba)
 {
@@ -209,10 +209,10 @@ int main(int argc, char **argv)
     QString filename = args.at(0);
 
     if (gDumpPage > 0) {
-        return btree_dump_page(filename.toLocal8Bit().constData(), gDumpPage);
+        return btree_dump_page_from_file(filename.toLocal8Bit().constData(), gDumpPage);
     } else if (gDumpPage < 0) {
         uint32_t page = 1;
-        while (btree_dump_page(filename.toLocal8Bit().constData(), page))
+        while (btree_dump_page_from_file(filename.toLocal8Bit().constData(), page))
             ++page;
         return 1;
     }

@@ -1,10 +1,8 @@
 TARGET = aodbread
 
-QT = network declarative testlib
+QT = testlib jsondbqson-private
 CONFIG -= app_bundle
 CONFIG += debug
-
-include($$PWD/../../src/common/common.pri)
 
 INCLUDEPATH += $$PWD/../../src/daemon
 LIBS += -L$$QT.jsondb.libs
@@ -12,8 +10,14 @@ LIBS += -L$$QT.jsondb.libs
 
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
-include($$PWD/../../src/daemon/daemon.pri)
+#include($$PWD/../../src/daemon/daemon.pri)
+include($$PWD/../../src/3rdparty/btree/btree.pri)
+include($$PWD/../../src/3rdparty/qjson/qjson.pri)
+
+HEADERS += \
+    $$PWD/../../src/daemon/aodb.h
 
 SOURCES += \
-    main.cpp \
+    $$PWD/../../src/daemon/aodb.cpp \
+    main.cpp
 
