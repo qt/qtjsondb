@@ -870,6 +870,7 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
                 if (bt->stat.tag != tag) {
                         goto done;
                 } else {
+                        mpage_prune(bt);
                         btree_txn_abort(txn);
                         return BT_SUCCESS;
                 }
