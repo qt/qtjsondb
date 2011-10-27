@@ -239,7 +239,7 @@ QsonObject ObjectTable::addIndex(const QString &fieldname, const QString &fieldT
 
 QsonObject ObjectTable::removeIndex(const QString &fieldname, const QString &fieldType, const QString &objectType)
 {
-    if (!mIndexes.contains(fieldname))
+    if (!mIndexes.contains(fieldname) || fieldname == JsonDbString::kUuidStr || fieldname == JsonDbString::kTypeStr)
         return QsonObject();
 
     IndexSpec &indexSpec = mIndexes[fieldname];
@@ -247,6 +247,10 @@ QsonObject ObjectTable::removeIndex(const QString &fieldname, const QString &fie
         return QsonMap();
 
     if (mStorage->mBdbIndexes->remove(fieldname.toLatin1())) {
+        if (indexSpec.index->bdb()->isTransaction()) { // Incase index is removed via Jdb::remove( _type=Index )
+            indexSpec.index->abort();
+            mBdbTransactions.remove(mBdbTransactions.indexOf(indexSpec.index->bdb()));
+        }
         indexSpec.index->close();
         QFile::remove(indexSpec.index->bdb()->fileName());
         delete indexSpec.index;

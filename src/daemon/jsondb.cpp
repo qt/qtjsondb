@@ -843,12 +843,15 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
         RETURN_IF_ERROR(errormap, validateSchema(objectType, object));
     RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, "write"));
 
-    if (populateIdBySchema(owner, object)) {
-        object.generateUuid();
+    // don't repopulate if deleting object, if it's a schema type then _id is altered.
+    if (!object.contains(JsonDbString::kDeletedStr)) {
+        if (populateIdBySchema(owner, object)) {
+            object.generateUuid();
 
-        if (object.valueString(JsonDbString::kUuidStr) != uuid) {
-            setError(errormap, JsonDbError::InvalidRequest, "_uuid mismatch, use create()");
-            return makeResponse(resultmap, errormap);
+            if (object.valueString(JsonDbString::kUuidStr) != uuid) {
+                setError(errormap, JsonDbError::InvalidRequest, "_uuid mismatch, use create()");
+                return makeResponse(resultmap, errormap);
+            }
         }
     }
     object.computeVersion();
@@ -932,6 +935,10 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
     else if (objectType == JsonDbString::kReduceTypeStr)
         RETURN_IF_ERROR(errormap, validateReduceObject(master));
 
+    // If index, make sure it's ok to update/create (update not supported yet)
+    if (!forRemoval && objectType == kIndexTypeStr)
+        RETURN_IF_ERROR(errormap, validateAddIndex(master, _delrec));
+
     int dataSize = master.dataSize() - _delrec.dataSize();
     if (!forRemoval)
         RETURN_IF_ERROR(errormap, checkQuota(owner, dataSize, storage));
@@ -980,6 +987,11 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
             createNotification(owner, master);
         else if (objectType == kIndexTypeStr)
             addIndex(master, partition);
+    }
+
+    if (forRemoval) {
+        if (objectType == kIndexTypeStr)
+            removeIndex(_delrec, partition);
     }
 
     // only notify if there is a visible change
@@ -1271,6 +1283,16 @@ void JsonDb::addIndex(QsonMap indexObject, const QString &partition)
 
     if (JsonDbBtreeStorage *storage = findPartition(partition))
         storage->addIndex(fieldName, fieldType, objectType);
+}
+
+void JsonDb::removeIndex(QsonMap indexObject, const QString &partition)
+{
+    QString fieldName = indexObject.valueString(kFieldStr);
+    QString fieldType = indexObject.valueString(kFieldTypeStr);
+    QString objectType = indexObject.valueString(kObjectTypeStr);
+
+    if (JsonDbBtreeStorage *storage = findPartition(partition))
+        storage->removeIndex(fieldName, fieldType, objectType);
 }
 
 void JsonDb::updateSchemaIndexes(const QString &schemaName, QsonMap object, const QStringList &path)
@@ -1574,6 +1596,35 @@ QsonMap JsonDb::checkCanRemoveSchema(QsonMap schema)
                        QString("A Reduce object with targetType of %2 exists. You cannot remove the schema")
                        .arg(schemaName));
     }
+
+    return QsonMap();
+}
+
+
+
+QsonMap JsonDb::validateAddIndex(const QsonMap &newIndex, const QsonMap &oldIndex) const
+{
+    if (!newIndex.isEmpty() && !oldIndex.isEmpty()) {
+        if (oldIndex.valueString(kFieldStr) != newIndex.valueString(kFieldStr))
+            return makeError(JsonDbError::InvalidIndexOperation,
+                             QString("Changing old index field name %1 to %2 not supported")
+                             .arg(oldIndex.valueString(kFieldStr))
+                             .arg(newIndex.valueString(kFieldStr)));
+        if (oldIndex.valueString(kFieldTypeStr) != newIndex.valueString(kFieldTypeStr))
+            return makeError(JsonDbError::InvalidIndexOperation,
+                             QString("Changing old index field type %1 to %2 not supported")
+                             .arg(oldIndex.valueString(kFieldTypeStr))
+                             .arg(newIndex.valueString(kFieldTypeStr)));
+        if (oldIndex.valueString(kObjectTypeStr) != newIndex.valueString(kObjectTypeStr))
+            return makeError(JsonDbError::InvalidIndexOperation,
+                             QString("Changing old index object type %1 to %2 not supported")
+                             .arg(oldIndex.valueString(kObjectTypeStr))
+                             .arg(newIndex.valueString(kObjectTypeStr)));
+    }
+
+    if (!newIndex.contains(kFieldStr))
+        return makeError(JsonDbError::InvalidIndexOperation,
+                         QString("Index object must have field name"));
 
     return QsonMap();
 }

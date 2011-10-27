@@ -148,6 +148,7 @@ protected:
     QsonMap checkQuota(const JsonDbOwner *owner, int size, JsonDbBtreeStorage *partition);
     QsonMap checkCanAddSchema(QsonMap schema, QsonMap oldSchema = QsonMap());
     QsonMap checkCanRemoveSchema(QsonMap schema);
+    QsonMap validateAddIndex(const QsonMap &newIndex, const QsonMap &oldIndex) const;
 
     enum Action { Create, Remove };
 
@@ -159,6 +160,7 @@ protected:
     QsonMap removeIndex(const QString &fieldName, const QString &typeName = QString("string"),
                      const QString &objectType = QString(),
                      const QString &partition = QString());
+    void removeIndex(QsonMap indexObject, const QString &partition);
 
     void initMap(const QString &partition);
     void createMapDefinition(QsonMap mapDefinition, bool firstTime, const QString &partition);

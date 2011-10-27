@@ -70,7 +70,8 @@ public:
         InvalidMap,             // The Map definition is invalid
         InvalidReduce,          // The Reduce definition is invalid
         InvalidSchemaOperation,
-        InvalidPartition
+        InvalidPartition,
+        InvalidIndexOperation
     };
 };
 

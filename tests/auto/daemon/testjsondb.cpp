@@ -3924,17 +3924,33 @@ void TestJsonDb::indexQueryOnCommonValues()
 
 void TestJsonDb::removeIndexes()
 {
+    QsonMap result = mJsonDb->addIndex("wacky_index");
+    QVERIFY(!result.contains(JsonDbString::kErrorStr));
+    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
+
+    result = mJsonDb->removeIndex("wacky_index");
+    QVERIFY(!result.contains(JsonDbString::kErrorStr));
+    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
+
     QsonMap indexObject;
     indexObject.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
     indexObject.insert("fieldName", QLatin1String("predicate"));
     indexObject.insert("fieldType", QLatin1String("string"));
+    QsonMap indexObject2 = indexObject;
 
-    QsonMap result = mJsonDb->create(mOwner, indexObject);
+    result = mJsonDb->create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
+    QVERIFY(mJsonDb->findPartition("default")->findObjectTable("Index")->indexSpec("predicate") != 0);
 
-    mJsonDb->removeIndex("predicate");
-    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") == 0);
+    indexObject2.insert(JsonDbString::kUuidStr, indexObject.valueString(JsonDbString::kUuidStr));
+
+    indexObject.insert("fieldType", QLatin1String("integer"));
+    result = mJsonDb->update(mOwner, indexObject);
+    verifyErrorResult(result);
+
+    result = mJsonDb->remove(mOwner, indexObject2);
+    verifyGoodResult(result);
+    QVERIFY(mJsonDb->findPartition("default")->findObjectTable("Index")->indexSpec("predicate") == 0);
 }
 
 QTEST_MAIN(TestJsonDb)
