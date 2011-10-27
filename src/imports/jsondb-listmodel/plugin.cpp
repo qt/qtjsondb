@@ -42,8 +42,8 @@
 #include "plugin.h"
 
 #include "jsondb-client.h"
-#include "../jsondb/jsondb-component.h"
-#include "../jsondb/jsondb-listmodel.h"
+#include "jsondb-component.h"
+#include "jsondb-listmodel.h"
 #include "javascript-listmodel.h"
 #include "cuid.h"
 #include "jsondb-singletonwatcher.h"

@@ -53,7 +53,7 @@
 #include "qlistmodelinterface_p.h"
 #endif
 #include "jsondb-client.h"
-#include "../jsondb/jsondb-component.h"
+#include "jsondb-component.h"
 #include "cuid.h"
 
 class JavaScriptListModel : public QListModelInterface, public QDeclarativeParserStatus

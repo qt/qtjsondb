@@ -18,23 +18,23 @@ VERSION = 1.0
 include(../../common/common.pri)
 
 HEADERS += \
-    ../jsondb/jsondb-listmodel.h \
-    ../jsondb/jsondb-listmodel_p.h \
+    jsondb-listmodel.h \
+    jsondb-listmodel_p.h \
     javascript-listmodel.h \
     jsondb-singletonwatcher.h \
     jsondb-watcher.h \
-    ../jsondb/jsondb-component.h \
+    jsondb-component.h \
     cuid.h \
     plugin.h
 
 HEADERS += $$QSONCONVERSION_HEADERS
 
 SOURCES += \
-    ../jsondb/jsondb-listmodel.cpp \
+    jsondb-listmodel.cpp \
     javascript-listmodel.cpp \ 
     jsondb-singletonwatcher.cpp \
     jsondb-watcher.cpp \
-    ../jsondb/jsondb-component.cpp \
+    jsondb-component.cpp \
     cuid.cpp \
     plugin.cpp
 
