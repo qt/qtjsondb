@@ -500,7 +500,7 @@ void JsonDbMapDefinition::unmapObject(const QsonMap &object)
 void JsonDbMapDefinition::lookupRequested(const QString &findKey, const QJSValue &findValue, const QJSValue &objectType, const QJSValue &context)
 {
     QsonMap getObjectResponse =
-        mSourceTable->getObject(findKey, findValue.toVariant(), objectType.toString());
+        mJsonDb->getObject(findKey, findValue.toVariant(), objectType.toString());
     QsonList objectList = getObjectResponse.subList("result");
     for (int i = 0; i < objectList.size(); ++i) {
         QsonMap object = objectList.at<QsonMap>(i);
