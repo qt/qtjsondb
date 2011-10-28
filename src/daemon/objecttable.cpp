@@ -140,12 +140,10 @@ bool ObjectTable::commit(quint32 tag)
     mStateObjectChanges.clear();
     mStateNumber = tag;
 
-    bool ret = true;
     for (int i = 0; i < mBdbTransactions.size(); i++) {
       AoDb *bdb = mBdbTransactions.at(i);
       if (!bdb->commit(tag)) {
         qCritical() << __FILE__ << __LINE__ << bdb->errorMessage();
-        ret = false;
       }
     }
     mBdbTransactions.clear();
@@ -158,12 +156,10 @@ bool ObjectTable::abort()
     Q_ASSERT(mInTransaction);
     mStateChanges.clear();
     mStateObjectChanges.clear();
-    bool ret = true;
     for (int i = 0; i < mBdbTransactions.size(); i++) {
       AoDb *bdb = mBdbTransactions.at(i);
       if (!bdb->abort()) {
         qCritical() << __FILE__ << __LINE__ << bdb->errorMessage();
-        ret = false;
       }
     }
     mBdbTransactions.clear();

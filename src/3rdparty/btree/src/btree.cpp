@@ -3596,7 +3596,7 @@ btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
         p = mp->page;
         if (F_ISSET(p->flags, P_BRANCH)) {
                 fprintf(stderr, "%s", indent);
-                fprintf(stderr, "Branch page %d [bytes-free:%d, num-keys:%lu]\n",
+                fprintf(stderr, "Branch page %d [bytes-free:%d, num-keys:%zu]\n",
                         pgno,
                         SIZELEFT(mp),
                         NUMKEYSP(p));
@@ -3611,7 +3611,7 @@ btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
                 }
         } else if (F_ISSET(p->flags, P_LEAF)) {
                 fprintf(stderr, "%s", indent);
-                fprintf(stderr, "Leaf page %d [bytes-free:%d, num-keys:%lu] with prefix [%.*s]\n",
+                fprintf(stderr, "Leaf page %d [bytes-free:%d, num-keys:%zu] with prefix [%.*s]\n",
                         pgno,
                         SIZELEFT(mp),
                         NUMKEYSP(p),
