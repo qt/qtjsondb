@@ -18,16 +18,16 @@ VERSION = 1.0
 include(../../common/common.pri)
 
 HEADERS += \
-    jsondb-listmodel.h \
-    jsondb-listmodel_p.h \
-    jsondb-component.h \
+    jsondblistmodel.h \
+    jsondblistmodel_p.h \
+    jsondbcomponent.h \
     plugin.h
 
 HEADERS += $$QSONCONVERSION_HEADERS
 
 SOURCES += \
-    jsondb-listmodel.cpp \
-    jsondb-component.cpp \
+    jsondblistmodel.cpp \
+    jsondbcomponent.cpp \
     plugin.cpp
 
 SOURCES += $$QSONCONVERSION_SOURCES

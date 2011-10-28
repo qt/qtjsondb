@@ -44,7 +44,7 @@
 
 #include <QtJsonDbQson/private/qson_p.h>
 
-#include "jsondb-component.h"
+#include "jsondbcomponent.h"
 #include "private/jsondb-strings_p.h"
 #include "jsondb-client.h"
 

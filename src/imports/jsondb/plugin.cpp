@@ -41,8 +41,8 @@
 
 #include "plugin.h"
 
-#include "jsondb-component.h"
-#include "jsondb-listmodel.h"
+#include "jsondbcomponent.h"
+#include "jsondblistmodel.h"
 
 Q_EXPORT_PLUGIN2(jsondbplugin, JsonDbPlugin)
 

@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#include "jsondb-listmodel.h"
-#include "jsondb-listmodel_p.h"
+#include "jsondblistmodel.h"
+#include "jsondblistmodel_p.h"
 #include "private/jsondb-strings_p.h"
 
 #include <QJSEngine>
@@ -1320,4 +1320,4 @@ bool operator <(const JsonDbSortKey &a, const JsonDbSortKey &b)
     return false;
 }
 
-#include "moc_jsondb-listmodel.cpp"
+#include "moc_jsondblistmodel.cpp"

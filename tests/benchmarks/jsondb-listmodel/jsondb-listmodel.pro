@@ -10,9 +10,9 @@ include($$PWD/../../../src/3rdparty/qjson/qjson.pri)
 
 DEFINES += JSONDB_DAEMON_BASE=\\\"$$QT.jsondb.bins\\\"
 
-INCLUDEPATH += $$PWD/../../../src/imports/jsondb
-HEADERS += $$PWD/../../../src/imports/jsondb/jsondb-listmodel.h
-SOURCES += $$PWD/../../../src/imports/jsondb/jsondb-listmodel.cpp
+INCLUDEPATH += $$PWD/../../../src/imports/jsondb-listmodel
+HEADERS += $$PWD/../../../src/imports/jsondb-listmodel/jsondb-listmodel.h
+SOURCES += $$PWD/../../../src/imports/jsondb-listmodel/jsondb-listmodel.cpp
 
 # Input
 HEADERS += listmodel-benchmark.h
