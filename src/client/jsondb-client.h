@@ -96,7 +96,7 @@ public slots:
     int update(const QVariant &object);
     int remove(const QVariant &object);
 
-signals:
+Q_SIGNALS:
     void notified(const QString &notify_uuid, const QVariant &object, const QString &action);
     void notified(const QString &notify_uuid, const QsonObject &object, const QString &action);
     void response(int id, const QVariant &object);

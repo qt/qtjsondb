@@ -195,7 +195,7 @@ protected:
     JsonDbBtreeStorage *findPartition(const QString &name) const;
     QsonMap createPartition(const QsonMap &object);
 
-signals:
+Q_SIGNALS:
     void notified(const QString &id, QsonMap, const QString &action);
     void requestViewUpdate(QString viewType, QString partition);
 

@@ -57,7 +57,7 @@ public:
 
     static void signalHandler(int unused);
     
-signals:
+Q_SIGNALS:
     void sigTerm();
     void sigHUP();
     void sigINT();

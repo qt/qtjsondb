@@ -61,7 +61,7 @@ public:
 
     bool send(const QsonObject &data);
 
-signals:
+Q_SIGNALS:
     void receive(const QsonObject &data);
     void aboutToClose();
     void readyWrite();
