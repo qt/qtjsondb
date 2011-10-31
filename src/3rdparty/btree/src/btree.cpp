@@ -3743,30 +3743,45 @@ btree_revert(struct btree *bt)
         return ftruncate(bt->fd, bt->head.psize * bt->meta.root);
 }
 
-/* Rollback to the previous meta page. Truncates the file at that root page.
+/* Rollback to the previous meta page. Truncates the file at that meta page.
  */
 int
 btree_rollback(struct btree *bt)
 {
+        struct bt_meta  *meta;
+        struct mpage    *mp;
+        pgno_t prev_meta_pgno;
+        int ret;
+
         if (btree_read_meta(bt, NULL) != 0)
                 return -1;
 
-        pgno_t prev_meta_pgno = bt->meta.prev_meta;
+        prev_meta_pgno = bt->meta.prev_meta;
         DPRINTF("prev_meta_pgno=%d\n", prev_meta_pgno);
-        struct mpage    *mp;
         if ((mp = btree_get_mpage(bt, prev_meta_pgno)) == NULL) {
-            return -1;
+                return -1;
         }
-        struct bt_meta  *meta;
         if (btree_is_meta_page(bt, mp->page)) {
-            meta = METADATA(mp->page);
+                meta = METADATA(mp->page);
         } else {
-            fprintf(stderr, "mp->page flags %x\n", mp->page->flags);
-            return -2;
+                fprintf(stderr, "mp->page flags %x\n", mp->page->flags);
+                return -2;
         }
 
-        DPRINTF("truncating file at page %u", meta->root);
-        return ftruncate(bt->fd, bt->head.psize * meta->root);
+        if (prev_meta_pgno != meta->pgno) {
+                fprintf(stderr, "read wrong meta page! %d != %d\n", prev_meta_pgno, meta->pgno);
+                return -1;
+        }
+
+        DPRINTF("truncating file at page %u", prev_meta_pgno);
+        ret = ftruncate(bt->fd, bt->head.psize * prev_meta_pgno);
+        if (ret != 0) {
+                fprintf(stderr, "ftruncate failed on size %d\n", bt->head.psize * prev_meta_pgno);
+                return ret;
+        }
+        bt->size = bt->head.psize * prev_meta_pgno;
+        memcpy(&bt->meta, meta, sizeof(struct bt_meta));
+        return BT_SUCCESS;
 }
 
 void

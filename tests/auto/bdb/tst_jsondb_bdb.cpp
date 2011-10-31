@@ -76,6 +76,7 @@ private slots:
     void syncMarker();
     void corruptedPage();
     void tag();
+    void btreeRollback();
 
 private:
     AoDb *bdb;
@@ -913,6 +914,27 @@ void TestJsonDbBdb::tag()
     QCOMPARE(btree_txn_get_tag(rotxn2), 64u);
     btree_txn_abort(rotxn);
     btree_txn_abort(rotxn2);
+}
+
+void TestJsonDbBdb::btreeRollback()
+{
+    bdb->clear();
+
+    QVERIFY(bdb->begin());
+    QVERIFY(bdb->put(QByteArray("foo"), QByteArray("123")));
+    QVERIFY(bdb->commit(1));
+
+    QVERIFY(bdb->begin());
+    QVERIFY(bdb->put(QByteArray("bar"), QByteArray("baz")));
+    QVERIFY(bdb->commit(2));
+
+    struct btree *bt = bdb->handle();
+
+    QVERIFY(btree_rollback(bt) == BT_SUCCESS);
+
+    QByteArray value;
+    QVERIFY(bdb->get(QByteArray("foo"), value));
+    QVERIFY(!bdb->get(QByteArray("bar"), value));
 }
 
 QTEST_MAIN(TestJsonDbBdb)

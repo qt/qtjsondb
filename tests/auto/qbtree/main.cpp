@@ -78,6 +78,7 @@ private slots:
     void corruptedPage();
     void tag();
     void readFromTag();
+    void btreeRollback();
 
 private:
     QBtree *db;
@@ -867,6 +868,32 @@ void TestQBtree::readFromTag()
     QVERIFY(!db->beginRead(4));
     QVERIFY(!db->beginRead(-1u));
 }
+
+void TestQBtree::btreeRollback()
+{
+    QBtreeTxn *txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
+    QVERIFY(txn->commit(1));
+
+    txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("bar"), QByteArray("baz")));
+    QVERIFY(txn->commit(2));
+
+    QCOMPARE(db->tag(), 2u);
+    QVERIFY(db->rollback());
+    QCOMPARE(db->tag(), 1u);
+
+    txn = db->beginRead();
+    QVERIFY(txn);
+    QCOMPARE(txn->tag(), 1u);
+    QByteArray value;
+    QVERIFY(txn->get(QByteArray("foo"), &value));
+    QVERIFY(!txn->get(QByteArray("bar"), &value));
+    txn->abort();
+}
+
 
 QTEST_MAIN(TestQBtree)
 #include "main.moc"

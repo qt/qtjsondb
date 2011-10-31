@@ -114,7 +114,7 @@ public:
     { return begin(QBtree::TxnReadOnly); }
     QBtreeTxn *beginRead(quint32 tag);
 
-    int rollback();
+    bool rollback();
 
     QString fileName() const { return mFilename; }
     const struct btree_stat *stat() const;

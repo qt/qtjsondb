@@ -361,11 +361,11 @@ quint32 QBtree::tag() const
     return stat->tag;
 }
 
-int QBtree::rollback()
+bool QBtree::rollback()
 {
     Q_ASSERT(mTxns.isEmpty());
     Q_ASSERT(mBtree);
-    return btree_rollback(mBtree);
+    return btree_rollback(mBtree) == BT_SUCCESS;
 }
 
 const struct btree_stat *QBtree::stat() const
