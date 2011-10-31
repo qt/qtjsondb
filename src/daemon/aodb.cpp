@@ -128,6 +128,8 @@ bool AoDb::open(const QString &filename, AoDb::DbFlags flags)
         btflags |= BT_RDONLY;
     if (flags & AoDb::UseSyncMarker)
         btflags |= BT_USEMARKER;
+    if (flags & AoDb::NoPageChecksums)
+        btflags |= BT_NOPGCHECKSUM;
 
     mBtreeFlags = btflags;
     mBtree = btree_open(mFilename.toLocal8Bit().constData(), btflags, 0644);

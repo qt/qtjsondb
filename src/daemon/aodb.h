@@ -61,7 +61,8 @@ public:
         ReverseKeys=0x001,
         NoSync=0x004,
         ReadOnly=0x008,
-        UseSyncMarker=0x010
+        UseSyncMarker=0x010,
+        NoPageChecksums=0x020
     };
     Q_DECLARE_FLAGS(DbFlags, DbFlag)
 

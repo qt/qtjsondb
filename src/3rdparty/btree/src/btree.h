@@ -64,6 +64,7 @@ enum cursor_op {				/* cursor operations */
 #define BT_RDONLY		 0x04		/* read only */
 #define BT_REVERSEKEY		 0x08		/* use reverse string keys */
 #define BT_USEMARKER		 0x10		/* find last marked meta page when opening db */
+#define BT_NOPGCHECKSUM 	 0x20		/* calculate checksums per page */
 
 struct btree_stat {
 	unsigned long long int	 hits;		/* cache hits */
