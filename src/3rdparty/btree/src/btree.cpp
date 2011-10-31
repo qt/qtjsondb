@@ -4038,7 +4038,8 @@ btree_dump_page_from_file(const char *filename, unsigned int pagen)
         fprintf(stderr, "\tmeta->flags: %d\n", m->flags);
         fprintf(stderr, "\tmeta->root: %d\n", m->root);
         fprintf(stderr, "\tmeta->prev_meta: %d\n", m->prev_meta);
-        fprintf(stderr, "\tmeta->root: %s", ctime((const time_t *)&m->created_at));
+        char *st = ctime((const time_t *)&m->created_at);
+        fprintf(stderr, "\tmeta->created_at: %s", (st ? st : "(null)\n"));
         fprintf(stderr, "\tmeta->tag: %d\n", m->tag);
     }
     free(p);
