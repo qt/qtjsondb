@@ -79,7 +79,7 @@ struct btree_stat {
 	unsigned long long int	 entries;
 	unsigned int		 psize;
 	time_t			 created_at;
-        unsigned int               tag;
+        unsigned int             tag;
 };
 
 struct btree		*btree_open_fd(const char *path, int fd, unsigned int flags);
