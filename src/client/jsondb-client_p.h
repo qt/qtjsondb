@@ -91,7 +91,6 @@ public:
 
     QHash<int, NotifyCallback> unprocessedNotifyCallbacks;
     QHash<QString, NotifyCallback> notifyCallbacks;
-
 };
 
 } } // end namespace QtAddOn::JsonDb

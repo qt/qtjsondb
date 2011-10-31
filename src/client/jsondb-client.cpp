@@ -176,10 +176,6 @@ void JsonDbClientPrivate::init(Qt::ConnectionType type)
     Q_Q(JsonDbClient);
     q->connect(connection, SIGNAL(notified(QString,QsonObject,QString)),
                SLOT(_q_handleNotified(QString,QsonObject,QString)),type);
-    q->connect(connection, SIGNAL(notified(QString,QsonObject,QString)),
-               SIGNAL(notified(QString,QsonObject,QString)),type);
-    q->connect(connection, SIGNAL(notified(QString,QVariant,QString)),
-               SIGNAL(notified(QString,QVariant,QString)),type);
     q->connect(connection, SIGNAL(response(int,QsonObject)),
                SLOT(_q_handleResponse(int,QsonObject)),type);
     q->connect(connection, SIGNAL(error(int,int,QString)),
@@ -190,8 +186,13 @@ void JsonDbClientPrivate::init(Qt::ConnectionType type)
 
 void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const QsonObject &data, const QString &action)
 {
-    NotifyCallback c = notifyCallbacks.value(notifyUuid);
-    c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QsonObject, data), Q_ARG(QString, action));
+    Q_Q(JsonDbClient);
+    if (notifyCallbacks.contains(notifyUuid)) {
+        NotifyCallback c = notifyCallbacks.value(notifyUuid);
+        c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QsonObject, data), Q_ARG(QString, action));
+        emit q->notified(notifyUuid, data, action);
+        emit q->notified(notifyUuid, qsonToVariant(data), action);
+    }
 }
 
 void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
@@ -333,6 +334,8 @@ int JsonDbClient::create(const QVariant &object)
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback());
+    if (object.toMap().value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
+        d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
     return id;
 }
 
@@ -364,6 +367,8 @@ int JsonDbClient::create(const QsonObject &object, QObject *target, const char *
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+    if (object.toMap().valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
+        d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
     return id;
 }
 
@@ -526,6 +531,8 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
         } else {
             d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback(notifyTarget, mo->method(idx)));
         }
+    } else {
+        d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
     }
     return id;
 }
