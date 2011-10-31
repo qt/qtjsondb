@@ -77,8 +77,10 @@ private slots:
     void corruptedPage();
     void tag();
     void btreeRollback();
+    void pageChecksum();
 
 private:
+    void corruptSinglePage(int psize, int pgno = -1, qint32 flags = -1);
     AoDb *bdb;
 };
 
@@ -938,6 +940,103 @@ void TestJsonDbBdb::btreeRollback()
     QByteArray value;
     QVERIFY(bdb->get(QByteArray("foo"), value));
     QVERIFY(!bdb->get(QByteArray("bar"), value));
+}
+
+void TestJsonDbBdb::corruptSinglePage(int psize, int pgno, qint32 flag)
+{
+    const int asize = psize / 4;
+    quint32 *page = new quint32[asize];
+    QFile::OpenMode om = QFile::ReadWrite;
+
+    if (pgno == -1)  // we'll be appending
+        om |= QFile::Append;
+
+    if (bdb->handle())
+        bdb->close();
+
+    QFile file(dbname);
+    QVERIFY(file.open(om));
+    QVERIFY(file.seek((pgno == -1 ? 0 : pgno * psize)));
+    QVERIFY(file.read((char*)page, psize));
+
+    if (pgno == -1)
+        pgno = file.size() / psize; // next pgno
+    page[1] = pgno;
+    if (flag > 0)
+        page[2] = flag; // set page flag if specified
+
+    for (int j = 3; j < asize; ++j) // randomly corrupt page (skip flag and pgno)
+        page[j] = rand();
+
+    QVERIFY(file.seek(pgno * psize));
+    QCOMPARE(file.write((char*)page, psize), (qint64)psize);
+    file.close();
+
+    delete [] page;
+}
+
+void TestJsonDbBdb::pageChecksum()
+{
+    const qint64 psize = bdb->stat()->psize;
+    QByteArray value;
+
+    bdb->clear();
+
+    QVERIFY(bdb->begin());
+    QVERIFY(bdb->put(QByteArray("foo1"), QByteArray("bar1")));
+    QVERIFY(bdb->commit(1));
+
+    QVERIFY(bdb->begin());
+    QVERIFY(bdb->put(QByteArray("foo2"), QByteArray("bar2")));
+    QVERIFY(bdb->commit(2));
+
+    QVERIFY(bdb->begin());
+    QVERIFY(bdb->put(QByteArray("foo3"), QByteArray("bar3")));
+    QVERIFY(bdb->commit(3));
+
+    bdb->close();
+
+    QFile f0(dbname);
+    QCOMPARE(f0.size(), psize * 7); // Should have 7 pages in db
+    f0.close();
+
+    corruptSinglePage(psize, 6); // corrupt page 6 (the meta with tag 3)
+
+    QFile f1(dbname);
+    QCOMPARE(f1.size(), psize * 7); // Should have 7 pages in db
+    f1.close();
+
+    corruptSinglePage(psize); // add corrupted page
+
+    QFile f2(dbname);
+    QCOMPARE(f2.size(), psize * 8);  // Should have 8 pages in db
+    f2.close();
+
+    QVERIFY(bdb->open(dbname, AoDb::NoSync));
+    QCOMPARE(bdb->tag(), 2u); // page with tag 3 corrupted, should get tag 2
+
+    QVERIFY(bdb->get(QByteArray("foo1"), value));
+    QCOMPARE(value, QByteArray("bar1"));
+    QVERIFY(bdb->get(QByteArray("foo2"), value));
+    QCOMPARE(value, QByteArray("bar2"));
+
+    QVERIFY(!bdb->get(QByteArray("foo3"), value)); // should not exist
+
+    bdb->close();
+
+    corruptSinglePage(psize, 3); // corrupt page 3 (leaf with key foo2)
+
+    QFile f3(dbname);
+    QCOMPARE(f3.size(), psize * 8);  // Should have 9 pages in db
+    f3.close();
+
+    QVERIFY(bdb->open(dbname, AoDb::NoSync));
+    QVERIFY(!bdb->get(QByteArray("foo1"), value)); // page 3 should be corrupted
+    QVERIFY(!bdb->get(QByteArray("foo2"), value)); // page 3 should be corrupted
+
+    // Can revert to tag 1 here, bdb functions not implemented yet though
+
+    bdb->close();
 }
 
 QTEST_MAIN(TestJsonDbBdb)
