@@ -3647,16 +3647,19 @@ btree_dump(struct btree *bt)
         assert(bt != NULL);
         fprintf(stderr, "btree_dump %s\n", bt->path);
         if (bt->meta.root != P_INVALID) {
-                fprintf(stderr, "Root page %d [depth:%d, entries:%lld, leaves:%d, branches:%d]\n",
+                fprintf(stderr, "Root page %d [depth:%d, entries:%lld, leaves:%d, branches:%d, bt-size:%ld, psize:%d]\n",
                         bt->meta.root,
                         bt->meta.depth,
                         bt->meta.entries,
                         bt->meta.leaf_pages,
-                        bt->meta.branch_pages);
+                        bt->meta.branch_pages,
+                        bt->size,
+                        bt->head.psize);
                 btree_dump_tree(bt, bt->meta.root, 0);
         } else {
                 fprintf(stderr, "Root page invalid.\n");
         }
+        fflush(stderr);
 }
 
 void
