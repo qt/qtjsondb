@@ -71,9 +71,7 @@ public:
 
     void connectToServer()
     {
-        mConnection = new Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbConnection)(this);
-        mConnection->connectToServer();
-        mClient = new Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)(mConnection, this);
+        mClient = new Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)(this);
         connect(mClient, SIGNAL(response(int,QVariant)),
                 this, SLOT(response(int,QVariant)));
         connect(mClient, SIGNAL(error(int,int,QString)),
