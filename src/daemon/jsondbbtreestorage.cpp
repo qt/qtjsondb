@@ -121,10 +121,9 @@ bool JsonDbBtreeStorage::close()
     delete mObjectTable;
     mObjectTable = 0;
 
-    for (int i = 0; i < (int)(sizeof(mBdbs)/sizeof(mBdbs[0])); ++i) {
-        delete mBdbs[i];
-        mBdbs[i] = 0;
-    }
+    delete mBdbIndexes;
+    mBdbIndexes = 0;
+
     return true;
 }
 
@@ -135,7 +134,7 @@ bool JsonDbBtreeStorage::open()
     QFileInfo fi(mFilename);
 
     mObjectTable = new ObjectTable(this);
-    mBdbs[0] = mBdbIndexes = new AoDb();
+    mBdbIndexes = new AoDb();
 
     mObjectTable->open(mFilename, AoDb::NoSync | AoDb::UseSyncMarker);
 
@@ -525,27 +524,12 @@ ObjectTable *JsonDbBtreeStorage::findObjectTable(const QString &objectType) cons
 bool JsonDbBtreeStorage::beginTransaction()
 {
     if (mTransactionDepth++ == 0) {
-        bool ok = true;
-        int db = -1;
-        for (unsigned i = 0; i < sizeof(mBdbs)/sizeof(mBdbs[0]); ++i) {
-            AoDb *bdb = mBdbs[i];
-            if (!bdb->begin()) {
-                qCritical() << __FILE__ << __LINE__ << bdb->errorMessage();
-                break;
-            }
-            db = i;
-        }
-        Q_ASSERT(mTableTransactions.isEmpty());
-        if (!ok) {
-            while (db >= 0) {
-                AoDb *bdb = mBdbs[db];
-                bdb->abort();
-                db--;
-            };
+        if (!mBdbIndexes->begin()) {
+            qCritical() << __FILE__ << __LINE__ << mBdbIndexes->errorMessage();
             mTransactionDepth--;
-            qCritical() << "transaction failed" << __FUNCTION__ << __LINE__;
             return false;
         }
+        Q_ASSERT(mTableTransactions.isEmpty());
     }
     return true;
 }
@@ -559,13 +543,11 @@ bool JsonDbBtreeStorage::commitTransaction(quint32 stateNumber)
         if (!stateNumber && (mTableTransactions.size() == 1))
             nextStateNumber = mTableTransactions.at(0)->stateNumber() + 1;
 
-        for (unsigned i = 0; i < sizeof(mBdbs)/sizeof(mBdbs[0]); ++i) {
-            AoDb *bdb = mBdbs[i];
-            if (!bdb->commit(nextStateNumber)) {
-                qCritical() << __FILE__ << __LINE__ << bdb->errorMessage();
-                ret = false;
-            }
+        if (!mBdbIndexes->commit(nextStateNumber)) {
+            qCritical() << __FILE__ << __LINE__ << mBdbIndexes->errorMessage();
+            ret = false;
         }
+
         for (int i = 0; i < mTableTransactions.size(); i++) {
             ObjectTable *table = mTableTransactions.at(i);
             if (!table->commit(nextStateNumber)) {
@@ -584,13 +566,12 @@ bool JsonDbBtreeStorage::abortTransaction()
     if (--mTransactionDepth == 0) {
         if (gVerbose) qDebug() << "JsonDbBtreeStorage::abortTransaction()";
         bool ret = true;
-        for (unsigned i = 0; i < sizeof(mBdbs)/sizeof(mBdbs[0]); ++i) {
-            AoDb *bdb = mBdbs[i];
-            if (!bdb->abort()) {
-                qCritical() << __FILE__ << __LINE__ << i << bdb->errorMessage();
-                ret = false;
-            }
+
+        if (!mBdbIndexes->abort()) {
+            qCritical() << __FILE__ << __LINE__ << mBdbIndexes->errorMessage();
+            ret = false;
         }
+
         for (int i = 0; i < mTableTransactions.size(); i++) {
             ObjectTable *table = mTableTransactions.at(i);
             if (!table->abort()) {

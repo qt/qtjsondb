@@ -217,7 +217,6 @@ private:
     JsonDb     *mJsonDb;
     ObjectTable *mObjectTable;
     AoDb        *mBdbIndexes;
-    AoDb        *mBdbs[1];
     QVector<ObjectTable *> mTableTransactions;
 
     QString      mPartitionName;
