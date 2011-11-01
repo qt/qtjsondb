@@ -434,6 +434,8 @@ int JsonDbClient::remove(const QVariant &object)
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback());
+    if (object.toMap().value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
+        d->notifyCallbacks.remove(object.toMap().value(JsonDbString::kUuidStr).toString());
     return id;
 }
 
@@ -464,6 +466,8 @@ int JsonDbClient::remove(const QsonObject &object, QObject *target, const char *
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+    if (object.toMap().valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
+        d->notifyCallbacks.remove(object.toMap().valueString(JsonDbString::kUuidStr));
     return id;
 }
 
