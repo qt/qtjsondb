@@ -626,18 +626,9 @@ void JsonDbListModelPrivate::createOrUpdateNotification()
         notifyUuid.clear();
     }
 
-    QsonMap notificationObject;
-    notificationObject.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
-    notificationObject.insert(JsonDbString::kQueryStr, query);
-    QsonList actions;
-    actions.append(JsonDbString::kCreateStr);
-    actions.append(JsonDbString::kUpdateStr);
-    actions.append(JsonDbString::kRemoveStr);
-    notificationObject.insert(JsonDbString::kActionsStr, actions);
-    notificationObjectRequestIds.insert(jsonDb.create(notificationObject));
+    const JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate | JsonDbClient::NotifyUpdate | JsonDbClient::NotifyRemove;
+    notificationObjectRequestIds.insert(jsonDb.notify(actions, query));
     DEBUG() << notificationObjectRequestIds;
-
-    DEBUG() << notificationObject;
 }
 
 /*!

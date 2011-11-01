@@ -413,18 +413,14 @@ void TestJsonDbClient::find()
 void TestJsonDbClient::notify()
 {
     int id = 400;
-    QVariantList actions;
-    QVariantMap notification;
 
     // Create a notification object
-    actions << "create" << "remove" << "update";
-    notification.insert("_type", "notification");
-    notification.insert("query", "[?_type=\"notify-test\"]");
-    notification.insert("actions", actions);
-    
-    id = mClient->create(notification);
+    JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
+    const QString query = "[?_type=\"notify-test\"]";
+    id = mClient->notify(actions, query);
     waitForResponse1(id);
-    QString notifyUuid = mData.toMap().value("_uuid").toString();
+    QVariantMap notifyObject = mData.toMap();
+    QString notifyUuid = notifyObject.value("_uuid").toString();
 
     // Create a notify-test object
     QVariantMap object;
@@ -462,8 +458,7 @@ void TestJsonDbClient::notify()
     QCOMPARE(n.mAction, QLatin1String("remove"));
 
     // Remove the notification object
-    notification.insert("_uuid", notifyUuid);
-    id = mClient->remove(notification);
+    id = mClient->remove(notifyObject);
     waitForResponse1(id);
 }
 
@@ -472,18 +467,14 @@ static const char *rbnames[] = { "Fred", "Joe", "Sam", NULL };
 void TestJsonDbClient::notifyRemoveBatch()
 {
     int id = 400;
-    QVariantList actions;
-    QVariantMap notification;
 
     // Create a notification object
-    actions  << "remove";
-    notification.insert("_type", "notification");
-    notification.insert("query", "[?_type=\"notify-test-remove-batch\"]");
-    notification.insert("actions", actions);
-    
-    id = mClient->create(notification);
+    JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyRemove;
+    const QString nquery = "[?_type=\"notify-test-remove-batch\"]";
+    id = mClient->notify(actions, nquery);
     waitForResponse1(id);
-    QString notifyUuid = mData.toMap().value("_uuid").toString();
+    QVariantMap notifyObject = mData.toMap();
+    QString notifyUuid = notifyObject.value("_uuid").toString();
 
     // Create notify-test-remove-batch object
     QVariantList list;
@@ -527,8 +518,7 @@ void TestJsonDbClient::notifyRemoveBatch()
     }
 
     // Remove the notification object
-    notification.insert("_uuid", notifyUuid);
-    id = mClient->remove(notification);
+    id = mClient->remove(notifyObject);
     waitForResponse1(id);
 }
 
@@ -638,18 +628,13 @@ void TestJsonDbClient::notifyMultiple()
     // notifications with multiple client connections
     // Makes sure only the client that signed up for notifications gets them
 
-    // Create a notification object
-    QVariantList actions;
-    QVariantMap notification;
-    actions << "create" << "remove" << "update";
-    notification.insert("_type", "notification");
-    notification.insert("query", "[?_type=\"notify-test\"][?identifier=\"w1-identifier\"]");
-    notification.insert("actions", actions);
+    JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
+    const QString query = "[?_type=\"notify-test\"][?identifier=\"w1-identifier\"]";
 
     ClientWrapper w1; w1.connectToServer();
     ClientWrapper w2; w2.connectToServer();
 
-    int id = w1.mClient->create(notification);
+    int id = w1.mClient->notify(actions, query);
     waitForResponse(w1.mEventLoop, &w1, id, -1, QVariant(), 0);
     QString notifyUuid = w1.mData.toMap().value("_uuid").toString();
 
@@ -662,6 +647,7 @@ void TestJsonDbClient::notifyMultiple()
     QVariant uuid = w1.mData.toMap().value("_uuid");
     QString version = w1.mData.toMap().value("_version").toString();
     QCOMPARE(w1.mNotifications.size(), 1);
+    QCOMPARE(w2.mNotifications.size(), 0);
 
     id = w2.mClient->create(object);
     waitForResponse(w2.mEventLoop, &w2, id, -1, QVariant(), 0);
@@ -682,7 +668,6 @@ void TestJsonDbClient::notifyMultiple()
     waitForResponse(w2.mEventLoop, &w2, id, -1, QVariant(), 0);
     QCOMPARE(w2.mNotifications.size(), 0);
     QCOMPARE(w1.mNotifications.size(), 0);
-
 }
 
 void TestJsonDbClient::changesSince()
