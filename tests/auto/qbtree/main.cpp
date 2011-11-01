@@ -48,6 +48,7 @@
 #include <QTime>
 
 #include "qbtree.h"
+#include "qbtreelocker.h"
 
 class TestQBtree: public QObject
 {
@@ -79,6 +80,7 @@ private slots:
     void tag();
     void readFromTag();
     void btreeRollback();
+    void lockers();
 
 private:
     QBtree *db;
@@ -894,6 +896,34 @@ void TestQBtree::btreeRollback()
     txn->abort();
 }
 
+void TestQBtree::lockers()
+{
+    QBtreeTxn *txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
+    QVERIFY(txn->commit(1));
+
+    {
+        QBtreeReadLocker r1(db);
+        QVERIFY(r1.isValid());
+        QCOMPARE(r1.tag(), 1u);
+
+        {
+            QBtreeWriteLocker w(db);
+            QVERIFY(w.isValid());
+            w.setAutoCommitTag(42u);
+            QVERIFY(w.put(QByteArray("bar"), QByteArray("baz")));
+        }
+
+        QBtreeReadLocker r2(db);
+        QVERIFY(r2.isValid());
+        QCOMPARE(r2.tag(), 42u);
+
+        QByteArray result;
+        QVERIFY(!r1.get(QByteArray("bar"), &result));
+        QVERIFY(r2.get(QByteArray("bar"), &result));
+    }
+}
 
 QTEST_MAIN(TestQBtree)
 #include "main.moc"
