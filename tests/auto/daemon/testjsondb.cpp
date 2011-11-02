@@ -3536,6 +3536,20 @@ void TestJsonDb::startsWith()
     result = mJsonDb->find(mOwner, query);
     QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(2));
     QCOMPARE(result.subObject("result").subList("data").size(), 2);
+
+    query = QsonMap();
+    query.insert("query", QString("[?_type startsWith \"startsWith\"][/name]"));
+    result = mJsonDb->find(mOwner, query);
+    QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(4));
+    QCOMPARE(result.subObject("result").subList("data").size(), 4);
+
+    query = QsonMap();
+    query.insert("query", QString("[?_type startsWith \"startsWith\"][= _type ]"));
+    result = mJsonDb->find(mOwner, query);
+    qDebug() << "sortKeys" << result.subObject("result").subList("sortKeys");
+    qDebug() << result.subObject("result").subList("data");
+    QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(4));
+    QCOMPARE(result.subObject("result").subList("data").size(), 4);
 }
 
 void TestJsonDb::comparison()

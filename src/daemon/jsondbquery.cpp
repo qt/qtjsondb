@@ -576,6 +576,9 @@ bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCa
                                 << objectFieldValue.toList().contains(termValue);
                 if (objectFieldValue.toList().contains(termValue))
                     matches = true;
+            } else if (op == "startsWith") {
+                if (objectFieldValue.toString().startsWith(termValue.toString()))
+                    matches = true;
             } else {
                 qCritical() << "match" << "unhandled term" << term.fieldName() << term.op() << term.value() << term.joinField();
             }

@@ -1474,6 +1474,8 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
 
             if (fieldName == orderField) {
                 compileOrQueryTerm(indexQuery, queryTerm);
+            } else {
+                residualQuery->queryTerms.append(orQueryTerm);
             }
         } else {
             residualQuery->queryTerms.append(orQueryTerm);
