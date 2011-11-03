@@ -48,12 +48,6 @@
 #include <QTime>
 #include <QUuid>
 
-#ifdef USE_VALGRIND
-#include <valgrind/memcheck.h>
-#else
-#define VALGRIND_DO_LEAK_CHECK
-#endif
-
 #include "json.h"
 
 #include "jsondb.h"
@@ -308,7 +302,6 @@ void TestJsonDb::initTestCase()
 
 void TestJsonDb::cleanupTestCase()
 {
-    VALGRIND_DO_LEAK_CHECK
     if (mJsonDb) {
         mJsonDb->close();
         delete mJsonDb;
@@ -351,8 +344,6 @@ void TestJsonDb::createContacts()
     if (!mContactList.isEmpty())
         return;
 
-VALGRIND_DO_LEAK_CHECK
-
     QFile contactsFile(findFile(SRCDIR, "largeContactsTest.json"));
     QVERIFY2(contactsFile.exists(), "Err: largeContactsTest.json doesn't exist!");
 
@@ -382,8 +373,6 @@ VALGRIND_DO_LEAK_CHECK
     mJsonDb->addIndex(QLatin1String("name.first"));
     mJsonDb->addIndex(QLatin1String("name.last"));
     mJsonDb->addIndex(QLatin1String("_type"));
-
-VALGRIND_DO_LEAK_CHECK
 
 }
 

@@ -50,6 +50,7 @@
 #include "json.h"
 
 #include <QtJsonDbQson/private/qson_p.h>
+#include <QtJsonDbQson/private/qsonparser_p.h>
 
 #include "jsondb.h"
 #include "jsondbbtreestorage.h"
@@ -190,7 +191,7 @@ void TestJsonDb::initTestCase()
         nameObject.insert("last", names[names.size()-1]);
         contact.insert("name", nameObject);
         contact.insert(JsonDbString::kTypeStr, QString("contact"));
-        newContactList.append(contact);
+        newContactList.append(QsonParser::fromRawData(contact.data()).toMap());
     }
     mContactList = newContactList;
 
