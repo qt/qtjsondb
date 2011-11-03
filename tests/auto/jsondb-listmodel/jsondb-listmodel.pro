@@ -3,7 +3,7 @@ TARGET = tst_jsondb-listmodel
 DEPENDPATH += .
 INCLUDEPATH += .
 
-QT = core network testlib declarative jsondb-private jsondbqson-private
+QT = core network testlib gui declarative jsondb-private jsondbqson-private
 CONFIG -= app_bundle
 CONFIG += testcase
 

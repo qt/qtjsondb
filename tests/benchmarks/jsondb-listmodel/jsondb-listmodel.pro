@@ -3,7 +3,7 @@ TARGET = tst_bench_listmodel
 DEPENDPATH += .
 INCLUDEPATH += .
 
-QT = core network testlib declarative jsondb-private jsondbqson-private
+QT = core network testlib gui declarative jsondb-private jsondbqson-private
 CONFIG -= app_bundle
 
 include($$PWD/../../../src/3rdparty/qjson/qjson.pri)
