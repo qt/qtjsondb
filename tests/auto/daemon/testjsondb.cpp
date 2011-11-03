@@ -176,7 +176,6 @@ private slots:
     void mapSelfJoinSourceUuids();
     void mapMapFunctionError();
     void mapSchemaViolation();
-    void mapEmptyKey();
     void reduce();
     void reduceRemoval();
     void reduceUpdate();
@@ -1834,9 +1833,10 @@ void TestJsonDb::mapUpdate()
 
 void TestJsonDb::mapJoin()
 {
+    //gVerbose = true;
     QsonList objects(readJsonFile("map-join.json").toList());
 
-    QsonMap map;
+    QsonMap join;
     QsonMap schema;
     QsonList people;
 
@@ -1847,17 +1847,20 @@ void TestJsonDb::mapJoin()
         object.insert(JsonDbString::kUuidStr, result.subObject("result").valueString(JsonDbString::kUuidStr));
 
         if (object.valueString(JsonDbString::kTypeStr) == "Map")
-            map = object;
+            join = object;
         else if (object.valueString(JsonDbString::kTypeStr) == "_schemaType")
             schema = object;
         else
             people.append(object);
     }
-    mJsonDb->addIndex("value.friend", "string", "FoafPerson");
-    mJsonDb->addIndex("value.foaf", "string", "FoafPerson");
+    mJsonDb->addIndex("friend", "string", "FoafPerson");
+    mJsonDb->addIndex("foaf", "string", "FoafPerson");
+    mJsonDb->addIndex("friend", "string", "Person");
 
     QsonMap result = mJsonDb->getObject(JsonDbString::kTypeStr, "FoafPerson");
-    QCOMPARE(result.value<int>(JsonDbString::kCountStr), people.count());
+    //QsonMap join1 = mJsonDb->getObject(JsonDbString::kTypeStr, "Join");
+    //qDebug() << "join" << join1;
+    QCOMPARE(result.value<int>(JsonDbString::kCountStr), 0);
 
     // set some friends
     QString previous;
@@ -1868,6 +1871,8 @@ void TestJsonDb::mapJoin()
 
         previous = person.valueString(JsonDbString::kUuidStr);
         //qDebug() << "person" << person.valueString("name") << person.valueString(JsonDbString::kUuidStr) << "friend" << person.valueString("friend");
+        if (person.valueString(JsonDbString::kTypeStr) != "Person")
+            qDebug() << "nonperson" << person;
         verifyGoodResult(mJsonDb->update(mOwner, person));
     }
 
@@ -1876,50 +1881,59 @@ void TestJsonDb::mapJoin()
 
     QsonMap queryFoafPerson;
     // sort the list by key to make ordering deterministic
-    queryFoafPerson.insert("query", QString::fromLatin1("[?_type=\"FoafPerson\"][?value.foaf exists][/key]"));
+    queryFoafPerson.insert("query", QString::fromLatin1("[?_type=\"FoafPerson\"][?foaf exists][/friend]"));
     QsonMap findResult = mJsonDb->find(mOwner, queryFoafPerson).subObject("result");
     QCOMPARE(findResult.value<int>(JsonDbString::kLengthStr), people.count()-2); // one has no friend and one is friends with the one with no friends
 
     QsonList resultList = findResult.subList("data");
     for (int i = 0; i < resultList.size(); ++i) {
         QsonMap person = resultList.at<QsonMap>(i);
-        QStringList sources = person.value<QsonList>("sourceUuids").toStringList();
-        //qDebug() << "foafPerson" << i << person.valueString("key") << person.subObject("value");
-        QVERIFY(sources.count() == 1 || sources.contains(person.subObject("value").valueString("friend")));
+        QStringList sources = person.value<QsonList>("_sourceUuids").toStringList();
+        QVERIFY(sources.count() == 1 || sources.contains(person.valueString("friend")));
     }
 
     // take the last person, find his friend, and remove that friend's friend property
     // then make sure the foaf is updated
     QsonMap p = resultList.at<QsonMap>(resultList.size()-1);
-    if (p.subObject("value").isNull("foaf"))
+    if (p.isNull("foaf"))
       qDebug() << "p" << p << endl;
-    QVERIFY(!p.subObject("value").isNull("foaf"));
+    QVERIFY(!p.isNull("foaf"));
 
     QsonMap fr;
     for (int i = 0; i < peopleWithFriends.size(); ++i) {
         QsonMap f = peopleWithFriends.at<QsonMap>(i);
-        if (f.valueString(JsonDbString::kUuidStr) == p.subObject("value").valueString("friend")) {
+        if (f.valueString(JsonDbString::kUuidStr) == p.valueString("friend")) {
             fr = f;
             break;
         }
     }
 
-    QVERIFY(fr.valueString(JsonDbString::kUuidStr) == p.subObject("value").valueString("friend"));
+    QVERIFY(fr.valueString(JsonDbString::kUuidStr) == p.valueString("friend"));
     fr.insert("friend", QsonObject::NullValue);
+    //qDebug() << "Removing friend from" << fr;
     verifyGoodResult(mJsonDb->update(mOwner, fr));
 
     QsonMap foafRes = mJsonDb->getObject(JsonDbString::kTypeStr, "FoafPerson");
     QsonList foafs = foafRes.subList("result");
-
+    if (0) {
+        for (int i = 0; i < foafs.size(); i++) {
+            QsonMap foaf = foafs.objectAt(i);
+            qDebug() << "foaf"
+                     << foaf.valueString("key")
+                     << foaf.valueString("friend")
+                     << foaf.valueString("foaf");
+        }
+        qDebug() << endl;
+    }
     QsonMap query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"FoafPerson\"][?key=\"%1\"]").arg(p.valueString("key")));
+    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"FoafPerson\"][?name=\"%1\"]").arg(p.valueString("name")));
     result = mJsonDb->find(mOwner, query);
     verifyGoodResult(result);
     QCOMPARE(result.subObject("result").value<int>("length"), 1);
 
     p = result.subObject("result").subList("data").at<QsonMap>(0);
-    QVERIFY(!p.subObject("value").valueString("friend").isEmpty());
-    QVERIFY(p.subObject("value").isNull("foaf"));
+    QVERIFY(!p.valueString("friend").isEmpty());
+    QVERIFY(p.isNull("foaf"));
 
     query = QsonMap();
     query.insert(JsonDbString::kQueryStr, QString("[?_type=\"FoafPerson\"][/key]"));
@@ -1936,7 +1950,7 @@ void TestJsonDb::mapJoin()
     //QCOMPARE(result.subObject("result").value<int>("length"), 10);
 
     query = QsonMap();
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"FoafPerson\"][/value.friend]"));
+    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"FoafPerson\"][/friend]"));
     result = mJsonDb->find(mOwner, query);
     verifyGoodResult(result);
     if (0) {
@@ -1948,11 +1962,11 @@ void TestJsonDb::mapJoin()
     }
     QCOMPARE(result.subObject("result").value<int>("length"), 8); // two have no friends
 
-    verifyGoodResult(mJsonDb->remove(mOwner, map));
+    verifyGoodResult(mJsonDb->remove(mOwner, join));
     verifyGoodResult(mJsonDb->remove(mOwner, schema));
     for (int i = 0; i < people.size(); ++i) {
         QsonMap object = people.at<QsonMap>(i);
-        if (object == map || object == schema)
+        if (object == join || object == schema)
             continue;
         mJsonDb->remove(mOwner, object);
     }
@@ -1985,7 +1999,7 @@ void TestJsonDb::mapSelfJoinSourceUuids()
     verifyGoodResult(result);
 
     QCOMPARE(result.subObject("result").subList("data").size(), 1);
-    QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).subList("sourceUuids").count(), 2);
+    QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).subList("_sourceUuids").count(), 2);
 
     toUpdate.insert("extra", QString("123123"));
     verifyGoodResult(mJsonDb->update(mOwner, toUpdate));
@@ -1993,7 +2007,7 @@ void TestJsonDb::mapSelfJoinSourceUuids()
     result = mJsonDb->find(mOwner, query);
     verifyGoodResult(result);
 
-    QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).subList("sourceUuids").count(), 2);
+    QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).subList("_sourceUuids").count(), 2);
     for (int i = toDelete.count() - 1; i >= 0; i--)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at<QsonMap>(i)));
     mJsonDb->removeIndex("magic", "string");
@@ -2104,45 +2118,6 @@ void TestJsonDb::mapSchemaViolation()
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.objectAt(ii)));
 
     gValidateSchemas = validate;
-}
-
-void TestJsonDb::mapEmptyKey()
-{
-    QsonMap schema;
-    schema.insert(JsonDbString::kTypeStr, QString("_schemaType"));
-    schema.insert(JsonDbString::kNameStr, QString("MyViewType"));
-    QsonMap schemaSub;
-    schemaSub.insert("type", QString("object"));
-    schemaSub.insert("extends", QString("View"));
-    schema.insert("schema", schemaSub);
-    QsonMap schemaRes = mJsonDb->create(mOwner, schema);
-    verifyGoodResult(schemaRes);
-
-    QsonMap map;
-    map.insert(JsonDbString::kTypeStr, QString("Map"));
-    map.insert("targetType", QString("MyViewType"));
-    map.insert("sourceType", QString("MyContact"));
-    map.insert("map", QString("function map (c) { jsondb.emitViewObject('', { name: c.name} );}"));
-
-    QsonMap res = mJsonDb->create(mOwner, map);
-    verifyGoodResult(res);
-
-    QsonMap contact;
-    contact.insert(JsonDbString::kTypeStr, QString("MyContact"));
-    contact.insert("name", QString("Bob Smith"));
-
-    verifyGoodResult(mJsonDb->create(mOwner, contact));
-
-    mJsonDb->updateView("MyViewType");
-
-    QsonMap mapDefinition = mJsonDb->getObject("_uuid", map.valueString(JsonDbString::kUuidStr));
-    mapDefinition = mapDefinition.subList("result").objectAt(0);
-    QVERIFY(!mapDefinition.isNull(JsonDbString::kActiveStr) && !mapDefinition.valueBool(JsonDbString::kActiveStr));
-    QVERIFY(mapDefinition.valueString(JsonDbString::kErrorStr).contains("Empty key"));
-
-    verifyGoodResult(mJsonDb->remove(mOwner, contact));
-    verifyGoodResult(mJsonDb->remove(mOwner, map));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
 }
 
 void TestJsonDb::reduce()

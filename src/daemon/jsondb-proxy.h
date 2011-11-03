@@ -88,19 +88,32 @@ public:
 
     void setOwner(const JsonDbOwner *owner) { mOwner = owner; }
 
-    void clear() { mEmitted.clear(); mLookup.clear(); mContext = QJSValue(); }
-    const QMultiMap<QString,QJSValue> &emitted() { return mEmitted; }
-    const QJSValue &context() { return mContext; }
-
  signals:
-    void viewObjectEmitted(const QString &, const QJSValue &);
-    void lookupRequested(const QString &, const QJSValue &, const QJSValue &, const QJSValue &);
+    void viewObjectEmitted(const QJSValue &);
+    // to be removed when all map/lookup are converted to join/lookup
+    void lookupRequested(const QJSValue &, const QJSValue &);
 private:
     const JsonDbOwner *mOwner;
     JsonDb      *mJsonDb;
-    QMultiMap<QString,QJSValue> mEmitted;
-    QMultiMap<QString,QJSValue> mLookup;
-    QJSValue mContext;
+};
+
+class JsonDbJoinProxy : public QObject {
+    Q_OBJECT
+public:
+    JsonDbJoinProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent=0 );
+    ~JsonDbJoinProxy();
+
+    Q_SCRIPTABLE void create(const QJSValue &value );
+    Q_SCRIPTABLE void lookup(const QJSValue &spec, const QJSValue &context );
+
+    void setOwner(const JsonDbOwner *owner) { mOwner = owner; }
+
+ signals:
+    void viewObjectEmitted(const QJSValue &);
+    void lookupRequested(const QJSValue &, const QJSValue &);
+private:
+    const JsonDbOwner *mOwner;
+    JsonDb      *mJsonDb;
 };
 
 class Console : public QObject {

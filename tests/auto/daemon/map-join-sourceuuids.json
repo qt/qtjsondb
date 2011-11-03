@@ -30,24 +30,33 @@
   },
   {
     "_type": "Map",
-    "sourceType": "Foo",
     "targetType": "MagicView",
-    "map": " \
+    "join": {
+    "Foo": " \
       function map(obj, context) { \
         var foo, bar; \
+        foo = obj; \
         if (!context) { \
-          foo = obj; \
-          jsondb.lookup('magic', foo.magic, foo); \
+          // callback to the Bar function below with foo as the context \
+          jsondb.lookup({'index':'magic', 'value':foo.magic, 'objectType': 'Bar'}, foo); \
+        } else { \
+          bar = context; \
+          jsondb.emit({ key: foo.magic, foo: foo._uuid, bar: bar._uuid, barExtra: bar.extra }); \
+       } \
+     } ",
+    "Bar": " \
+      function map(obj, context) { \
+        var foo, bar; \
+        bar = obj; \
+        if (!context) { \
+          // callback to the Foo function above with bar as the context \
+          jsondb.lookup({'index':'magic', 'value':bar.magic, 'objectType': 'Foo'}, bar); \
         } else { \
           foo = context; \
-          bar = obj; \
-          if (bar._type === 'Bar') { // Needed until the lookup API changes to include the _type \
-            jsondb.emitViewObject(foo.magic, { foo: foo._uuid, bar: bar._uuid, barExtra: bar.extra }); \
-          } else { \
-            // Got Foo actually \
-          } \
+          jsondb.emit({key: foo.magic, foo: foo._uuid, bar: bar._uuid, barExtra: bar.extra }); \
        } \
     } "
+}
   },
   {
     "_type": "Bar",

@@ -105,6 +105,10 @@ smallest data sets.
 
 \section2 Views
 
+\list
+\o \l {Map and Join Views}
+\endlist
+
 \section2 Notifications
 
 Notifications are created, updated, and removed by creating, updating, and
@@ -129,5 +133,7 @@ to the client.
 \list
 \o \l{declarative/simplelistmodel}{Simple List Model}
 \o \l{declarative/desktop-inspector}{Desktop Database Inspector Example}
+\o \l{declarative/map-phone}{Creating a Map View}
+\o \l{declarative/joinview}{Creating a Join View}
 \endlist
 */

@@ -133,17 +133,48 @@ JsonDbMapProxy::~JsonDbMapProxy()
 void JsonDbMapProxy::emitViewObject(const QString &key, const QJSValue &v)
 {
     //qDebug() << "emitViewItem" << key << v.toVariant();
-    emit viewObjectEmitted(key, v);
+    QJSValue object = v.engine()->newObject();
+    object.setProperty("key", key);
+    object.setProperty("value", v);
+    emit viewObjectEmitted(object);
 }
 
 void JsonDbMapProxy::lookup(const QString &key, const QJSValue &value, const QJSValue &context)
 {
-    emit lookupRequested(key, value, QJSValue(), context);
+    QJSValue query = value.engine()->newObject();
+    query.setProperty("index", key);
+    query.setProperty("value", value);
+
+    emit lookupRequested(query, context);
 }
 
 void JsonDbMapProxy::lookupWithType(const QString &key, const QJSValue &value, const QJSValue &objectType, const QJSValue &context)
 {
-    emit lookupRequested(key, value, objectType, context);
+    QJSValue query = value.engine()->newObject();
+    query.setProperty("index", key);
+    query.setProperty("value", value);
+    query.setProperty("objectType", objectType);
+    emit lookupRequested(query, context);
+}
+
+JsonDbJoinProxy::JsonDbJoinProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
+  : QObject(parent)
+  , mOwner(owner)
+  , mJsonDb(jsonDb)
+{
+}
+JsonDbJoinProxy::~JsonDbJoinProxy()
+{
+}
+
+void JsonDbJoinProxy::create(const QJSValue &v)
+{
+    emit viewObjectEmitted(v);
+}
+
+void JsonDbJoinProxy::lookup(const QJSValue &spec, const QJSValue &context)
+{
+    emit lookupRequested(spec, context);
 }
 
 Console::Console()

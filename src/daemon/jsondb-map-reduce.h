@@ -53,6 +53,7 @@ namespace QtAddOn { namespace JsonDb {
 
 class JsonDb;
 class JsonDbOwner;
+class JsonDbJoinProxy;
 class JsonDbMapProxy;
 class ObjectTable;
 
@@ -63,18 +64,19 @@ public:
     JsonDbMapDefinition(JsonDb *mJsonDb, JsonDbOwner *mOwner, const QString &partition, QsonMap mapDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
-    QString sourceType() const { return mSourceType; }
+    const QStringList &sourceTypes() const { return mSourceTypes; }
     QString partition() const { return mPartition; }
     bool isActive() const;
     QsonObject definition() const { return mDefinition; }
-    const QJSValue &mapFunction() const { return mMapFunction; }
+    QJSValue mapFunction(const QString &sourceType) const;
+    ObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
 
     void mapObject(QsonMap object);
     void unmapObject(const QsonMap &object);
 
 public slots:
-    void viewObjectEmitted(const QString &key, const QJSValue &value);
-    void lookupRequested(const QString &findKey, const QJSValue &findValue, const QJSValue &objectType, const QJSValue &context);
+    void viewObjectEmitted(const QJSValue &value);
+    void lookupRequested(const QJSValue &spec, const QJSValue &context);
 
 private:
     void setError(const QString &errorMsg);
@@ -84,13 +86,14 @@ private:
     JsonDbOwner   *mOwner;
     QsonMap        mDefinition;
     QJSEngine     *mScriptEngine;
-    JsonDbMapProxy *mJsonDbProxy;
-    QJSValue       mMapFunction;
+    JsonDbMapProxy *mMapProxy; // to be removed when old map/lookup converted to join/lookup
+    JsonDbJoinProxy *mJoinProxy;
+    QMap<QString,QJSValue> mMapFunctions;
     QString        mUuid;
     QString        mTargetType;
-    QString        mSourceType;
+    QStringList    mSourceTypes;
     ObjectTable   *mTargetTable;
-    ObjectTable   *mSourceTable;
+    QMap<QString,ObjectTable*> mSourceTables;
     QList<QString> mSourceUuids;
 };
 

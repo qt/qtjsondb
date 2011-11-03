@@ -168,6 +168,7 @@ protected:
     void createReduceDefinition(QsonMap reduceDefinition, bool firstTime, const QString &partition);
     void removeReduceDefinition(QsonMap reduceDefinition);
     void removeReduceDefinition(JsonDbReduceDefinition *def);
+
     quint32 findUpdatedMapReduceDefinitions(JsonDbBtreeStorage *partition, const QString &definitionType, const QString &viewType, quint32 targetStateNumber,
                                          QMap<QString, QsonMap> &removedDefinitions, QMap<QString, QsonMap> &addedDefinitions) const;
 

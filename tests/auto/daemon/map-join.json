@@ -50,8 +50,7 @@
            "type": "object",
            "properties": {
              "friend": {
-               "type": "string",
-               "indexed": true
+               "type": "string"
              }
            }
          }
@@ -60,18 +59,25 @@
   },
   {
     "_type": "Map",
-    "sourceType": "Person",
     "targetType": "FoafPerson",
-    "map": " \
+    "join": {
+        "Person": " \
       function map(p, context) { \
+        //console.log('p: ' + JSON.stringify(p)); \
+        //console.log('p.friend: ' + JSON.stringify(p.friend)); \
+        //console.log('context: ' + JSON.stringify(context)); \
         if (!context) { \
-          if ((p.friend === undefined) || (p.friend === null)) \
-            jsondb.emitViewObject(p.name, { friend: null }); \
-          else \
-            jsondb.lookupWithType('_uuid', p.friend, 'Person', { person: p }); \ 
+          if (p.friend) { \
+            jsondb.lookup({'index':'_uuid', 'value': p.friend, 'objectType': 'Person'}, { person: p }); \
+          }; \
+          jsondb.lookup({'index':'friend', 'value': p._uuid, 'objectType': 'Person'}, { friend: p }); \
         } else { \
-          jsondb.emitViewObject(context.person.name, { friend: context.person.friend, foaf: p.friend }); \
+          if (context.friend) \
+             jsondb.emit({name: p.name, friend: p.friend, foaf: context.friend.friend }); \
+          else \
+             jsondb.emit({name: context.person.name, friend: context.person.friend, foaf: p.friend }); \
         } \
-     }"
+      }"
+    }
   }
 ]

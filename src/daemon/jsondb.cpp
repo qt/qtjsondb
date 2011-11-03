@@ -1473,7 +1473,6 @@ QsonMap JsonDb::validateSchema(const QString &schemaName, QsonMap object)
 QsonMap JsonDb::validateMapObject(QsonMap map)
 {
     QString targetType = map.valueString("targetType");
-    QString sourceType = map.valueString("sourceType");
 
     if (map.valueBool(JsonDbString::kDeletedStr, false))
         return QsonMap();
@@ -1481,10 +1480,27 @@ QsonMap JsonDb::validateMapObject(QsonMap map)
         return makeError(JsonDbError::InvalidMap, "targetType property for Map not specified");
     if (!mViewTypes.contains(targetType))
         return makeError(JsonDbError::InvalidMap, "targetType must be of a type that extends View");
-    if (sourceType.isEmpty())
-        return makeError(JsonDbError::InvalidMap, "sourceType property for Map not specified");
-    if (map.valueString("map").isEmpty())
-        return makeError(JsonDbError::InvalidMap, "map function for Map not specified");
+    if (map.contains("join")) {
+        QsonMap sourceFunctions = map.subObject("join").toMap();
+        if (sourceFunctions.isEmpty())
+            return makeError(JsonDbError::InvalidMap, "sourceTypes and functions for Map with join not specified");
+        QStringList sourceTypes = sourceFunctions.keys();
+        for (int i = 0; i < sourceTypes.size(); i++)
+            if (sourceFunctions.valueString(sourceTypes[i]).isEmpty())
+                return makeError(JsonDbError::InvalidMap,
+                                 QString("join function for source type '%1' not specified for Map")
+                                 .arg(sourceTypes[i]));
+        if (map.contains("map"))
+            return makeError(JsonDbError::InvalidMap, "Map 'join' and 'map' options are mutually exclusive");
+        if (map.contains("sourceType"))
+            return makeError(JsonDbError::InvalidMap, "Map 'join' and 'sourceType' options are mutually exclusive");
+
+    } else {
+        if (map.valueString("sourceType").isEmpty())
+            return makeError(JsonDbError::InvalidMap, "sourceType property for Map not specified");
+        if (map.valueString("map").isEmpty())
+            return makeError(JsonDbError::InvalidMap, "map function for Map not specified");
+    }
 
     return QsonMap();
 }
@@ -1714,11 +1730,14 @@ void JsonDb::updateEagerViewTypes(const QString &objectType)
          (it != mMapDefinitionsByTarget.end() && it.key() == objectType);
          ++it) {
         JsonDbMapDefinition *def = it.value();
-        QString sourceType = def->sourceType();
-        QSet<QString> &targetTypes = mEagerViewSourceTypes[sourceType];
-        targetTypes.insert(objectType);
-        // now recurse until we get to a non-view sourceType
-        updateEagerViewTypes(sourceType);
+        const QStringList &sourceTypes = def->sourceTypes();
+        for (int i = 0; i < sourceTypes.size(); i++) {
+            const QString &sourceType = sourceTypes[i];
+            QSet<QString> &targetTypes = mEagerViewSourceTypes[sourceType];
+            targetTypes.insert(objectType);
+            // now recurse until we get to a non-view sourceType
+            updateEagerViewTypes(sourceType);
+        }
     }
     for (QMap<QString,JsonDbReduceDefinition*>::const_iterator it = mReduceDefinitionsByTarget.find(objectType);
          (it != mReduceDefinitionsByTarget.end() && it.key() == objectType);
