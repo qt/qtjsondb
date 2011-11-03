@@ -99,6 +99,9 @@ public:
     static const QString kCurrentStateNumberStr;
     static const QString kStartingStateNumberStr;
     static const QString kTombstoneStr;
+    static const QString kPartitionStr;
+
+    static const QString kSystemPartitionName;
 };
 
 Q_ADDON_JSONDB_END_NAMESPACE

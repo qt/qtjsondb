@@ -519,7 +519,7 @@ void JsonDbMapDefinition::lookupRequested(const QString &findKey, const QJSValue
         mSourceUuids.removeLast();
     }
     if (objectType.isUndefined()) {
-        JsonDbBtreeStorage *storage = mJsonDb->findPartition(kDefaultPartitionName);
+        JsonDbBtreeStorage *storage = mJsonDb->findPartition(JsonDbString::kSystemPartitionName);
         for (QHash<QString, QPointer<ObjectTable> >::const_iterator it = storage->mViews.begin();
              it != storage->mViews.end();
              ++it) {

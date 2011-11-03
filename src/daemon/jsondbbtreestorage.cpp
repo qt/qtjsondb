@@ -719,7 +719,7 @@ QsonMap JsonDbBtreeStorage::getObject(const QString &keyName, const QVariant &ke
         QsonObject object = table->lookupObject(objectKey);
         if (!object.isEmpty())
             objectList.append(object);
-        resultmap.insert(QByteArray("result"), objectList);
+        resultmap.insert(QLatin1String("result"), objectList);
         resultmap.insert(JsonDbString::kCountStr, objectList.size());
         return resultmap;
     }
@@ -757,7 +757,7 @@ QsonMap JsonDbBtreeStorage::getObject(const QString &keyName, const QVariant &ke
             }
         } while (cursor.next());
     }
-    resultmap.insert(QByteArray("result"), objectList);
+    resultmap.insert(QLatin1String("result"), objectList);
     resultmap.insert(JsonDbString::kCountStr, objectList.size());
     return resultmap;
 }

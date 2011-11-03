@@ -527,7 +527,7 @@ void TestJsonDb::benchmarkParsedQuery()
         //QVariantList orderTerms = parseResult.value("orderTerms").toList();
         int limit = 1;
         int offset = 0;
-        QsonMap result = mJsonDb->findPartition("default")->queryPersistentObjects(mOwner, parsedQuery, limit, offset);
+        QsonMap result = mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->queryPersistentObjects(mOwner, parsedQuery, limit, offset);
         if (result.value<int>("length") != 1) {
           qDebug() << "result length" << result.value<int>("length");
           qDebug() << "item" << item;
@@ -894,7 +894,7 @@ void TestJsonDb::benchmarkCursorCount()
     QsonMap bindings;
     foreach (QString query, queries) {
     JsonDbQuery parsedQuery = JsonDbQuery::parse(query, bindings);
-        IndexQuery *indexQuery = mJsonDb->findPartition("default")->compileIndexQuery(mOwner, parsedQuery);
+        IndexQuery *indexQuery = mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->compileIndexQuery(mOwner, parsedQuery);
         int count = 0;
         //qDebug() << "query" << query;
         QBENCHMARK {

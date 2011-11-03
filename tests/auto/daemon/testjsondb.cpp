@@ -2602,7 +2602,7 @@ void TestJsonDb::addIndex()
 
     result = mJsonDb->create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
+    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
 }
 
 void TestJsonDb::addSchema()
@@ -2994,13 +2994,13 @@ void TestJsonDb::orderedFind2()
     if (order == "/") {
         if (!(names == orderedNames)
                 || !(names != disorderedNames))
-            mJsonDb->findPartition("default")->checkIndex(field);
+            mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->checkIndex(field);
         QVERIFY(names == orderedNames);
         QVERIFY(names != disorderedNames);
     } else {
         if (!(names != orderedNames)
                 || !(names == disorderedNames))
-            mJsonDb->findPartition("default")->checkIndex(field);
+            mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->checkIndex(field);
         QVERIFY(names != orderedNames);
         QVERIFY(names == disorderedNames);
     }
@@ -3688,7 +3688,7 @@ void TestJsonDb::partition()
     QsonMap query;
     query.insert("query", QString("[?_type=\"partitiontest\"]"));
 
-    result = mJsonDb->find(mOwner, query, "default");
+    result = mJsonDb->find(mOwner, query, JsonDbString::kSystemPartitionName);
     verifyGoodResult(result);
     QCOMPARE(result.subObject("result").subList("data").size(), 1);
     QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).value<QString>("foo"), QLatin1String("bar"));
@@ -3940,11 +3940,11 @@ void TestJsonDb::removeIndexes()
 {
     QsonMap result = mJsonDb->addIndex("wacky_index");
     QVERIFY(!result.contains(JsonDbString::kErrorStr));
-    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
+    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
 
     result = mJsonDb->removeIndex("wacky_index");
     QVERIFY(!result.contains(JsonDbString::kErrorStr));
-    QVERIFY(mJsonDb->findPartition("default")->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
+    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
 
     QsonMap indexObject;
     indexObject.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
@@ -3954,7 +3954,7 @@ void TestJsonDb::removeIndexes()
 
     result = mJsonDb->create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition("default")->findObjectTable("Index")->indexSpec("predicate") != 0);
+    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") != 0);
 
     indexObject2.insert(JsonDbString::kUuidStr, indexObject.valueString(JsonDbString::kUuidStr));
 
@@ -3964,7 +3964,7 @@ void TestJsonDb::removeIndexes()
 
     result = mJsonDb->remove(mOwner, indexObject2);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition("default")->findObjectTable("Index")->indexSpec("predicate") == 0);
+    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") == 0);
 }
 
 QTEST_MAIN(TestJsonDb)

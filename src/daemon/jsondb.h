@@ -78,7 +78,6 @@ static const bool gDebug = false;
 static const bool gDebugRecovery = false;
 #endif
 
-extern const QString kDefaultPartitionName;
 extern const QString kSortKeysStr;
 extern const QString kStateStr;
 
@@ -128,7 +127,7 @@ public:
     static QVariant propertyLookup(QVariantMap v, const QStringList &path);
     static QVariant propertyLookup(QsonMap o, const QStringList &path);
 
-    void updateView(const QString &viewType, const QString &partitionName = kDefaultPartitionName);
+    void updateView(const QString &viewType, const QString &partitionName = JsonDbString::kSystemPartitionName);
 
 protected:
     bool populateIdBySchema(const JsonDbOwner *owner, QsonMap &object);
@@ -202,7 +201,6 @@ Q_SIGNALS:
     void requestViewUpdate(QString viewType, QString partition);
 
 protected:
-    AoDb *mBdbInfo;
     JsonDbOwner *mOwner;
     QHash<QString, JsonDbBtreeStorage *> mStorages;
     QJSEngine            *mScriptEngine;

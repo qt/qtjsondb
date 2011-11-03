@@ -89,7 +89,6 @@ bool gDebug = (::getenv("JSONDB_DEBUG") ? (QLatin1String(::getenv("JSONDB_DEBUG"
 bool gDebugRecovery = (::getenv("JSONDB_DEBUG_RECOVERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_RECOVERY")) == "true") : false);
 #endif
 
-const QString kDefaultPartitionName = QLatin1String("default");
 const QString kSortKeysStr = QLatin1String("sortKeys");
 const QString kStateStr = QLatin1String("state");
 
@@ -463,7 +462,7 @@ QVariant JsonDb::propertyLookup(QsonMap object, const QStringList &path)
 
 JsonDb::JsonDb(const QString &path, QObject *parent)
     : QObject(parent)
-    , mBdbInfo(new AoDb), mOwner(0)
+    , mOwner(0)
     , mScriptEngine(new QJSEngine(this))
     , mJsonDbProxy(new JsonDbProxy(0, this, this))
     , mOpen(false)
@@ -488,29 +487,35 @@ JsonDb::JsonDb(const QString &path, QObject *parent)
 JsonDb::~JsonDb()
 {
     close();
-    delete mBdbInfo; mBdbInfo = 0;
 }
 
 bool JsonDb::open()
 {
-    QString infodb = mFilePath + QLatin1String("info.db");
-    if (!mBdbInfo->open(infodb, AoDb::NoSync)) {
-        qDebug() << "Cannot open " << infodb;
+    // open system partition
+    QString systemFileName = mFilePath + JsonDbString::kSystemPartitionName + QLatin1String(".db");
+    JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(systemFileName, JsonDbString::kSystemPartitionName, this);
+    if (!storage->open()) {
+        qDebug() << "Cannot open system partition at" << systemFileName;
         return false;
     }
+    mStorages.insert(JsonDbString::kSystemPartitionName, storage);
 
     // read partition information from the db
-    QByteArray value;
-    mBdbInfo->get(QByteArray("partitions"), value);
-    QsonList partitions = QsonParser::fromRawData(value).toList();
+    QsonMap result = storage->getObject(JsonDbString::kTypeStr, JsonDbString::kPartitionStr);
+    QsonList partitions = result.value<QsonList>("result");
     if (partitions.isEmpty()) {
-        // make a default partition
+        WithTransaction transaction(storage);
+        ObjectTable *objectTable = storage->mainObjectTable();
+        transaction.addObjectTable(objectTable);
+
+        // make a system partition
         QsonMap partition;
-        partition.insert(QLatin1String("name"), kDefaultPartitionName);
-        partition.insert(QLatin1String("file"), mFilePath + QLatin1String("default.db"));
-        partitions.append(partition);
-        if (!mBdbInfo->put(QByteArray("partitions"), partitions.data())) {
-            qCritical() << "Cannot put a default partition";
+        partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionStr);
+        partition.insert(QLatin1String("name"), JsonDbString::kSystemPartitionName);
+        partition.insert(QLatin1String("file"), systemFileName);
+        result = storage->createPersistentObject(partition);
+        if (responseIsError(result)) {
+            qCritical() << "Cannot create a system partition";
             return false;
         }
     }
@@ -519,6 +524,9 @@ bool JsonDb::open()
         QsonMap part = partitions.at<QsonMap>(i);
         QString filename = part.value<QString>(QLatin1String("file"));
         QString name = part.value<QString>(QLatin1String("name"));
+
+        if (name == JsonDbString::kSystemPartitionName)
+            continue;
 
         if (mStorages.contains(name)) {
             qWarning() << "Duplicate partition found, ignoring" << name << "at" << filename;
@@ -571,7 +579,6 @@ void JsonDb::close()
     if (mOpen) {
         foreach (JsonDbBtreeStorage *storage, mStorages)
             storage->close();
-        mBdbInfo->close();
     }
     mOpen = false;
 }
@@ -915,8 +922,8 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
             return makeResponse(resultmap, errormap);
         }
 
-        if (!partition.isEmpty() && partition != kDefaultPartitionName) {
-            setError(errormap, JsonDbError::InvalidPartition, "Partition objects can only be created in default partition");
+        if (!partition.isEmpty() && partition != JsonDbString::kSystemPartitionName) {
+            setError(errormap, JsonDbError::InvalidPartition, "Partition objects can only be created in system partition");
             return makeResponse(resultmap, errormap);
         }
 
@@ -1222,7 +1229,7 @@ void JsonDb::checkNotifications( QsonMap object, Notification::Action action )
         if (mEagerViewSourceTypes.contains(objectType)) {
             const QSet<QString> &targetTypes = mEagerViewSourceTypes[objectType];
             for (QSet<QString>::const_iterator it = targetTypes.begin(); it != targetTypes.end(); ++it)
-                emit requestViewUpdate(*it, kDefaultPartitionName);
+                emit requestViewUpdate(*it, JsonDbString::kSystemPartitionName);
         }
     }
     if (object.contains(JsonDbString::kUuidStr))
@@ -1306,7 +1313,7 @@ void JsonDb::updateSchemaIndexes(const QString &schemaName, QsonMap object, cons
             QString propertyType = (propertyInfo.contains("type") ? propertyInfo.valueString("type") : "string");
             QStringList kpath = path;
             kpath << k;
-            JsonDbBtreeStorage *storage = findPartition(kDefaultPartitionName);
+            JsonDbBtreeStorage *storage = findPartition(JsonDbString::kSystemPartitionName);
             storage->addIndex(kpath.join("."), propertyType, schemaName);
         }
         if (propertyInfo.contains("properties")) {
@@ -1353,7 +1360,7 @@ void JsonDb::initSchemas()
     if (gVerbose) qDebug() << "initSchemas";
     {
         QsonMap getObjectResponse = getObject(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr,
-                                              QString(), kDefaultPartitionName);
+                                              QString(), JsonDbString::kSystemPartitionName);
         QsonList schemas = getObjectResponse.subList("result");
         for (int i = 0; i < schemas.size(); ++i) {
             QsonMap schemaObject = schemas.at<QsonMap>(i);
@@ -1429,7 +1436,7 @@ void JsonDb::setSchema(const QString &schemaName, QsonMap schema)
         if (extendedSchemaName == JsonDbString::kViewTypeStr) {
             mViewTypes.insert(schemaName);
             //TODO fix call to findPartition
-            JsonDbBtreeStorage *storage = findPartition(kDefaultPartitionName);
+            JsonDbBtreeStorage *storage = findPartition(JsonDbString::kSystemPartitionName);
             storage->addView(schemaName);
             if (gVerbose) qDebug() << "viewTypes" << mViewTypes;
         }
@@ -1726,7 +1733,7 @@ void JsonDb::updateEagerViewTypes(const QString &objectType)
 JsonDbBtreeStorage *JsonDb::findPartition(const QString &name) const
 {
     if (name.isEmpty())
-        return mStorages.value(kDefaultPartitionName, 0);
+        return mStorages.value(JsonDbString::kSystemPartitionName, 0);
     return mStorages.value(name, 0);
 }
 
@@ -1752,22 +1759,13 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
         return makeResponse(resultmap, errormap);
     }
 
-    QString filename = mFilePath + name;
-
-    quint32 infostate = mBdbInfo->tag();
-    mBdbInfo->begin();
-
-    QByteArray value;
-    mBdbInfo->get(QByteArray("partitions"), value);
-    QsonList partitions = QsonParser::fromRawData(value).toList();
+    QString filename = mFilePath + name + QLatin1String(".db");
 
     QsonMap partition;
+    partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionStr);
     partition.insert(QLatin1String("name"), name);
     partition.insert(QLatin1String("file"), filename);
-    partitions.append(partition);
-    mBdbInfo->put(QByteArray("partitions"), partitions.data());
-
-    mBdbInfo->commit(infostate + 1);
+    mStorages[JsonDbString::kSystemPartitionName]->createPersistentObject(partition);
 
     JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(filename, name, this);
     if (gVerbose) qDebug() << "Opening partition" << name;
