@@ -222,9 +222,7 @@ struct btree_txn {
         unsigned int             tag;           /* a tag on which the transaction was initiated */
 };
 
-class btree {
-public:
-        btree();
+struct btree {
         int                      fd;
         char                    *path;
 #define BT_FIXPADDING            0x01           /* internal */
@@ -239,21 +237,6 @@ public:
         struct btree_stat        stat;
         off_t                    size;          /* current file size */
 };
-
-btree::btree()
- : fd(0)
- , path(0)
- , flags(0)
- , cmp(0)
- , lru_queue(0)
- , txn(0)
- , ref(0)
- , size(0)
-{
-        memset(&head, 0, sizeof(head));
-        memset(&meta, 0, sizeof(meta));
-        memset(&stat, 0, sizeof(stat));
-}
 
 #define NODESIZE         offsetof(struct node, data)
 
@@ -1468,11 +1451,17 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
         fl = fcntl(fd, F_GETFL, 0);
         int rc;
         if ((rc = fcntl(fd, F_SETFL, fl | O_APPEND)) == -1) {
-                fprintf(stderr, "fcntl fd=%d rc=%d errno=%d\n", fd, rc, errno);
+                EPRINTF( "fcntl fd=%d rc=%d errno=%d\n", fd, rc, errno);
                 return NULL;
         }
 
-    bt = new btree; // FIXME add out of memory check
+        bt = (struct btree *)calloc(1, sizeof(btree));
+
+        if (!bt) {
+            EPRINTF("failed to allocate memory for btree");
+            goto fail;
+        }
+
         bt->path = strdup(path);
         bt->fd = fd;
         bt->flags = flags;
@@ -1481,6 +1470,8 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
         bt->meta.pgno = P_INVALID;
         bt->meta.root = P_INVALID;
         bt->meta.prev_meta = P_INVALID;
+        bt->path = (char*)malloc(strlen(path) + 1);
+        strcpy(bt->path, path);
 
         if ((bt->page_cache = (struct page_cache *)calloc(1, sizeof(*bt->page_cache))) == NULL)
               goto fail;
@@ -1488,14 +1479,14 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
         RB_INIT(bt->page_cache);
 
         if ((bt->lru_queue = (lru_queue *)calloc(1, sizeof(*bt->lru_queue))) == NULL) {
-                fprintf(stderr, "failed to allocate lru_queue\n");
+                EPRINTF("failed to allocate lru_queue");
                 goto fail;
         }
         TAILQ_INIT(bt->lru_queue);
 
         if (btree_read_header(bt) != 0) {
                 if (errno != ENOENT) {
-                        fprintf(stderr, "failed to read header\n");
+                        EPRINTF("failed to read header");
                         goto fail;
                 }
                 DPRINTF("new database");
@@ -1503,7 +1494,7 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
         }
 
         if (btree_read_meta(bt, NULL) != 0) {
-                fprintf(stderr, "failed to read meta\n");
+                EPRINTF("failed to read meta");
                 goto fail;
         }
 
@@ -1522,11 +1513,13 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
         return bt;
 
 fail:
-        fprintf(stderr, "%s: fail errno=%d\n", bt->path, errno);
-        free(bt->lru_queue);
-        free(bt->page_cache);
-        free(bt->path);
-        delete bt;
+        EPRINTF("%s: fail errno=%d\n", path, errno);
+        if (bt) {
+            free(bt->lru_queue);
+            free(bt->page_cache);
+            free(bt->path);
+        }
+        free(bt);
         return NULL;
 }
 
@@ -1581,7 +1574,7 @@ btree_close(struct btree *bt)
                 free(bt->page_cache);
                 free(bt->lru_queue);
                 free(bt->path);
-                delete bt;
+                free(bt);
         } else
                 DPRINTF("ref is now %d on btree %p", bt->ref, bt);
 }
@@ -3655,6 +3648,7 @@ int
 btree_compact(struct btree *bt)
 {
         char                    *compact_path = NULL;
+        const char               compact_ext[] = ".compact.XXXXXX";
         struct btree            *btc;
         struct btree_txn        *txn, *txnc = NULL;
         int                      fd;
@@ -3672,9 +3666,13 @@ btree_compact(struct btree *bt)
         if ((txn = btree_txn_begin(bt, 0)) == NULL)
                 return BT_FAIL;
 
-        asprintf(&compact_path, "%s.compact.XXXXXX", bt->path);
+        compact_path = (char*)malloc(strlen(bt->path) + strlen(compact_ext) + 1);
+        strcpy(compact_path, bt->path);
+        strcat(compact_path, compact_ext);
+
         fd = mkstemp(compact_path);
         if (fd == -1) {
+                EPRINTF("failed to get fd for compact file");
                 free(compact_path);
                 btree_txn_abort(txn);
                 return BT_FAIL;
