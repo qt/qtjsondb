@@ -6,7 +6,7 @@ INSTALLS += target
 
 QT = core network declarative jsondb
 
-LIBS += -ledit -lcurses
+LIBS += -ledit
 
 include(../../src/3rdparty/qjson/qjson.pri)
 
