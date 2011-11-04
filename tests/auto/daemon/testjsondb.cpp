@@ -247,6 +247,7 @@ private slots:
     void indexQueryOnCommonValues();
 
     void removeIndexes();
+    void setOwner();
 
 public:
     void createContacts();
@@ -3965,6 +3966,39 @@ void TestJsonDb::removeIndexes()
     result = mJsonDb->remove(mOwner, indexObject2);
     verifyGoodResult(result);
     QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") == 0);
+}
+
+void TestJsonDb::setOwner()
+{
+    gEnforceAccessControlPolicies = true;
+    mOwner->setAllowAll(true);
+    QLatin1String fooOwnerStr("com.foo.owner");
+
+    QsonMap item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("SetOwnerType"));
+    item.insert(JsonDbString::kOwnerStr, fooOwnerStr);
+    QsonMap result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    result = mJsonDb->getObject(JsonDbString::kTypeStr, "SetOwnerType");
+    QCOMPARE(result.subList("result").objectAt(0).valueString(JsonDbString::kOwnerStr),
+             fooOwnerStr);
+
+    JsonDbOwner *unauthOwner = new JsonDbOwner(this);
+    unauthOwner->setOwnerId("com.noklab.nrcc.OtherOwner");
+    unauthOwner->setAllowAll(false);
+    unauthOwner->setAllowedObjects("write", (QStringList() << QLatin1String("[*]")));
+    unauthOwner->setAllowedObjects("read", (QStringList() << QLatin1String("[*]")));
+
+    item = QsonMap();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));
+    item.insert(JsonDbString::kOwnerStr, fooOwnerStr);
+    result = mJsonDb->create(unauthOwner, item);
+    verifyGoodResult(result);
+
+    result = mJsonDb->getObject(JsonDbString::kTypeStr, "SetOwnerType2");
+    QVERIFY(result.subList("result").objectAt(0).valueString(JsonDbString::kOwnerStr)
+            != fooOwnerStr);
 }
 
 QTEST_MAIN(TestJsonDb)

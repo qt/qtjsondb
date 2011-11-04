@@ -80,7 +80,7 @@ void JsonDbOwner::setCapabilities(QsonMap &applicationCapabilities, JsonDb *json
     //qDebug() << "JsonDbOwner::setCapabilities" << "translations" << translations;
 
     QMap<QString, QSet<QString> > allowedObjects;
-    const QStringList ops = (QStringList() << "read" << "write");
+    const QStringList ops = (QStringList() << "read" << "write" << "setOwner");
 
     for (int i = 0; i < translations.size(); ++i) {
         QsonMap translation = translations.at<QsonMap>(i);

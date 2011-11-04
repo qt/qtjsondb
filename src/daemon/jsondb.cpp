@@ -1325,7 +1325,9 @@ void JsonDb::updateSchemaIndexes(const QString &schemaName, QsonMap object, cons
 bool JsonDb::populateIdBySchema(const JsonDbOwner *owner, QsonMap &object)
 {
     // minimize inserts
-    if (object.valueString(JsonDbString::kOwnerStr) != owner->ownerId())
+    if (!object.contains(JsonDbString::kOwnerStr)
+        || ((object.valueString(JsonDbString::kOwnerStr) != owner->ownerId())
+            && !owner->isAllowed(object, "setOwner")))
         object.insert(JsonDbString::kOwnerStr, owner->ownerId());
 
     QString objectType = object.valueString(JsonDbString::kTypeStr);
