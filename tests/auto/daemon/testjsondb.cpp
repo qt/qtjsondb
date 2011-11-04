@@ -1847,7 +1847,6 @@ void TestJsonDb::mapUpdate()
 
 void TestJsonDb::mapJoin()
 {
-    //gVerbose = true;
     QsonList objects(readJsonFile("map-join.json").toList());
 
     QsonMap join;
@@ -2170,7 +2169,7 @@ void TestJsonDb::reduce()
 
     data = result.subObject("result").subList("data");
     for (int ii = 0; ii < data.size(); ii++) {
-        QCOMPARE(data.objectAt(ii).subObject("value").value<int>("count"), firstNameCount[data.objectAt(ii).valueString("key")]);
+        QCOMPARE(data.objectAt(ii).value<int>("count"), firstNameCount[data.objectAt(ii).valueString("firstName")]);
     }
     for (int ii = 0; ii < reduces.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, reduces.objectAt(ii)));
@@ -2304,12 +2303,15 @@ void TestJsonDb::reduceDuplicate()
     QsonMap reduce;
     for (int ii = 0; ii < objects.size(); ii++) {
         QsonMap object = objects.objectAt(ii);
+        if (object.valueString(JsonDbString::kTypeStr) == "Reduce")
+            object.insert("targetKeyName", QString("key"));
         QsonMap result = mJsonDb->create(mOwner, object);
         verifyGoodResult(result);
-        if (object.valueString(JsonDbString::kTypeStr) == "Reduce")
+        if (object.valueString(JsonDbString::kTypeStr) == "Reduce") {
             reduce = object;
-        else
+        } else {
             toDelete.append(object);
+        }
     }
 
     QsonMap query;
@@ -2321,7 +2323,7 @@ void TestJsonDb::reduceDuplicate()
     QsonList data = result.subObject("result").subList("data");
     for (int ii = 0; ii < data.size(); ii++) {
         QsonMap object = data.objectAt(ii);
-        QCOMPARE(object.subObject("value").value<int>("count"), firstNameCount[object.valueString("key")]);
+        QCOMPARE(object.value<int>("count"), firstNameCount[object.valueString("key")]);
     }
 
     QsonMap reduce2;
@@ -2329,6 +2331,8 @@ void TestJsonDb::reduceDuplicate()
     reduce2.insert("targetType", reduce.valueString("targetType"));
     reduce2.insert("sourceType", reduce.valueString("sourceType"));
     reduce2.insert("sourceKeyName", QString("lastName"));
+    reduce2.insert("targetKeyName", QString("key"));
+    reduce2.insert("targetValueName", QString("count"));
     reduce2.insert("add", reduce.valueString("add"));
     reduce2.insert("subtract", reduce.valueString("subtract"));
     result = mJsonDb->create(mOwner, reduce2);
@@ -2342,8 +2346,8 @@ void TestJsonDb::reduceDuplicate()
     data = result.subObject("result").subList("data");
     for (int ii = 0; ii < data.size(); ii++) {
         QsonMap object = data.objectAt(ii);
-        QVERIFY(object.subObject("value").value<int>("count") == firstNameCount[object.valueString("key")]
-                || object.subObject("value").value<int>("count") == lastNameCount[object.valueString("key")]);
+        QVERIFY(object.value<int>("count") == firstNameCount[object.valueString("key")]
+                || object.value<int>("count") == lastNameCount[object.valueString("key")]);
     }
 
     verifyGoodResult(mJsonDb->remove(mOwner, reduce));

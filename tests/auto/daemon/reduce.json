@@ -17,7 +17,9 @@
     "targetType": "MyContactCount",
     "sourceType": "MyContact",
     "sourceKeyName": "firstName",
-    "add": "function add (k, z, c) { if (!z) {z = {count: 0}}; z.count += 1; return z;}",
-    "subtract": "function subtract (k, z, c) { if (!z) {z = {count: 0}}; z.count -= 1; if (z.count) return z;}"
+    "targetKeyName": "firstName",
+    "targetValueName": "count",
+    "add": "function add (k, z, c) { if (!z) {z = 0}; z += 1; if (z) return z;}",
+    "subtract": "function subtract (k, z, c) { if (!z) {z = 0}; z -= 1; if (z) return z;}"
   }
 ]

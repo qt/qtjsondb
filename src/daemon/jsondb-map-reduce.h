@@ -106,6 +106,8 @@ public:
     QString sourceType() const { return mSourceType; }
     QString partition() const { return mPartition; }
     QString sourceKeyName() const { return mSourceKeyName; }
+    QString targetKeyName() const { return mTargetKeyName; }
+    QString targetValueName() const { return mTargetValueName; }
     bool isActive() const;
     QsonObject definition() const { return mDefinition; }
     const QJSValue &addFunction() const { return mAddFunction; }
@@ -128,7 +130,8 @@ private:
     QString        mUuid;
     QString        mTargetType;
     QString        mSourceType;
-    QString        mKeyName;
+    QString        mTargetKeyName;
+    QString        mTargetValueName;
     QString        mSourceKeyName;
 };
 

@@ -168,7 +168,7 @@ void JsonDb::createReduceDefinition(QsonMap reduceDefinition, bool firstTime, co
 
     storage->addIndex("_sourceUuids.*", "string", targetType);
     storage->addIndex(def->sourceKeyName(), "string", sourceType);
-    storage->addIndex("key", "string", targetType);
+    storage->addIndex(def->targetKeyName(), "string", targetType);
     storage->addIndex("_reduceUuid", "string", targetType);
 
     if (firstTime && def->isActive()) {
@@ -637,6 +637,8 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, JsonDbOwner *owne
     , mUuid(mDefinition.valueString(JsonDbString::kUuidStr))
     , mTargetType(mDefinition.valueString("targetType"))
     , mSourceType(mDefinition.valueString("sourceType"))
+    , mTargetKeyName(mDefinition.contains("targetKeyName") ? mDefinition.valueString("targetKeyName") : QString("key"))
+    , mTargetValueName(mDefinition.contains("targetValueName") ? mDefinition.valueString("targetValueName") : QString("value"))
     , mSourceKeyName(mDefinition.contains("sourceKeyName") ? mDefinition.valueString("sourceKeyName") : QString("key"))
 {
     Q_ASSERT(!mDefinition.valueString("add").isEmpty());
@@ -684,7 +686,7 @@ void JsonDbReduceDefinition::updateObject(QsonMap before, QsonMap after)
     if (keyValue.isEmpty())
         return;
 
-    QsonMap getObjectResponse = mJsonDb->getObjects("key", keyValue, mTargetType);
+    QsonMap getObjectResponse = mJsonDb->getObjects(mTargetKeyName, keyValue, mTargetType);
     QsonMap previousResult;
     QsonObject previousValue;
 
@@ -694,13 +696,13 @@ void JsonDbReduceDefinition::updateObject(QsonMap before, QsonMap after)
         if (previous.valueString("_reduceUuid") == mUuid) {
             previousResult = previous;
 
-            if (!previousResult.subObject("value").isEmpty())
-                previousValue = previousResult.subObject("value");
+            if (!previousResult.subObject(mTargetValueName).isEmpty())
+                previousValue = previousResult.subObject(mTargetValueName);
             break;
         }
     }
 
-    QsonObject value = previousValue;
+    QsonMap value(previousResult);
     if (!before.isEmpty())
         value = subtractObject(keyValue, value, before);
     if (!after.isEmpty())
@@ -711,15 +713,20 @@ void JsonDbReduceDefinition::updateObject(QsonMap before, QsonMap after)
         if (value.isEmpty()) {
             res = mJsonDb->removeViewObject(mOwner, previousResult);
         } else {
-            previousResult.insert("value", value);
-            res = mJsonDb->updateViewObject(mOwner, previousResult);
+            value.insert(JsonDbString::kTypeStr, mTargetType);
+            value.insert(JsonDbString::kUuidStr,
+                         previousResult.valueString(JsonDbString::kUuidStr));
+            value.insert(JsonDbString::kVersionStr,
+                         previousResult.valueString(JsonDbString::kVersionStr));
+            value.insert(mTargetKeyName, keyValue);
+            value.insert("_reduceUuid", mUuid);
+            res = mJsonDb->updateViewObject(mOwner, value);
         }
     } else {
-        previousResult.insert(JsonDbString::kTypeStr, mTargetType);
-        previousResult.insert("key", keyValue);
-        previousResult.insert("value", value);
-        previousResult.insert("_reduceUuid", mUuid);
-        res = mJsonDb->createViewObject(mOwner, previousResult);
+        value.insert(JsonDbString::kTypeStr, mTargetType);
+        value.insert(mTargetKeyName, keyValue);
+        value.insert("_reduceUuid", mUuid);
+        res = mJsonDb->createViewObject(mOwner, value);
     }
 
     if (JsonDb::responseIsError(res))
@@ -731,15 +738,16 @@ QsonObject JsonDbReduceDefinition::addObject(const QString &keyValue, const Qson
 {
     QJSValue globalObject = mScriptEngine->globalObject();
     QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue);
-    QJSValue svPreviousValue = mScriptEngine->toScriptValue(qsonToVariant(previousValue));
+    QJSValue svPreviousValue = mScriptEngine->toScriptValue(qsonToVariant(previousValue).toMap().value(mTargetValueName));
     QJSValue svObject = qsonToJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << svObject;
     QJSValue reduced = mAddFunction.call(globalObject, reduceArgs);
 
-    if (reduced.isObject() && !reduced.isError()) {
-        QVariantMap vReduced = mScriptEngine->fromScriptValue<QVariantMap>(reduced);
+    if (!reduced.isUndefined() && !reduced.isError()) {
+        QVariantMap vReduced;
+        vReduced.insert(mTargetValueName, reduced.toVariant());
         return variantToQson(vReduced);
     } else {
 
@@ -757,15 +765,16 @@ QsonObject JsonDbReduceDefinition::subtractObject(const QString &keyValue, const
     QJSValue globalObject = mScriptEngine->globalObject();
 
     QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue);
-    QJSValue svPreviousValue = mScriptEngine->toScriptValue(qsonToVariant(previousValue));
+    QJSValue svPreviousValue = mScriptEngine->toScriptValue(qsonToVariant(previousValue).toMap().value(mTargetValueName));
     QJSValue sv = qsonToJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << sv;
     QJSValue reduced = mSubtractFunction.call(globalObject, reduceArgs);
 
-    if (reduced.isObject() && !reduced.isError()) {
-        QVariantMap vReduced = mScriptEngine->fromScriptValue<QVariantMap>(reduced);
+    if (!reduced.isUndefined() && !reduced.isError()) {
+        QVariantMap vReduced;
+        vReduced.insert(mTargetValueName, reduced.toVariant());
         return variantToQson(vReduced);
     } else {
         if (reduced.isError())
