@@ -49,43 +49,9 @@
 
 #include "qbtreedata.h"
 
-class btree;
-struct btree_txn;
+class QBtreeTxn;
+struct btree;
 struct btree_stat;
-class QBtree;
-class QBtreeCursor;
-
-class QBtreeTxn
-{
-public:
-    bool get(const QByteArray &baKey, QByteArray *baValue) const;
-    bool get(const char *key, int keySize, QBtreeData *value) const;
-    bool get(const QBtreeData &key, QBtreeData *value) const;
-    bool put(const QByteArray &baKey, const QByteArray &baValue);
-    bool put(const char *key, int keySize, const char *value, int valueSize);
-    bool put(const QBtreeData &baKey, const QBtreeData &baValue);
-    bool remove(const QByteArray &baKey);
-    bool remove(const QBtreeData &baKey);
-    bool remove(const char *key, int keySize);
-
-    bool commit(quint32 tag);
-    bool abort();
-
-    quint32 tag() const;
-
-    inline QBtree *db() const { return mDb; }
-
-private:
-    QBtree *mDb;
-    btree_txn *mTxn;
-
-    QBtreeTxn(QBtree *db, btree_txn *txn);
-    ~QBtreeTxn();
-    QBtreeTxn(const QBtreeTxn &); // forbid copy constructor
-
-    friend class QBtree;
-    friend class QBtreeCursor;
-};
 
 class QBtree
 {
@@ -139,6 +105,11 @@ public:
 
 private:
     bool reopen();
+
+    friend class QBtreeTxn;
+    inline void addTxn(QBtreeTxn *txn) { mTxns.append(txn); }
+    inline void removeTxn(QBtreeTxn *txn) { mTxns.removeOne(txn); }
+
     QString mFilename;
     btree *mBtree;
     CmpFunc mCmp;
@@ -151,45 +122,8 @@ private:
     int mAutoSyncRate;
 
     Q_DISABLE_COPY(QBtree)
-
-    friend class QBtreeCursor;
-    friend class QBtreeTxn;
 };
 
-class QBtreeCursor
-{
-public:
-    QBtreeCursor();
-    explicit QBtreeCursor(QBtreeTxn *txn);
-    ~QBtreeCursor();
-
-    QBtreeCursor(const QBtreeCursor &);
-    QBtreeCursor &operator=(const QBtreeCursor &other);
-
-    bool current(QByteArray *baKey, QByteArray *baValue) const;
-    bool current(QBtreeData *baKey, QBtreeData *baValue) const;
-
-    bool first();
-    bool last();
-
-    bool next();
-    bool prev();
-
-    bool seek(const QByteArray &baKey);
-    bool seek(const QBtreeData &key);
-    bool seekRange(const QByteArray &baKey);
-    bool seekRange(const QBtreeData &key);
-
-private:
-    QBtreeTxn *mTxn;
-    struct cursor *mBtreeCursor;
-    QBtreeData mKey;
-    QBtreeData mValue;
-
-    bool seek(const char *key, int size, bool exact);
-
-    friend class QBtreeTxn;
-};
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QBtree::DbFlags)
 

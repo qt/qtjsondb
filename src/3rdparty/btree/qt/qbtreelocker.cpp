@@ -39,17 +39,19 @@
 **
 ****************************************************************************/
 
-#include "qbtreelocker.h"
-#include "qbtree.h"
-
 #include <QDebug>
+#include "qbtree.h"
+#include "qbtreetxn.h"
+
+#include "qbtreelocker.h"
+
 
 QBtreeReadLocker::QBtreeReadLocker(QBtree *db)
-    : txn(db ? db->begin(QBtree::TxnReadOnly) : 0)
+    : mTxn(db ? db->begin(QBtree::TxnReadOnly) : 0)
 {
     if (!db)
         qWarning("QBtreeReadLocker: constructed without QBtree object!");
-    if (db && !txn) {
+    if (db && !mTxn) {
         qWarning() << "QBtreeReadLocker: hm, failed to start read transaction on" << db->fileName();
         Q_ASSERT(false);
     }
@@ -62,29 +64,29 @@ QBtreeReadLocker::~QBtreeReadLocker()
 
 void QBtreeReadLocker::abort()
 {
-    if (txn)
-        txn->abort();
-    txn = 0;
+    if (mTxn)
+        mTxn->abort();
+    mTxn = 0;
 }
 
 quint32 QBtreeReadLocker::tag() const
 {
-    return txn ? txn->tag() : quint32(0);
+    return mTxn ? mTxn->tag() : quint32(0);
 }
 
 bool QBtreeReadLocker::get(const QByteArray &baKey, QByteArray *baValue) const
 {
-    return txn ? txn->get(baKey, baValue) : false;
+    return mTxn ? mTxn->get(baKey, baValue) : false;
 }
 
 bool QBtreeReadLocker::get(const char *key, int keySize, QBtreeData *value) const
 {
-    return txn ? txn->get(key, keySize, value) : false;
+    return mTxn ? mTxn->get(key, keySize, value) : false;
 }
 
 bool QBtreeReadLocker::get(const QBtreeData &key, QBtreeData *value) const
 {
-    return txn ? txn->get(key, value) : false;
+    return mTxn ? mTxn->get(key, value) : false;
 }
 
 class QBtreeWriteLockerPrivate

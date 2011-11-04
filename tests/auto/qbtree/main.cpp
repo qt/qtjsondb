@@ -49,6 +49,8 @@
 
 #include "qbtree.h"
 #include "qbtreelocker.h"
+#include "qbtreetxn.h"
+#include "qbtreecursor.h"
 
 class TestQBtree: public QObject
 {

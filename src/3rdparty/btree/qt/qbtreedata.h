@@ -46,9 +46,6 @@
 
 struct btval;
 
-class QBtreeTxn;
-class QBtreeCursor;
-
 class QBtreeData
 {
 public:

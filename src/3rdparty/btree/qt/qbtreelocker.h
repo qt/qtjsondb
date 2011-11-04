@@ -43,7 +43,6 @@
 #define QBTREELOCKER_H
 
 #include <QByteArray>
-
 #include "qbtreedata.h"
 
 class QBtree;
@@ -55,7 +54,7 @@ public:
     explicit QBtreeReadLocker(QBtree *db);
     ~QBtreeReadLocker();
 
-    inline bool isValid() const { return txn != 0; }
+    inline bool isValid() const { return mTxn != 0; }
 
     bool get(const QByteArray &baKey, QByteArray *baValue) const;
     bool get(const char *key, int keySize, QBtreeData *value) const;
@@ -66,7 +65,7 @@ public:
     void abort();
 
 private:
-    QBtreeTxn *txn;
+    QBtreeTxn *mTxn;
 
     // forbid copy constructor
     QBtreeReadLocker(const QBtreeReadLocker &);
