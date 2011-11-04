@@ -598,6 +598,7 @@ void TestJsonDbBdb::readAndWrite()
     ok = rdb1.get("foo2", value);
     QVERIFY(!ok);
     rdb1.abort();
+    QFile::remove(dbname);
 }
 
 
@@ -679,6 +680,7 @@ void TestJsonDbBdb::variableSizeKeysAndData()
     delete cursor;
 
     wdb.close();
+    QFile::remove(dbname);
 }
 
 void TestJsonDbBdb::transactionTag()
@@ -720,6 +722,7 @@ void TestJsonDbBdb::transactionTag()
     rdb.beginRead();
     QCOMPARE(rdb.tag(), quint32(2));
     rdb.abort();
+    QFile::remove(dbname);
 }
 
 int findLongestSequenceOf(const char *a, size_t size, char x)
