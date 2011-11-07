@@ -70,7 +70,8 @@
 #define BT_MINKEYS       4
 #define BT_MAGIC         0xB3DBB3DB
 #define BT_VERSION       4
-#define MAXKEYSIZE       255
+#define BT_COMMIT_PAGES  64     /* max number of pages to write in one commit */
+#define BT_MAXCACHE_DEF  1024   /* max number of pages to keep in cache  */
 
 #define P_INVALID        0xFFFFFFFF
 
@@ -114,6 +115,38 @@ struct page {                           /* represents an on-disk page */
 #define IS_LEAF(mp)      F_ISSET((mp)->page->flags, P_LEAF)
 #define IS_BRANCH(mp)    F_ISSET((mp)->page->flags, P_BRANCH)
 #define IS_OVERFLOW(mp)  F_ISSET((mp)->page->flags, P_OVERFLOW)
+
+struct node {
+#define n_pgno           p.np_pgno
+#define n_dsize          p.np_dsize
+        union {
+                pgno_t           np_pgno;       /* child page number */
+                uint32_t         np_dsize;      /* leaf data size */
+        }                p;
+        uint16_t         ksize;                 /* key size */
+#define F_BIGDATA        0x01                   /* data put on overflow page */
+        uint8_t          flags;
+        char             data[1];
+} ATTR_PACKED;
+
+#define NODESIZE         offsetof(struct node, data)
+
+/*  page header (minus the ptrs field)
+    + the size to store an index into the page to the node
+    + the node header (minus data field)
+    + the the min data size required for internal data keeping (ie overflow page)
+    + one index_t and nodesize to make room for at least one other branch node
+    + divide by 2, we need at least two keys for splitting to work */
+#define MAXKEYSIZE       ((PAGESIZE - (PAGEHDRSZ + (sizeof(indx_t) + NODESIZE + sizeof(pgno_t)) * 2)) / 2)
+
+#define INDXSIZE(k)      (NODESIZE + ((k) == NULL ? 0 : (k)->size))
+#define LEAFSIZE(k, d)   (NODESIZE + (k)->size + (d)->size)
+#define NODEPTRP(p, i)   ((struct node *)((char *)(p) + (p)->ptrs[i]))
+#define NODEPTR(mp, i)   NODEPTRP((mp)->page, i)
+#define NODEKEY(node)    (char *)((node)->data)
+#define NODEDATA(node)   (char *)((char *)(node)->data + (node)->ksize)
+#define NODEPGNO(node)   ((node)->p.np_pgno)
+#define NODEDSZ(node)    ((node)->p.np_dsize)
 
 struct bt_head {                                /* header page content */
         uint32_t         magic;
@@ -198,19 +231,6 @@ struct cursor {
 #define METAHASHLEN      offsetof(struct bt_meta, hash)
 #define METADATA(p)      ((bt_meta *)((char *)p + PAGEHDRSZ))
 
-struct node {
-#define n_pgno           p.np_pgno
-#define n_dsize          p.np_dsize
-        union {
-                pgno_t           np_pgno;       /* child page number */
-                uint32_t         np_dsize;      /* leaf data size */
-        }                p;
-        uint16_t         ksize;                 /* key size */
-#define F_BIGDATA        0x01                   /* data put on overflow page */
-        uint8_t          flags;
-        char             data[1];
-} ATTR_PACKED;
-
 struct btree_txn {
         pgno_t                   root;          /* current / new root page */
         pgno_t                   next_pgno;     /* next unallocated page */
@@ -237,22 +257,6 @@ struct btree {
         struct btree_stat        stat;
         off_t                    size;          /* current file size */
 };
-
-#define NODESIZE         offsetof(struct node, data)
-
-#define INDXSIZE(k)      (NODESIZE + ((k) == NULL ? 0 : (k)->size))
-#define LEAFSIZE(k, d)   (NODESIZE + (k)->size + (d)->size)
-#define NODEPTRP(p, i)   ((struct node *)((char *)(p) + (p)->ptrs[i]))
-#define NODEPTR(mp, i)   NODEPTRP((mp)->page, i)
-#define NODEKEY(node)    (char *)((node)->data)
-#define NODEDATA(node)   (char *)((char *)(node)->data + (node)->ksize)
-#define NODEPGNO(node)   ((node)->p.np_pgno)
-#define NODEDSZ(node)    ((node)->p.np_dsize)
-
-#define BT_COMMIT_PAGES  64     /* max number of pages to write in one commit */
-#define BT_MAXCACHE_DEF  1024   /* max number of pages to keep in cache  */
-
-
 
 void                     btree_dump_tree(struct btree *bt, pgno_t pgno, int depth);
 void                     btree_dump_page_from_memory(struct page *p);
@@ -1256,6 +1260,7 @@ btree_write_meta(struct btree *bt, pgno_t root, unsigned int flags, uint32_t tag
 
         mp->page->checksum = calculate_checksum(bt, mp->page);
         DPRINTF("writing page %u with checksum %x, digest %.*s", mp->page->pgno, mp->page->checksum, SHA_DIGEST_LENGTH, meta->hash);
+
         rc = write(bt->fd, mp->page, bt->head.psize);
         mp->dirty = 0;
         SIMPLEQ_REMOVE_HEAD(bt->txn->dirty_queue, next);
@@ -3322,6 +3327,12 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
         /* First find the separating key between the split pages.
          */
         bzero(&sepkey, sizeof(sepkey));
+
+        /* This could happen if there are less than 3 keys in the tree
+         */
+        if (split_indx >= NUMKEYSP(copy))
+                split_indx = NUMKEYSP(copy) - 1;
+
         if (newindx == split_indx) {
                 sepkey.size = newkey->size;
                 sepkey.data = newkey->data;

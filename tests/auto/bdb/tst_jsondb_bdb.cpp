@@ -78,6 +78,7 @@ private slots:
     void tag();
     void btreeRollback();
     void pageChecksum();
+    void keySizes();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 flags = -1);
@@ -754,7 +755,6 @@ int findLongestSequenceOf(const char *a, size_t size, char x)
 
 int cmpVarLengthKeys(const char *aptr, size_t asize, const char *bptr, size_t bsize, void *)
 {
-
     int acount = findLongestSequenceOf(aptr, asize, 'a');
     int bcount = findLongestSequenceOf(bptr, bsize, 'a');
 
@@ -764,7 +764,6 @@ int cmpVarLengthKeys(const char *aptr, size_t asize, const char *bptr, size_t bs
         return (acount > bcount) ? 1 : ((acount < bcount) ? -1 : 0);
     }
 }
-
 
 bool cmpVarLengthKeysForQVec(const QByteArray &a, const QByteArray &b)
 {
@@ -1037,6 +1036,57 @@ void TestJsonDbBdb::pageChecksum()
     // Can revert to tag 1 here, bdb functions not implemented yet though
 
     bdb->close();
+}
+
+void TestJsonDbBdb::keySizes()
+{
+    const int legalsizes[][2] = {
+        {2027, 'e'},
+        {2027, 'd'},
+        {2027, 'g'},
+        {2027, 'z'},
+        {2027, 'b'},
+        {2027, 'c'},
+    };
+
+    const int illegalsizes[] = {
+        2028,
+        4999,
+        6000,
+    };
+
+    const int legalcount = sizeof(legalsizes) / sizeof(legalsizes[0]);
+    const int illegalcount = sizeof(illegalsizes) / sizeof(illegalsizes[0]);
+
+    QVector<QByteArray> legalkeys;
+    QVector<QByteArray> illegalkeys;
+
+    bdb->clearData();
+    bdb->setCmpFunc(0);
+
+    for (int i = 0; i < legalcount; ++i) {
+        QByteArray key(legalsizes[i][0], (char)legalsizes[i][1]);
+        legalkeys.append(key);
+        QVERIFY(bdb->put(key, key + key));
+    }
+
+    for (int i = 0; i < illegalcount; ++i) {
+        QByteArray key(illegalsizes[i], 'a' + (char)i);
+        illegalkeys.append(key);
+        QVERIFY(!bdb->put(key, key));
+    }
+
+    for (int i = 0; i < legalkeys.size(); ++i) {
+        QByteArray value;
+        QVERIFY(bdb->get(legalkeys[i], value));
+        QCOMPARE(value, legalkeys[i] + legalkeys[i]);
+    }
+
+    for (int i = 0; i < illegalkeys.size(); ++i) {
+        QByteArray value;
+        QVERIFY(!bdb->get(illegalkeys[i], value));
+    }
+
 }
 
 QTEST_MAIN(TestJsonDbBdb)
