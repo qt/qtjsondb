@@ -92,7 +92,8 @@ public:
     btree *handle() const { return mBtree; }
     quint32 tag() const;
 
-    bool clear();
+    bool drop();
+    bool clearData();
     bool compact();
 
     QString errorMessage() const;

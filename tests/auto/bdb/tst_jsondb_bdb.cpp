@@ -155,7 +155,7 @@ void TestJsonDbBdb::last()
     bool ok;
     QByteArray result;
 
-    ok = bdb->clear();
+    ok = bdb->clearData();
     QVERIFY(ok);
 
     // write first entry
@@ -208,7 +208,7 @@ void TestJsonDbBdb::lastMultiPage()
     bool ok;
     QByteArray result;
 
-    ok = bdb->clear();
+    ok = bdb->clearData();
     QVERIFY(ok);
 
     for (int i = 0; i < 1024; i++) {
@@ -248,7 +248,7 @@ void TestJsonDbBdb::firstMultiPage()
     bool ok;
     QByteArray result;
 
-    ok = bdb->clear();
+    ok = bdb->clearData();
     QVERIFY(ok);
 
     for (int i = 1024; i > 0; i--) {
@@ -293,7 +293,7 @@ void TestJsonDbBdb::prev()
     bool ok;
     QByteArray result;
 
-    ok = bdb->clear();
+    ok = bdb->clearData();
     QVERIFY(ok);
 
     // write entries
@@ -349,7 +349,7 @@ void TestJsonDbBdb::prev()
 
 void TestJsonDbBdb::prev2()
 {
-    bool ok = bdb->clear();
+    bool ok = bdb->clearData();
     QVERIFY(ok);
 
     QFile file(dbname);
@@ -401,7 +401,7 @@ int keyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *)
 
 void TestJsonDbBdb::createWithCmp()
 {
-    bdb->clear();
+    bdb->clearData();
     bdb->setCmpFunc(keyCmp);
     QString str1("1");
     QByteArray key1 = QByteArray::fromRawData((const char *)str1.data(), str1.size()*2);
@@ -625,7 +625,7 @@ void TestJsonDbBdb::variableSizeKeysAndData()
         QByteArray("00012"),
         QByteArray("1")};
 
-    ok = wdb.clear();
+    ok = wdb.clearData();
     QVERIFY(ok);
 
     /* initialize random seed: */
@@ -796,7 +796,7 @@ void TestJsonDbBdb::compareSequenceOfVarLengthKeys()
         vec.append(k);
     }
 
-    bool ok = bdb->clear();
+    bool ok = bdb->clearData();
     QVERIFY(ok);
 
     ok = bdb->setCmpFunc(cmpVarLengthKeys);
@@ -833,7 +833,7 @@ void TestJsonDbBdb::compareSequenceOfVarLengthKeys()
 
 void TestJsonDbBdb::syncMarker()
 {
-    bdb->clear();
+    bdb->clearData();
 
     AoDb db;
     bool ok = db.open(dbname, AoDb::NoSync | AoDb::UseSyncMarker);
@@ -868,7 +868,7 @@ void TestJsonDbBdb::syncMarker()
 
 void TestJsonDbBdb::corruptedPage()
 {
-    bdb->clear();
+    bdb->clearData();
 
     QVERIFY(bdb->begin());
     QVERIFY(bdb->put(QByteArray("foo"), QByteArray("123")));
@@ -890,7 +890,7 @@ void TestJsonDbBdb::corruptedPage()
 
 void TestJsonDbBdb::tag()
 {
-    bdb->clear();
+    bdb->clearData();
 
     QVERIFY(bdb->begin());
     QVERIFY(bdb->put(QByteArray("foo"), QByteArray("123")));
@@ -923,7 +923,7 @@ void TestJsonDbBdb::tag()
 
 void TestJsonDbBdb::btreeRollback()
 {
-    bdb->clear();
+    bdb->clearData();
 
     QVERIFY(bdb->begin());
     QVERIFY(bdb->put(QByteArray("foo"), QByteArray("123")));
@@ -980,7 +980,7 @@ void TestJsonDbBdb::pageChecksum()
     const qint64 psize = bdb->stat()->psize;
     QByteArray value;
 
-    bdb->clear();
+    bdb->clearData();
 
     QVERIFY(bdb->begin());
     QVERIFY(bdb->put(QByteArray("foo1"), QByteArray("bar1")));

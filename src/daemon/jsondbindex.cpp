@@ -213,9 +213,9 @@ bool JsonDbIndex::abort()
 {
     return mBdb->abort();
 }
-bool JsonDbIndex::clear()
+bool JsonDbIndex::clearData()
 {
-    return mBdb->clear();
+    return mBdb->clearData();
 }
 
 void JsonDbIndex::checkIndex()

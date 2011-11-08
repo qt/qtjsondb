@@ -230,7 +230,7 @@ QsonObject ObjectTable::addIndex(const QString &fieldname, const QString &fieldT
     } else if (indexSpec.index->stateNumber() != mStateNumber) {
         needsReindexing = true;
         if (gDebugRecovery) qDebug() << "Index" << fieldname << "stateNumber" << indexSpec.index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing" << "clearing";
-        indexSpec.index->clear();
+        indexSpec.index->clearData();
     }
     if (needsReindexing)
         reindexObjects(fieldname, path, stateNumber());

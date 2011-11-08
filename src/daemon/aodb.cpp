@@ -67,14 +67,27 @@ AoDb::~AoDb()
     close();
 }
 
-bool AoDb::clear()
+bool AoDb::clearData()
+{
+    CmpFunc cmp = mCmp;
+    int cache = mCacheSize;
+    if (!drop())
+        return false;
+    setCmpFunc(cmp);
+    setCacheSize(cache);
+    if (!reopen())
+        return false;
+    return true;
+}
+
+bool AoDb::drop()
 {
     close();
     int rc = unlink(mFilename.toLocal8Bit().constData());
     if (rc)
-        qDebug() << "AoDb::clear" << "unlink failed" << errno << mFilename;
-    if (!reopen())
-        return false;
+        qWarning() << "AoDb::drop" << "unlink failed" << errno << mFilename;
+    mCmp = 0;
+    mCacheSize = gCacheSize;
     return (rc == 0);
 }
 
@@ -324,7 +337,6 @@ AoDbCursor *AoDb::cursor()
 
 void AoDb::setCacheSize(unsigned int cacheSize)
 {
-    mCacheSize = cacheSize;
     if (mBtree)
         btree_set_cache_size(mBtree, cacheSize);
     mCacheSize = cacheSize;
@@ -336,8 +348,7 @@ void AoDb::dump()
 
 bool AoDb::reopen()
 {
-    if (mBtree)
-        btree_close(mBtree);
+    close();
     mBtree = btree_open(mFilename.toLocal8Bit().constData(), mBtreeFlags, 0644);
     if (!mBtree) {
         qDebug() << "Aodb::reopen" << "failed" << errno;

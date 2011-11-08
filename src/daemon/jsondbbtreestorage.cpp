@@ -186,7 +186,7 @@ bool JsonDbBtreeStorage::open()
         }
     }
     if (rebuildingDatabaseMetadata) {
-        mBdbIndexes->clear();
+        mBdbIndexes->clearData();
     }
     if (partitionId.isEmpty() || rebuildingDatabaseMetadata) {
         if (partitionId.isEmpty())
@@ -904,7 +904,7 @@ void JsonDbBtreeStorage::checkIndexConsistency(ObjectTable *objectTable, JsonDbI
             quint32 newIndexStateNumber = index->bdb()->tag();
             if (newIndexStateNumber == indexStateNumber) {
                 qDebug() << "failed to revert. clearing" << rc;
-                index->bdb()->clear();
+                index->bdb()->clearData();
                 break;
             }
             qCritical() << "   reverted index to state" << indexStateNumber;

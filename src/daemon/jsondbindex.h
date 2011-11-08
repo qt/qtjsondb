@@ -80,7 +80,7 @@ public:
     bool begin();
     bool commit(quint32);
     bool abort();
-    bool clear();
+    bool clearData();
 
     void checkIndex();
 //    bool checkValidity(const QMap<QString, QsonObject> &objects,
