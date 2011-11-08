@@ -8,6 +8,7 @@ QT = core network declarative jsondb
 
 LIBS += -ledit
 
+include(../../qtjsondb.pri)
 include(../../src/3rdparty/qjson/qjson.pri)
 
 mac:CONFIG -= app_bundle

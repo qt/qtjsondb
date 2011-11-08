@@ -1,5 +1,6 @@
 INCLUDEPATH += $$PWD
 
+include(../../qtjsondb.pri)
 include(../3rdparty/qjson/qjson.pri)
 
 QSONCONVERSION_HEADERS = \

@@ -5,6 +5,8 @@ MODULE = jsondbqson
 load(qt_module)
 load(qt_module_config)
 
+include(../../qtjsondb.pri)
+
 DESTDIR = $$QT.jsondbqson.libs
 VERSION = $$QT.jsondbqson.VERSION
 DEFINES += QT_ADDON_JSONDB_QSON_LIB

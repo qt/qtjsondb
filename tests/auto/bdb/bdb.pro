@@ -1,3 +1,4 @@
+include($$PWD/../../../qtjsondb.pri)
 include($$PWD/../../../src/3rdparty/btree/btree.pri)
 
 TARGET = tst_bdb
