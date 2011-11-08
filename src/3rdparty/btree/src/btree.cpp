@@ -436,8 +436,12 @@ calculate_checksum(struct btree *bt, const struct page *p)
         } else if (F_ISSET(p->flags, P_META)) {
                 return calculate_crc32(begin + offset, begin + PAGEHDRSZ + sizeof(struct bt_meta));
         } else if (F_ISSET(p->flags, P_BRANCH) || F_ISSET(p->flags, P_LEAF)) {
-                uint32_t c1 = calculate_crc32(begin + offset, begin + p->lower);
-                uint32_t c2 = calculate_crc32(begin + p->upper, end);
+                indx_t l = MAX(PAGEHDRSZ, p->lower);
+                indx_t u = MIN(bt->head.psize, p->upper);
+                if (l > u)
+                    l = u;
+                uint32_t c1 = calculate_crc32(begin + offset, begin + l);
+                uint32_t c2 = calculate_crc32(begin + u, end);
                 return c1 ^ c2;
         } else if (F_ISSET(p->flags, P_OVERFLOW)) {
                 return calculate_crc32(begin + offset, end);
