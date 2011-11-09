@@ -337,6 +337,7 @@ void TestJsonDb::reopen()
         QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(counter));
         QCOMPARE(result.subObject("result").subList("data").size(), counter);
     }
+    mJsonDb->removeIndex("reopentest");
 }
 
 void TestJsonDb::createContacts()
@@ -552,6 +553,7 @@ void TestJsonDb::capabilities()
             verifyGoodResult(result);
         }
     }
+    mJsonDb->removeIndex("CapabilitiesTest");
 }
 
 /*
@@ -582,6 +584,7 @@ void TestJsonDb::allowAll()
     verifyGoodResult(result);
 
     gEnforceAccessControlPolicies = acp;
+    mJsonDb->removeIndex("TestObject");
 }
 
 /*
@@ -1702,6 +1705,7 @@ void TestJsonDb::map()
     }
     foreach (QsonMap map, toDelete.values())
         verifyGoodResult(mJsonDb->removeList(mOwner, map));
+    //mJsonDb->removeIndex(QLatin1String("phoneNumber"));
 }
 
 void TestJsonDb::mapDuplicateSourceAndTarget()
@@ -1737,6 +1741,7 @@ void TestJsonDb::mapDuplicateSourceAndTarget()
         verifyGoodResult(mJsonDb->remove(mOwner, maps.objectAt(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.objectAt(ii)));
+    mJsonDb->removeIndex("ContactView");
 }
 
 void TestJsonDb::mapRemoval()
@@ -1951,6 +1956,8 @@ void TestJsonDb::mapJoin()
             continue;
         mJsonDb->remove(mOwner, object);
     }
+    mJsonDb->removeIndex("value.friend", "string", "FoafPerson");
+    mJsonDb->removeIndex("value.foaf", "string", "FoafPerson");
 }
 
 void TestJsonDb::mapSelfJoinSourceUuids()
@@ -1989,6 +1996,7 @@ void TestJsonDb::mapSelfJoinSourceUuids()
     QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).subList("sourceUuids").count(), 2);
     for (int i = toDelete.count() - 1; i >= 0; i--)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at<QsonMap>(i)));
+    mJsonDb->removeIndex("magic", "string");
 }
 
 void TestJsonDb::mapMapFunctionError()
@@ -2179,6 +2187,7 @@ void TestJsonDb::reduce()
         verifyGoodResult(mJsonDb->remove(mOwner, reduces.objectAt(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.objectAt(ii)));
+    mJsonDb->removeIndex("MyContactCount");
 }
 
 void TestJsonDb::reduceRemoval()
@@ -2221,6 +2230,7 @@ void TestJsonDb::reduceRemoval()
 
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.objectAt(ii)));
+    mJsonDb->removeIndex("MyContactCount");
 }
 
 void TestJsonDb::reduceUpdate()
@@ -2282,6 +2292,7 @@ void TestJsonDb::reduceUpdate()
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.objectAt(ii)));
     verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    mJsonDb->removeIndex("MyContactCount");
 }
 
 void TestJsonDb::reduceDuplicate()
@@ -2350,6 +2361,7 @@ void TestJsonDb::reduceDuplicate()
     verifyGoodResult(mJsonDb->remove(mOwner, reduce2));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.objectAt(ii)));
+    mJsonDb->removeIndex("MyContactCount");
 }
 
 void TestJsonDb::reduceFunctionError()
@@ -2500,6 +2512,7 @@ void TestJsonDb::reduceSubObjectProp()
         QsonMap object = toDelete.at<QsonMap>(i);
         verifyGoodResult(mJsonDb->remove(mOwner, object));
     }
+    mJsonDb->removeIndex("NameCount");
 }
 
 void TestJsonDb::reduceArray()
@@ -2548,6 +2561,7 @@ void TestJsonDb::reduceArray()
 
     for (int i = toDelete.count() - 1; i >= 0; i--)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at<QsonMap>(i)));
+    mJsonDb->removeIndex("ArrayView");
 }
 
 void TestJsonDb::changesSinceCreate()
@@ -2593,6 +2607,7 @@ void TestJsonDb::addIndex()
     result = mJsonDb->create(mOwner, indexObject);
     verifyGoodResult(result);
     QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
+    mJsonDb->remove(mOwner, indexObject);
 }
 
 void TestJsonDb::addSchema()
@@ -2627,6 +2642,8 @@ void TestJsonDb::unindexedFind()
     QsonMap map = result.subObject(JsonDbString::kResultStr);
     QVERIFY(map.contains("length"));
     QVERIFY((map.value<int>("length") >= 1) && !extraneous);
+    mJsonDb->removeIndex("bar");
+    mJsonDb->remove(mOwner, item);
 }
 
 
@@ -2849,6 +2866,10 @@ void TestJsonDb::findInContains()
 
         verifyGoodResult(result);
     }
+    mJsonDb->removeIndex("stringlist");
+    mJsonDb->removeIndex("intlist");
+    mJsonDb->removeIndex("str");
+    mJsonDb->removeIndex("i");
 }
 
 void TestJsonDb::findFields()
@@ -2887,6 +2908,9 @@ void TestJsonDb::findFields()
     QCOMPARE(result.subList("data").size(), 1);
     QCOMPARE(data.stringAt(0), QString("Wilma"));
     QCOMPARE(data.stringAt(1), QString("Flintstone"));
+    mJsonDb->removeIndex(QLatin1String("firstName"));
+    //mJsonDb->removeIndex(QLatin1String("name"));
+    //mJsonDb->removeIndex(QLatin1String("_type")); //crash here
 }
 
 void TestJsonDb::orderedFind1_data()
@@ -2940,6 +2964,9 @@ void TestJsonDb::orderedFind1()
         QVERIFY(names != orderedNames);
         QVERIFY(names == disorderedNames);
     }
+    mJsonDb->removeIndex(QLatin1String("orderedFind1"));
+    mJsonDb->removeIndex(QLatin1String("orderedFindName"));
+    mJsonDb->removeIndex(QLatin1String("_type"));
 }
 
 void TestJsonDb::orderedFind2_data()
@@ -3021,6 +3048,7 @@ void TestJsonDb::wildcardIndex()
     query.insert(JsonDbString::kQueryStr, QString("[?%1=\"%2\"][= .telephoneNumbers[*].number]").arg(JsonDbString::kTypeStr).arg(kContactStr));
     result = mJsonDb->find(mOwner, query);
     verifyGoodResult(result);
+    mJsonDb->removeIndex("telephoneNumbers.*.number");
 }
 
 void TestJsonDb::uuidJoin()
@@ -3126,7 +3154,10 @@ void TestJsonDb::uuidJoin()
     verifyGoodResult(result);
     QCOMPARE(result.subObject("result").subList("data").stringAt(0), thumbnail.valueString("url"));
     //qDebug() << result;
-
+    mJsonDb->removeIndex("name");
+    mJsonDb->removeIndex("thumbnailUuid");
+    mJsonDb->removeIndex("url");
+    mJsonDb->removeIndex("bettyUuid");
 }
 
 
@@ -3286,6 +3317,8 @@ void TestJsonDb::orQuery_data()
             mJsonDb->create(mOwner, item);
         }
     }
+    mJsonDb->removeIndex(QLatin1String("key1"));
+    mJsonDb->removeIndex(QLatin1String("key2"));
 }
 
 void TestJsonDb::orQuery()
@@ -3314,6 +3347,8 @@ void TestJsonDb::orQuery()
     QVERIFY(count > 0);
     //qDebug() << result;
     //qDebug() << "verified objects" << count << endl;
+    mJsonDb->removeIndex("key1");
+    mJsonDb->removeIndex("key2");
 }
 
 void TestJsonDb::findByName()
@@ -3358,6 +3393,8 @@ void TestJsonDb::findEQ()
     QCOMPARE(result.subObject("result").value<int>("length"), 1);
     QVERIFY(result.subObject("result").contains("data"));
     QCOMPARE(result.subObject("result").subList("data").size(), 1);
+    mJsonDb->removeIndex("name.first");
+    mJsonDb->removeIndex("name.last");
 }
 
 void TestJsonDb::find10()
@@ -3383,6 +3420,8 @@ void TestJsonDb::find10()
     QCOMPARE(map.value<int>("length"), 10);
     QVERIFY(map.contains("data"));
     QCOMPARE(map.subList("data").size(), 10);
+    mJsonDb->removeIndex("name.first");
+    mJsonDb->removeIndex("contact");
 }
 
 QsonObject TestJsonDb::readJsonFile(const QString& filename)
@@ -3589,6 +3628,7 @@ void TestJsonDb::comparison()
     QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(1));
     QCOMPARE(result.subObject("result").subList("data").size(), 1);
     QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).valueInt("latitude"), qint64(-64));
+    mJsonDb->removeIndex(QLatin1String("latitude"));
 }
 
 void TestJsonDb::removedObjects()
@@ -3653,6 +3693,7 @@ void TestJsonDb::removedObjects()
     result = mJsonDb->find(mOwner, query);
     QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(0));
     QCOMPARE(result.subObject("result").subList("data").size(), 0);
+    mJsonDb->removeIndex(QLatin1String("foo"));
 }
 
 void TestJsonDb::partition()
@@ -3973,6 +4014,9 @@ void TestJsonDb::setOwner()
     QCOMPARE(result.subList("result").objectAt(0).valueString(JsonDbString::kOwnerStr),
              fooOwnerStr);
 
+    result = mJsonDb->remove(mOwner, item);
+    verifyGoodResult(result);
+
     JsonDbOwner *unauthOwner = new JsonDbOwner(this);
     unauthOwner->setOwnerId("com.noklab.nrcc.OtherOwner");
     unauthOwner->setAllowAll(false);
@@ -3988,6 +4032,8 @@ void TestJsonDb::setOwner()
     result = mJsonDb->getObject(JsonDbString::kTypeStr, "SetOwnerType2");
     QVERIFY(result.subList("result").objectAt(0).valueString(JsonDbString::kOwnerStr)
             != fooOwnerStr);
+    result = mJsonDb->remove(unauthOwner, item);
+    verifyGoodResult(result);
 }
 
 QTEST_MAIN(TestJsonDb)
