@@ -22,7 +22,7 @@
         <description>QML JsonDbListModel tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondb-listmodel;date &amp;&amp; ./tst_jsondb-listmodel -platform minimal&amp;&amp; date</step>
       </case>
-      <case name="tst_qbtree" requirement="RAT" component="qt5jsondb"  timeout="200">
+      <case name="tst_qbtree" requirement="RAT" component="qt5jsondb"  timeout="2000">
         <description>Btree tests</description>sphone
         <step>cd /usr/lib/qt5jsondb-tests/auto/qbtree;date &amp;&amp; ./tst_qbtree&amp;&amp; date</step>
       </case>
