@@ -622,6 +622,9 @@ Item {
 
     }
 
-    Component.onCompleted: { /*nokia.debug("Loading");*/ InspectorDb.inspectorStarted(); }
+    Component.onCompleted: {
+        JsonDb.connect({"host": "localhost", "port": 6847});
+        InspectorDb.inspectorStarted();
+    }
 }
 

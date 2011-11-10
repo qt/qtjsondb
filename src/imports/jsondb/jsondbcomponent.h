@@ -109,6 +109,7 @@ public:
     bool hasDebugOutput() const { return mDebugOutput; }
     void setDebugOutput(bool value) { mDebugOutput = value; }
 
+    Q_INVOKABLE void connect(const QJSValue &object);
     Q_INVOKABLE int create(const QJSValue &object,
                            const QJSValue &successCallback = QJSValue(),
                            const QJSValue &errorCallback = QJSValue());
@@ -134,6 +135,7 @@ public:
  signals:
     void response(QJSValue result, int id);
     void error(const QString& message, int id);
+    void connected();
 
  protected slots:
     void jsonDbResponse(int, const QsonObject &);

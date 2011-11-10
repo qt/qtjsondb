@@ -43,6 +43,7 @@
 #include <QJSEngine>
 
 #include <QtJsonDbQson/private/qson_p.h>
+#include <private/jsondb-connection_p.h>
 
 #include "jsondbcomponent.h"
 #include "private/jsondb-strings_p.h"
@@ -111,19 +112,65 @@ JsonDbComponent::JsonDbComponent(QObject *parent)
     , mDebugOutput(false)
     , mJsonDb(new JsonDbClient(this))
 {
-    connect(mJsonDb, SIGNAL(response(int,QsonObject)),
-            this, SLOT(jsonDbResponse(int,QsonObject)),
-            Qt::QueuedConnection);
-    connect(mJsonDb, SIGNAL(error(int,int,QString)),
-            this, SLOT(jsonDbErrorResponse(int,int,QString)),
-            Qt::QueuedConnection);
-    connect(mJsonDb, SIGNAL(notified(QString,QsonObject,QString)),
-            this, SLOT(jsonDbNotified(QString,QsonObject,QString)),
-            Qt::QueuedConnection);
+    QObject::connect(mJsonDb, SIGNAL(response(int,QsonObject)),
+                     this, SLOT(jsonDbResponse(int,QsonObject)),
+                     Qt::QueuedConnection);
+    QObject::connect(mJsonDb, SIGNAL(error(int,int,QString)),
+                     this, SLOT(jsonDbErrorResponse(int,int,QString)),
+                     Qt::QueuedConnection);
+    QObject::connect(mJsonDb, SIGNAL(notified(QString,QsonObject,QString)),
+                     this, SLOT(jsonDbNotified(QString,QsonObject,QString)),
+                     Qt::QueuedConnection);
 }
 
 JsonDbComponent::~JsonDbComponent()
 {
+}
+
+
+/*!
+  \qmlmethod int JsonDbComponent::connect(const QJSValue &location)
+
+  Connects to the database via \a location.
+
+  If \a location contains "local", then connects to the specified
+  local socket.
+
+  If \a location contains "host" and "port", then connects via TCP to
+  the specified host and port. The jsondb daemon does not listen for
+  TCP connections unless it is provided the -tcpPort command line
+  option when it is started.
+
+  On connection, emits connected().
+*/
+void JsonDbComponent::connect(const QJSValue &connectionSpec)
+{
+    if (mDebugOutput)
+        qDebug() << "[JSONDB] connect:"<<connectionSpec.toString();
+
+    JsonDbConnection *connection = new JsonDbConnection();
+    QObject::connect(connection, SIGNAL(connected()), this, SIGNAL(connected()),
+                     Qt::QueuedConnection);
+    if (connectionSpec.property("local").isString())
+        connection->connectToServer(connectionSpec.property("local").toString());
+    else if (connectionSpec.property("host").isString()
+             && connectionSpec.property("port").isNumber())
+        connection->connectToHost(connectionSpec.property("host").toString(),
+                                  connectionSpec.property("port").toUInt16());
+    if (mJsonDb)
+        delete mJsonDb;
+    mJsonDb = new JsonDbClient(connection, this);
+    connection->setParent(mJsonDb);
+    QObject::connect(mJsonDb, SIGNAL(response(int,QsonObject)),
+                     this, SLOT(jsonDbResponse(int,QsonObject)),
+                     Qt::QueuedConnection);
+    QObject::connect(mJsonDb, SIGNAL(error(int,int,QString)),
+                     this, SLOT(jsonDbErrorResponse(int,int,QString)),
+                     Qt::QueuedConnection);
+    QObject::connect(mJsonDb, SIGNAL(notified(QString,QsonObject,QString)),
+                     this, SLOT(jsonDbNotified(QString,QsonObject,QString)),
+                     Qt::QueuedConnection);
+
 }
 
 /*!
@@ -275,12 +322,12 @@ QJSValue JsonDbComponent::notification(const QJSValue &object,
     notification->mCallback = callback;
     mPendingNotifications.insert(id, notification);
 
-    connect(notification, SIGNAL(removed(int)),
-            this, SLOT(notificationRemoved(int)),
-            Qt::QueuedConnection);
-    connect(notification, SIGNAL(removed(QString)),
-            this, SLOT(notificationRemoved(QString)),
-            Qt::QueuedConnection);
+    QObject::connect(notification, SIGNAL(removed(int)),
+                     this, SLOT(notificationRemoved(int)),
+                     Qt::QueuedConnection);
+    QObject::connect(notification, SIGNAL(removed(QString)),
+                     this, SLOT(notificationRemoved(QString)),
+                     Qt::QueuedConnection);
 
     JsonDbNotificationHandle *handle = new JsonDbNotificationHandle(notification);
     return callback.engine()->newQObject(handle);

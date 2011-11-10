@@ -346,6 +346,7 @@ void JsonDbConnection::connectToServer(const QString &socketName)
 
     QLocalSocket *socket = new QLocalSocket(this);
     connect(socket, SIGNAL(disconnected()), this, SIGNAL(disconnected()));
+    connect(socket, SIGNAL(connected()), this, SIGNAL(connected()));
     socket->connectToServer(name);
     if (socket->waitForConnected())
         init(socket);
@@ -369,6 +370,7 @@ void JsonDbConnection::connectToHost(const QString &hostname, quint16 port)
 
     QTcpSocket *socket = new QTcpSocket(this);
     connect(socket, SIGNAL(disconnected()), this, SIGNAL(disconnected()));
+    connect(socket, SIGNAL(connected()), this, SIGNAL(connected()));
     socket->connectToHost(hostname, port);
     if (socket->waitForConnected())
         init(socket);

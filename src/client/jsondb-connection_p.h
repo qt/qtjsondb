@@ -112,6 +112,7 @@ signals:
     void response(int id, const QVariant &data);
     void response(int id, const QsonObject &data);
     void error(int id, int code, const QString &message);
+    void connected();
     void disconnected();
     void readyWrite();
 
