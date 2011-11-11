@@ -451,6 +451,11 @@ QsonMap JsonDbBtreeStorage::createPersistentObject(QsonMap &object)
 {
     QsonMap resultmap, errormap;
 
+    if (!object.isDocument()) {
+        object.generateUuid();
+        object.computeVersion();
+    }
+
     QString uuid = object.valueString(JsonDbString::kUuidStr);
     QString version = object.valueString(JsonDbString::kVersionStr);
     QString objectType = object.valueString(JsonDbString::kTypeStr);
