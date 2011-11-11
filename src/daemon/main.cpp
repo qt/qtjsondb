@@ -159,21 +159,21 @@ int main(int argc, char * argv[])
         if (!arg.startsWith("-"))
             break;
         args.removeFirst();
-    if (arg == "-help") {
+        if (arg == "-help") {
             usage();
-    } else if (arg == "-tcpPort") {
+        } else if (arg == "-tcpPort") {
             if (!args.size())
                 usage();
             port = args.takeFirst().toInt();
-    } else if (arg == "-limit") {
+        } else if (arg == "-limit") {
             if (!args.size())
                 usage();
             limit = args.takeFirst().toInt() * 1024*1024;
-    } else if (arg == "-pid") {
+        } else if (arg == "-pid") {
             if (!args.size())
                 usage();
             pidFileName = args.takeFirst();
-    } else if (arg == "-load") {
+        } else if (arg == "-load") {
             if (!args.size())
                 usage();
             jsonFiles.append(args.takeFirst());
