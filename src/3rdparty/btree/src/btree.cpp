@@ -138,6 +138,7 @@ struct node {
     + one index_t and nodesize to make room for at least one other branch node
     + divide by 2, we need at least two keys for splitting to work */
 #define MAXKEYSIZE       ((PAGESIZE - (PAGEHDRSZ + (sizeof(indx_t) + NODESIZE + sizeof(pgno_t)) * 2)) / 2)
+#define MAXPFXSIZE       255
 
 #define INDXSIZE(k)      (NODESIZE + ((k) == NULL ? 0 : (k)->size))
 #define LEAFSIZE(k, d)   (NODESIZE + (k)->size + (d)->size)
@@ -175,7 +176,7 @@ struct bt_meta {                                /* meta (footer) page content */
 
 struct btkey {
         size_t                   len;
-        char                     str[MAXKEYSIZE];
+        char                     str[MAXPFXSIZE];
 };
 
 struct mpage {                                  /* an in-memory cached page */
@@ -597,11 +598,13 @@ expand_prefix(struct btree *bt, struct mpage *mp, indx_t indx,
     struct btkey *expkey)
 {
         struct node     *node;
+        size_t           sz;
 
         node = NODEPTR(mp, indx);
+        sz = (node->ksize + mp->prefix.len) > MAXPFXSIZE ? (MAXPFXSIZE - mp->prefix.len) : node->ksize;
         expkey->len = sizeof(expkey->str);
         concat_prefix(bt, mp->prefix.str, mp->prefix.len,
-            NODEKEY(node), node->ksize, expkey->str, &expkey->len);
+            NODEKEY(node), sz, expkey->str, &expkey->len);
 }
 
 static int
@@ -3271,8 +3274,7 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
         unsigned int     i, j, split_indx;
         struct node     *node;
         struct mpage    *pright, *p, *mp;
-        struct btval     sepkey, rkey, rdata;
-        struct btkey     tmpkey;
+        struct btval     sepkey, tmpkey, rkey, rdata;
         struct page     *copy;
 
         assert(bt != NULL);
@@ -3355,11 +3357,13 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
                 DPRINTF("concat prefix [%.*s] to separator [%.*s]",
                         mp->prefix.len, mp->prefix.str,
                         sepkey.size, (char *)sepkey.data);
-                tmpkey.len = sizeof(tmpkey.str);
+                tmpkey.size = mp->prefix.len + sepkey.size;
+                tmpkey.data = malloc(tmpkey.size);
+                tmpkey.free_data = 1;
+                tmpkey.mp = 0;
                 concat_prefix(bt, mp->prefix.str, mp->prefix.len,
-                              (char *)sepkey.data, sepkey.size, tmpkey.str, &tmpkey.len);
-                sepkey.data = tmpkey.str;
-                sepkey.size = tmpkey.len;
+                              (char *)sepkey.data, sepkey.size, (char*)tmpkey.data, &tmpkey.size);
+                sepkey = tmpkey;
         }
 
         DPRINTF("separator is [%.*s]", (int)sepkey.size, (char *)sepkey.data);
@@ -3395,6 +3399,7 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
 
         if (rc != BT_SUCCESS) {
                 free(copy);
+                btval_reset(&sepkey);
                 return BT_FAIL;
         }
 
@@ -3469,6 +3474,7 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
         }
 
         free(copy);
+        btval_reset(&sepkey);
         return rc;
 }
 

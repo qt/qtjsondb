@@ -79,6 +79,7 @@ private slots:
     void btreeRollback();
     void pageChecksum();
     void keySizes();
+    void prefixSizes();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 flags = -1);
@@ -1087,6 +1088,26 @@ void TestJsonDbBdb::keySizes()
         QVERIFY(!bdb->get(illegalkeys[i], value));
     }
 
+}
+
+void TestJsonDbBdb::prefixSizes()
+{
+    const int count = 100;
+    const int pfxsize = 300;
+    const int keysize = 10;
+    QVector<QByteArray> keys;
+
+    bdb->clearData();
+
+    for (int i = 0; i < count; ++i) {
+        QByteArray key(pfxsize + keysize, 'a');
+        for (int j = 0; j < keysize; ++j)
+            key[pfxsize + j] = '0' + myRand(10);
+        keys.append(key);
+    }
+
+    for (int i = 0; i < keys.size(); ++i)
+        QVERIFY(bdb->put(keys[i], QString::number(i).toAscii()));
 }
 
 QTEST_MAIN(TestJsonDbBdb)
