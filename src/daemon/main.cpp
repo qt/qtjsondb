@@ -47,6 +47,8 @@
 #include <unistd.h>
 #include <sys/resource.h>
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "signals.h"
 #include "dbserver.h"
@@ -137,6 +139,27 @@ static void usage()
     exit(0);
 }
 
+static FILE *logstream = 0;
+void logMessageOutput(QtMsgType type, const char *msg)
+{
+    if (!logstream)
+        return;
+    switch (type) {
+    case QtDebugMsg:
+        fprintf(logstream, "Debug: %s\n", msg);
+        break;
+    case QtWarningMsg:
+        fprintf(logstream, "Warning: %s\n", msg);
+        break;
+    case QtCriticalMsg:
+        fprintf(logstream, "Critical: %s\n", msg);
+        break;
+    case QtFatalMsg:
+        fprintf(logstream, "Fatal: %s\n", msg);
+        abort();
+    }
+}
+
 int main(int argc, char * argv[])
 {
     QCoreApplication::setOrganizationName("Nokia");
@@ -149,7 +172,7 @@ int main(int argc, char * argv[])
     quint16 port = 0;
     bool clear = false;
     rlim_t limit = 0;
-
+    QString logFileName;
     QCoreApplication app(argc, argv);
     QStringList args = QCoreApplication::arguments();
 
@@ -203,6 +226,8 @@ int main(int argc, char * argv[])
             clear = true;
         } else if (arg == "-performance-log") {
             gPerformanceLog = true;
+        } else if (arg == "-log-file") {
+            logFileName = args.takeFirst();
         } else {
             cout << "Unknown argument " << qPrintable(arg) << endl << endl;
             usage();
@@ -221,6 +246,16 @@ int main(int argc, char * argv[])
         arguments = args.takeFirst();
     else if (!args.isEmpty())
         usage();
+
+    if (!logFileName.isEmpty()) {
+        logstream = fopen(logFileName.toLocal8Bit().data(), "w");
+        if (!logstream) {
+            qCritical() << QString::fromLocal8Bit("Could not open '%1'").arg(logFileName);
+            return errno;
+        }
+        ::setbuf(logstream, 0);
+        qInstallMsgHandler(logMessageOutput);
+    }
 
     DBServer server(arguments);
     if (port)
