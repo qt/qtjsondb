@@ -39,8 +39,6 @@
 **
 ****************************************************************************/
 
-#define QT_GUI_LIB // cause QTEST_MAIN to use QGuiApplication, which is need for QDeclarativeEngine()
-
 #include <QtTest/QtTest>
 #include <QJSEngine>
 #include "listmodel-benchmark.h"
