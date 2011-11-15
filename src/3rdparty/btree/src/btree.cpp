@@ -3826,22 +3826,23 @@ btree_stat(struct btree *bt)
 const char *tohexstr(const char *src, size_t srclen, char* dst, int dstlen, int tobytes = 0)
 {
     assert(dstlen > 1);
-    char temp[3];
-    int len = 0;
+    int bytesleft = dstlen - 1; // reserve space for the null charact
     *dst = 0;
+    char *ptr = dst;
     for (size_t i = 0; i < srclen; ++i) {
             if (!tobytes) {
-                    sprintf(temp, "%02X", src[i]);
-                    temp[2] = 0;
-                    len += 2;
+                    if (bytesleft < 2)
+                            break;
+                    sprintf(ptr, "%02X",(unsigned char)src[i]);
+                    bytesleft -= 2;
+                    ptr += 2;
             } else {
-                    sprintf(temp, "%c", src[i]);
-                    temp[1] = 0;
-                    len += 1;
+                    if (bytesleft < 1)
+                            break;
+                    sprintf(ptr, "%c", src[i]);
+                    bytesleft -= 1;
+                    ptr += 1;
             }
-
-            if (len < dstlen)
-                strcat(dst, temp);
     }
     return dst;
 }
@@ -3856,7 +3857,8 @@ btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
         struct mpage    *mp;
         char indent[32] = {0};
         const int hexlen = 512;
-        char hexstr[hexlen];
+        char khexstr[hexlen];
+        char dhexstr[hexlen];
 
         for (i = 0; i < depth + 1; ++i)
                 strcat(&indent[i], "\t");
@@ -3878,7 +3880,7 @@ btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
                         fprintf(stderr, "-> Node %d points to page %d with seperator [%s]\n",
                                 i,
                                 NODEPGNO(node),
-                                tohexstr((const char*)node->data, node->ksize, hexstr, hexlen));
+                                tohexstr((const char*)node->data, node->ksize, khexstr, hexlen));
                         btree_dump_tree(bt, node->n_pgno, depth + 1);
                 }
         } else if (F_ISSET(p->flags, P_LEAF)) {
@@ -3893,8 +3895,8 @@ btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
                         fprintf(stderr, "%s", indent);
                         fprintf(stderr, "-> Node %d [key:%s, data:%s]\n",
                                 i,
-                                tohexstr((const char*)node->data, node->ksize, hexstr, hexlen),
-                                tohexstr((const char*)NODEDATA(node), NODEDSZ(node), hexstr, hexlen));
+                                tohexstr((const char*)node->data, node->ksize, khexstr, hexlen),
+                                tohexstr((const char*)NODEDATA(node), NODEDSZ(node), dhexstr, hexlen));
                         if (F_ISSET(node->flags, F_BIGDATA)) {
                                 bcopy(NODEDATA(node), &next, sizeof(next));
                                 fprintf(stderr, "%s", indent);
@@ -3943,7 +3945,8 @@ btree_dump_page_from_memory(struct page *p)
         struct bt_head  *head;
         const char      *pgstr = F_ISSET(p->flags, P_BRANCH) ? "Branch" : "Leaf";
         const int hexlen = 512;
-        char hexstr[hexlen];
+        char dhexstr[hexlen];
+        char khexstr[hexlen];
 
         head = (bt_head*)METADATA(p);
         pgno = p->pgno;
@@ -3968,8 +3971,8 @@ btree_dump_page_from_memory(struct page *p)
                 node = NODEPTRP(p, i);
                 fprintf(stderr, "-> Node %d [key:%s, data:%s]\n",
                         i,
-                        tohexstr((const char*)node->data, node->ksize, hexstr, hexlen),
-                        tohexstr((const char*)NODEDATA(node), NODEDSZ(node), hexstr, hexlen));
+                        tohexstr((const char*)node->data, node->ksize, khexstr, hexlen),
+                        tohexstr((const char*)NODEDATA(node), NODEDSZ(node), dhexstr, hexlen));
         }
 }
 
