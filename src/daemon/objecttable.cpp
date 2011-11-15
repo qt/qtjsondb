@@ -278,7 +278,7 @@ void ObjectTable::reindexObjects(const QString &fieldName, const QStringList &pa
         QByteArray baKey, baObject;
         bool ok = cursor.current(baKey, baObject);
         Q_ASSERT(ok);
-        if (isStateKey(baKey))
+        if (baKey.size() != 16) // state key is 5 bytes, or history key is 5 + 16 bytes
             continue;
         ObjectKey objectKey(baKey);
         QsonMap object = QsonParser::fromRawData(baObject);
