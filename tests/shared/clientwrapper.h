@@ -106,7 +106,7 @@ class ClientWrapper : public QObject
 public:
     ClientWrapper(QObject *parent = 0)
         : QObject(parent), debug_output(false),
-          mConnection(0), mClient(0), mCode(0), mNeedId(false), mNotificationWaitCount(0)
+          mClient(0), mCode(0), mNeedId(false), mNotificationWaitCount(0)
     {
     }
 
@@ -123,7 +123,6 @@ public:
 
     bool debug_output;
 
-    Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbConnection) *mConnection;
     Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient) *mClient;
 
     QEventLoop mEventLoop;
