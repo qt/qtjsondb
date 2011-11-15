@@ -1506,6 +1506,16 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         indexQuery = IndexQuery::indexQuery(this, table, defaultIndex, owner);
         if (typeNames.size() == 0)
             qCritical() << "searching all objects" << query.query;
+
+        if (defaultIndex == JsonDbString::kTypeStr) {
+            foreach (const OrQueryTerm &term, orQueryTerms) {
+                QList<QueryTerm> terms = term.terms();
+                if (terms.size() == 1 && terms[0].fieldName() == JsonDbString::kTypeStr) {
+                    compileOrQueryTerm(indexQuery, terms[0]);
+                    break;
+                }
+            }
+        }
     }
     if (typeNames.count() > 0)
         indexQuery->setTypeNames(typeNames);
