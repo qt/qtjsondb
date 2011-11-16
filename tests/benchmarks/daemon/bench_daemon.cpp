@@ -123,6 +123,7 @@ private:
     QsonObject readJson(const QByteArray &json);
     void removeDbFiles();
     void addSchema(const QString &schemaName, QsonMap &schemaObject);
+    void addIndex(const QString &propertyName, const QString &propertyType=QString(), const QString &objectType=QString());
 
 private:
     JsonDb *mJsonDb;
@@ -195,10 +196,10 @@ void TestJsonDb::initTestCase()
     }
     mContactList = newContactList;
 
-    mJsonDb->addIndex(QLatin1String("name"));
-    mJsonDb->addIndex(QLatin1String("name.first"));
-    mJsonDb->addIndex(QLatin1String("name.last"));
-    mJsonDb->addIndex(QLatin1String("_type"));
+    addIndex(QLatin1String("name"));
+    addIndex(QLatin1String("name.first"));
+    addIndex(QLatin1String("name.last"));
+    addIndex(QLatin1String("_type"));
 
     qDebug() << "Creating" << mContactList.size() << "contacts...";
 
@@ -245,6 +246,18 @@ void TestJsonDb::addSchema(const QString &schemaName, QsonMap &schemaObject)
 
     QsonMap result = mJsonDb->create(mOwner, schemaObject);
     verifyGoodResult(result);
+}
+
+void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyType, const QString &objectType)
+{
+    QsonMap index;
+    index.insert(JsonDbString::kTypeStr, kIndexTypeStr);
+    index.insert(kPropertyNameStr, propertyName);
+    if (!propertyType.isEmpty())
+        index.insert(kPropertyTypeStr, propertyType);
+    if (!objectType.isEmpty())
+        index.insert(kObjectTypeStr, objectType);
+    QVERIFY(mJsonDb->addIndex(index, JsonDbString::kSystemPartitionName));
 }
 
 void TestJsonDb::qsonListCreate()
@@ -776,7 +789,7 @@ void TestJsonDb::benchmarkFindReindexed()
         return;
 
     //qDebug() << "Adding index for lastName";
-    mJsonDb->addIndex("lastName");
+    addIndex("lastName");
     //qDebug() << "Done adding index for lastName";
 
     QBENCHMARK {

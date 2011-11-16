@@ -273,7 +273,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QsonMap &bindings)
                 QueryTerm term;
                 if (!joinField.isEmpty())
                     term.setJoinField(joinField);
-                term.setFieldName(fieldSpec);
+                term.setPropertyName(fieldSpec);
                 term.setOp(op);
                 if (op == "=~") {
                     QString tvs = tokenizer.pop();
@@ -398,7 +398,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QsonMap &bindings)
         } else if ((token == "/") || (token == "\\") || (token == ">") || (token == "<")) {
             QString ordering = token;
             OrderTerm term;
-            term.fieldName = tokenizer.pop();
+            term.propertyName = tokenizer.pop();
             term.ascending = ((ordering == "/") || (ordering == ">"));
             parsedQuery.orderTerms.append(term);
         } else if (token == "count") {
@@ -428,7 +428,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QsonMap &bindings)
 
     foreach (const OrQueryTerm &oqt, parsedQuery.queryTerms) {
         foreach (const QueryTerm &term, oqt.terms()) {
-            if (term.fieldName() == JsonDbString::kTypeStr) {
+            if (term.propertyName() == JsonDbString::kTypeStr) {
                 if (term.op() == "=") {
                     parsedQuery.mMatchedTypes.clear();
                     parsedQuery.mMatchedTypes.insert(term.value().toString());
@@ -442,7 +442,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QsonMap &bindings)
     if (!parsedQuery.queryTerms.size() && !parsedQuery.orderTerms.size()) {
         // match everything -- sort on type
         OrderTerm term;
-        term.fieldName = JsonDbString::kTypeStr;
+        term.propertyName = JsonDbString::kTypeStr;
         term.ascending = true;
         parsedQuery.orderTerms.append(term);
     }
@@ -458,12 +458,12 @@ bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCa
         const OrQueryTerm &orQueryTerm = queryTerms[i];
         bool matches = false;
         foreach (const QueryTerm &term, orQueryTerm.terms()) {
-            const QString &joinFieldName = term.joinField();
+            const QString &joinPropertyName = term.joinField();
             const QString &op = term.op();
             const QVariant &termValue = term.value();
 
             QVariant objectFieldValue;
-            if (!joinFieldName.isEmpty()) {
+            if (!joinPropertyName.isEmpty()) {
                 QsonMap joinedObject = object;
                 const QVector<QStringList> &joinPaths = term.joinPaths();
                 for (int j = 0; j < joinPaths.size(); j++) {
@@ -580,7 +580,7 @@ bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCa
                 if (objectFieldValue.toString().startsWith(termValue.toString()))
                     matches = true;
             } else {
-                qCritical() << "match" << "unhandled term" << term.fieldName() << term.op() << term.value() << term.joinField();
+                qCritical() << "match" << "unhandled term" << term.propertyName() << term.op() << term.value() << term.joinField();
             }
         }
         if (!matches)
@@ -598,7 +598,7 @@ QueryTerm::QueryTerm()
 }
 #if 0
 QueryTerm::QueryTerm(const QueryTerm &other)
-    : mFieldName(other.mFieldName)
+    : mPropertyName(other.mPropertyName)
     , mFieldPath(other.mFieldPath)
     , mOp(other.mOp)
     , mJoinField(other.mJoinField)
@@ -610,7 +610,7 @@ QueryTerm::QueryTerm(const QueryTerm &other)
 
 QueryTerm &QueryTerm::operator=(const QueryTerm &other)
 {
-    mFieldName = other.mFieldName;
+    mPropertyName = other.mPropertyName;
     mFieldPath = other.mFieldPath;
     mOp = other.mOp;
     mJoinField = other.mJoinField;
@@ -639,15 +639,15 @@ OrQueryTerm::~OrQueryTerm()
 {
 }
 
-QList<QString> OrQueryTerm::fieldNames() const
+QList<QString> OrQueryTerm::propertyNames() const
 {
-    QList<QString> fieldNames;
+    QList<QString> propertyNames;
     foreach (const QueryTerm &term, mTerms) {
-        QString fieldName = term.fieldName();
-        if (!fieldNames.contains(fieldName))
-            fieldNames.append(fieldName);
+        QString propertyName = term.propertyName();
+        if (!propertyNames.contains(propertyName))
+            propertyNames.append(propertyName);
     }
-    return fieldNames;
+    return propertyNames;
 }
 
 OrderTerm::OrderTerm()

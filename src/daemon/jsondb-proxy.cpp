@@ -132,7 +132,7 @@ JsonDbMapProxy::~JsonDbMapProxy()
 
 void JsonDbMapProxy::emitViewObject(const QString &key, const QJSValue &v)
 {
-    //qDebug() << "emitViewItem" << key << v.toVariant();
+    qDebug() << "emitViewItem" << key << v.toVariant();
     QJSValue object = v.engine()->newObject();
     object.setProperty("key", key);
     object.setProperty("value", v);

@@ -96,6 +96,8 @@ index would be stable with respect to all other indexes on that object.
 
 \section2 Indexes
 
+See \l {Object Indexes}
+
 \section3 Query optimization
 
 In general, sorting should only be done on properties for which JSON DB has an
@@ -132,6 +134,7 @@ to the client.
 
 \list
 \o \l{declarative/simplelistmodel}{Simple List Model}
+\o \l{declarative/simpleindex}{Simple Object Indexing}
 \o \l{declarative/desktop-inspector}{Desktop Database Inspector Example}
 \o \l{declarative/map-phone}{Creating a Map View}
 \o \l{declarative/joinview}{Creating a Join View}

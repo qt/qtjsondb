@@ -68,10 +68,12 @@ class JsonDbIndex;
 
 extern const QString kDbidTypeStr;
 extern const QString kIndexTypeStr;
-extern const QString kFieldStr;
-extern const QString kFieldTypeStr;
+extern const QString kPropertyNameStr;
+extern const QString kPropertyTypeStr;
+extern const QString kNameStr;
 extern const QString kObjectTypeStr;
 extern const QString kDatabaseSchemaVersionStr;
+extern const QString kPropertyFunctionStr;
 extern const QString gDatabaseSchemaVersion;
 
 class QueryConstraint {
@@ -84,14 +86,14 @@ public:
 
 class IndexQuery {
 protected:
-    IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &fieldName, const JsonDbOwner *owner, bool ascending = true);
+    IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
 public:
-    static IndexQuery *indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &fieldName, const JsonDbOwner *owner, bool ascending = true);
+    static IndexQuery *indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
     ~IndexQuery();
 
     void addConstraint(QueryConstraint *qc) { mQueryConstraints.append(qc); }
     bool ascending() const { return mAscending; }
-    QString fieldName() const { return mFieldName; }
+    QString propertyName() const { return mPropertyName; }
     void setTypeNames(const QSet<QString> typeNames) { mTypeNames = typeNames; }
     void setMin(const QVariant &minv) { mMin = minv; }
     void setMax(const QVariant &maxv) { mMax = maxv; }
@@ -123,7 +125,7 @@ protected:
     QString       mUuid;
     QVector<QueryConstraint*> mQueryConstraints;
     QString       mAggregateOperation;
-    QString       mFieldName;
+    QString       mPropertyName;
     QVariant      mFieldValue; // value of field for the object the cursor is pointing at
     bool          mSparseMatchPossible;
     QHash<QString, QsonMap> mObjectCache;
@@ -132,7 +134,7 @@ protected:
 
 class UuidQuery : public IndexQuery {
 protected:
-    UuidQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &fieldName, const JsonDbOwner *owner, bool ascending = true);
+    UuidQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
     virtual bool seekToStart(QVariant &fieldValue);
     virtual bool seekToNext(QVariant &fieldValue);
     virtual QsonMap currentObjectAndTypeNumber(ObjectKey &objectKey);
@@ -156,13 +158,11 @@ public:
 
     void initIndexes();
     bool checkValidity();
-    QsonObject addIndex(const QString &fieldName,
-                        const QString &fieldType = QString("string"),
-                        const QString &objectType = QString(),
-                        bool lazy=true);
-    QsonObject removeIndex(const QString &fieldName,
-                        const QString &fieldType = QString("string"),
-                        const QString &objectType = QString());
+    bool addIndex(const QString &propertyName,
+                  const QString &propertyType = QString("string"),
+                  const QString &objectType = QString(),
+                  const QString &propertyFunction = QString());
+    bool removeIndex(const QString &propertyName, const QString &objectType);
 
     bool checkQuota(const JsonDbOwner *owner, int size) const;
     bool addToQuota(const JsonDbOwner *owner, int size);
@@ -193,7 +193,7 @@ public:
     QString getTablePrefix();
     void setTablePrefix(const QString &prefix);
 
-    void checkIndex(const QString &fieldName);
+    void checkIndex(const QString &propertyName);
     bool compact();
 
 protected:

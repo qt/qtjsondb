@@ -241,6 +241,7 @@ private slots:
 
     void removeIndexes();
     void setOwner();
+    void indexPropertyFunction();
 
 public:
     void createContacts();
@@ -248,6 +249,7 @@ public:
 private:
     void dumpObjects();
     void addSchema(const QString &schemaName, QsonMap &schemaObject);
+    void addIndex(const QString &propertyName, const QString &propertyType=QString(), const QString &objectType=QString());
 
     QsonObject readJsonFile(const QString &filename);
     QsonObject readJson(const QByteArray& json);
@@ -369,10 +371,10 @@ void TestJsonDb::createContacts()
     }
     mContactList = newContactList;
 
-    mJsonDb->addIndex(QLatin1String("name"));
-    mJsonDb->addIndex(QLatin1String("name.first"));
-    mJsonDb->addIndex(QLatin1String("name.last"));
-    mJsonDb->addIndex(QLatin1String("_type"));
+    addIndex(QLatin1String("name"));
+    addIndex(QLatin1String("name.first"));
+    addIndex(QLatin1String("name.last"));
+    addIndex(QLatin1String("_type"));
 
 }
 
@@ -386,6 +388,18 @@ void TestJsonDb::addSchema(const QString &schemaName, QsonMap &schemaObject)
 
     QsonMap result = mJsonDb->create(mOwner, schemaObject);
     verifyGoodResult(result);
+}
+
+void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyType, const QString &objectType)
+{
+    QsonMap index;
+    index.insert(JsonDbString::kTypeStr, kIndexTypeStr);
+    index.insert(kPropertyNameStr, propertyName);
+    if (!propertyType.isEmpty())
+        index.insert(kPropertyTypeStr, propertyType);
+    if (!objectType.isEmpty())
+        index.insert(kObjectTypeStr, objectType);
+    QVERIFY(mJsonDb->addIndex(index, JsonDbString::kSystemPartitionName));
 }
 
 void TestJsonDb::duplicateSchema()
@@ -1639,7 +1653,7 @@ void TestJsonDb::reduceInvalidAddSubtractFuncs()
 
 void TestJsonDb::map()
 {
-    mJsonDb->addIndex(QLatin1String("phoneNumber"));
+    addIndex(QLatin1String("phoneNumber"));
 
   //gVerbose = true;
   //gDebug = true;
@@ -1853,9 +1867,9 @@ void TestJsonDb::mapJoin()
         else
             people.append(object);
     }
-    mJsonDb->addIndex("friend", "string", "FoafPerson");
-    mJsonDb->addIndex("foaf", "string", "FoafPerson");
-    mJsonDb->addIndex("friend", "string", "Person");
+    addIndex("friend", "string", "FoafPerson");
+    addIndex("foaf", "string", "FoafPerson");
+    addIndex("friend", "string", "Person");
 
     QsonMap result = mJsonDb->getObjects(JsonDbString::kTypeStr, "FoafPerson");
     //QsonMap join1 = mJsonDb->getObject(JsonDbString::kTypeStr, "Join");
@@ -1976,7 +1990,7 @@ void TestJsonDb::mapJoin()
 
 void TestJsonDb::mapSelfJoinSourceUuids()
 {
-    mJsonDb->addIndex("magic", "string");
+    addIndex("magic", "string");
 
     QsonList objects(readJsonFile("map-join-sourceuuids.json").toList());
     QsonList toDelete;
@@ -2571,15 +2585,14 @@ void TestJsonDb::changesSinceCreate()
 
 void TestJsonDb::addIndex()
 {
-    QsonMap result = mJsonDb->addIndex(QLatin1String("subject"));
-    QVERIFY(!result.contains(JsonDbString::kErrorStr));
+    addIndex(QLatin1String("subject"));
 
     QsonMap indexObject;
     indexObject.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
-    indexObject.insert("fieldName", QLatin1String("predicate"));
-    indexObject.insert("fieldType", QLatin1String("string"));
+    indexObject.insert("propertyName", QLatin1String("predicate"));
+    indexObject.insert("propertyType", QLatin1String("string"));
 
-    result = mJsonDb->create(mOwner, indexObject);
+    QsonMap result = mJsonDb->create(mOwner, indexObject);
     verifyGoodResult(result);
     QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
     mJsonDb->remove(mOwner, indexObject);
@@ -2643,8 +2656,8 @@ void TestJsonDb::find1()
 
 void TestJsonDb::find2()
 {
-    mJsonDb->addIndex(QLatin1String("name"));
-    mJsonDb->addIndex(QLatin1String("_type"));
+    addIndex(QLatin1String("name"));
+    addIndex(QLatin1String("_type"));
 
     QsonList toDelete;
 
@@ -2849,8 +2862,8 @@ void TestJsonDb::findInContains()
 
 void TestJsonDb::findFields()
 {
-    mJsonDb->addIndex(QLatin1String("name"));
-    mJsonDb->addIndex(QLatin1String("_type"));
+    addIndex(QLatin1String("name"));
+    addIndex(QLatin1String("_type"));
 
     QsonMap item;
     item.insert("firstName", QString("Wilma"));
@@ -2894,8 +2907,8 @@ void TestJsonDb::orderedFind1_data()
     QTest::newRow("asc") << "/";
     QTest::newRow("desc") << "\\";
 
-    mJsonDb->addIndex(QLatin1String("orderedFindName"));
-    mJsonDb->addIndex(QLatin1String("_type"));
+    addIndex(QLatin1String("orderedFindName"));
+    addIndex(QLatin1String("_type"));
 
     QsonMap item1;
     item1.insert("orderedFindName", QString("Wilma"));
@@ -3000,7 +3013,7 @@ void TestJsonDb::orderedFind2()
 
 void TestJsonDb::wildcardIndex()
 {
-    mJsonDb->addIndex("telephoneNumbers.*.number");
+    addIndex("telephoneNumbers.*.number");
     QsonMap item;
     item.insert(JsonDbString::kTypeStr, kContactStr);
     item.insert("name", QString("BamBam"));
@@ -3028,9 +3041,9 @@ void TestJsonDb::wildcardIndex()
 
 void TestJsonDb::uuidJoin()
 {
-    mJsonDb->addIndex("name");
-    mJsonDb->addIndex("thumbnailUuid");
-    mJsonDb->addIndex("url");
+    addIndex("name");
+    addIndex("thumbnailUuid");
+    addIndex("url");
     QString thumbnailUrl = "file:thumbnail.png";
     QsonMap thumbnail;
     thumbnail.insert(JsonDbString::kTypeStr, QString("com.noklab.nrcc.jsondb.thumbnail"));
@@ -3223,7 +3236,7 @@ void TestJsonDb::parseQuery()
                 sep = "  ";
             }
             foreach (const QueryTerm &queryTerm, terms) {
-                qDebug() << QString("    %6%5%4%1 %2 %3    ").arg(queryTerm.fieldName()).arg(queryTerm.op()).arg(JsonWriter().toString(queryTerm.value()))
+                qDebug() << QString("    %6%5%4%1 %2 %3    ").arg(queryTerm.propertyName()).arg(queryTerm.op()).arg(JsonWriter().toString(queryTerm.value()))
                     .arg(queryTerm.joinField().size() ? " -> " : "").arg(queryTerm.joinField())
                     .arg(sep);
                 sep = "| ";
@@ -3234,7 +3247,7 @@ void TestJsonDb::parseQuery()
         QList<OrderTerm> &orderTerms = result.orderTerms;
         for (int i = 0; i < orderTerms.size(); i++) {
             const OrderTerm &orderTerm = orderTerms[i];
-            qDebug() << QString("    %1 %2    ").arg(orderTerm.fieldName).arg(orderTerm.ascending);
+            qDebug() << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending);
         }
         qDebug() << "mapKeys" << result.mapKeyList.join(", ");
         qDebug() << "mapExprs" << result.mapExpressionList.join(", ");
@@ -3265,7 +3278,7 @@ void TestJsonDb::orQuery_data()
     QTest::newRow("[? _type = \"RedType\" | _type = \"BarType\" ]")
         << "_type" << "RedType" << "_type" << "BarType" << "";
 
-    mJsonDb->addIndex(QLatin1String("key1"));
+    addIndex(QLatin1String("key1"));
 
     QStringList keys1 = QStringList() << "red" << "green" << "blue";
     QStringList keys2 = QStringList() << "foo" << "bar" << "baz";
@@ -3491,7 +3504,7 @@ void TestJsonDb::dumpObjects()
 
 void TestJsonDb::startsWith()
 {
-    mJsonDb->addIndex(QLatin1String("name"));
+    addIndex(QLatin1String("name"));
 
     QsonMap item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("startsWithTest"));
@@ -3558,7 +3571,7 @@ void TestJsonDb::startsWith()
 
 void TestJsonDb::comparison()
 {
-    mJsonDb->addIndex(QLatin1String("latitude"));
+    addIndex(QLatin1String("latitude"));
 
     QsonMap item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("comparison"));
@@ -3608,7 +3621,7 @@ void TestJsonDb::comparison()
 
 void TestJsonDb::removedObjects()
 {
-    mJsonDb->addIndex(QLatin1String("foo"));
+    addIndex(QLatin1String("foo"));
     QsonMap item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("removedObjects"));
     item.insert("foo", QLatin1String("bar"));
@@ -3729,7 +3742,7 @@ void TestJsonDb::partition()
 
 void TestJsonDb::arrayIndexQuery()
 {
-    mJsonDb->addIndex(QLatin1String("phoneNumber"));
+    addIndex(QLatin1String("phoneNumber"));
 
     QsonList objects(readJsonFile("array.json").toList());
     QMap<QString, QsonMap> toDelete;
@@ -3835,7 +3848,7 @@ void TestJsonDb::deindexError()
     result = mJsonDb->create(mOwner, arrayView);
     verifyGoodResult(result);
 
-    mJsonDb->addIndex(QLatin1String("name"));
+    addIndex(QLatin1String("name"));
 
     // now remove some objects that have "name" property
     QsonMap query;
@@ -3944,27 +3957,25 @@ void TestJsonDb::indexQueryOnCommonValues()
 
 void TestJsonDb::removeIndexes()
 {
-    QsonMap result = mJsonDb->addIndex("wacky_index");
-    QVERIFY(!result.contains(JsonDbString::kErrorStr));
+    addIndex("wacky_index");
     QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
 
-    result = mJsonDb->removeIndex("wacky_index");
-    QVERIFY(!result.contains(JsonDbString::kErrorStr));
+    QVERIFY(mJsonDb->removeIndex("wacky_index"));
     QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
 
     QsonMap indexObject;
     indexObject.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
-    indexObject.insert("fieldName", QLatin1String("predicate"));
-    indexObject.insert("fieldType", QLatin1String("string"));
+    indexObject.insert("propertyName", QLatin1String("predicate"));
+    indexObject.insert("propertyType", QLatin1String("string"));
     QsonMap indexObject2 = indexObject;
 
-    result = mJsonDb->create(mOwner, indexObject);
+    QsonMap result = mJsonDb->create(mOwner, indexObject);
     verifyGoodResult(result);
     QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") != 0);
 
     indexObject2.insert(JsonDbString::kUuidStr, indexObject.valueString(JsonDbString::kUuidStr));
 
-    indexObject.insert("fieldType", QLatin1String("integer"));
+    indexObject.insert("propertyType", QLatin1String("integer"));
     result = mJsonDb->update(mOwner, indexObject);
     verifyErrorResult(result);
 
@@ -4009,6 +4020,61 @@ void TestJsonDb::setOwner()
             != fooOwnerStr);
     result = mJsonDb->remove(unauthOwner, item);
     verifyGoodResult(result);
+}
+
+void TestJsonDb::indexPropertyFunction()
+{
+    QsonMap index;
+    index.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
+    index.insert(QLatin1String("name"), QLatin1String("propertyFunctionIndex"));
+    index.insert(QLatin1String("propertyType"), QLatin1String("string"));
+    index.insert(QLatin1String("propertyFunction"), QLatin1String("function (o) { if (o.from) jsondb.emit(o.from); else jsondb.emit(o.to); }"));
+    QsonMap result = mJsonDb->create(mOwner, index);
+    verifyGoodResult(result);
+
+    QsonMap item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
+    item.insert("from", qint64(10));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = QsonMap();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
+    item.insert("to", qint64(42));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = QsonMap();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
+    item.insert("from", qint64(0));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = QsonMap();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
+    item.insert("to", qint64(-64));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    QsonMap query;
+    query.insert("query", QString("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex > 10][/propertyFunctionIndex]"));
+    result = mJsonDb->find(mOwner, query);
+    QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(1));
+    QCOMPARE(result.subObject("result").subList("data").size(), 1);
+    QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).valueInt("to"), qint64(42));
+
+    query.insert("query", QString("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex >= 10][/propertyFunctionIndex]"));
+    result = mJsonDb->find(mOwner, query);
+    QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(2));
+    QCOMPARE(result.subObject("result").subList("data").size(), 2);
+    QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).valueInt("from"), qint64(10));
+    QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(1).valueInt("to"), qint64(42));
+
+    query.insert("query", QString("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex < 0]"));
+    result = mJsonDb->find(mOwner, query);
+    QCOMPARE(result.subObject("result").valueInt("length", 0), qint64(1));
+    QCOMPARE(result.subObject("result").subList("data").size(), 1);
+    QCOMPARE(result.subObject("result").subList("data").at<QsonMap>(0).valueInt("to"), qint64(-64));
 }
 
 QTEST_MAIN(TestJsonDb)

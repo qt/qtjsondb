@@ -82,10 +82,12 @@ bool gVerboseCheckValidity = false;
 
 const QString kDbidTypeStr("DatabaseId");
 const QString kIndexTypeStr("Index");
-const QString kFieldStr("fieldName");
-const QString kFieldTypeStr("fieldType");
+const QString kPropertyNameStr("propertyName");
+const QString kPropertyTypeStr("propertyType");
+const QString kNameStr("name");
 const QString kObjectTypeStr("objectType");
 const QString kDatabaseSchemaVersionStr("databaseSchemaVersion");
+const QString kPropertyFunctionStr("propertyFunction");
 const QString gDatabaseSchemaVersion = "0.2";
 
 int forwardKeyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *op);
@@ -175,7 +177,7 @@ bool JsonDbBtreeStorage::open()
                     qCritical() << __FUNCTION__ << __LINE__ << "no dbid in indexes table";
                 } else {
                     partitionId = object.valueString("id");
-                    QString partitionName = object.value<QString>("name");
+                    QString partitionName = object.value<QString>(QLatin1String("name"));
                     if (partitionName != mPartitionName || !object.contains(kDatabaseSchemaVersionStr)
                         || object.valueString(kDatabaseSchemaVersionStr) != gDatabaseSchemaVersion) {
                         if (gVerbose) qDebug() << "Rebuilding database metadata";
@@ -356,6 +358,25 @@ int qstringcmp(const quint16 *achar, quint32 acount, const quint16 *bchar, quint
     return acount-bcount;
 }
 
+int fvkCmp(FieldValueKind afvk, const char *aData, quint16 aSize,
+           FieldValueKind bfvk, const char *bData, quint16 bSize)
+{
+    if (afvk != bfvk)
+        return afvk - bfvk;
+    switch (afvk) {
+    case FvkInt:
+        return intcmp((const uchar *)aData, (const uchar *)bData);
+    case FvkDouble:
+        return doublecmp((const uchar *)aData, (const uchar *)bData);
+    case FvkString:
+        return qstringcmp((const quint16 *)aData, aSize/2, (const quint16 *)bData, bSize/2);
+        break;
+    case FvkVoid:
+        return 0;
+    }
+    return 0;
+}
+
 QByteArray makeForwardKey(const QVariant &fieldValue, const ObjectKey &objectKey)
 {
     FieldValueKind fvk = qVariantFieldValueKind(fieldValue);
@@ -394,37 +415,17 @@ int forwardKeyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, 
     FieldValueKind bfvk = (FieldValueKind)qFromBigEndian<quint32>((const uchar *)&bptr[0]);
     if (afvk > FvkLastKind) {
         qDebug() << "forwardKeyCmp" << "afvk" << afvk;
-        *(double *)17 = 22.0;
     }
     if (bfvk > FvkLastKind) {
         qDebug() << "forwardKeyCmp" << "bfvk" << bfvk;
-        *(double *)17 = 22.0;
     }
     Q_ASSERT(afvk <= FvkLastKind);
     Q_ASSERT(bfvk <= FvkLastKind);
     quint32 asize = asiz - 4 - 16;
     quint32 bsize = bsiz - 4 - 16;
-    if (afvk != bfvk) {
-        //DBG() << "afvk" << afvk << "bfvk" << bfvk;
-        return afvk - bfvk;
-    }
-
     const char *aData = aptr + 4;
     const char *bData = bptr + 4;
-    switch (afvk) {
-    case FvkInt:
-        rv = intcmp((const uchar *)aData, (const uchar *)bData);
-        break;
-    case FvkDouble:
-        rv = doublecmp((const uchar *)aData, (const uchar *)bData);
-        break;
-    case FvkString:
-        rv = qstringcmp((const quint16 *)aData, asize/2, (const quint16 *)bData, bsize/2);
-        break;
-    case FvkVoid:
-        rv = 0;
-        break;
-    }
+    rv = fvkCmp(afvk, aData, asize, bfvk, bData, bsize);
     if (rv != 0)
         return rv;
     ObjectKey aObjectKey = qFromBigEndian<ObjectKey>((const uchar *)aptr+4+asize);
@@ -496,9 +497,9 @@ void JsonDbBtreeStorage::addView(const QString &viewType)
             return;
         }
         mViews.insert(viewType, viewObjectTable);
-        viewObjectTable->addIndex(JsonDbString::kUuidStr, "string", viewType, false);
+        viewObjectTable->addIndex(JsonDbString::kUuidStr, "string", viewType);
         // TODO: special case for the following
-        viewObjectTable->addIndex(JsonDbString::kTypeStr, "string", viewType, false);
+        viewObjectTable->addIndex(JsonDbString::kTypeStr, "string", viewType);
     }
 }
 
@@ -829,12 +830,12 @@ bool JsonDbBtreeStorage::checkValidity()
 
 void JsonDbBtreeStorage::initIndexes()
 {
-    QByteArray baFieldName;
+    QByteArray baPropertyName;
     QByteArray baIndexObject;
 
     AoDbCursor cursor(mBdbIndexes);
     for (bool ok = cursor.first(); ok; ok = cursor.next()) {
-        if (!cursor.current(baFieldName, baIndexObject))
+        if (!cursor.current(baPropertyName, baIndexObject))
             break;
 
         if (baIndexObject.size() == 4)
@@ -846,45 +847,44 @@ void JsonDbBtreeStorage::initIndexes()
         if (gVerbose) qDebug() << "initIndexes" << "index" << indexObject;
         QString indexObjectType = indexObject.valueString(JsonDbString::kTypeStr);
         if (indexObjectType == kIndexTypeStr) {
-            QString fieldName = indexObject.valueString(kFieldStr);
-            QString fieldType = indexObject.valueString(kFieldTypeStr);
+            QString propertyName = indexObject.valueString(kPropertyNameStr);
+            QString propertyType = indexObject.valueString(kPropertyTypeStr);
             QString objectType = indexObject.valueString(kObjectTypeStr);
-            bool lazy = indexObject.valueBool("lazy");
-            QStringList path = fieldName.split('.');
+            QString propertyFunction = indexObject.valueString(kPropertyFunctionStr);
+            QStringList path = propertyName.split('.');
 
             ObjectTable *table = findObjectTable(objectType);
-            table->addIndex(fieldName, fieldType, objectType, lazy);
+            table->addIndex(propertyName, propertyType, objectType, propertyFunction);
             //checkIndexConsistency(index);
         }
     }
 
 
     beginTransaction();
-    mObjectTable->addIndex(JsonDbString::kUuidStr, "string", QString(), false);
-    mObjectTable->addIndex(JsonDbString::kTypeStr, "string", QString(), false);
+    mObjectTable->addIndex(JsonDbString::kUuidStr, "string", QString());
+    mObjectTable->addIndex(JsonDbString::kTypeStr, "string", QString());
     commitTransaction();
 }
 
-QsonObject JsonDbBtreeStorage::addIndex(const QString &fieldname, const QString &fieldType, const QString &objectType, bool lazy)
+bool JsonDbBtreeStorage::addIndex(const QString &propertyName, const QString &propertyType,
+                                  const QString &objectType, const QString &propertyFunction)
 {
-    //qDebug() << "JsonDbBtreeStorage::addIndex" << fieldname << objectType;
+    //qDebug() << "JsonDbBtreeStorage::addIndex" << propertyName << objectType;
     ObjectTable *table = findObjectTable(objectType);
-    const IndexSpec *indexSpec = table->indexSpec(fieldname);
+    const IndexSpec *indexSpec = table->indexSpec(propertyName);
     if (indexSpec)
-        return QsonObject();
-    //if (gVerbose) qDebug() << "JsonDbBtreeStorage::addIndex" << fieldname << objectType;
-    table->addIndex(fieldname, fieldType, objectType, lazy);
-    return QsonObject();
+        return true;
+    //if (gVerbose) qDebug() << "JsonDbBtreeStorage::addIndex" << propertyName << objectType;
+    return table->addIndex(propertyName, propertyType, objectType, propertyFunction);
 }
 
-QsonObject JsonDbBtreeStorage::removeIndex(const QString &fieldname, const QString &fieldType, const QString &objectType)
+bool JsonDbBtreeStorage::removeIndex(const QString &propertyName, const QString &objectType)
 {
     ObjectTable *table = findObjectTable(objectType);
-    const IndexSpec *indexSpec = table->indexSpec(fieldname);
+    const IndexSpec *indexSpec = table->indexSpec(propertyName);
     if (!indexSpec)
-        return QsonObject();
-    table->removeIndex(fieldname, fieldType, objectType);
-    return QsonObject();
+        return false;
+    return table->removeIndex(propertyName);
 }
 
 bool JsonDbBtreeStorage::checkStateConsistency()
@@ -897,7 +897,7 @@ void JsonDbBtreeStorage::checkIndexConsistency(ObjectTable *objectTable, JsonDbI
     quint32 indexStateNumber = index->bdb()->tag();
     quint32 objectStateNumber = objectTable->stateNumber();
     if (indexStateNumber > objectTable->stateNumber()) {
-        qCritical() << "reverting index" << index->fieldName() << indexStateNumber << objectStateNumber;
+        qCritical() << "reverting index" << index->propertyName() << indexStateNumber << objectStateNumber;
         while (indexStateNumber > objectTable->stateNumber()) {
             int rc = index->bdb()->revert();
             quint32 newIndexStateNumber = index->bdb()->tag();
@@ -915,32 +915,32 @@ void JsonDbBtreeStorage::checkIndexConsistency(ObjectTable *objectTable, JsonDbI
 
 static bool sDebugQuery = (::getenv("JSONDB_DEBUG_QUERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_QUERY")) == "true") : false);
 
-IndexQuery *IndexQuery::indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &fieldName, const JsonDbOwner *owner, bool ascending)
+IndexQuery *IndexQuery::indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending)
 {
-    if (fieldName == JsonDbString::kUuidStr)
-        return new UuidQuery(storage, table, fieldName, owner, ascending);
+    if (propertyName == JsonDbString::kUuidStr)
+        return new UuidQuery(storage, table, propertyName, owner, ascending);
     else
-        return new IndexQuery(storage, table, fieldName, owner, ascending);
+        return new IndexQuery(storage, table, propertyName, owner, ascending);
 }
 
-UuidQuery::UuidQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &fieldName, const JsonDbOwner *owner, bool ascending)
-    : IndexQuery(storage, table, fieldName, owner, ascending)
+UuidQuery::UuidQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending)
+    : IndexQuery(storage, table, propertyName, owner, ascending)
 {
 }
 
-IndexQuery::IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &fieldName, const JsonDbOwner *owner, bool ascending)
+IndexQuery::IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending)
     : mStorage(storage)
     , mObjectTable(table)
     , mBdbIndex(0)
     , mCursor(0)
     , mOwner(owner)
     , mAscending(ascending)
-    , mFieldName(fieldName)
+    , mPropertyName(propertyName)
     , mSparseMatchPossible(false)
     , mResidualQuery(0)
 {
-    if (fieldName != JsonDbString::kUuidStr) {
-        mBdbIndex = table->indexSpec(fieldName)->index->bdb();
+    if (propertyName != JsonDbString::kUuidStr) {
+        mBdbIndex = table->indexSpec(propertyName)->index->bdb();
         mCursor = mBdbIndex->cursor();
     } else {
         mCursor = new AoDbCursor(table->bdb(), true);
@@ -1121,7 +1121,7 @@ QsonMap IndexQuery::first()
     for (; ok; ok = seekToNext(fieldValue)) {
         mFieldValue = fieldValue;
         if (sDebugQuery) qDebug() << "IndexQuery::first()"
-                                  << "mFieldName" << mFieldName
+                                  << "mPropertyName" << mPropertyName
                                   << "fieldValue" << fieldValue
                                   << (mAscending ? "ascending" : "descending");
 
@@ -1153,7 +1153,7 @@ QsonMap IndexQuery::next()
 {
     QVariant fieldValue;
     while (seekToNext(fieldValue)) {
-        if (sDebugQuery) qDebug() << "IndexQuery::next()" << "mFieldName" << mFieldName
+        if (sDebugQuery) qDebug() << "IndexQuery::next()" << "mPropertyName" << mPropertyName
                                   << "fieldValue" << fieldValue
                                   << (mAscending ? "ascending" : "descending");
         if (sDebugQuery) qDebug() << "IndexQuery::next()" << "matches(fieldValue)" << matches(fieldValue);
@@ -1358,10 +1358,10 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
     if (orQueryTerms.size()) {
         for (int i = 0; i < orQueryTerms.size(); i++) {
             const OrQueryTerm orQueryTerm = orQueryTerms[i];
-            const QList<QString> &queryFieldNames = orQueryTerm.fieldNames();
-            if (queryFieldNames.size() == 1) {
+            const QList<QString> &querypropertyNames = orQueryTerm.propertyNames();
+            if (querypropertyNames.size() == 1) {
                 //QString fieldValue = queryTerm.value().toString();
-                QString fieldName = queryFieldNames[0];
+                QString propertyName = querypropertyNames[0];
 
                 const QList<QueryTerm> &queryTerms = orQueryTerm.terms();
                 const QueryTerm &queryTerm = queryTerms[0];
@@ -1370,19 +1370,19 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
                     && mViews.contains(typeNames.toList()[0]))
                     table = mViews[typeNames.toList()[0]];
 
-                if (table->indexSpec(fieldName))
+                if (table->indexSpec(propertyName))
                     indexedQueryTermCount++;
-                else if (indexCandidate.isEmpty() && (fieldName != JsonDbString::kTypeStr)) {
-                    indexCandidate = fieldName;
+                else if (indexCandidate.isEmpty() && (propertyName != JsonDbString::kTypeStr)) {
+                    indexCandidate = propertyName;
                     if (!queryTerm.joinField().isEmpty())
                         indexCandidate = queryTerm.joinPaths()[0].join("->");
 
                 }
 
-                fieldName = queryTerm.fieldName();
+                propertyName = queryTerm.propertyName();
                 QString fieldValue = queryTerm.value().toString();
                 QString op = queryTerm.op();
-                if (fieldName == JsonDbString::kTypeStr) {
+                if (propertyName == JsonDbString::kTypeStr) {
                     if ((op == "=") || (op == "in")) {
                         QSet<QString> types;
                         if (op == "=")
@@ -1421,26 +1421,26 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
 
     for (int i = 0; i < orderTerms.size(); i++) {
         const OrderTerm &orderTerm = orderTerms[i];
-        QString fieldName = orderTerm.fieldName;
-        if (!table->indexSpec(fieldName)) {
-            if (gVerbose) qDebug() << "Unindexed sort term" << fieldName << orderTerm.ascending;
-            if (gVerbose) qDebug() << "adding index for sort term" << fieldName;
+        QString propertyName = orderTerm.propertyName;
+        if (!table->indexSpec(propertyName)) {
+            if (gVerbose) qDebug() << "Unindexed sort term" << propertyName << orderTerm.ascending;
+            if (gVerbose) qDebug() << "adding index for sort term" << propertyName;
             Q_ASSERT(table);
-            table->addIndex(fieldName);
-            Q_ASSERT(table->indexSpec(fieldName));
-            if (gVerbose) qDebug() << "done adding index" << fieldName;
+            table->addIndex(propertyName);
+            Q_ASSERT(table->indexSpec(propertyName));
+            if (gVerbose) qDebug() << "done adding index" << propertyName;
             //residualQuery->orderTerms.append(orderTerm);
             //continue;
         }
         if (!indexQuery) {
-            orderField = fieldName;
-            const IndexSpec *indexSpec = table->indexSpec(fieldName);
+            orderField = propertyName;
+            const IndexSpec *indexSpec = table->indexSpec(propertyName);
             updateView(table);
 
             if (indexSpec->lazy)
                 updateIndex(table, indexSpec->index);
-            indexQuery = IndexQuery::indexQuery(this, table, fieldName, owner, orderTerm.ascending);
-        } else if (orderField != fieldName) {
+            indexQuery = IndexQuery::indexQuery(this, table, propertyName, owner, orderTerm.ascending);
+        } else if (orderField != propertyName) {
             qCritical() << QString("unimplemented: multiple order terms. Sorting on '%1'").arg(orderField);
             residualQuery->orderTerms.append(orderTerm);
         }
@@ -1451,35 +1451,36 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         const QList<QueryTerm> &queryTerms = orQueryTerm.terms();
         if (queryTerms.size() == 1) {
             QueryTerm queryTerm = queryTerms[0];
-            QString fieldName = queryTerm.fieldName();
+            QString propertyName = queryTerm.propertyName();
+            QString fieldValue = queryTerm.value().toString();
             QString op = queryTerm.op();
 
             if (!queryTerm.joinField().isEmpty()) {
                 residualQuery->queryTerms.append(queryTerm);
-                fieldName = queryTerm.joinField();
+                propertyName = queryTerm.joinField();
                 op = "exists";
-                queryTerm.setFieldName(fieldName);
+                queryTerm.setPropertyName(propertyName);
                 queryTerm.setOp(op);
                 queryTerm.setJoinField(QString());
             }
-            if (!table->indexSpec(fieldName)
+            if (!table->indexSpec(propertyName)
                 || (indexQuery
-                    && (fieldName != orderField))) {
-                if (gVerbose || gDebug) qDebug() << "residual query term" << fieldName << "orderField" << orderField;
+                    && (propertyName != orderField))) {
+                if (gVerbose || gDebug) qDebug() << "residual query term" << propertyName << "orderField" << orderField;
                 residualQuery->queryTerms.append(queryTerm);
                 continue;
             }
 
-            if (!indexQuery && (fieldName != JsonDbString::kTypeStr) && table->indexSpec(fieldName)) {
-                orderField = fieldName;
-                const IndexSpec *indexSpec = table->indexSpec(fieldName);
+            if (!indexQuery && (propertyName != JsonDbString::kTypeStr) && table->indexSpec(propertyName)) {
+                orderField = propertyName;
+                const IndexSpec *indexSpec = table->indexSpec(propertyName);
                 updateView(table);
                 if (indexSpec->lazy)
                     updateIndex(table, indexSpec->index);
-                indexQuery = IndexQuery::indexQuery(this, table, fieldName, owner);
+                indexQuery = IndexQuery::indexQuery(this, table, propertyName, owner);
             }
 
-            if (fieldName == orderField) {
+            if (propertyName == orderField) {
                 compileOrQueryTerm(indexQuery, queryTerm);
             } else {
                 residualQuery->queryTerms.append(orQueryTerm);
@@ -1512,7 +1513,7 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         if (defaultIndex == JsonDbString::kTypeStr) {
             foreach (const OrQueryTerm &term, orQueryTerms) {
                 QList<QueryTerm> terms = term.terms();
-                if (terms.size() == 1 && terms[0].fieldName() == JsonDbString::kTypeStr) {
+                if (terms.size() == 1 && terms[0].propertyName() == JsonDbString::kTypeStr) {
                     compileOrQueryTerm(indexQuery, terms[0]);
                     break;
                 }
@@ -1584,11 +1585,11 @@ void JsonDbBtreeStorage::doMultiIndexQuery(const JsonDbOwner *owner, QsonList &r
     QList<IndexQuery*> queries;
     int nPartitions = indexQueries.size();
 
-    QString field0 = indexQueries[0]->fieldName();
+    QString field0 = indexQueries[0]->propertyName();
     QStringList path0 = field0.split('.');
     bool ascending = indexQueries[0]->ascending();
 
-    if (sDebugQuery) qDebug() << "doMultiIndexQuery" << "limit" << limit << "offset" << offset << "fieldName" << indexQueries[0]->fieldName();
+    if (sDebugQuery) qDebug() << "doMultiIndexQuery" << "limit" << limit << "offset" << offset << "propertyName" << indexQueries[0]->propertyName();
 
     for (int i = 0; i < nPartitions; i++) {
         QsonMap object = indexQueries[i]->first();
@@ -1700,7 +1701,7 @@ QsonMap JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, con
     }
 
     QsonList sortKeys;
-    sortKeys.append(indexQuery->fieldName());
+    sortKeys.append(indexQuery->propertyName());
 
     delete indexQuery;
 
@@ -1741,7 +1742,7 @@ QsonMap JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, con
     }
 
     QsonList sortKeys;
-    sortKeys.append(indexQueries[0]->fieldName());
+    sortKeys.append(indexQueries[0]->propertyName());
 
     for (int i = 0; i < indexQueries.size(); i++)
         delete indexQueries[i];
@@ -1758,11 +1759,11 @@ QsonMap JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, con
     return map;
 }
 
-void JsonDbBtreeStorage::checkIndex(const QString &fieldName)
+void JsonDbBtreeStorage::checkIndex(const QString &propertyName)
 {
 // TODO
-    if (mObjectTable->indexSpec(fieldName))
-        mObjectTable->indexSpec(fieldName)->index->checkIndex();
+    if (mObjectTable->indexSpec(propertyName))
+        mObjectTable->indexSpec(propertyName)->index->checkIndex();
 }
 
 bool JsonDbBtreeStorage::compact()
@@ -1806,7 +1807,7 @@ void JsonDbBtreeStorage::sortValues(const JsonDbQuery *parsedQuery, QsonList &re
     if (!orderTerms.size() || (results.size() < 2))
         return;
     const OrderTerm &orderTerm0 = orderTerms[0];
-    QString field0 = orderTerm0.fieldName;
+    QString field0 = orderTerm0.propertyName;
     bool ascending = orderTerm0.ascending;
     QStringList path0 = field0.split('.');
 

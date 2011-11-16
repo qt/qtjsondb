@@ -180,74 +180,80 @@ bool ObjectTable::compact()
     return mBdb->compact();
 }
 
-IndexSpec *ObjectTable::indexSpec(const QString &fieldName)
+IndexSpec *ObjectTable::indexSpec(const QString &propertyName)
 {
-    //qDebug() << "ObjectTable::indexSpec" << fieldName << mFilename << (mIndexes.contains(fieldName) ? "exists" : "missing") << (long)this << mIndexes.keys();
-    if (mIndexes.contains(fieldName))
-        return &mIndexes[fieldName];
+    //qDebug() << "ObjectTable::indexSpec" << propertyName << mFilename << (mIndexes.contains(propertyName) ? "exists" : "missing") << (long)this << mIndexes.keys();
+    if (mIndexes.contains(propertyName))
+        return &mIndexes[propertyName];
     else
         return 0;
 }
 
-QsonObject ObjectTable::addIndex(const QString &fieldname, const QString &fieldType, const QString &objectType, bool lazy)
+bool ObjectTable::addIndex(const QString &propertyName, const QString &propertyType,
+                           const QString &objectType, const QString &propertyFunction)
 {
-    //qDebug() << "ObjectTable::addIndex" << fieldname << mFilename << (mIndexes.contains(fieldname) ? "exists" : "to be created");
-    if (mIndexes.contains(fieldname))
-        return QsonObject();
+    //qDebug() << "ObjectTable::addIndex" << propertyName << mFilename << (mIndexes.contains(propertyName) ? "exists" : "to be created");
+    if (mIndexes.contains(propertyName))
+        return true;
 
-    //if (gVerbose) qDebug() << "ObjectTable::addIndex" << fieldname << mFilename;
+    //if (gVerbose) qDebug() << "ObjectTable::addIndex" << propertyName << mFilename;
 
-    QStringList path = fieldname.split('.');
+    QStringList path = propertyName.split('.');
 
-    IndexSpec &indexSpec = mIndexes[fieldname];
-    indexSpec.fieldName = fieldname;
+    IndexSpec &indexSpec = mIndexes[propertyName];
+    indexSpec.propertyName = propertyName;
     indexSpec.path = path;
-    indexSpec.fieldType = fieldType;
+    indexSpec.propertyType = propertyType;
     indexSpec.objectType = objectType;
     indexSpec.lazy = false; //lazy;
-    indexSpec.index = new JsonDbIndex(mFilename, fieldname, this);
+    indexSpec.index = new JsonDbIndex(mFilename, propertyName, this);
+    if (!propertyFunction.isEmpty())
+        indexSpec.index->setPropertyFunction(propertyFunction);
     indexSpec.index->open();
 
     QsonMap indexObject;
     indexObject.insert(JsonDbString::kTypeStr, kIndexTypeStr);
-    indexObject.insert(kFieldStr, fieldname);
-    indexObject.insert(kFieldTypeStr, fieldType);
+    indexObject.insert(kPropertyNameStr, propertyName);
+    indexObject.insert(kPropertyTypeStr, propertyType);
     indexObject.insert(kObjectTypeStr, objectType);
-    indexObject.insert("lazy", lazy);
-    Q_ASSERT(mIndexes.contains(fieldname));
+    indexObject.insert("lazy", false);
+    indexObject.insert(kPropertyFunctionStr, propertyFunction);
+    Q_ASSERT(!propertyName.isEmpty());
+    Q_ASSERT(mIndexes.contains(propertyName));
 
     QByteArray baIndexObject;
     bool needsReindexing = false;
-    if (!mStorage->mBdbIndexes->get(fieldname.toLatin1(), baIndexObject)) {
+    if (!mStorage->mBdbIndexes->get(propertyName.toLatin1(), baIndexObject)) {
         baIndexObject = indexObject.data();
-        bool ok = mStorage->mBdbIndexes->put(fieldname.toLatin1(), baIndexObject);
-        if (gDebugRecovery) qDebug() << "Index" << fieldname << "is new" << "reindexing";
+        bool ok = mStorage->mBdbIndexes->put(propertyName.toLatin1(), baIndexObject);
+        if (!ok)
+            qCritical() << "error storing index object" << propertyName << mStorage->mBdbIndexes->errorMessage();
+        if (gDebugRecovery) qDebug() << "Index" << propertyName << "is new" << "reindexing";
         needsReindexing = true;
         Q_ASSERT(ok);
-    } else if (fieldname == JsonDbString::kUuidStr) {
+    } else if (propertyName == JsonDbString::kUuidStr) {
         // nothing more to do
-        return QsonObject();
+        return true;
     } else if (indexSpec.index->stateNumber() != mStateNumber) {
         needsReindexing = true;
-        if (gDebugRecovery) qDebug() << "Index" << fieldname << "stateNumber" << indexSpec.index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing" << "clearing";
+        if (gDebugRecovery) qDebug() << "Index" << propertyName << "stateNumber" << indexSpec.index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing" << "clearing";
         indexSpec.index->clearData();
     }
     if (needsReindexing)
-        reindexObjects(fieldname, path, stateNumber());
+        reindexObjects(propertyName, path, stateNumber());
 
-    return QsonObject();
+    return true;
 }
 
-QsonObject ObjectTable::removeIndex(const QString &fieldname, const QString &fieldType, const QString &objectType)
+bool ObjectTable::removeIndex(const QString &propertyName)
 {
-    if (!mIndexes.contains(fieldname) || fieldname == JsonDbString::kUuidStr || fieldname == JsonDbString::kTypeStr)
-        return QsonObject();
+    //qDebug() << "ObjectTable::removeIndex" << propertyName << propertyType << objectType << mFilename << (mIndexes.contains(propertyName) ? "exists" : "absent");
 
-    IndexSpec &indexSpec = mIndexes[fieldname];
-    if (indexSpec.fieldType != fieldType || indexSpec.objectType != objectType)
-        return QsonMap();
+    if (!mIndexes.contains(propertyName) || propertyName == JsonDbString::kUuidStr || propertyName == JsonDbString::kTypeStr)
+        return false;
 
-    if (mStorage->mBdbIndexes->remove(fieldname.toLatin1())) {
+    IndexSpec &indexSpec = mIndexes[propertyName];
+    if (mStorage->mBdbIndexes->remove(propertyName.toLatin1())) {
         if (indexSpec.index->bdb()->isTransaction()) { // Incase index is removed via Jdb::remove( _type=Index )
             indexSpec.index->abort();
             mBdbTransactions.remove(mBdbTransactions.indexOf(indexSpec.index->bdb()));
@@ -255,21 +261,21 @@ QsonObject ObjectTable::removeIndex(const QString &fieldname, const QString &fie
         indexSpec.index->close();
         QFile::remove(indexSpec.index->bdb()->fileName());
         delete indexSpec.index;
-        mIndexes.remove(fieldname);
+        mIndexes.remove(propertyName);
     }
 
-    return QsonObject();
+    return true;
 }
 
-void ObjectTable::reindexObjects(const QString &fieldName, const QStringList &path, quint32 stateNumber, bool inTransaction)
+void ObjectTable::reindexObjects(const QString &propertyName, const QStringList &path, quint32 stateNumber, bool inTransaction)
 {
-    if (gDebugRecovery) qDebug() << "reindexObjects" << fieldName << "{";
-    if (fieldName == JsonDbString::kUuidStr) {
+    if (gDebugRecovery) qDebug() << "reindexObjects" << propertyName << "{";
+    if (propertyName == JsonDbString::kUuidStr) {
         qCritical() << "} ObjectTable::reindexObject" << "no need to reindex _uuid";
         return;
     }
 
-    IndexSpec &indexSpec = mIndexes[fieldName];
+    IndexSpec &indexSpec = mIndexes[propertyName];
     JsonDbIndex *index = indexSpec.index;
 
     AoDbCursor cursor(mBdb);
@@ -303,7 +309,7 @@ void ObjectTable::indexObject(const ObjectKey &objectKey, QsonMap object, quint3
          ++it) {
         Q_ASSERT(mInTransaction);
         const IndexSpec &indexSpec = it.value();
-        if (indexSpec.fieldName == JsonDbString::kUuidStr)
+        if (indexSpec.propertyName == JsonDbString::kUuidStr)
             continue;
         if (indexSpec.lazy)
             continue;
@@ -323,8 +329,8 @@ void ObjectTable::deindexObject(const ObjectKey &objectKey, QsonMap object, quin
          it != mIndexes.end();
          ++it) {
         const IndexSpec &indexSpec = it.value();
-        if (gDebug) qDebug() << "ObjectTable::deindexObject" << indexSpec.fieldName;
-        if (indexSpec.fieldName == JsonDbString::kUuidStr)
+        if (gDebug) qDebug() << "ObjectTable::deindexObject" << indexSpec.propertyName;
+        if (indexSpec.propertyName == JsonDbString::kUuidStr)
             continue;
         if (indexSpec.lazy)
             continue;

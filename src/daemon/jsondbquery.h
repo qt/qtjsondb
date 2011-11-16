@@ -91,8 +91,8 @@ class QueryTerm {
 public:
     QueryTerm();
     ~QueryTerm();
-    QString fieldName() const { return mFieldName; }
-    void setFieldName(QString fieldName) { mFieldName = fieldName; mFieldPath = fieldName.split('.'); }
+    QString propertyName() const { return mPropertyName; }
+    void setPropertyName(QString propertyName) { mPropertyName = propertyName; mFieldPath = propertyName.split('.'); }
     const QStringList &fieldPath() const { return mFieldPath; }
 
     QString op() const { return mOp; }
@@ -116,7 +116,7 @@ public:
     const QRegExp &regExpConst() const { return mRegExp; }
 
  private:
-    QString mFieldName;
+    QString mPropertyName;
     QStringList mFieldPath;
     QString mOp;
     QString mJoinField;
@@ -133,7 +133,7 @@ public:
     ~OrQueryTerm();
     const QList<QueryTerm> &terms() const { return mTerms; }
     void addTerm(const QueryTerm &term) { mTerms.append(term); }
-    QList<QString> fieldNames() const;
+    QList<QString> propertyNames() const;
 private:
     QList<QueryTerm> mTerms;
 };
@@ -143,7 +143,7 @@ public:
     OrderTerm();
     ~OrderTerm();
     bool ascending;
-    QString fieldName;
+    QString propertyName;
 };
 
 class JsonDbQuery {

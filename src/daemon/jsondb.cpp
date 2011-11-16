@@ -660,7 +660,7 @@ QsonMap JsonDb::find(const JsonDbOwner *owner, QsonMap obj, const QString &parti
                     if (gVerbose) {
                         qDebug() << __FILE__ << __LINE__
                                  << (QString("    %1%4%5 %2 %3    ")
-                                     .arg(queryTerm.fieldName())
+                                     .arg(queryTerm.propertyName())
                                      .arg(queryTerm.op())
                                      .arg(JsonWriter().toString(queryTerm.value()))
                                      .arg(queryTerm.joinField().size() ? "->" : "").arg(queryTerm.joinField()));
@@ -670,7 +670,7 @@ QsonMap JsonDb::find(const JsonDbOwner *owner, QsonMap obj, const QString &parti
             QList<OrderTerm> &orderTerms = parsedQuery.orderTerms;
             for (int i = 0; i < orderTerms.size(); i++) {
                 const OrderTerm &orderTerm = orderTerms[i];
-                if (gVerbose) qDebug() << __FILE__ << __LINE__ << QString("    %1 %2    ").arg(orderTerm.fieldName).arg(orderTerm.ascending ? "ascending" : "descending");
+                if (gVerbose) qDebug() << __FILE__ << __LINE__ << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending ? "ascending" : "descending");
             }
         }
         DBG() << endl
@@ -689,8 +689,8 @@ QsonMap JsonDb::find(const JsonDbOwner *owner, QsonMap obj, const QString &parti
             int nExpressions = mapExpressions.length();
             QVector<QVector<QStringList> > joinPaths(nExpressions);
             for (int i = 0; i < nExpressions; i++) {
-                QString fieldName = mapExpressions[i];
-                QStringList joinPath = fieldName.split("->");
+                QString propertyName = mapExpressions[i];
+                QStringList joinPath = propertyName.split("->");
                 int joinPathSize = joinPath.size();
                 QVector<QStringList> fieldPaths(joinPathSize);
                 for (int j = 0; j < joinPathSize; j++) {
@@ -1270,38 +1270,36 @@ void JsonDb::checkNotifications( QsonMap object, Notification::Action action )
     }
 }
 
-QsonMap JsonDb::addIndex(const QString &fieldName, const QString &fieldType, const QString &objectType, const QString &partition)
+bool JsonDb::removeIndex(const QString &propertyName, const QString &objectType, const QString &partition)
 {
     if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->addIndex(fieldName, fieldType, objectType);
-    return QsonMap();
+        return storage->removeIndex(propertyName, objectType);
+    return false;
 }
 
-QsonMap JsonDb::removeIndex(const QString &fieldName, const QString &fieldType, const QString &objectType, const QString &partition)
+bool JsonDb::addIndex(QsonMap indexObject, const QString &partition)
 {
+    QString propertyName = indexObject.valueString(kPropertyNameStr);
+    QString propertyType = indexObject.valueString(kPropertyTypeStr);
+    QString objectType = indexObject.valueString(kObjectTypeStr);
+    QString propertyFunction = !propertyName.isEmpty() ? QString() : indexObject.valueString(kPropertyFunctionStr);
+    QString indexName = !propertyName.isEmpty() ? propertyName : indexObject.valueString(kNameStr);
+
     if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->removeIndex(fieldName, fieldType, objectType);
-    return QsonMap();
+        return storage->addIndex(indexName, propertyType, objectType, propertyFunction);
+    qWarning() << "addIndex" << "did not find partition" << partition;
+    return false;
 }
 
-void JsonDb::addIndex(QsonMap indexObject, const QString &partition)
+bool JsonDb::removeIndex(QsonMap indexObject, const QString &partition)
 {
-    QString fieldName = indexObject.valueString(kFieldStr);
-    QString fieldType = indexObject.valueString(kFieldTypeStr);
+    QString propertyName = indexObject.valueString(kPropertyNameStr);
+    QString propertyType = indexObject.valueString(kPropertyTypeStr);
     QString objectType = indexObject.valueString(kObjectTypeStr);
 
     if (JsonDbBtreeStorage *storage = findPartition(partition))
-        storage->addIndex(fieldName, fieldType, objectType);
-}
-
-void JsonDb::removeIndex(QsonMap indexObject, const QString &partition)
-{
-    QString fieldName = indexObject.valueString(kFieldStr);
-    QString fieldType = indexObject.valueString(kFieldTypeStr);
-    QString objectType = indexObject.valueString(kObjectTypeStr);
-
-    if (JsonDbBtreeStorage *storage = findPartition(partition))
-        storage->removeIndex(fieldName, fieldType, objectType);
+        return storage->removeIndex(propertyName, objectType);
+    return false;
 }
 
 void JsonDb::updateSchemaIndexes(const QString &schemaName, QsonMap object, const QStringList &path)
@@ -1393,7 +1391,13 @@ void JsonDb::initSchemas()
         }
     }
     {
-        addIndex("name", "string", "Capability");
+        QsonMap nameIndex;
+        nameIndex.insert(JsonDbString::kTypeStr, kIndexTypeStr);
+        nameIndex.insert(kPropertyNameStr, QLatin1String("name"));
+        nameIndex.insert(kPropertyTypeStr, QLatin1String("string"));
+        nameIndex.insert(kObjectTypeStr, QLatin1String("Capability"));
+        create(mOwner, nameIndex);
+
         const QString capabilityName("RootCapability");
         QFile capabilityFile(QString(":schema/%1.json").arg(capabilityName));
         capabilityFile.open(QIODevice::ReadOnly);
@@ -1632,26 +1636,30 @@ QsonMap JsonDb::checkCanRemoveSchema(QsonMap schema)
 QsonMap JsonDb::validateAddIndex(const QsonMap &newIndex, const QsonMap &oldIndex) const
 {
     if (!newIndex.isEmpty() && !oldIndex.isEmpty()) {
-        if (oldIndex.valueString(kFieldStr) != newIndex.valueString(kFieldStr))
+        if (oldIndex.valueString(kPropertyNameStr) != newIndex.valueString(kPropertyNameStr))
             return makeError(JsonDbError::InvalidIndexOperation,
-                             QString("Changing old index field name %1 to %2 not supported")
-                             .arg(oldIndex.valueString(kFieldStr))
-                             .arg(newIndex.valueString(kFieldStr)));
-        if (oldIndex.valueString(kFieldTypeStr) != newIndex.valueString(kFieldTypeStr))
+                             QString("Changing old index propertyName '%1' to '%2' not supported")
+                             .arg(oldIndex.valueString(kPropertyNameStr))
+                             .arg(newIndex.valueString(kPropertyNameStr)));
+        if (oldIndex.valueString(kPropertyTypeStr) != newIndex.valueString(kPropertyTypeStr))
             return makeError(JsonDbError::InvalidIndexOperation,
-                             QString("Changing old index field type %1 to %2 not supported")
-                             .arg(oldIndex.valueString(kFieldTypeStr))
-                             .arg(newIndex.valueString(kFieldTypeStr)));
+                             QString("Changing old index propertyType from '%1' to '%2' not supported")
+                             .arg(oldIndex.valueString(kPropertyTypeStr))
+                             .arg(newIndex.valueString(kPropertyTypeStr)));
         if (oldIndex.valueString(kObjectTypeStr) != newIndex.valueString(kObjectTypeStr))
             return makeError(JsonDbError::InvalidIndexOperation,
-                             QString("Changing old index object type %1 to %2 not supported")
+                             QString("Changing old index objectType from '%1' to '%2' not supported")
                              .arg(oldIndex.valueString(kObjectTypeStr))
                              .arg(newIndex.valueString(kObjectTypeStr)));
     }
 
-    if (!newIndex.contains(kFieldStr))
+    if (!(newIndex.contains(kPropertyNameStr) ^ newIndex.contains(kPropertyFunctionStr)))
         return makeError(JsonDbError::InvalidIndexOperation,
-                         QString("Index object must have field name"));
+                         QString("Index object must have have either propertyName and propertyFunction but not both"));
+
+    if (newIndex.contains(kPropertyFunctionStr) && !newIndex.contains(kNameStr))
+        return makeError(JsonDbError::InvalidIndexOperation,
+                         QString("Index object with propertyFunction must have name"));
 
     return QsonMap();
 }
@@ -1675,11 +1683,11 @@ const Notification *JsonDb::createNotification(const JsonDbOwner *owner, QsonMap
         if (terms.size() == 1) {
             const QueryTerm &term = terms[0];
             if (term.op() == "=") {
-                if (term.fieldName() == JsonDbString::kUuidStr) {
+                if (term.propertyName() == JsonDbString::kUuidStr) {
                     mKeyedNotifications.insert(term.value().toString(), n);
                     generic = false;
                     break;
-                } else if (term.fieldName() == JsonDbString::kTypeStr) {
+                } else if (term.propertyName() == JsonDbString::kTypeStr) {
                     QString objectType = term.value().toString();
                     mKeyedNotifications.insert(objectType, n);
                     updateEagerViewTypes(objectType);
@@ -1710,9 +1718,9 @@ void JsonDb::removeNotification(const QString &uuid)
             if (terms.size() == 1) {
                 const QueryTerm &term = terms[0];
                 if (term.op() == "=") {
-                    if (term.fieldName() == JsonDbString::kTypeStr) {
+                    if (term.propertyName() == JsonDbString::kTypeStr) {
                         mKeyedNotifications.remove(term.value().toString(), n);
-                    } else if (term.fieldName() == JsonDbString::kUuidStr) {
+                    } else if (term.propertyName() == JsonDbString::kUuidStr) {
                         QString objectType = term.value().toString();
                         mKeyedNotifications.remove(objectType, n);
                     }

@@ -1,15 +1,21 @@
 {
   "type": "object",
-  "primaryKey": ["_type", "fieldName"],
+  "primaryKey": ["_type", "propertyName", "name"],
   "properties": {
-    "fieldName": {
+    "name": {
       "type": "string",
-      "required": true,
-      "description": "Property to index"
+      "description": "Name of the index. Default to the value of propertyName, if non-empty. Required if propertyFunction is specified."
     },
-    "fieldType": {
+    "propertyName": {
       "type": "string",
-      "required": true,
+      "description": "Property to index."
+    },
+    "propertyFunction": {
+      "type": "string",
+      "description": "String that evaluates to a function that emits the index values. Mutually exclusive with propertyName."
+    },
+    "propertyType": {
+      "type": "string",
       "description": "Type of values stored in that property."
     },
     "objectType": {

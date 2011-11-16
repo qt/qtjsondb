@@ -153,15 +153,12 @@ protected:
 
     enum Action { Create, Remove };
 
-    QsonMap addIndex(const QString &fieldName, const QString &typeName = QString("string"), 
-                     const QString &objectType = QString(),
-                     const QString &partition = QString());
-    void addIndex(QsonMap indexObject, const QString &partition);
+    bool addIndex(QsonMap indexObject, const QString &partition);
 
-    QsonMap removeIndex(const QString &fieldName, const QString &typeName = QString("string"),
+    bool removeIndex(const QString &propertyName,
                      const QString &objectType = QString(),
                      const QString &partition = QString());
-    void removeIndex(QsonMap indexObject, const QString &partition);
+    bool removeIndex(QsonMap indexObject, const QString &partition);
 
     void initMap(const QString &partition);
     void createMapDefinition(QsonMap mapDefinition, bool firstTime, const QString &partition);

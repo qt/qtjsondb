@@ -43,6 +43,7 @@
 #define JSONDB_INDEX_H
 
 #include <QObject>
+#include <QJSEngine>
 #include <QPointer>
 
 #include <QtJsonDbQson/private/qson_p.h>
@@ -64,14 +65,15 @@ class JsonDbIndex : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbIndex(const QString &fileName, const QString &fieldName, QObject *parent = 0);
+    JsonDbIndex(const QString &fileName, const QString &propertyName, QObject *parent = 0);
     ~JsonDbIndex();
 
-    QString fieldName() const { return mFieldName; }
+    QString propertyName() const { return mPropertyName; }
     QStringList fieldPath() const { return mPath; }
 
     AoDb *bdb();
 
+    bool setPropertyFunction(const QString &propertyFunction);
     void indexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber, bool inTransaction=false);
     void deindexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber, bool inTransaction=false);
 
@@ -91,11 +93,20 @@ public:
     void close();
 
 private:
+    QVariantList indexValues(QsonObject &object);
+
+private slots:
+    void propertyValueEmitted(QJSValue);
+
+private:
     QString mFileName;
-    QString mFieldName;
+    QString mPropertyName;
     QStringList mPath;
     quint32 mStateNumber;
     QScopedPointer<AoDb> mBdb;
+    QJSEngine *mScriptEngine;
+    QJSValue   mPropertyFunction;
+    QVariantList mFieldValues;
 };
 
 class JsonDbIndexCursor
@@ -121,9 +132,9 @@ private:
 
 class IndexSpec {
 public:
-    QString fieldName;
+    QString propertyName;
     QStringList path;
-    QString fieldType;
+    QString propertyType;
     QString objectType;
     bool    lazy;
     QPointer<JsonDbIndex> index;
