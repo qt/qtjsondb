@@ -600,7 +600,7 @@ QsonMap JsonDbBtreeStorage::updatePersistentObject(QsonMap &object)
     ObjectTable *table = findObjectTable(objectType);
     ObjectKey objectKey(uuid);
 
-    QsonObject oldObject;
+    QsonMap oldObject;
     bool exists = table->get(objectKey, oldObject);
 
     objectKey = ObjectKey(object.uuid());
@@ -685,29 +685,29 @@ QsonMap JsonDbBtreeStorage::removePersistentObject(QsonMap object, const QsonMap
     return result;
 }
 
-QsonMap JsonDbBtreeStorage::lookupObject(const QString &uuid, const QString &objectType) const
+bool JsonDbBtreeStorage::getObject(const QString &uuid, QsonMap &object, const QString &objectType) const
 {
     ObjectKey objectKey(uuid);
-    return lookupObject(objectKey, objectType);
+    return getObject(objectKey, object, objectType);
 }
 
-QsonMap JsonDbBtreeStorage::lookupObject(const ObjectKey &objectKey, const QString &objectType) const
+bool JsonDbBtreeStorage::getObject(const ObjectKey &objectKey, QsonMap &object, const QString &objectType) const
 {
     ObjectTable *table = findObjectTable(objectType);
 
-    QsonMap object = table->lookupObject(objectKey);
-    if (!object.isEmpty())
-        return object;
+    bool ok = table->get(objectKey, object);
+    if (ok)
+        return ok;
     QHash<QString,QPointer<ObjectTable> >::const_iterator it = mViews.begin();
     for (; it != mViews.end(); ++it) {
-        object = it.value()->lookupObject(objectKey);
-        if (!object.isEmpty())
-            return object;
+        bool ok = it.value()->get(objectKey, object);
+        if (ok)
+            return ok;
     }
-    return QsonMap();
+    return false;
 }
 
-QsonMap JsonDbBtreeStorage::getObject(const QString &keyName, const QVariant &keyValue, const QString &_objectType)
+QsonMap JsonDbBtreeStorage::getObjects(const QString &keyName, const QVariant &keyValue, const QString &_objectType)
 {
     QsonMap resultmap;
     QsonList objectList;
@@ -721,8 +721,9 @@ QsonMap JsonDbBtreeStorage::getObject(const QString &keyName, const QVariant &ke
     if (keyName == JsonDbString::kUuidStr) {
         ObjectKey objectKey(keyValue.toString());
         QsonList objectList;
-        QsonObject object = table->lookupObject(objectKey);
-        if (!object.isEmpty())
+        QsonMap object;
+        bool ok = table->get(objectKey, object);
+        if (ok)
             objectList.append(object);
         resultmap.insert(QLatin1String("result"), objectList);
         resultmap.insert(JsonDbString::kCountStr, objectList.size());
@@ -748,15 +749,14 @@ QsonMap JsonDbBtreeStorage::getObject(const QString &keyName, const QVariant &ke
             if (key != keyValue)
                 break;
 
-            QsonObject object;
-            if (table->get(objectKey, object)) {
-                QsonMap map = object.toMap();
+            QsonMap map;
+            if (table->get(objectKey, map)) {
                 if (map.contains(JsonDbString::kDeletedStr) && map.valueBool(JsonDbString::kDeletedStr, false))
                     continue;
                 if (typeSpecified && (map.valueString(JsonDbString::kTypeStr) != objectType))
                     continue;
 
-                objectList.append(object);
+                objectList.append(map);
             } else {
               DBG() << "Failed to get object" << objectKey << table->errorMessage();
             }
@@ -1028,7 +1028,9 @@ QsonMap IndexQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
     forwardValueSplit(baValue, objectKey);
 
     if (sDebugQuery) qDebug() << __FILE__ << __LINE__ << "objectKey" << objectKey << baValue.toHex();
-    return mObjectTable->lookupObject(objectKey);
+    QsonMap object;
+    mObjectTable->get(objectKey, object);
+    return object;
 }
 
 quint32 UuidQuery::stateNumber() const
@@ -1102,7 +1104,9 @@ QsonMap UuidQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
     objectKey = ObjectKey(baKey);
 
     if (sDebugQuery) qDebug() << __FILE__ << __LINE__ << "objectKey" << objectKey << baKey.toHex();
-    return mObjectTable->lookupObject(objectKey);
+    QsonMap object;
+    mObjectTable->get(objectKey, object);
+    return object;
 }
 
 QsonMap IndexQuery::first()

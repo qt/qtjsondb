@@ -365,14 +365,17 @@ void ObjectTable::updateIndex(JsonDbIndex *index)
 }
 
 
-bool ObjectTable::get(const ObjectKey &objectKey, QsonObject &object)
+bool ObjectTable::get(const ObjectKey &objectKey, QsonMap &object, bool includeDeleted)
 {
     QByteArray baObjectKey(objectKey.toByteArray());
     QByteArray baObject;
     bool ok = mBdb->get(baObjectKey, baObject);
     if (!ok)
         return false;
-    object = QsonParser::fromRawData(baObject);
+    QsonMap o = QsonParser::fromRawData(baObject).toMap();
+    if (!includeDeleted && o.valueBool(JsonDbString::kDeletedStr, false))
+        return false;
+    object = o;
     return true;
 }
 
@@ -393,25 +396,7 @@ QString ObjectTable::errorMessage() const
     return mBdb->errorMessage();
 }
 
-QsonMap ObjectTable::lookupObject(const ObjectKey &objectKey) const
-{
-    //serializedKey.append(version);
-    QByteArray baObjectKey(objectKey.toByteArray());
-
-    QByteArray baObject;
-    bool ok = mBdb->get(baObjectKey, baObject);
-    if (ok) {
-        QsonMap map = QsonParser::fromRawData(baObject).toMap();
-        if (map.valueBool(JsonDbString::kDeletedStr, false))
-            return QsonMap();
-        else
-            return map;
-    } else {
-        return QsonMap();
-    }
-}
-
-QsonMap ObjectTable::getObject(const QString &keyName, const QVariant &keyValue, const QString &objectType)
+QsonMap ObjectTable::getObjects(const QString &keyName, const QVariant &keyValue, const QString &objectType)
 {
     QsonMap resultmap;
     QsonList objectList;
@@ -420,8 +405,9 @@ QsonMap ObjectTable::getObject(const QString &keyName, const QVariant &keyValue,
     if (keyName == JsonDbString::kUuidStr) {
         ObjectKey objectKey(keyValue.toString());
         QsonList objectList;
-        QsonObject object = lookupObject(objectKey);
-        if (!object.isEmpty())
+        QsonMap object;
+        bool ok = get(objectKey, object);
+        if (ok)
             objectList.append(object);
         resultmap.insert(QByteArray("result"), objectList);
         resultmap.insert(JsonDbString::kCountStr, objectList.size());
@@ -454,16 +440,15 @@ QsonMap ObjectTable::getObject(const QString &keyName, const QVariant &keyValue,
             forwardValueSplit(forwardValue, objectKey);
             DBG() << "ok" << ok << "forwardValue" << forwardValue << "objectKey" << objectKey;
 
-            QsonObject object;
-            if (get(objectKey, object)) {
-                QsonMap map = object.toMap();
+            QsonMap map;
+            if (get(objectKey, map)) {
                 //qDebug() << "ObjectTable::getObject" << "deleted" << map.valueBool(JsonDbString::kDeletedStr, false);
                 if (map.contains(JsonDbString::kDeletedStr) && map.valueBool(JsonDbString::kDeletedStr, false))
                     continue;
-                if (typeSpecified && (object.toMap().valueString(JsonDbString::kTypeStr) != objectType))
+                if (typeSpecified && (map.valueString(JsonDbString::kTypeStr) != objectType))
                     continue;
 
-                objectList.append(object);
+                objectList.append(map);
             } else {
               DBG() << "Failed to get object" << objectKey << errorMessage();
             }
@@ -497,7 +482,7 @@ quint32 ObjectTable::storeStateChange(const QList<ObjectChange> &changes)
     mStateChanges.resize(oldSize + changes.size() * 20);
     uchar *data = (uchar *)mStateChanges.data() + oldSize;
     foreach (const ObjectChange &change, changes) {
-        qToBigEndian(change.object, data);
+        qToBigEndian(change.objectKey, data);
         qToBigEndian<quint32>(change.action, data+16);
         data += 20;
         if (!change.oldObject.isEmpty())
@@ -573,11 +558,11 @@ QsonMap ObjectTable::changesSince(quint32 stateNumber, const QSet<QString> &limi
             QsonMap after;
             switch (change.action) {
             case ObjectChange::Created:
-                after = lookupObject(change.object);
+                get(change.objectKey, after);
                 break;
             case ObjectChange::Updated:
                 before = change.oldObject;
-                after = lookupObject(change.object);
+                get(change.objectKey, after);
                 break;
             case ObjectChange::Deleted:
                 before = change.oldObject;

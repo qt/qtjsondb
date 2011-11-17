@@ -501,7 +501,7 @@ bool JsonDb::open()
     mStorages.insert(JsonDbString::kSystemPartitionName, storage);
 
     // read partition information from the db
-    QsonMap result = storage->getObject(JsonDbString::kTypeStr, JsonDbString::kPartitionStr);
+    QsonMap result = storage->getObjects(JsonDbString::kTypeStr, JsonDbString::kPartitionStr);
     QsonList partitions = result.value<QsonList>("result");
     if (partitions.isEmpty()) {
         WithTransaction transaction(storage);
@@ -721,8 +721,8 @@ QsonMap JsonDb::find(const JsonDbOwner *owner, QsonMap obj, const QString &parti
                                 baseObject = objectCache.value(uuid);
                             } else {
                                 ObjectKey objectKey(uuid);
-                                baseObject = storage->lookupObject(objectKey);
-                                if (!baseObject.isEmpty())
+                                bool gotBaseObject = storage->getObject(objectKey, baseObject);
+                                if (gotBaseObject)
                                     objectCache.insert(uuid, baseObject);
                             }
                         }
@@ -877,8 +877,9 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
     QsonMap master;
     bool forCreation = true;
 
-    QsonMap _delrec = storage->lookupObject(uuid, objectType);
-    if (!_delrec.isEmpty()) {
+    QsonMap _delrec;
+    bool gotDelrec = storage->getObject(uuid, _delrec, objectType);
+    if (gotDelrec) {
         master = _delrec;
         forCreation = false;
         Q_ASSERT(master.isDocument());
@@ -1053,8 +1054,9 @@ QsonMap JsonDb::updateViewObject(const JsonDbOwner *owner, QsonMap& object, cons
     // retrieve record we are updating to use
     QsonMap master;
 
-    QsonMap _delrec = storage->lookupObject(uuid, objectType);
-    if (!_delrec.isEmpty()) {
+    QsonMap _delrec;
+    bool gotDelrec = storage->getObject(uuid, _delrec, objectType);
+    if (gotDelrec) {
         master =_delrec;
     } else if (!replication && object.valueBool(JsonDbString::kDeletedStr, false)) {
         setError(errormap, JsonDbError::MissingObject, QLatin1String("Cannot remove non-existing object"));
@@ -1165,8 +1167,9 @@ QsonMap JsonDb::remove(const JsonDbOwner *owner, const QsonMap &object, const QS
     // quick fix for the case when object only contains _uuid
     // TODO: refactor
     JsonDbBtreeStorage *storage = findPartition(partition);
-    QsonMap delrec = storage->lookupObject(uuid, objectType);
-    if (delrec.isEmpty())
+    QsonMap delrec;
+    bool gotDelrec = storage->getObject(uuid, delrec, objectType);
+    if (!gotDelrec)
         delrec = object;
 
     QsonMap tombstone;
@@ -1210,11 +1213,11 @@ QsonMap JsonDb::removeViewObject(const JsonDbOwner *owner, QsonMap object, const
     return result;
 }
 
-QsonMap JsonDb::getObject(const QString &keyName, const QVariant &key, const QString &type, const QString &partition) const
+QsonMap JsonDb::getObjects(const QString &keyName, const QVariant &key, const QString &type, const QString &partition) const
 {
     const QString &objectType = (keyName == JsonDbString::kTypeStr) ? key.toString() : type;
     if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->getObject(keyName, key, objectType);
+        return storage->getObjects(keyName, key, objectType);
     return QsonMap();
 }
 
@@ -1361,7 +1364,7 @@ void JsonDb::initSchemas()
 {
     if (gVerbose) qDebug() << "initSchemas";
     {
-        QsonMap getObjectResponse = getObject(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr,
+        QsonMap getObjectResponse = getObjects(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr,
                                               QString(), JsonDbString::kSystemPartitionName);
         QsonList schemas = getObjectResponse.subList("result");
         for (int i = 0; i < schemas.size(); ++i) {
@@ -1403,7 +1406,7 @@ void JsonDb::initSchemas()
         }
         QsonMap capability = variantToQson(parser.result().toMap());
         QString name = capability.valueString("name");
-        QsonMap getObjectResponse = getObject("name", name, "Capability");
+        QsonMap getObjectResponse = getObjects("name", name, "Capability");
         int count = getObjectResponse.valueInt("count", 0);
         if (!count) {
             if (gVerbose)
@@ -1598,7 +1601,7 @@ QsonMap JsonDb::checkCanRemoveSchema(QsonMap schema)
     QString schemaName = schema.valueString("name");
 
     // check if any objects exist
-    QsonMap getObjectResponse = getObject(JsonDbString::kTypeStr, schemaName);
+    QsonMap getObjectResponse = getObjects(JsonDbString::kTypeStr, schemaName);
     // for non-View types, if objects exist the schema cannot be removed
     if (!mViewTypes.contains(schemaName)) {
         if (getObjectResponse.valueInt("count") != 0)

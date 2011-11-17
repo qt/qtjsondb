@@ -179,10 +179,10 @@ public:
     ObjectTable *mainObjectTable() const { return mObjectTable; }
     ObjectTable *findObjectTable(const QString &objectType) const;
 
-    QsonMap lookupObject(const QString &uuid, const QString &objectType = QString()) const;
-    QsonMap lookupObject(const ObjectKey & objectKey, const QString &objectType = QString()) const;
+    bool getObject(const QString &uuid, QsonMap &object, const QString &objectType = QString()) const;
+    bool getObject(const ObjectKey & objectKey, QsonMap &object, const QString &objectType = QString()) const;
 
-    QsonMap getObject(const QString &keyName, const QVariant &key, const QString &type = QString());
+    QsonMap getObjects(const QString &keyName, const QVariant &key, const QString &type = QString());
 
     QsonMap changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
     void dumpIndexes(QString label);

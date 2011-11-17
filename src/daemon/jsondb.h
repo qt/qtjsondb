@@ -118,7 +118,7 @@ public:
     QJSEngine *scriptEngine() { return mScriptEngine; }
     void load(const QString &jsonFileName);
 
-    QsonMap getObject(const QString &keyName, const QVariant &key, const QString &type = QString(), const QString &partition = QString()) const;
+    QsonMap getObjects(const QString &keyName, const QVariant &key, const QString &type = QString(), const QString &partition = QString()) const;
 
     QString getTablePrefix();
     void setTablePrefix(const QString &prefix);

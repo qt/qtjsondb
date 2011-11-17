@@ -1594,7 +1594,7 @@ void TestJsonDb::mapInvalidMapFunc()
     mJsonDb->updateView("MyViewType");
 
     // now check for an error
-    QsonMap res = mJsonDb->getObject("_uuid", uuid, JsonDbString::kMapTypeStr);
+    QsonMap res = mJsonDb->getObjects("_uuid", uuid, JsonDbString::kMapTypeStr);
     QVERIFY(res.valueInt("count") > 0);
     mapDefinition = res.subList("result").objectAt(0);
     QVERIFY(!mapDefinition.isNull(JsonDbString::kActiveStr) && !mapDefinition.valueBool(JsonDbString::kActiveStr));
@@ -1628,7 +1628,7 @@ void TestJsonDb::reduceInvalidAddSubtractFuncs()
 
     mJsonDb->updateView("MyViewType");
 
-    res = mJsonDb->getObject("_uuid", res.subObject("result").valueString("_uuid"));
+    res = mJsonDb->getObjects("_uuid", res.subObject("result").valueString("_uuid"));
     reduceDefinition = res.subList("result").objectAt(0);
     QVERIFY(!reduceDefinition.isNull(JsonDbString::kActiveStr) && !reduceDefinition.valueBool(JsonDbString::kActiveStr));
     QVERIFY(!reduceDefinition.valueString(JsonDbString::kErrorStr).isEmpty());
@@ -1857,7 +1857,7 @@ void TestJsonDb::mapJoin()
     mJsonDb->addIndex("foaf", "string", "FoafPerson");
     mJsonDb->addIndex("friend", "string", "Person");
 
-    QsonMap result = mJsonDb->getObject(JsonDbString::kTypeStr, "FoafPerson");
+    QsonMap result = mJsonDb->getObjects(JsonDbString::kTypeStr, "FoafPerson");
     //QsonMap join1 = mJsonDb->getObject(JsonDbString::kTypeStr, "Join");
     //qDebug() << "join" << join1;
     QCOMPARE(result.value<int>(JsonDbString::kCountStr), 0);
@@ -1876,7 +1876,7 @@ void TestJsonDb::mapJoin()
         verifyGoodResult(mJsonDb->update(mOwner, person));
     }
 
-    result = mJsonDb->getObject(JsonDbString::kTypeStr, "Person");
+    result = mJsonDb->getObjects(JsonDbString::kTypeStr, "Person");
     QsonList peopleWithFriends = result.value<QsonList>("result");
 
     QsonMap queryFoafPerson;
@@ -1913,7 +1913,7 @@ void TestJsonDb::mapJoin()
     //qDebug() << "Removing friend from" << fr;
     verifyGoodResult(mJsonDb->update(mOwner, fr));
 
-    QsonMap foafRes = mJsonDb->getObject(JsonDbString::kTypeStr, "FoafPerson");
+    QsonMap foafRes = mJsonDb->getObjects(JsonDbString::kTypeStr, "FoafPerson");
     QsonList foafs = foafRes.subList("result");
     if (0) {
         for (int i = 0; i < foafs.size(); i++) {
@@ -2042,7 +2042,7 @@ void TestJsonDb::mapMapFunctionError()
     mJsonDb->updateView("MyViewType");
 
     // see if the map definition is still active
-    res = mJsonDb->getObject("_uuid", defRes.subObject("result").valueString("_uuid"));
+    res = mJsonDb->getObjects("_uuid", defRes.subObject("result").valueString("_uuid"));
     mapDefinition = res.subList("result").objectAt(0);
     QVERIFY(!mapDefinition.isNull(JsonDbString::kActiveStr) && !mapDefinition.valueBool(JsonDbString::kActiveStr));
     QVERIFY(mapDefinition.valueString(JsonDbString::kErrorStr).contains("invalidobject"));
@@ -2056,7 +2056,7 @@ void TestJsonDb::mapSchemaViolation()
     bool validate = gValidateSchemas;
     gValidateSchemas = true;
 
-    QsonMap contactsRes = mJsonDb->getObject(JsonDbString::kTypeStr, "Contact");
+    QsonMap contactsRes = mJsonDb->getObjects(JsonDbString::kTypeStr, "Contact");
     if (contactsRes.valueInt("count") > 0)
         verifyGoodResult(mJsonDb->removeList(mOwner, contactsRes.subList("result")));
 
@@ -2088,13 +2088,13 @@ void TestJsonDb::mapSchemaViolation()
 
     mJsonDb->updateView(map.valueString("targetType"));
 
-    QsonMap mapDefinition = mJsonDb->getObject("_uuid", map.valueString(JsonDbString::kUuidStr));
+    QsonMap mapDefinition = mJsonDb->getObjects("_uuid", map.valueString(JsonDbString::kUuidStr));
     QCOMPARE(mapDefinition.subList("result").size(), 1);
     mapDefinition = mapDefinition.subList("result").objectAt(0);
     QVERIFY(!mapDefinition.isNull(JsonDbString::kActiveStr) && !mapDefinition.valueBool(JsonDbString::kActiveStr));
     QVERIFY(mapDefinition.valueString(JsonDbString::kErrorStr).contains("Schema"));
 
-    QsonMap res = mJsonDb->getObject(JsonDbString::kTypeStr, "Phone");
+    QsonMap res = mJsonDb->getObjects(JsonDbString::kTypeStr, "Phone");
     QCOMPARE(res.value<int>(JsonDbString::kCountStr), 0);
     // fix the map function
     map.insert("map", workingMap);
@@ -2105,12 +2105,12 @@ void TestJsonDb::mapSchemaViolation()
 
     mJsonDb->updateView(map.valueString("targetType"));
 
-    mapDefinition = mJsonDb->getObject("_uuid", map.valueString(JsonDbString::kUuidStr));
+    mapDefinition = mJsonDb->getObjects("_uuid", map.valueString(JsonDbString::kUuidStr));
     mapDefinition = mapDefinition.subList("result").objectAt(0);
     QVERIFY(mapDefinition.isNull(JsonDbString::kActiveStr)|| mapDefinition.valueBool(JsonDbString::kActiveStr));
     QVERIFY(mapDefinition.isNull(JsonDbString::kErrorStr) || mapDefinition.valueString(JsonDbString::kErrorStr).isEmpty());
 
-    res = mJsonDb->getObject(JsonDbString::kTypeStr, "Phone");
+    res = mJsonDb->getObjects(JsonDbString::kTypeStr, "Phone");
     QCOMPARE(res.value<int>(JsonDbString::kCountStr), 5);
 
     verifyGoodResult(mJsonDb->remove(mOwner, map));
@@ -2369,7 +2369,7 @@ void TestJsonDb::reduceFunctionError()
     verifyGoodResult(res);
 
     mJsonDb->updateView(viewTypeStr);
-    res = mJsonDb->getObject("_uuid", defRes.subObject("result").valueString("_uuid"), JsonDbString::kReduceTypeStr);
+    res = mJsonDb->getObjects("_uuid", defRes.subObject("result").valueString("_uuid"), JsonDbString::kReduceTypeStr);
     reduceDefinition = res.subList("result").objectAt(0);
     QVERIFY(!reduceDefinition.valueBool(JsonDbString::kActiveStr, false));
     QVERIFY(reduceDefinition.valueString(JsonDbString::kErrorStr).contains("invalidobject"));
@@ -2414,13 +2414,13 @@ void TestJsonDb::reduceSchemaViolation()
 
     mJsonDb->updateView(reduce.valueString("targetType"));
 
-    QsonMap reduceDefinition = mJsonDb->getObject("_uuid", reduce.valueString(JsonDbString::kUuidStr));
+    QsonMap reduceDefinition = mJsonDb->getObjects("_uuid", reduce.valueString(JsonDbString::kUuidStr));
     QCOMPARE(reduceDefinition.subList("result").size(), 1);
     reduceDefinition = reduceDefinition.subList("result").objectAt(0);
     QVERIFY(!reduceDefinition.isNull(JsonDbString::kActiveStr) && !reduceDefinition.valueBool(JsonDbString::kActiveStr));
     QVERIFY(reduceDefinition.valueString(JsonDbString::kErrorStr).contains("Schema"));
 
-    QsonMap res = mJsonDb->getObject(JsonDbString::kTypeStr, "PhoneCount");
+    QsonMap res = mJsonDb->getObjects(JsonDbString::kTypeStr, "PhoneCount");
     QCOMPARE(res.value<int>(JsonDbString::kCountStr), 0);
 
     // fix the add function
@@ -2432,12 +2432,12 @@ void TestJsonDb::reduceSchemaViolation()
 
     mJsonDb->updateView(reduce.valueString("targetType"));
 
-    reduceDefinition = mJsonDb->getObject("_uuid", reduce.valueString(JsonDbString::kUuidStr));
+    reduceDefinition = mJsonDb->getObjects("_uuid", reduce.valueString(JsonDbString::kUuidStr));
     reduceDefinition = reduceDefinition.subList("result").objectAt(0);
     QVERIFY(reduceDefinition.isNull(JsonDbString::kActiveStr)|| reduceDefinition.valueBool(JsonDbString::kActiveStr));
     QVERIFY(reduceDefinition.isNull(JsonDbString::kErrorStr) || reduceDefinition.valueString(JsonDbString::kErrorStr).isEmpty());
 
-    res = mJsonDb->getObject(JsonDbString::kTypeStr, "PhoneCount");
+    res = mJsonDb->getObjects(JsonDbString::kTypeStr, "PhoneCount");
     QCOMPARE(res.value<int>(JsonDbString::kCountStr), 4);
 
     verifyGoodResult(mJsonDb->remove(mOwner, reduce));
@@ -3985,7 +3985,7 @@ void TestJsonDb::setOwner()
     QsonMap result = mJsonDb->create(mOwner, item);
     verifyGoodResult(result);
 
-    result = mJsonDb->getObject(JsonDbString::kTypeStr, "SetOwnerType");
+    result = mJsonDb->getObjects(JsonDbString::kTypeStr, "SetOwnerType");
     QCOMPARE(result.subList("result").objectAt(0).valueString(JsonDbString::kOwnerStr),
              fooOwnerStr);
 
@@ -4004,7 +4004,7 @@ void TestJsonDb::setOwner()
     result = mJsonDb->create(unauthOwner, item);
     verifyGoodResult(result);
 
-    result = mJsonDb->getObject(JsonDbString::kTypeStr, "SetOwnerType2");
+    result = mJsonDb->getObjects(JsonDbString::kTypeStr, "SetOwnerType2");
     QVERIFY(result.subList("result").objectAt(0).valueString(JsonDbString::kOwnerStr)
             != fooOwnerStr);
     result = mJsonDb->remove(unauthOwner, item);

@@ -475,7 +475,7 @@ bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCa
                         joinedObject = objectCache->value(uuidValue);
                     else if (storage) {
                         ObjectKey objectKey(uuidValue);
-                        joinedObject = storage->lookupObject(objectKey);
+                        storage->getObject(objectKey, joinedObject);
                         if (objectCache) objectCache->insert(uuidValue, joinedObject);
                     }
                 }

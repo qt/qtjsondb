@@ -69,7 +69,7 @@ void JsonDb::initMap(const QString &partition)
     if (gVerbose) qDebug() << "Initializing views on partition" << partition;
     JsonDbBtreeStorage *storage = findPartition(partition);
     {
-        QsonMap getObjectResponse = getObject(JsonDbString::kTypeStr, "Map", partition);
+        QsonMap getObjectResponse = getObjects(JsonDbString::kTypeStr, "Map", partition);
         QsonList mrdList = getObjectResponse.subList("result");
         for (int i = 0; i < mrdList.size(); ++i) {
             QsonMap mrd = mrdList.at<QsonMap>(i);
@@ -78,7 +78,7 @@ void JsonDb::initMap(const QString &partition)
         }
     }
     {
-        QsonMap getObjectResponse = getObject(JsonDbString::kTypeStr, "Reduce", partition);
+        QsonMap getObjectResponse = getObjects(JsonDbString::kTypeStr, "Reduce", partition);
         QsonList mrdList = getObjectResponse.subList("result");
         for (int i = 0; i < mrdList.size(); ++i) {
             QsonMap mrd = mrdList.at<QsonMap>(i);
@@ -113,7 +113,7 @@ void JsonDb::createMapDefinition(QsonMap mapDefinition, bool firstTime, const QS
     mMapDefinitionsByTarget.insert(targetType, def);
 
     if (firstTime && def->isActive()) {
-        QsonMap getObjectResponse = getObject(JsonDbString::kTypeStr, sourceTypes[0]);
+        QsonMap getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceTypes[0]);
         QsonList objects = getObjectResponse.subList("result");
         for (int i = 0; i < objects.size(); i++)
             def->mapObject(objects.objectAt(i));
@@ -138,7 +138,7 @@ void JsonDb::removeMapDefinition(QsonMap mapDefinition)
     }
 
     // remove the output objects
-    QsonMap getObjectResponse = getObject("_mapUuid",
+    QsonMap getObjectResponse = getObjects("_mapUuid",
                                           mapDefinition.valueString(JsonDbString::kUuidStr), targetType);
     QsonList objects = getObjectResponse.subList("result");
     for (int i = 0; i < objects.size(); i++)
@@ -166,7 +166,7 @@ void JsonDb::createReduceDefinition(QsonMap reduceDefinition, bool firstTime, co
     storage->addIndex("_reduceUuid", "string", targetType);
 
     if (firstTime && def->isActive()) {
-        QsonMap getObjectResponse = getObject(JsonDbString::kTypeStr, sourceType);
+        QsonMap getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceType);
         QsonList objects = getObjectResponse.subList("result");
         for (int i = 0; i < objects.size(); i++)
             def->updateObject(QsonMap(), objects.objectAt(i));
@@ -191,7 +191,7 @@ void JsonDb::removeReduceDefinition(QsonMap reduceDefinition)
         }
     }
     // remove the output objects
-    QsonMap getObjectResponse = getObject("_reduceUuid", reduceDefinition.valueString(JsonDbString::kUuidStr), targetType);
+    QsonMap getObjectResponse = getObjects("_reduceUuid", reduceDefinition.valueString(JsonDbString::kUuidStr), targetType);
     QsonList objects = getObjectResponse.subList("result");
     for (int i = 0; i < objects.size(); i++)
       removeViewObject(mOwner, objects.objectAt(i));
@@ -527,7 +527,7 @@ void JsonDbMapDefinition::mapObject(QsonMap object)
 void JsonDbMapDefinition::unmapObject(const QsonMap &object)
 {
     QString uuid = object.valueString(JsonDbString::kUuidStr);
-    QsonMap getObjectResponse = mTargetTable->getObject("_sourceUuids.*", uuid, mTargetType);
+    QsonMap getObjectResponse = mTargetTable->getObjects("_sourceUuids.*", uuid, mTargetType);
     QsonList dependentObjects = getObjectResponse.subList("result");
 
     for (int i = 0; i < dependentObjects.size(); i++) {
@@ -554,7 +554,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
     QString findKey = query.property("index").toString();
     QJSValue findValue = query.property("value").toString();
     QsonMap getObjectResponse =
-        mJsonDb->getObject(findKey, findValue.toVariant(), objectType);
+        mJsonDb->getObjects(findKey, findValue.toVariant(), objectType);
     QsonList objectList = getObjectResponse.subList("result");
     for (int i = 0; i < objectList.size(); ++i) {
         QsonMap object = objectList.at<QsonMap>(i);
@@ -666,7 +666,7 @@ void JsonDbReduceDefinition::updateObject(QsonMap before, QsonMap after)
     if (keyValue.isEmpty())
         return;
 
-    QsonMap getObjectResponse = mJsonDb->getObject("key", keyValue, mTargetType);
+    QsonMap getObjectResponse = mJsonDb->getObjects("key", keyValue, mTargetType);
     QsonMap previousResult;
     QsonObject previousValue;
 

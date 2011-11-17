@@ -66,7 +66,7 @@ class JsonDbIndex;
 
 struct ObjectChange
 {
-    ObjectKey object;
+    ObjectKey objectKey;
     enum Action {
         Created,
         Updated,
@@ -76,7 +76,7 @@ struct ObjectChange
     QsonMap oldObject;
 
     inline ObjectChange(const ObjectKey &obj, Action act, const QsonMap &old = QsonMap())
-        : object(obj), action(act), oldObject(old)
+        : objectKey(obj), action(act), oldObject(old)
     {
     }
 };
@@ -84,7 +84,7 @@ struct ObjectChange
 inline QDebug &operator<<(QDebug &qdb, const ObjectChange &oc)
 {
     qdb.nospace() << "ObjectChange(";
-    qdb.nospace() << oc.object;
+    qdb.nospace() << oc.objectKey;
     qdb.nospace() << ", action = ";
     switch (oc.action) {
     case ObjectChange::Created: qdb.nospace() << "Created"; break;
@@ -133,14 +133,13 @@ public:
     void deindexObject(const ObjectKey &objectKey, QsonMap object, quint32 stateNumber);
     void updateIndex(JsonDbIndex *index);    
 
-    bool get(const ObjectKey &objectKey, QsonObject &object);
+    bool get(const ObjectKey &objectKey, QsonMap &object, bool includeDeleted=false);
     bool put(const ObjectKey &objectKey, QsonObject &object);
     bool remove(const ObjectKey &objectKey);
 
     QString errorMessage() const;
 
-    QsonMap lookupObject(const ObjectKey & objectKey) const;
-    QsonMap getObject(const QString &keyName, const QVariant &keyValue, const QString &objectType);
+    QsonMap getObjects(const QString &keyName, const QVariant &keyValue, const QString &objectType);
 
 
 private:
