@@ -623,8 +623,10 @@ Item {
     }
 
     Component.onCompleted: {
+        JsonDb.connected.connect(function() {
+            InspectorDb.inspectorStarted();
+        });
         JsonDb.connect({"host": "localhost", "port": 6847});
-        InspectorDb.inspectorStarted();
     }
 }
 
