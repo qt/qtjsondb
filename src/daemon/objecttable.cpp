@@ -41,6 +41,7 @@
 
 #include <QFileInfo>
 #include <QDir>
+#include <QElapsedTimer>
 
 #include <QtJsonDbQson/private/qson_p.h>
 #include <QtJsonDbQson/private/qsonparser_p.h>
@@ -497,6 +498,9 @@ void ObjectTable::changesSince(quint32 stateNumber, QMap<quint32, QList<ObjectCh
         return;
     stateNumber = qMax(quint32(1), stateNumber+1);
 
+    QElapsedTimer timer;
+    if (gPerformanceLog)
+        timer.start();
     AoDbCursor cursor(mBdb);
     QByteArray baStateKey(5, 0);
     makeStateKey(baStateKey, stateNumber);
@@ -536,6 +540,8 @@ void ObjectTable::changesSince(quint32 stateNumber, QMap<quint32, QList<ObjectCh
                 changes->insert(stateNumber, ch);
         } while (cursor.next());
     }
+    if (gPerformanceLog)
+        qDebug() << "changesSince" << mFilename << timer.elapsed() << "ms";
 }
 
 QsonMap ObjectTable::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
