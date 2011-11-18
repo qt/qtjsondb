@@ -242,20 +242,19 @@ JsonDbOwner *DBServer::getOwner(QsonStream *stream)
 void DBServer::notified( const QString &notificationId, QsonMap object, const QString &action )
 {
     DBG() << "DBServer::notified" << "notificationId" << notificationId << "object" << object;
-
+    QsonStream *stream = mNotifications.value(notificationId);
+    // if the notified signal() is delivered after the notification has been deleted,
+    // then there is no stream to send to
+    if (!stream)
+        return;
     QsonMap map, obj;
     obj.insert( JsonDbString::kObjectStr, object );
     obj.insert( JsonDbString::kActionStr, action );
     map.insert( JsonDbString::kNotifyStr, obj );
     map.insert( JsonDbString::kUuidStr, notificationId );
-    QsonStream *stream = mNotifications.value(notificationId);
-    if (stream) {
-        DBG() << "Sending notify" << map;
-        stream->send(map);
-    }
-    else {
-        qWarning("Notification fired on non-existent QsonStream");
-    }
+
+    DBG() << "Sending notify" << map;
+    stream->send(map);
 }
 
 void DBServer::updateView( const QString &viewType, const QString &partitionName )
