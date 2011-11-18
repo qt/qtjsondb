@@ -316,7 +316,7 @@ void JsonDbConnection::init(QIODevice *device)
 
     if (!d->mToken.isEmpty()) {
         QsonMap request;
-        request.insert(JsonDbString::kIdStr, d->mId++);
+        request.insert(JsonDbString::kIdStr, makeRequestId());
         request.insert(JsonDbString::kActionStr, JsonDbString::kTokenStr);
         request.insert(JsonDbString::kObjectStr, d->mToken);
         d->mStream << request;
@@ -392,7 +392,7 @@ int JsonDbConnection::request(const QVariantMap &dbrequest)
         return -1;
     Q_D(JsonDbConnection);
     QVariantMap r = dbrequest;
-    int newid = d->mId + 1;
+    int newid = makeRequestId();
     r.insert(JsonDbString::kIdStr, newid);
     if (!d->mStream.send(variantToQson(r)))
         return -1;
@@ -411,13 +411,22 @@ int JsonDbConnection::request(const QsonObject &dbrequest)
         return -1;
     Q_D(JsonDbConnection);
     QsonMap r = dbrequest.toMap();
-    int newid = d->mId + 1;
+    int newid = makeRequestId();
     r.insert(JsonDbString::kIdStr, newid);
     if (!d->mStream.send(r))
         return -1;
     d->mId = newid;
     return newid;
 }
+
+/*!
+    Returns a new request id.
+*/
+int JsonDbConnection::makeRequestId()
+{
+    return ++d_func()->mId;
+}
+
 
 void JsonDbConnection::receiveMessage(const QsonObject &msg)
 {

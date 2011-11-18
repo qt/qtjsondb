@@ -102,6 +102,8 @@ public:
     Q_DECL_DEPRECATED inline bool connected() const
     { return isConnected(); }
 
+    int makeRequestId();
+
     bool waitForConnected(int msecs = 30000);
     bool waitForDisconnected(int msecs = 30000);
     bool waitForBytesWritten(int msecs = 30000);
