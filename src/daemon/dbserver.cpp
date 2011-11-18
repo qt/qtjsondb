@@ -63,7 +63,6 @@ extern bool gDebug;
 #else
 #define DBG() if (0) qDebug() << Q_FUNC_INFO
 #endif
-bool gPerformanceLog = (::getenv("JSONDB_PERFORMANCE_LOG") ? (QLatin1String(::getenv("JSONDB_PERFORMANCE_LOG")) == "true") : false);
 
 /*********************************************/
 

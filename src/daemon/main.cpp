@@ -58,7 +58,6 @@ QString progname;
 namespace QtAddOn { namespace JsonDb {
 
 extern bool gUseJsonInDb;
-extern bool gPerformanceLog;
 
 } } // end namespace QtAddOn::JsonDb
 
@@ -121,10 +120,10 @@ static void usage()
 #ifndef QT_NO_DEBUG_OUTPUT
          << "     -debug" << endl
          << "     -debug-recovery" << endl
+         << "     -performance-log    Print timings of database operations" << endl
 #endif
          << "     -verbose" << endl
          << "     -clear              Clear the database on startup" << endl
-         << "     -performance-log    Print timings of database operations" << endl
          << "     -pid pidfilename" << endl
          << "     -load file.json     Load objects from a json file" << endl
          << "     -json" << endl
@@ -224,8 +223,10 @@ int main(int argc, char * argv[])
             gVerbose = true;
         } else if (arg == "-clear") {
             clear = true;
+#ifndef QT_NO_DEBUG_OUTPUT
         } else if (arg == "-performance-log") {
             gPerformanceLog = true;
+#endif
         } else if (arg == "-log-file") {
             logFileName = args.takeFirst();
         } else {

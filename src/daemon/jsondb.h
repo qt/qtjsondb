@@ -73,9 +73,11 @@ extern bool gPrintErrors;
 #ifndef QT_NO_DEBUG_OUTPUT
 extern bool gDebug;
 extern bool gDebugRecovery;
+extern bool gPerformanceLog;
 #else
 static const bool gDebug = false;
 static const bool gDebugRecovery = false;
+static const bool gPerformanceLog = false;
 #endif
 
 extern const QString kSortKeysStr;

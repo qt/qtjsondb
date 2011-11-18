@@ -87,6 +87,7 @@ bool gShowErrors = (::getenv("JSONDB_SHOW_ERRORS") ? (QLatin1String(::getenv("JS
 #ifndef QT_NO_DEBUG_OUTPUT
 bool gDebug = (::getenv("JSONDB_DEBUG") ? (QLatin1String(::getenv("JSONDB_DEBUG")) == "true") : false);
 bool gDebugRecovery = (::getenv("JSONDB_DEBUG_RECOVERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_RECOVERY")) == "true") : false);
+bool gPerformanceLog = (::getenv("JSONDB_PERFORMANCE_LOG") ? (QLatin1String(::getenv("JSONDB_PERFORMANCE_LOG")) == "true") : false);
 #endif
 
 const QString kSortKeysStr = QLatin1String("sortKeys");

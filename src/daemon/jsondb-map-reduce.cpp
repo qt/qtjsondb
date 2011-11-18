@@ -65,8 +65,6 @@
 
 namespace QtAddOn { namespace JsonDb {
 
-extern bool gPerformanceLog;
-
 void JsonDb::initMap(const QString &partition)
 {
     if (gVerbose) qDebug() << "Initializing views on partition" << partition;
