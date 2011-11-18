@@ -47,7 +47,8 @@
 
 namespace QtAddOn { namespace JsonDb {
 
-static JsonDbConnection* sJsonDbConnection;
+Q_GLOBAL_STATIC(JsonDbConnection, qtjsondbConnection)
+
 static QString           sDefaultToken;
 
 class JsonDbConnectionPrivate
@@ -89,11 +90,9 @@ JsonDbConnectionPrivate::~JsonDbConnectionPrivate()
 */
 JsonDbConnection *JsonDbConnection::instance()
 {
-    if (!sJsonDbConnection) {
-        sJsonDbConnection = new JsonDbConnection;
-        sJsonDbConnection->connectToServer();
-    }
-    return sJsonDbConnection;
+    JsonDbConnection *c = qtjsondbConnection();
+    c->connectToServer();
+    return c;
 }
 
 /*!
