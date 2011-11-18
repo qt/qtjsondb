@@ -64,6 +64,36 @@ public:
     QString mToken;
 };
 
+/*!
+ * \internal
+ * The sync class forces a response before the program will continue
+ */
+class JsonDbSyncCall : public QObject
+{
+    Q_OBJECT
+    friend class JsonDbConnection;
+public:
+    QT_DEPRECATED
+    JsonDbSyncCall(const QVariantMap &dbrequest, QVariant &result);
+    JsonDbSyncCall(const QVariantMap *dbrequest, QVariant *result);
+    JsonDbSyncCall(const QsonMap *dbrequest, QsonObject *result);
+    ~JsonDbSyncCall();
+public slots:
+    void createSyncRequest();
+    void createSyncQsonRequest();
+    void handleResponse( int id, const QVariant& data );
+    void handleResponse( int id, const QsonObject& data );
+    void handleError( int id, int code, const QString& message );
+private:
+    int                 mId;
+    const QVariantMap   *mDbRequest;
+    const QsonMap       *mDbQsonRequest;
+    QVariant            *mResult;
+    QsonObject          *mQsonResult;
+    JsonDbConnection    *mSyncJsonDbConnection;
+};
+
+
 JsonDbConnectionPrivate::JsonDbConnectionPrivate(JsonDbConnection *q)
     : q_ptr(q), mId(1)
 {
@@ -631,3 +661,5 @@ void JsonDbSyncCall::handleError(int id, int code, const QString& message)
 }
 
 } } // end namespace QtAddOn::JsonDb
+
+#include "jsondb-connection.moc"
