@@ -335,8 +335,6 @@ void JsonDbConnection::init(QIODevice *device)
 void JsonDbConnection::connectToServer(const QString &socketName)
 {
     Q_D(JsonDbConnection);
-    Q_ASSERT(d->mStream.device() == 0);
-    Q_UNUSED(d);
 
     QString name = socketName;
     if (name.isEmpty())
@@ -344,6 +342,10 @@ void JsonDbConnection::connectToServer(const QString &socketName)
     if (name.isEmpty())
         name = QLatin1String("qt5jsondb");
 
+    if (d->mStream.device() != 0) {
+        qWarning() << "JsonDbConnection" << "already connected";
+        return;
+    }
     QLocalSocket *socket = new QLocalSocket(this);
     connect(socket, SIGNAL(disconnected()), this, SIGNAL(disconnected()));
     connect(socket, SIGNAL(connected()), this, SIGNAL(connected()));
