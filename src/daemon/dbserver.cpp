@@ -572,8 +572,17 @@ void DBServer::receiveMessage(QsonObject message)
             return;
         }
     }
-    if (gPerformanceLog)
-        qDebug() << "jsondb" << "processed" << action << "ms" << timer.elapsed();
+    if (gPerformanceLog) {
+        QString additionalInfo;
+        if ( action == JsonDbString::kFindStr ) {
+            additionalInfo = object.toMap().valueString("query");
+        } else if (object.type() == QsonObject::ListType) {
+            additionalInfo = QString::fromLatin1("%1 objects").arg(object.toList().size());
+        } else {
+            additionalInfo = object.toMap().valueString(JsonDbString::kTypeStr);
+        }
+        qDebug() << "jsondb" << "processed" << action << "ms" << timer.elapsed() << additionalInfo;
+    }
 }
 
 void DBServer::handleConnectionError()
