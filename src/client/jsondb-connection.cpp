@@ -49,8 +49,6 @@ namespace QtAddOn { namespace JsonDb {
 
 Q_GLOBAL_STATIC(JsonDbConnection, qtjsondbConnection)
 
-static QString           sDefaultToken;
-
 class JsonDbConnectionPrivate
 {
     Q_DECLARE_PUBLIC(JsonDbConnection)
@@ -58,11 +56,15 @@ public:
     JsonDbConnectionPrivate(JsonDbConnection *q);
     ~JsonDbConnectionPrivate();
 
+    static QString sDefaultToken;
+
     JsonDbConnection *q_ptr;
     QsonStream mStream;
     int mId;
     QString mToken;
 };
+
+QString JsonDbConnectionPrivate::sDefaultToken;
 
 /*!
  * \internal
@@ -131,7 +133,7 @@ JsonDbConnection *JsonDbConnection::instance()
 */
 void JsonDbConnection::setDefaultToken( const QString& token )
 {
-    sDefaultToken = token;
+    JsonDbConnectionPrivate::sDefaultToken = token;
 }
 
 /*!
@@ -140,7 +142,7 @@ void JsonDbConnection::setDefaultToken( const QString& token )
 */
 QString JsonDbConnection::defaultToken()
 {
-    return sDefaultToken;
+    return JsonDbConnectionPrivate::sDefaultToken;
 }
 
 /*!
@@ -319,8 +321,8 @@ JsonDbConnection::JsonDbConnection(QObject *parent)
     : QObject(parent), d_ptr(new JsonDbConnectionPrivate(this))
 {
     Q_D(JsonDbConnection);
-    if (!sDefaultToken.isEmpty())
-        d->mToken = sDefaultToken;
+    if (!JsonDbConnectionPrivate::sDefaultToken.isEmpty())
+        d->mToken = JsonDbConnectionPrivate::sDefaultToken;
     else
         d->mToken = QLatin1String(::getenv("JSONDB_TOKEN"));
 }
