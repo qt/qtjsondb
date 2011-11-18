@@ -42,6 +42,7 @@
 #include "jsondb-trace.h"
 
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QRegExp>
 #include <QJSValue>
 #include <QStringList>
@@ -63,6 +64,8 @@
 #include "objecttable.h"
 
 namespace QtAddOn { namespace JsonDb {
+
+extern bool gPerformanceLog;
 
 void JsonDb::initMap(const QString &partition)
 {
@@ -202,6 +205,9 @@ void JsonDb::updateView(const QString &viewType, const QString &partitionName)
 {
     if (viewType.isEmpty())
         return;
+    QElapsedTimer timer;
+    if (gPerformanceLog)
+        timer.start();
     JsonDbBtreeStorage *partition = findPartition(partitionName);
     ObjectTable *objectTable = partition->mainObjectTable();
     ObjectTable *targetTable = partition->findObjectTable(viewType);
@@ -211,6 +217,8 @@ void JsonDb::updateView(const QString &viewType, const QString &partitionName)
 
     updateMap(viewType, partitionName);
     updateReduce(viewType, partitionName);
+    if (gPerformanceLog)
+        qDebug() << "updateView" << viewType << timer.elapsed() << "ms";
 }
 
 void JsonDb::updateMap(const QString &viewType, const QString &partitionName)
