@@ -61,7 +61,7 @@
     \
     QTimer timer; \
     QObject::connect(&timer, SIGNAL(timeout()), &eventloop, SLOT(quit())); \
-    timer.start(10000); \
+    timer.start(mClientTimeout);                                       \
     eventloop.exec(QEventLoop::AllEvents); \
     if (debug_output) { \
         qDebug() << "waitForResponse" << "expected id" << givenid_ << "got id" << (result)->mId; \
@@ -105,13 +105,15 @@ class ClientWrapper : public QObject
     Q_OBJECT
 public:
     ClientWrapper(QObject *parent = 0)
-        : QObject(parent), debug_output(false),
-          mClient(0), mCode(0), mNeedId(false), mNotificationWaitCount(0)
+        : QObject(parent), debug_output(false)
+        , mClient(0), mCode(0), mNeedId(false), mNotificationWaitCount(0), mClientTimeout(20000)
     {
     }
 
     void connectToServer()
     {
+      if (qgetenv("JSONDB_CLIENT_TIMEOUT").size())
+            mClientTimeout = QString::fromLatin1(qgetenv("JSONDB_CLIENT_TIMEOUT")).toLong();
         mClient = new Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)(this);
         connect(mClient, SIGNAL(response(int,QVariant)),
                 this, SLOT(response(int,QVariant)));
@@ -133,6 +135,7 @@ public:
     QString mLastUuid;
     int mNotificationWaitCount;
     QList<Notification> mNotifications;
+    quint32 mClientTimeout;
 
 protected slots:
     virtual void notified(const QString &notifyUuid, const QVariant &object, const QString &action)
