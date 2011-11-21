@@ -3927,7 +3927,7 @@ btree_dump(struct btree *bt)
                         bt->meta.entries,
                         bt->meta.leaf_pages,
                         bt->meta.branch_pages,
-                        bt->size,
+                        (long)bt->size,
                         bt->head.psize);
                 btree_dump_tree(bt, bt->meta.root, 0);
         } else {
