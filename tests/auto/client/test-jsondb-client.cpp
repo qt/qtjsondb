@@ -1160,6 +1160,8 @@ void TestJsonDbClient::testToken()
     item.insert(JsonDbString::kTokenStr, tokenString);
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
     item.insert("pid", pid);
+#else
+    Q_UNUSED(pid);
 #endif
     item.insert("domain", "testDomain");
     item.insert("identifier", "TestJsonDbClient");

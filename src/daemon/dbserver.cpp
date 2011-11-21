@@ -417,6 +417,8 @@ bool DBServer::validateToken( QsonStream *stream, const QsonMap &securityObject 
         valid = (pid == peercred.pid);
     }
 #else
+    Q_UNUSED(stream);
+    Q_UNUSED(securityObject);
     valid = true;
 #endif
     return valid;

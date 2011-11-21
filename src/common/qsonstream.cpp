@@ -136,6 +136,7 @@ void QsonStream::deviceReadyRead()
 
 void QsonStream::deviceBytesWritten(qint64 bytes)
 {
+    Q_UNUSED(bytes);
     if (!mWriteBuffer.isEmpty()) {
         int didWrite = mDevice->write(mWriteBuffer);
         mWriteBuffer = mWriteBuffer.mid(didWrite);
