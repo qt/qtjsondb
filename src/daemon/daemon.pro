@@ -15,8 +15,8 @@ mac:CONFIG -= app_bundle
 include(daemon.pri)
 
 HEADERS += \
-    $$PWD/dbserver.h \
+    $$PWD/dbserver.h
 
 SOURCES += \
     $$PWD/main.cpp \
-    $$PWD/dbserver.cpp \
+    $$PWD/dbserver.cpp
