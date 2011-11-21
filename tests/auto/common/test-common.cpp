@@ -415,7 +415,7 @@ void TestCommon::implicitSharing()
     QsonMap bar;
     bar.insert(QLatin1String("a"), QLatin1String("b"));
     QCOMPARE(bar.mBody.size(), 1);
-    QCOMPARE(bar.mBody[0].constData()->ref.operator int(), 1);
+    QCOMPARE(bar.mBody[0].constData()->ref.load(), 1);
 
     QsonList list;
     list.append(42);
@@ -423,12 +423,12 @@ void TestCommon::implicitSharing()
     list.append(bar);
 
     QCOMPARE(bar.mBody.size(), 1);
-    QCOMPARE(bar.mBody[0].constData()->ref.operator int(), 2);
+    QCOMPARE(bar.mBody[0].constData()->ref.load(), 2);
 
     bar.insert(QLatin1String("zoo"), QLatin1String("zebra")); // detaches
 
     QCOMPARE(bar.mBody.size(), 1);
-    QCOMPARE(bar.mBody[0].constData()->ref.operator int(), 1);
+    QCOMPARE(bar.mBody[0].constData()->ref.load(), 1);
 
     QsonMap map;
     map.insert(QLatin1String("hello"), QLatin1String("world"));
@@ -436,10 +436,10 @@ void TestCommon::implicitSharing()
     map.insert("list", list);
 
     QCOMPARE(bar.mBody.size(), 1);
-    QCOMPARE(bar.mBody[0].constData()->ref.operator int(), 2);
+    QCOMPARE(bar.mBody[0].constData()->ref.load(), 2);
     bar.insert(QLatin1String("zzz"), QLatin1String("sleep")); // detaches
     QCOMPARE(bar.mBody.size(), 1);
-    QCOMPARE(bar.mBody[0].constData()->ref.operator int(), 1);
+    QCOMPARE(bar.mBody[0].constData()->ref.load(), 1);
 
     list.append(4242); // detaches
 
