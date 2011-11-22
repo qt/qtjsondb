@@ -94,7 +94,8 @@ const QString JsonDbString::kCollapsedStr = QString::fromLatin1("collapsed");
 const QString JsonDbString::kCurrentStateNumberStr = QString::fromLatin1("currentStateNumber");
 const QString JsonDbString::kStartingStateNumberStr = QString::fromLatin1("startingStateNumber");
 const QString JsonDbString::kTombstoneStr = QString::fromLatin1("Tombstone");
-const QString JsonDbString::kPartitionStr = QString::fromLatin1("Partition");
+const QString JsonDbString::kPartitionTypeStr = QString::fromLatin1("Partition");
+const QString JsonDbString::kPartitionStr = QString::fromLatin1("partition");
 
 const QString JsonDbString::kSystemPartitionName = QString::fromLatin1("com.nokia.qtjsondb.System");
 

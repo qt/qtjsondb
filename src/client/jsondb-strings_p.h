@@ -99,6 +99,7 @@ public:
     static const QString kCurrentStateNumberStr;
     static const QString kStartingStateNumberStr;
     static const QString kTombstoneStr;
+    static const QString kPartitionTypeStr;
     static const QString kPartitionStr;
 
     static const QString kSystemPartitionName;

@@ -502,7 +502,7 @@ bool JsonDb::open()
     mStorages.insert(JsonDbString::kSystemPartitionName, storage);
 
     // read partition information from the db
-    QsonMap result = storage->getObjects(JsonDbString::kTypeStr, JsonDbString::kPartitionStr);
+    QsonMap result = storage->getObjects(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
     QsonList partitions = result.value<QsonList>("result");
     if (partitions.isEmpty()) {
         WithTransaction transaction(storage);
@@ -511,7 +511,7 @@ bool JsonDb::open()
 
         // make a system partition
         QsonMap partition;
-        partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionStr);
+        partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
         partition.insert(QLatin1String("name"), JsonDbString::kSystemPartitionName);
         partition.insert(QLatin1String("file"), systemFileName);
         result = storage->createPersistentObject(partition);
@@ -1787,7 +1787,7 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
     QString filename = mFilePath + name + QLatin1String(".db");
 
     QsonMap partition;
-    partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionStr);
+    partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
     partition.insert(QLatin1String("name"), name);
     partition.insert(QLatin1String("file"), filename);
     mStorages[JsonDbString::kSystemPartitionName]->createPersistentObject(partition);
