@@ -288,10 +288,8 @@ QBtreeTxn *QBtree::begin(QBtree::TxnFlag flag)
     }
 
     btree_txn *txn = btree_txn_begin(mBtree, flag == QBtree::TxnReadOnly ? 1 : 0);
-    if (!txn) {
-        qCritical() << "QBtree::begin" << "cannot start transaction on" << mFilename;
+    if (!txn)
         return 0;
-    }
     return new QBtreeTxn(this, txn);
 }
 
