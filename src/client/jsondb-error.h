@@ -52,26 +52,26 @@ class JsonDbError {
 public:
     enum ErrorCode {
         NoError = 0,
-        InvalidMessage,   // Unable to parse the query message
-        InvalidRequest,   // Request object doesn't contain correct elements
-        MissingObject,    // Invalid or missing "object" field
-        DatabaseError,    // Error directly from the database
-        MissingUUID,      // Missing id field
-        MissingType,      // Missing _type field
-        MissingQuery,     // Missing query field
-        InvalidLimit,     // Invalid limit field
-        InvalidOffset,    // Invalid offset field
-        MismatchedNotifyId,   // Request to delete notify doesn't match existing notification
-        InvalidActions,       // List of actions supplied to setNotification is invalid
-        UpdatingStaleVersion, // Updating stale version of object
-        OperationNotPermitted,
-        QuotaExceeded,
-        FailedSchemaValidation, // Invalid according to the schema
-        InvalidMap,             // The Map definition is invalid
-        InvalidReduce,          // The Reduce definition is invalid
-        InvalidSchemaOperation,
-        InvalidPartition,
-        InvalidIndexOperation
+        InvalidMessage           = 1,  // Unable to parse the query message
+        InvalidRequest           = 2,  // Request object doesn't contain correct elements
+        MissingObject            = 3,  // Invalid or missing "object" field
+        DatabaseError            = 4,  // Error directly from the database
+        MissingUUID              = 5,  // Missing id field
+        MissingType              = 6,  // Missing _type field
+        MissingQuery             = 7,  // Missing query field
+        InvalidLimit             = 8,  // Invalid limit field
+        InvalidOffset            = 9,  // Invalid offset field
+        MismatchedNotifyId       = 10, // Request to delete notify doesn't match existing notification
+        InvalidActions           = 11, // List of actions supplied to setNotification is invalid
+        UpdatingStaleVersion     = 12, // Updating stale version of object
+        OperationNotPermitted    = 13,
+        QuotaExceeded            = 14,
+        FailedSchemaValidation   = 15, // Invalid according to the schema
+        InvalidMap               = 16, // The Map definition is invalid
+        InvalidReduce            = 17, // The Reduce definition is invalid
+        InvalidSchemaOperation   = 18,
+        InvalidPartition         = 19,
+        InvalidIndexOperation    = 20
     };
 };
 
