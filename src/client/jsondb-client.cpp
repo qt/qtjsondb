@@ -91,12 +91,10 @@ namespace QtAddOn { namespace JsonDb {
 */
 
 /*!
-    \fn QtAddOn::JsonDb::JsonDbClient::JsonDbClient(JsonDbConnection *connection, QObject *parent)
-
+    \internal
     \brief The JsonDbClient class provides a client interface which connects to the JsonDb server.
 
     Uses JsonDbConnection \a connection to connect.
-
 */
 JsonDbClient::JsonDbClient(JsonDbConnection *connection, QObject *parent)
     : QObject(parent), d_ptr(new JsonDbClientPrivate(this, connection))
@@ -106,13 +104,9 @@ JsonDbClient::JsonDbClient(JsonDbConnection *connection, QObject *parent)
 }
 
 /*!
-    \fn QtAddOn::JsonDb::JsonDbClient::JsonDbClient(const QString &socketName, QObject *parent)
-
     \brief The JsonDbClient class provides a client interface which connects to the JsonDb server.
 
     Creates a new JsonDbConnection and connects to the socket named \a socketName.
-
-    \sa QtAddOn::JsonDb::JsonDbConnection
 */
 JsonDbClient::JsonDbClient(const QString &socketName, QObject *parent)
     : QObject(parent)
@@ -125,14 +119,10 @@ JsonDbClient::JsonDbClient(const QString &socketName, QObject *parent)
 }
 
 /*!
-    \fn QtAddOn::JsonDb::JsonDbClient::JsonDbClient(QObject *parent)
-
     \brief The JsonDbClient class provides a client interface which connects to the JsonDb server.
 
     Uses the singleton object returned by \c
     JsonDbConnection::instance() as for the database connection.
-
-    \sa JsonDbConnection::instance()
 */
 JsonDbClient::JsonDbClient(QObject *parent)
     :  QObject(parent), d_ptr(new JsonDbClientPrivate(this, JsonDbConnection::instance()))
@@ -146,8 +136,6 @@ JsonDbClient::~JsonDbClient()
 }
 
 /*!
-    \fn bool QtAddOn::JsonDb::JsonDbClient::isConnected() const
-
     Returns true if the client is connected to the database.
 */
 bool JsonDbClient::isConnected() const
@@ -157,10 +145,6 @@ bool JsonDbClient::isConnected() const
     return d->connection->isConnected();
 }
 
-/*!
-    \class JsonDbClientPrivate
-    \internal
-*/
 JsonDbClientPrivate::JsonDbClientPrivate(JsonDbClient *q, JsonDbConnection *c)
     :q_ptr(q), connection(c)
 {
@@ -247,7 +231,6 @@ void JsonDbClientPrivate::_q_handleError(int id, int code, const QString &messag
 }
 
 /*!
-  \fn int QtAddOn::JsonDb::JsonDbClient::find(const QVariant &object)
   \deprecated
 
   Sends \a queryObject to the database. Returns the reference id of the query.
@@ -305,7 +288,6 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
 }
 
 /*!
-  \fn int QtAddOn::JsonDb::JsonDbClient::create(const QVariant object)
   \deprecated
 
   Sends a request to insert \a object into the database. Returns the reference id of the query.
@@ -340,7 +322,6 @@ int JsonDbClient::create(const QVariant &object)
 }
 
 /*!
-  \fn int QtAddOn::JsonDb::JsonDbClient::create(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
   \inmodule QtJsonDb
 
   \brief Sends a request to insert \a object into the database. Returns the reference id of the query.
@@ -373,7 +354,6 @@ int JsonDbClient::create(const QsonObject &object, QObject *target, const char *
 }
 
 /*!
-  \fn int QtAddOn::JsonDb::JsonDbClient::update(const QVariant &object)
   \inmodule QtJsonDb
   \deprecated
 */
@@ -390,7 +370,6 @@ int JsonDbClient::update(const QVariant &object)
 }
 
 /*!
-  \fn int QtAddOn::JsonDb::JsonDbClient::update(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
   \inmodule QtJsonDb
 
   \brief Sends a request to update \a object in the database. Returns the reference id of the query.
@@ -421,7 +400,6 @@ int JsonDbClient::update(const QsonObject &object, QObject *target, const char *
 }
 
 /*!
-  \fn int QtAddOn::JsonDb::JsonDbClient::remove(const QVariant &object)
   \inmodule QtJsonDb
   \deprecated
 */
@@ -440,7 +418,6 @@ int JsonDbClient::remove(const QVariant &object)
 }
 
 /*!
-  \fn int QtAddOn::JsonDb::JsonDbClient::remove(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
   \inmodule QtJsonDb
 
   \brief Sends a request to remove \a object from the database. Returns the reference id of the query.
@@ -472,7 +449,6 @@ int JsonDbClient::remove(const QsonObject &object, QObject *target, const char *
 }
 
 /*!
-  \fn int QtAddOn::JsonDb::JsonDbClient::remove(const QString &queryString, QObject *target, const char *successSlot, const char *errorSlot)
   \inmodule QtJsonDb
 
   \brief Sends a request to remove from the database objects that match \a queryString. Returns the reference id of the query.
@@ -500,6 +476,15 @@ int JsonDbClient::remove(const QString &queryString, QObject *target, const char
     return id;
 }
 
+/*!
+  Creates a notification for a given \a query and notification \a types.
+
+  When an object that is matched a \a query is created/update/removed (depending on the given
+  \a types), the \a notifySlot will be invoken on \a notifyTarget.
+
+  Upon success, invokes \a responseSuccessSlot of \a responseTarget, if provided, else emits \c response().
+  On error, invokes \a responseErrorSlot of \a responseTarget, if provided, else emits \c error().
+*/
 int JsonDbClient::notify(NotifyTypes types, const QString &query,
                          QObject *notifyTarget, const char *notifySlot,
                          QObject *responseTarget, const char *responseSuccessSlot, const char *responseErrorSlot)
@@ -542,7 +527,6 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
 }
 
 /*!
-  \fn int JsonDbClient::changesSince(int stateNumber, QStringList types, QObject *target, const char *successSlot, const char *errorSlot)
   \inmodule QtJsonDb
 
   \brief Sends a request to retrieve a description of changes since
@@ -570,63 +554,63 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
 }
 
 /*!
-  \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notify_uuid, const QVariant &object, const QString &action)
+    \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notify_uuid, const QVariant &object, const QString &action)
 
-     Signal that a notification has been received.  The notification
-     object must have been created previously, usually with the
-     \c create() function (an object with ``_type="notification"``).  The
-     \a notify_uuid field is the uuid of the notification object.  The
-     \a object field is the actual database object and the \a action
-     field is the action that started the notification (one of
-     "create", "update", or "remove").
+    Signal that a notification has been received.  The notification
+    object must have been created previously, usually with the
+    \c create() function (an object with ``_type="notification"``).  The
+    \a notify_uuid field is the uuid of the notification object.  The
+    \a object field is the actual database object and the \a action
+    field is the action that started the notification (one of
+    "create", "update", or "remove").
 
-     \sa notify(), create()
+    \sa notify(), create()
 */
 
 /*!
-  \fn void notified(const QString &notify_uuid, const QsonObject &object, const QString &action)
+    \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notify_uuid, const QsonObject &object, const QString &action)
 
-     Signal that a notification has been received.  The notification
-     object must have been created previously, usually with the
-     \c create() function (an object with ``_type="notification"``).  The
-     \a notify_uuid field is the uuid of the notification object.  The
-     \a object field is the actual database object and the \a action
-     field is the action that started the notification (one of
-     "create", "update", or "remove").
+    Signal that a notification has been received.  The notification
+    object must have been created previously, usually with the
+    \c create() function (an object with ``_type="notification"``).  The
+    \a notify_uuid field is the uuid of the notification object.  The
+    \a object field is the actual database object and the \a action
+    field is the action that started the notification (one of
+    "create", "update", or "remove").
 
-     \sa notify(), create()
+    \sa notify(), create()
 */
 
 /*!
-  \fn void QtAddOn::JsonDb::JsonDbClient::response(int id, const QVariant &object)
+    \fn void QtAddOn::JsonDb::JsonDbClient::response(int id, const QVariant &object)
 
-     Signal that a response to a request has been received from the
-     database.  The \a id parameter will match with the return result
-     of the request to the database.  The \a object parameter depends
-     on the type of the original request.
+    Signal that a response to a request has been received from the
+    database.  The \a id parameter will match with the return result
+    of the request to the database.  The \a object parameter depends
+    on the type of the original request.
 
-     \sa create(), update(), remove()
+    \sa create(), update(), remove()
 */
 
 /*!
-  \fn void QtAddOn::JsonDb::JsonDbClient::response(int id, const QsonObject &object)
+    \fn void QtAddOn::JsonDb::JsonDbClient::response(int id, const QsonObject &object)
 
-     Signal that a response to a request has been received from the
-     database.  The \a id parameter will match with the return result
-     of the request to the database.  The \a object parameter depends
-     on the type of the original request.
+    Signal that a response to a request has been received from the
+    database.  The \a id parameter will match with the return result
+    of the request to the database.  The \a object parameter depends
+    on the type of the original request.
 
-     \sa create(), update(), remove()
+    \sa create(), update(), remove()
 */
 
 /*!
-  \fn void QtAddOn::JsonDb::JsonDbClient::error(int id, int code, const QString &message)
+    \fn void QtAddOn::JsonDb::JsonDbClient::error(int id, int code, const QString &message)
 
-     Signals an error in the database request.  The \a id parameter
-     will match the return result of the original request to the
-     database.  The \a code and \a message parameters indicate the error.
+    Signals an error in the database request.  The \a id parameter
+    will match the return result of the original request to the
+    database.  The \a code and \a message parameters indicate the error.
 
-     \sa create(), update(), remove(), JsonDbError::ErrorCode
+    \sa create(), update(), remove(), JsonDbError::ErrorCode
 */
 
 #include "moc_jsondb-client.cpp"

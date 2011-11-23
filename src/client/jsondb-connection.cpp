@@ -66,10 +66,6 @@ public:
 
 QString JsonDbConnectionPrivate::sDefaultToken;
 
-/*!
- * \internal
- * The sync class forces a response before the program will continue
- */
 class JsonDbSyncCall : public QObject
 {
     Q_OBJECT
@@ -107,6 +103,7 @@ JsonDbConnectionPrivate::~JsonDbConnectionPrivate()
 }
 
 /*!
+  \internal
   \class QtAddOn::JsonDb::JsonDbConnection
 
   \brief The JsonDbConnection class provides a connection to the
@@ -117,7 +114,6 @@ JsonDbConnectionPrivate::~JsonDbConnectionPrivate()
 */
 
 /*!
-  \fn JsonDbConnection *QtAddOn::JsonDb::JsonDbConnection::instance()
   Returns a singleton instance of \c JsonDbConnection.
 */
 JsonDbConnection *JsonDbConnection::instance()
@@ -128,7 +124,6 @@ JsonDbConnection *JsonDbConnection::instance()
 }
 
 /*!
-  \fn void JsonDbConnection::setDefaultToken( const QString& token )
   Sets the default security token to \a token.
 */
 void JsonDbConnection::setDefaultToken( const QString& token )
@@ -137,7 +132,6 @@ void JsonDbConnection::setDefaultToken( const QString& token )
 }
 
 /*!
-  \fn QString JsonDbConnection::defaultToken()
   Returns the default security for the connection.
 */
 QString JsonDbConnection::defaultToken()
@@ -146,7 +140,6 @@ QString JsonDbConnection::defaultToken()
 }
 
 /*!
-  \fn bool JsonDbConnection::waitForConnected(int msecs)
   Waits up to \a msecs milliseconds for the connection to the database to be completed.
   Returns true if connected.
 */
@@ -162,7 +155,6 @@ bool JsonDbConnection::waitForConnected(int msecs)
 }
 
 /*!
-  \fn bool JsonDbConnection::waitForDisconnected(int msecs)
   Waits up to \a msecs milliseconds for the connection to the database to be closed.
   Returns true if disconnected.
 */
@@ -314,8 +306,7 @@ QVariantMap JsonDbConnection::makeChangesSinceRequest(int stateNumber, const QSt
 /***************************************************************************/
 
 /*!
- \fn JsonDbConnection::JsonDbConnection(QObject *parent)
- Constructs a \c JsonDbConnection.
+    Constructs a \c JsonDbConnection.
 */
 JsonDbConnection::JsonDbConnection(QObject *parent)
     : QObject(parent), d_ptr(new JsonDbConnectionPrivate(this))
@@ -355,14 +346,9 @@ void JsonDbConnection::init(QIODevice *device)
     }
 }
 
-/*
- * Connects to the named local socket.
- */
-
 /*!
-  \fn void JsonDbConnection::connectToServer(const QString &socketName)
-  Connects to the named local socket \a socketName.
- */
+    Connects to the named local socket \a socketName.
+*/
 void JsonDbConnection::connectToServer(const QString &socketName)
 {
     Q_D(JsonDbConnection);
@@ -387,14 +373,9 @@ void JsonDbConnection::connectToServer(const QString &socketName)
         qCritical() << "JsonDbConnection: Unable to connect to socket" << name << socket->errorString();
 }
 
-/*
- * Connects to the named remote host.
- */
-
 /*!
-  \fn void JsonDbConnection::connectToServer(const QString &hostname, quint16 port)
-  Connects to the databsae via a TCP connection to \a hostname and \a port.
- */
+    Connects to the databsae via a TCP connection to \a hostname and \a port.
+*/
 void JsonDbConnection::connectToHost(const QString &hostname, quint16 port)
 {
     Q_D(JsonDbConnection);
@@ -413,10 +394,9 @@ void JsonDbConnection::connectToHost(const QString &hostname, quint16 port)
 }
 
 /*!
-  \fn int JsonDbConnection::request(const QVariantMap &dbrequest)
-  \deprecated
+    \deprecated
 
-  Sends request \a dbrequest to the database and returns the request identification number.
+    Sends request \a dbrequest to the database and returns the request identification number.
 */
 int JsonDbConnection::request(const QVariantMap &dbrequest)
 {
@@ -433,9 +413,7 @@ int JsonDbConnection::request(const QVariantMap &dbrequest)
 }
 
 /*!
-  \fn int JsonDbConnection::request(const QsonObject &dbrequest)
-
-  Sends request \a dbrequest to the database and returns the request identification number.
+    Sends request \a dbrequest to the database and returns the request identification number.
 */
 int JsonDbConnection::request(const QsonObject &dbrequest)
 {
@@ -489,10 +467,9 @@ void JsonDbConnection::receiveMessage(const QsonObject &msg)
 
 
 /*!
-  \fn void JsonDbConnection::oneShot(const QVariantMap &dbrequest, QObject *receiver, const char *responseSlot, const char *errorSlot)
-  \deprecated
+    \deprecated
 
-  \sa JsonDbClient
+    \sa JsonDbClient
 */
 void JsonDbConnection::oneShot(const QVariantMap &dbrequest, QObject *receiver,
                                const char *responseSlot, const char *errorSlot)
@@ -532,7 +509,6 @@ QVariant JsonDbConnection::sync(const QVariantMap &dbrequest)
 }
 
 /*!
-  \fn QsonObject JsonDbConnection::sync(const QsonMap &dbrequest)
   Sends request \a dbrequest to the database, waits synchronously for it to complete, and returns the response.
 
   This operation creates a new thread with a new connection to the
@@ -557,8 +533,7 @@ QsonObject JsonDbConnection::sync(const QsonMap &dbrequest)
 }
 
 /*!
-  \fn void JsonDbConnection::setToken(const QString &token)
-  Sets the security token for this connection.
+    Sets the security token for this connection.
 */
 void JsonDbConnection::setToken(const QString &token)
 {
@@ -566,8 +541,7 @@ void JsonDbConnection::setToken(const QString &token)
 }
 
 /*!
-  \fn bool JsonDbConnection::isConnected() const
-  Returns true if connected to the database.
+    Returns true if connected to the database.
 */
 bool JsonDbConnection::isConnected() const
 {
@@ -584,14 +558,10 @@ bool JsonDbConnection::isConnected() const
 }
 
 /*!
-  \fn void disconnected()
-  This signal is emitted when the connection to the database is lost.
+    \fn void JsonDbConnection::disconnected()
+    This signal is emitted when the connection to the database is lost.
 */
 
-/*!
-    \class JsonDbSyncCall
-    \internal
-*/
 JsonDbSyncCall::JsonDbSyncCall(const QVariantMap &dbrequest, QVariant &result)
     : mDbRequest(&dbrequest), mDbQsonRequest(0), mResult(&result), mQsonResult(0), mSyncJsonDbConnection(0)
 {

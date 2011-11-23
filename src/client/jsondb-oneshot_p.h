@@ -54,11 +54,12 @@
 
 namespace QtAddOn { namespace JsonDb {
 
-/*
- * The one-shot class is strictly for the private use of the connection object
- */
-
-class JsonDbOneShot : public QObject {
+/*!
+  \internal
+  The one-shot class is strictly for the private use of the connection object
+*/
+class JsonDbOneShot : public QObject
+{
     Q_OBJECT
     friend class JsonDbConnection;
 public slots:

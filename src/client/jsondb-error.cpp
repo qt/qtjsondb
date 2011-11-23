@@ -45,12 +45,13 @@
 namespace QtAddOn { namespace JsonDb {
 
 /*!
-  \class QtAddOn::JsonDb::JsonDbError
-  \sa JsonDbError::ErrorCode.
+    \class QtAddOn::JsonDb::JsonDbError
+    \sa JsonDbError::ErrorCode
  */
 
 /*!
- \enum QtAddOn::JsonDb::JsonDbError::ErrorCode
+     \enum QtAddOn::JsonDb::JsonDbError::ErrorCode
+     \omitvalue NoError
      \value InvalidMessage
          Unable to parse the query message.
      \value InvalidRequest
@@ -89,6 +90,8 @@ namespace QtAddOn { namespace JsonDb {
          Attempted to create a schema that already exists or to remove a schema when there are still objects belonging to the schema's type.
      \value InvalidPartition
          Invalid partition.
+     \value InvalidIndexOperation
+         An error when creating an index object
  */
 
   }
