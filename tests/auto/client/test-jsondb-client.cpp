@@ -83,6 +83,8 @@ private slots:
     void initTestCase();
     void cleanupTestCase();
 
+    void connectionStatus();
+
     void create();
     void createList();
     void update();
@@ -220,6 +222,33 @@ void TestJsonDbClient::cleanupTestCase()
     }
     removeDbFiles();
 #endif
+}
+
+void TestJsonDbClient::connectionStatus()
+{
+    JsonDbConnection *connection = new JsonDbConnection;
+
+    QCOMPARE((int)connection->status(), (int)JsonDbConnection::Disconnected);
+
+    QEventLoop ev;
+    QTimer timer;
+    QObject::connect(&timer, SIGNAL(timeout()), &ev, SLOT(quit()));
+    QObject::connect(connection, SIGNAL(statusChanged()), &ev, SLOT(quit()));
+
+    connection->connectToServer();
+    QCOMPARE((int)connection->status(), (int)JsonDbConnection::Ready);
+
+    connection->disconnectFromServer();
+    QCOMPARE((int)connection->status(), (int)JsonDbConnection::Disconnected);
+
+    connection->setToken(QLatin1String("foobar"));
+    connection->connectToServer();
+    QCOMPARE((int)connection->status(), (int)JsonDbConnection::Connecting);
+    timer.start(mClientTimeout);
+    ev.exec();
+    QCOMPARE(connection->status(), JsonDbConnection::Disconnected);
+
+    delete connection;
 }
 
 /*

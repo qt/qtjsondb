@@ -43,64 +43,13 @@
 #include "jsondb-error.h"
 #include "jsondb-oneshot_p.h"
 #include "jsondb-connection_p.h"
-#include "qsonstream.h"
+#include "jsondb-connection_p_p.h"
 
 namespace QtAddOn { namespace JsonDb {
 
 Q_GLOBAL_STATIC(JsonDbConnection, qtjsondbConnection)
 
-class JsonDbConnectionPrivate
-{
-    Q_DECLARE_PUBLIC(JsonDbConnection)
-public:
-    JsonDbConnectionPrivate(JsonDbConnection *q);
-    ~JsonDbConnectionPrivate();
-
-    static QString sDefaultToken;
-
-    JsonDbConnection *q_ptr;
-    QsonStream mStream;
-    int mId;
-    QString mToken;
-};
-
 QString JsonDbConnectionPrivate::sDefaultToken;
-
-class JsonDbSyncCall : public QObject
-{
-    Q_OBJECT
-    friend class JsonDbConnection;
-public:
-    QT_DEPRECATED
-    JsonDbSyncCall(const QVariantMap &dbrequest, QVariant &result);
-    JsonDbSyncCall(const QVariantMap *dbrequest, QVariant *result);
-    JsonDbSyncCall(const QsonMap *dbrequest, QsonObject *result);
-    ~JsonDbSyncCall();
-public slots:
-    void createSyncRequest();
-    void createSyncQsonRequest();
-    void handleResponse( int id, const QVariant& data );
-    void handleResponse( int id, const QsonObject& data );
-    void handleError( int id, int code, const QString& message );
-private:
-    int                 mId;
-    const QVariantMap   *mDbRequest;
-    const QsonMap       *mDbQsonRequest;
-    QVariant            *mResult;
-    QsonObject          *mQsonResult;
-    JsonDbConnection    *mSyncJsonDbConnection;
-};
-
-
-JsonDbConnectionPrivate::JsonDbConnectionPrivate(JsonDbConnection *q)
-    : q_ptr(q), mId(1)
-{
-}
-
-JsonDbConnectionPrivate::~JsonDbConnectionPrivate()
-{
-
-}
 
 /*!
   \internal
@@ -119,8 +68,6 @@ JsonDbConnectionPrivate::~JsonDbConnectionPrivate()
 JsonDbConnection *JsonDbConnection::instance()
 {
     JsonDbConnection *c = qtjsondbConnection();
-    if (!c->isConnected())
-        c->connectToServer();
     return c;
 }
 
@@ -322,28 +269,12 @@ JsonDbConnection::~JsonDbConnection()
 {
     Q_D(JsonDbConnection);
     // QsonStreams don't own the socket
-    QIODevice *device = d->mStream.device();
     d->mStream.setDevice(0);
-    if (device)
-        delete device;
 }
 
-void JsonDbConnection::init(QIODevice *device)
+JsonDbConnection::Status JsonDbConnection::status() const
 {
-    Q_D(JsonDbConnection);
-    d->mStream.setDevice(device);
-    connect(&d->mStream, SIGNAL(receive(QsonObject)),
-            this, SLOT(receiveMessage(QsonObject)));
-    connect(&d->mStream, SIGNAL(readyWrite()),
-            this, SIGNAL(readyWrite()));
-
-    if (!d->mToken.isEmpty()) {
-        QsonMap request;
-        request.insert(JsonDbString::kIdStr, makeRequestId());
-        request.insert(JsonDbString::kActionStr, JsonDbString::kTokenStr);
-        request.insert(JsonDbString::kObjectStr, d->mToken);
-        d->mStream << request;
-    }
+    return d_func()->status;
 }
 
 /*!
@@ -353,10 +284,8 @@ void JsonDbConnection::connectToServer(const QString &socketName)
 {
     Q_D(JsonDbConnection);
 
-    if (d->mStream.device() != 0) {
-        qWarning() << "JsonDbConnection" << "already connected";
+    if (d->status != JsonDbConnection::Disconnected)
         return;
-    }
 
     QString name = socketName;
     if (name.isEmpty())
@@ -364,14 +293,21 @@ void JsonDbConnection::connectToServer(const QString &socketName)
     if (name.isEmpty())
         name = QLatin1String("qt5jsondb");
 
-    QLocalSocket *socket = new QLocalSocket(this);
-    connect(socket, SIGNAL(disconnected()), this, SIGNAL(disconnected()));
-    connect(socket, SIGNAL(connected()), this, SIGNAL(connected()));
-    socket->connectToServer(name);
-    if (socket->waitForConnected())
-        init(socket);
-    else
-        qCritical() << "JsonDbConnection: Unable to connect to socket" << name << socket->errorString();
+    d->socket = new QLocalSocket(this);
+    connect(d->socket, SIGNAL(disconnected()), this, SLOT(_q_onDisconnected()));
+    connect(d->socket, SIGNAL(connected()), this, SLOT(_q_onConnected()));
+    connect(d->socket, SIGNAL(error(QLocalSocket::LocalSocketError)), this, SLOT(_q_onError(QLocalSocket::LocalSocketError)));
+
+    d->status = JsonDbConnection::Connecting;
+    emit statusChanged();
+
+    d->socket->connectToServer(name);
+
+    // local socket already emitted connected() signal
+    if (d->status != JsonDbConnection::Ready && d->status != JsonDbConnection::Disconnected) {
+        d->status = JsonDbConnection::Connecting;
+        emit statusChanged();
+    }
 }
 
 /*!
@@ -380,18 +316,101 @@ void JsonDbConnection::connectToServer(const QString &socketName)
 void JsonDbConnection::connectToHost(const QString &hostname, quint16 port)
 {
     Q_D(JsonDbConnection);
-    Q_ASSERT(d->mStream.device() == 0);
-    Q_UNUSED(d);
+    if (d->status == JsonDbConnection::Ready)
+        return;
 
-    QTcpSocket *socket = new QTcpSocket(this);
-    connect(socket, SIGNAL(disconnected()), this, SIGNAL(disconnected()));
-    connect(socket, SIGNAL(connected()), this, SIGNAL(connected()));
-    socket->connectToHost(hostname, port);
-    if (socket->waitForConnected())
-        init(socket);
+    d->tcpSocket = new QTcpSocket(this);
+    connect(d->tcpSocket, SIGNAL(disconnected()), this, SLOT(_q_onDisconnected()));
+    connect(d->tcpSocket, SIGNAL(connected()), this, SLOT(_q_onConnected()));
+    d->tcpSocket->connectToHost(hostname, port);
+    d->status = JsonDbConnection::Connecting;
+    emit statusChanged();
+}
+
+/*!
+    Disconnect from the server.
+*/
+void JsonDbConnection::disconnectFromServer()
+{
+    Q_D(JsonDbConnection);
+    if (d->status == JsonDbConnection::Disconnected)
+        return;
+
+    if (d->socket)
+        d->socket->disconnectFromServer();
+
+    d->status = JsonDbConnection::Disconnected;
+    d->tokenRequestId = -1;
+}
+
+
+void JsonDbConnectionPrivate::_q_onConnected()
+{
+    Q_Q(JsonDbConnection);
+    Q_ASSERT(socket || tcpSocket);
+
+    if (socket)
+        mStream.setDevice(socket);
     else
-        qCritical() << "JsonDbConnection: Unable to connect to remote server: "
-                    << hostname << port << socket->errorString();
+        mStream.setDevice(tcpSocket);
+    QObject::connect(&mStream, SIGNAL(receive(QsonObject)), q, SLOT(_q_onReceiveMessage(QsonObject)));
+    QObject::connect(&mStream, SIGNAL(readyWrite()), q, SIGNAL(readyWrite()));
+
+    if (!mToken.isEmpty()) {
+        QsonMap request;
+        tokenRequestId = q->makeRequestId();
+        request.insert(JsonDbString::kIdStr, tokenRequestId);
+        request.insert(JsonDbString::kActionStr, JsonDbString::kTokenStr);
+        request.insert(JsonDbString::kObjectStr, mToken);
+        mStream << request;
+
+        status = JsonDbConnection::Authenticating;
+        emit q->statusChanged();
+    } else {
+        // if we don't need a token, then we are done
+        status = JsonDbConnection::Ready;
+        emit q->statusChanged();
+    }
+
+    emit q->connected();
+}
+
+void JsonDbConnectionPrivate::_q_onDisconnected()
+{
+    Q_Q(JsonDbConnection);
+    mStream.setDevice(0);
+
+    status = JsonDbConnection::Disconnected;
+    emit q->statusChanged();
+    emit q->disconnected();
+}
+
+void JsonDbConnectionPrivate::_q_onError(QLocalSocket::LocalSocketError error)
+{
+    Q_Q(JsonDbConnection);
+    switch (error) {
+    case QLocalSocket::ConnectionRefusedError:
+    case QLocalSocket::ServerNotFoundError:
+    case QLocalSocket::SocketAccessError:
+    case QLocalSocket::ConnectionError:
+    case QLocalSocket::UnknownSocketError: {
+        if (status != JsonDbConnection::Disconnected) {
+            status = JsonDbConnection::Disconnected;
+            emit q->statusChanged();
+        }
+        break;
+    }
+    case QLocalSocket::DatagramTooLargeError:
+        // I think this should never happen.
+        qWarning("qtjsondb: QLocalSocket::DatagramTooLargeError");
+        if (status != JsonDbConnection::Disconnected) {
+            status = JsonDbConnection::Disconnected;
+            emit q->statusChanged();
+        }
+        break;
+    default:
+        break;
+    }
 }
 
 /*!
@@ -430,6 +449,43 @@ int JsonDbConnection::request(const QsonObject &dbrequest)
     return newid;
 }
 
+
+/*!
+    Sends \a request with a given \a requestId to the database.
+
+    Returns true if the request was successfully sent.
+*/
+bool JsonDbConnection::request(int requestId, const QVariantMap &request)
+{
+    Q_D(JsonDbConnection);
+    if (status() != JsonDbConnection::Ready)
+        return false;
+
+    QVariantMap r = request;
+    r.insert(JsonDbString::kIdStr, requestId);
+    if (!d->mStream.send(variantToQson(r)))
+        return false;
+    return true;
+}
+
+/*!
+    Sends \a request with a given \a requestId to the database.
+
+    Returns true if the request was successfully sent.
+*/
+bool JsonDbConnection::request(int requestId, const QsonMap &request)
+{
+    Q_D(JsonDbConnection);
+    if (status() != JsonDbConnection::Ready)
+        return false;
+
+    QsonMap r = request;
+    r.insert(JsonDbString::kIdStr, requestId);
+    if (!d->mStream.send(r))
+        return false;
+    return true;
+}
+
 /*!
     Returns a new request id.
 */
@@ -439,29 +495,40 @@ int JsonDbConnection::makeRequestId()
 }
 
 
-void JsonDbConnection::receiveMessage(const QsonObject &msg)
+void JsonDbConnectionPrivate::_q_onReceiveMessage(const QsonObject &msg)
 {
+    Q_Q(JsonDbConnection);
     QsonMap qsonMsg = msg.toMap();
+
+    int id = qsonMsg.valueInt(JsonDbString::kIdStr);
+    if (id == tokenRequestId) {
+        bool error = !qsonMsg.isNull("error");
+        // if token auth failed, socket will be disconnected.
+        if (!error) {
+            status = JsonDbConnection::Ready;
+            emit q->statusChanged();
+        }
+    }
+
     if (qsonMsg.contains(JsonDbString::kNotifyStr)) {
         QsonMap nmap = qsonMsg.subObject(JsonDbString::kNotifyStr).toMap();
-        emit notified(qsonMsg.valueString(JsonDbString::kUuidStr),
-                      qsonToVariant(nmap.subObject(JsonDbString::kObjectStr)),
-                      nmap.valueString(JsonDbString::kActionStr));
-        emit notified(qsonMsg.valueString(JsonDbString::kUuidStr),
-                      nmap.subObject(JsonDbString::kObjectStr),
-                      nmap.valueString(JsonDbString::kActionStr));
+        emit q->notified(qsonMsg.valueString(JsonDbString::kUuidStr),
+                         qsonToVariant(nmap.subObject(JsonDbString::kObjectStr)),
+                         nmap.valueString(JsonDbString::kActionStr));
+        emit q->notified(qsonMsg.valueString(JsonDbString::kUuidStr),
+                         nmap.subObject(JsonDbString::kObjectStr),
+                         nmap.valueString(JsonDbString::kActionStr));
     } else {
-        int id = qsonMsg.valueInt(JsonDbString::kIdStr);
         QsonObject qsonResult = qsonMsg.subObject(JsonDbString::kResultStr);
         QVariantMap result = qsonToVariant(qsonResult).toMap();
         if (result.size()) {
-            emit response(id, qsonResult);
-            emit response(id, result);
+            emit q->response(id, qsonResult);
+            emit q->response(id, result);
         } else {
             QVariantMap emap  = qsonToVariant(qsonMsg.subObject(JsonDbString::kErrorStr)).toMap();
-            emit error(id,
-                       emap.value(JsonDbString::kCodeStr).toInt(),
-                       emap.value(JsonDbString::kMessageStr).toString());
+            emit q->error(id,
+                          emap.value(JsonDbString::kCodeStr).toInt(),
+                          emap.value(JsonDbString::kMessageStr).toString());
         }
     }
 }
@@ -635,4 +702,4 @@ void JsonDbSyncCall::handleError(int id, int code, const QString& message)
 
 } } // end namespace QtAddOn::JsonDb
 
-#include "jsondb-connection.moc"
+#include "moc_jsondb-connection_p.cpp"

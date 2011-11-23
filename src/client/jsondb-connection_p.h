@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_CONNECTION_H
-#define JSONDB_CONNECTION_H
+#ifndef JSONDB_CONNECTION_P_H
+#define JSONDB_CONNECTION_P_H
 
 #include <QObject>
 #include <QVariant>
@@ -62,7 +62,20 @@ class JsonDbConnectionPrivate;
 class Q_ADDON_JSONDB_EXPORT JsonDbConnection : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(Status status READ status NOTIFY statusChanged)
+
 public:
+    enum Status {
+        // maintain the order to match QML Component enum values (just in case)
+        Disconnected = 0,
+        Null = Disconnected,
+        Ready = 1,
+        Connecting = 2,
+        Error = 3,
+
+        Authenticating = 4
+    };
+
     static JsonDbConnection *instance();
     static void              setDefaultToken( const QString& token );
     static QString           defaultToken();
@@ -85,6 +98,8 @@ public:
     JsonDbConnection(QObject *parent = 0);
     ~JsonDbConnection();
 
+    Status status() const;
+
     // One-shot functions allow you to avoid constructing a JsonDbClient
     QT_DEPRECATED
     void oneShot( const QVariantMap& dbrequest, QObject *receiver=0,
@@ -96,10 +111,14 @@ public:
     void setToken(const QString &token);
     void connectToServer(const QString &socketName = QString());
     void connectToHost(const QString &hostname, quint16 port);
+    void disconnectFromServer();
 
     // General purpose request
     int  request(const QVariantMap &request);
     int  request(const QsonObject &request);
+    bool request(int requestId, const QVariantMap &request);
+    bool request(int requestId, const QsonMap &request);
+
     bool isConnected() const;
     Q_DECL_DEPRECATED inline bool connected() const
     { return isConnected(); }
@@ -116,22 +135,24 @@ signals:
     void response(int id, const QVariant &data);
     void response(int id, const QsonObject &data);
     void error(int id, int code, const QString &message);
-    void connected();
-    void disconnected();
     void readyWrite();
 
-private slots:
-    void receiveMessage(const QsonObject &msg);
+    void connected();
+    void disconnected();
 
-private:
-    void init(QIODevice *);
+    // signals for properties
+    void statusChanged();
 
 private:
     Q_DISABLE_COPY(JsonDbConnection)
     Q_DECLARE_PRIVATE(JsonDbConnection)
     QScopedPointer<JsonDbConnectionPrivate> d_ptr;
+    Q_PRIVATE_SLOT(d_func(), void _q_onConnected())
+    Q_PRIVATE_SLOT(d_func(), void _q_onDisconnected())
+    Q_PRIVATE_SLOT(d_func(), void _q_onError(QLocalSocket::LocalSocketError))
+    Q_PRIVATE_SLOT(d_func(), void _q_onReceiveMessage(QsonObject))
 };
 
 } } // end namespace QtAddOn::JsonDb
 
-#endif /* JSONDB_H */
+#endif /* JSONDB_CONNECTION_P_H */

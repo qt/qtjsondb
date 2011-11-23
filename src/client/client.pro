@@ -23,6 +23,7 @@ HEADERS += \
     jsondb-client.h \
     jsondb-client_p.h \
     jsondb-connection_p.h \
+    jsondb-connection_p_p.h \
     jsondb-oneshot_p.h
 
 SOURCES += \

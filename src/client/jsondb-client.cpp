@@ -129,6 +129,7 @@ JsonDbClient::JsonDbClient(QObject *parent)
 {
     Q_D(JsonDbClient);
     d->init();
+    d->connection->connectToServer();
 }
 
 JsonDbClient::~JsonDbClient()
