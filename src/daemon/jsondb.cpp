@@ -1773,7 +1773,9 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
     // verify partition name - only alphanum characters allowed
     bool isAlNum = true;
     for (int i = 0; i < name.length(); ++i) {
-        if (!name.at(i).isLetterOrNumber()) {
+        const QChar ch = name.at(i);
+        if (!ch.isLetterOrNumber() && ch != QLatin1Char('-') &&
+                ch != QLatin1Char('.') && ch != QLatin1Char('_')) {
             isAlNum = false;
             break;
         }
