@@ -100,6 +100,8 @@ private slots:
     void requestWithSlot();
     void testToken_data();
     void testToken();
+    void partition();
+
     void connection_response(int, const QVariant&);
     void connection_error(int, int, const QString&);
 
@@ -1184,6 +1186,53 @@ void TestJsonDbClient::testToken()
     connection.connectToServer();
     mEventLoop.exec(QEventLoop::AllEvents);
     QCOMPARE(failed, willFail);
+}
+
+void TestJsonDbClient::partition()
+{
+    int id;
+    const QString firstPartitionName = "com.nokia.qtjsondb.autotest.Partition1";
+    const QString secondPartitionName = "com.nokia.qtjsondb.autotest.Partition2";
+
+    QVariantMap item;
+    item.insert(JsonDbString::kTypeStr, "Partition");
+    item.insert("name", firstPartitionName);
+    id = mClient->create(item);
+    waitForResponse1(id);
+    QVERIFY(mData.toMap().contains("_uuid"));
+    QVariant firstPartitionUuid = mData.toMap().value("_uuid");
+
+    item = QVariantMap();
+    item.insert(JsonDbString::kTypeStr, "Partition");
+    item.insert("name", secondPartitionName);
+    id = mClient->create(item);
+    waitForResponse1(id);
+    QVERIFY(mData.toMap().contains("_uuid"));
+    QVariant secondPartitionUuid = mData.toMap().value("_uuid");
+
+
+    item = QVariantMap();
+    item.insert(JsonDbString::kTypeStr, "Foobar");
+    item.insert("one", "one");
+    id = mClient->create(variantToQson(item), firstPartitionName);
+    waitForResponse1(id);
+
+    item = QVariantMap();
+    item.insert(JsonDbString::kTypeStr, "Foobar");
+    item.insert("one", "two");
+    id = mClient->create(variantToQson(item), secondPartitionName);
+    waitForResponse1(id);
+
+    // now query
+    id = mClient->query("[?_type=\"Foobar\"]", 0, -1, firstPartitionName);
+    waitForResponse1(id);
+    QCOMPARE(mData.toMap().value("length").toInt(), 1);
+    QCOMPARE(mData.toMap().value("data").toList().at(0).toMap().value("one").toString(), QLatin1String("one"));
+
+    id = mClient->query("[?_type=\"Foobar\"]", 0, -1, secondPartitionName);
+    waitForResponse1(id);
+    QCOMPARE(mData.toMap().value("length").toInt(), 1);
+    QCOMPARE(mData.toMap().value("data").toList().at(0).toMap().value("one").toString(), QLatin1String("two"));
 }
 
 QTEST_MAIN(TestJsonDbClient)

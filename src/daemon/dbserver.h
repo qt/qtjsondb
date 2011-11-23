@@ -79,7 +79,7 @@ public slots:
 protected slots:
     void handleConnection();
     void handleTcpConnection();
-    void receiveMessage( QsonObject );
+    void receiveMessage(const QsonObject &);
     void handleConnectionError();
     void removeConnection();
 
@@ -87,12 +87,12 @@ protected slots:
     void updateView( const QString &viewType, const QString &partitionName );
 
 private:
-    void processFind( QsonStream *stream, QsonObject object, int id );
-    void processCreate( QsonStream *stream, QsonObject object, int id );
-    void processUpdate( QsonStream *stream, QsonObject object, int id, bool replication = false );
-    void processRemove( QsonStream *stream, QsonObject object, int id );
-    void processToken( QsonStream *stream, QVariant object, int id );
-    void processChangesSince( QsonStream *stream, QsonObject object, int id );
+    void processFind(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName);
+    void processCreate(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName);
+    void processUpdate(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName, bool replication = false);
+    void processRemove(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName);
+    void processToken(QsonStream *stream, const QVariant &object, int id);
+    void processChangesSince(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName);
 
     JsonDbOwner *getOwner( QsonStream *stream );
     bool validateToken( QsonStream *stream, const QsonMap &securityObject );

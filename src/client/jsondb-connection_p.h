@@ -56,6 +56,7 @@ namespace QtAddOn { namespace JsonDb {
 
 class QsonObject;
 class QsonMap;
+class QsonList;
 
 class JsonDbConnectionPrivate;
 class Q_ADDON_JSONDB_EXPORT JsonDbConnection : public QObject
@@ -66,19 +67,19 @@ public:
     static void              setDefaultToken( const QString& token );
     static QString           defaultToken();
 
-    static QVariantMap makeFindRequest( const QVariant& );
-    static QsonObject makeFindRequest( const QsonObject& );
-    static QVariantMap makeQueryRequest( const QString&, int offset = 0, int limit = -1);
-    static QVariantMap makeCreateRequest( const QVariant& );
-    static QsonObject makeCreateRequest( const QsonObject& );
-    static QVariantMap makeUpdateRequest( const QVariant& );
-    static QsonObject makeUpdateRequest( const QsonObject& );
-    static QVariantMap makeRemoveRequest( const QVariant& );
-    static QsonObject makeRemoveRequest( const QsonObject& );
-    static QVariantMap makeRemoveRequest( const QString& );
-    static QVariantMap makeNotification( const QString&, const QVariantList& );
-    static QsonObject makeNotification( const QString&, const QsonObject& );
-    static QVariantMap makeChangesSinceRequest(int stateNumber, const QStringList &types=QStringList());
+    static QVariantMap makeFindRequest(const QVariant &);
+    static QVariantMap makeCreateRequest(const QVariant &);
+    static QVariantMap makeUpdateRequest(const QVariant &);
+    static QVariantMap makeRemoveRequest(const QVariant &);
+    static QVariantMap makeRemoveRequest(const QString &);
+    static QsonObject makeFindRequest(const QsonObject &);
+
+    static QVariantMap makeQueryRequest(const QString &, int offset = 0, int limit = -1, const QString &partitionName = QString());
+    static QsonObject makeCreateRequest(const QsonObject &, const QString &partitionName = QString());
+    static QsonObject makeUpdateRequest(const QsonObject &, const QString &partitionName = QString());
+    static QsonObject makeRemoveRequest(const QsonObject &, const QString &partitionName = QString());
+    static QsonObject makeNotification(const QString &, const QsonList &, const QString &partitionName = QString());
+    static QVariantMap makeChangesSinceRequest(int stateNumber, const QStringList &types = QStringList(), const QString &partitionName = QString());
 
     JsonDbConnection(QObject *parent = 0);
     ~JsonDbConnection();

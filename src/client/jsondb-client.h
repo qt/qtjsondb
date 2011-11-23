@@ -79,18 +79,40 @@ public:
     Q_DECLARE_FLAGS(NotifyTypes, NotifyType)
 
 public slots:
-    int find(const QsonObject &query, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
-    int query(const QString &query, int offset = 0, int limit = -1, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
-    int create(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
-    int update(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
-    int remove(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
-    int remove(const QString &query, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+    QT_DEPRECATED int find(const QsonObject &query, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+    QT_DEPRECATED int remove(const QString &query, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+
+    int create(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0)
+    { return create(object, QString(), target, successSlot, errorSlot); }
+    int update(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0)
+    { return update(object, QString(), target, successSlot, errorSlot); }
+
+    int remove(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0)
+    { return remove(object, QString(), target, successSlot, errorSlot); }
     int notify(NotifyTypes types, const QString &query,
                QObject *notifyTarget = 0, const char *notifySlot = 0,
-               QObject *responseTarget = 0, const char *responseSuccessSlot = 0, const char *responseErrorSlot = 0);
-    int changesSince(int stateNumber, QStringList types = QStringList(), QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+               QObject *responseTarget = 0, const char *responseSuccessSlot = 0, const char *responseErrorSlot = 0)
+    { return notify(types, query, QString(), notifyTarget, notifySlot, responseTarget, responseSuccessSlot, responseErrorSlot); }
+    int query(const QString &query, int offset, int limit, QObject *target, const char *successSlot, const char *errorSlot)
+    { return this->query(query, offset, limit, QString(), target, successSlot, errorSlot); }
+    int changesSince(int stateNumber, QStringList types, QObject *target, const char *successSlot, const char *errorSlot)
+    { return changesSince(stateNumber, types, QString(), target, successSlot, errorSlot); }
 
-    // obsolete
+    int create(const QsonObject &object, const QString &partitionName,
+               QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+    int update(const QsonObject &object, const QString &partitionName,
+               QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+    int remove(const QsonObject &object, const QString &partitionName,
+               QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+    int notify(NotifyTypes types, const QString &query, const QString &partitionName,
+               QObject *notifyTarget = 0, const char *notifySlot = 0,
+               QObject *responseTarget = 0, const char *responseSuccessSlot = 0, const char *responseErrorSlot = 0);
+    int query(const QString &query, int offset = 0, int limit = -1, const QString &partitionName = QString(),
+              QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+    int changesSince(int stateNumber, QStringList types = QStringList(), const QString &partitionName = QString(),
+                     QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+
+    // obsolete?
     int find(const QVariant &query);
     int create(const QVariant &object);
     int update(const QVariant &object);

@@ -275,12 +275,12 @@ int JsonDbClient::find(const QsonObject &object, QObject *target, const char *su
 }
 
 int JsonDbClient::query(const QString &queryString, int offset, int limit,
-                        QObject *target, const char *successSlot, const char *errorSlot)
+                        const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
     if (!d->connection)
         return -1;
-    int id = d->connection->request(JsonDbConnection::makeQueryRequest(queryString, offset, limit));
+    int id = d->connection->request(JsonDbConnection::makeQueryRequest(queryString, offset, limit, partitionName));
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
@@ -339,12 +339,12 @@ int JsonDbClient::create(const QVariant &object)
   \sa response()
   \sa error()
 */
-int JsonDbClient::create(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
+int JsonDbClient::create(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
     if (!d->connection)
         return -1;
-    int id = d->connection->request(JsonDbConnection::makeCreateRequest(object));
+    int id = d->connection->request(JsonDbConnection::makeCreateRequest(object, partitionName));
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
@@ -387,12 +387,12 @@ int JsonDbClient::update(const QVariant &object)
   \sa response()
   \sa error()
 */
-int JsonDbClient::update(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
+int JsonDbClient::update(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
     if (!d->connection)
         return -1;
-    int id = d->connection->request(JsonDbConnection::makeUpdateRequest(object));
+    int id = d->connection->request(JsonDbConnection::makeUpdateRequest(object, partitionName));
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
@@ -434,12 +434,12 @@ int JsonDbClient::remove(const QVariant &object)
   \sa response()
   \sa error()
 */
-int JsonDbClient::remove(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
+int JsonDbClient::remove(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
     if (!d->connection)
         return -1;
-    int id = d->connection->request(JsonDbConnection::makeRemoveRequest(object));
+    int id = d->connection->request(JsonDbConnection::makeRemoveRequest(object, partitionName));
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
@@ -486,24 +486,25 @@ int JsonDbClient::remove(const QString &queryString, QObject *target, const char
   On error, invokes \a responseErrorSlot of \a responseTarget, if provided, else emits \c error().
 */
 int JsonDbClient::notify(NotifyTypes types, const QString &query,
+                         const QString &partitionName,
                          QObject *notifyTarget, const char *notifySlot,
                          QObject *responseTarget, const char *responseSuccessSlot, const char *responseErrorSlot)
 {
     Q_D(JsonDbClient);
     if (!d->connection)
         return -1;
-    QVariantList actions;
+    QsonList actions;
     if (types & JsonDbClient::NotifyCreate)
         actions.append(JsonDbString::kCreateStr);
     if (types & JsonDbClient::NotifyRemove)
         actions.append(JsonDbString::kRemoveStr);
     if (types & JsonDbClient::NotifyUpdate)
         actions.append(JsonDbString::kUpdateStr);
-    QVariantMap create;
+    QsonMap create;
     create.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
     create.insert(JsonDbString::kQueryStr, query);
     create.insert(JsonDbString::kActionsStr, actions);
-    int id = d->connection->request(JsonDbConnection::makeCreateRequest(create));
+    int id = d->connection->request(JsonDbConnection::makeCreateRequest(create, partitionName));
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback(responseTarget, responseSuccessSlot, responseErrorSlot));
@@ -541,12 +542,12 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
   \sa error()
 */
 int JsonDbClient::changesSince(int stateNumber, QStringList types,
-                               QObject *target, const char *successSlot, const char *errorSlot)
+                               const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
     if (!d->connection)
         return -1;
-    int id = d->connection->request(JsonDbConnection::makeChangesSinceRequest(stateNumber, types));
+    int id = d->connection->request(JsonDbConnection::makeChangesSinceRequest(stateNumber, types, partitionName));
     if (id == -1)
         return -1;
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));

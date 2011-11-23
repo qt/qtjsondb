@@ -197,7 +197,7 @@ QsonObject JsonDbConnection::makeFindRequest( const QsonObject& object )
     return request;
 }
 
-QVariantMap JsonDbConnection::makeQueryRequest( const QString& queryString, int offset, int limit )
+QVariantMap JsonDbConnection::makeQueryRequest(const QString &queryString, int offset, int limit, const QString &partitionName)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kFindStr);
@@ -208,10 +208,11 @@ QVariantMap JsonDbConnection::makeQueryRequest( const QString& queryString, int 
     if (limit != -1)
         object.insert(JsonDbString::kLimitStr, limit);
     request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
 }
 
-QVariantMap JsonDbConnection::makeCreateRequest( const QVariant& object )
+QVariantMap JsonDbConnection::makeCreateRequest(const QVariant &object)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kCreateStr);
@@ -219,15 +220,16 @@ QVariantMap JsonDbConnection::makeCreateRequest( const QVariant& object )
     return request;
 }
 
-QsonObject JsonDbConnection::makeCreateRequest( const QsonObject& object )
+QsonObject JsonDbConnection::makeCreateRequest(const QsonObject &object, const QString &partitionName)
 {
     QsonMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kCreateStr);
     request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
 }
 
-QVariantMap JsonDbConnection::makeUpdateRequest( const QVariant& object )
+QVariantMap JsonDbConnection::makeUpdateRequest(const QVariant &object)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kUpdateStr);
@@ -235,15 +237,16 @@ QVariantMap JsonDbConnection::makeUpdateRequest( const QVariant& object )
     return request;
 }
 
-QsonObject JsonDbConnection::makeUpdateRequest( const QsonObject& object )
+QsonObject JsonDbConnection::makeUpdateRequest(const QsonObject &object, const QString &partitionName)
 {
     QsonMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kUpdateStr);
     request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
 }
 
-QVariantMap JsonDbConnection::makeRemoveRequest( const QVariant& object )
+QVariantMap JsonDbConnection::makeRemoveRequest(const QVariant &object)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kRemoveStr);
@@ -251,15 +254,16 @@ QVariantMap JsonDbConnection::makeRemoveRequest( const QVariant& object )
     return request;
 }
 
-QsonObject JsonDbConnection::makeRemoveRequest( const QsonObject& object )
+QsonObject JsonDbConnection::makeRemoveRequest(const QsonObject &object, const QString &partitionName)
 {
     QsonMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kRemoveStr);
     request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
 }
 
-QVariantMap JsonDbConnection::makeRemoveRequest( const QString &queryString)
+QVariantMap JsonDbConnection::makeRemoveRequest(const QString &queryString)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kRemoveStr);
@@ -269,29 +273,20 @@ QVariantMap JsonDbConnection::makeRemoveRequest( const QString &queryString)
     return request;
 }
 
-QVariantMap JsonDbConnection::makeNotification( const QString& query,
-                                                const QVariantList& actions )
-{
-    QVariantMap notification;
-    notification.insert(JsonDbString::kTypeStr,
-                        JsonDbString::kNotificationTypeStr);
-    notification.insert(JsonDbString::kQueryStr, query);
-    notification.insert(JsonDbString::kActionsStr, actions);
-    return notification;
-}
-
-QsonObject JsonDbConnection::makeNotification( const QString& query,
-                                               const QsonObject& actions )
+QsonObject JsonDbConnection::makeNotification(const QString &query, const QsonList &actions,
+                                              const QString &partitionName)
 {
     QsonMap notification;
     notification.insert(JsonDbString::kTypeStr,
                         JsonDbString::kNotificationTypeStr);
     notification.insert(JsonDbString::kQueryStr, query);
     notification.insert(JsonDbString::kActionsStr, actions);
+    notification.insert(JsonDbString::kPartitionStr, partitionName);
     return notification;
 }
 
-QVariantMap JsonDbConnection::makeChangesSinceRequest(int stateNumber, const QStringList &types)
+QVariantMap JsonDbConnection::makeChangesSinceRequest(int stateNumber, const QStringList &types,
+                                                      const QString &partitionName)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kChangesSinceStr);
@@ -300,6 +295,7 @@ QVariantMap JsonDbConnection::makeChangesSinceRequest(int stateNumber, const QSt
     if (!types.isEmpty())
         object.insert(JsonDbString::kTypesStr, types);
     request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
 }
 
