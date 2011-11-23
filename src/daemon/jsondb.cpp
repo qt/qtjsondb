@@ -1805,6 +1805,9 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
     }
     mStorages.insert(name, storage);
     initMap(name);
+
+    checkNotifications(partition, Notification::Create);
+
     return result;
 }
 
