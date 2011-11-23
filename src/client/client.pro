@@ -19,12 +19,14 @@ include(../common/common.pri)
 HEADERS += qtaddonjsondbversion.h
 
 HEADERS += \
+    jsondb-error.h \
     jsondb-client.h \
     jsondb-client_p.h \
     jsondb-connection_p.h \
     jsondb-oneshot_p.h
 
 SOURCES += \
+    jsondb-error.cpp \
     jsondb-client.cpp \
     jsondb-connection.cpp \
     jsondb-oneshot.cpp
