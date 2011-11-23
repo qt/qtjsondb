@@ -1790,7 +1790,9 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
     partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
     partition.insert(QLatin1String("name"), name);
     partition.insert(QLatin1String("file"), filename);
-    mStorages[JsonDbString::kSystemPartitionName]->createPersistentObject(partition);
+    QsonMap result = mStorages[JsonDbString::kSystemPartitionName]->createPersistentObject(partition);
+    if (responseIsError(result))
+        return result;
 
     JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(filename, name, this);
     if (gVerbose) qDebug() << "Opening partition" << name;
@@ -1803,9 +1805,7 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
     }
     mStorages.insert(name, storage);
     initMap(name);
-
-    QsonMap resultmap, errormap;
-    return makeResponse(resultmap, errormap);
+    return result;
 }
 
 } } // end namespace QtAddOn::JsonDb
