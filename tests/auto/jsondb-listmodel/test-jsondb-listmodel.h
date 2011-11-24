@@ -49,23 +49,15 @@
 #include <QEventLoop>
 #include <QDebug>
 #include <QLocalSocket>
+#include <QTimer>
 
 #include <jsondb-client.h>
 #include <jsondb-error.h>
 
 #include "jsondb-listmodel.h"
+#include "clientwrapper.h"
 
 Q_USE_JSONDB_NAMESPACE
-
-class Notification {
-public:
-    Notification( const QString& notifyUuid, const QVariant& object, const QString& action )
-	: mNotifyUuid(notifyUuid), mObject(object), mAction(action) {}
-    
-    QString  mNotifyUuid;
-    QVariant mObject;
-    QString  mAction;
-};
 
 class QDeclarativeEngine;
 class QDeclarativeComponent;
@@ -80,7 +72,7 @@ public:
     QObject *model;
 };
 
-class TestJsonDbListModel: public QObject
+class TestJsonDbListModel: public ClientWrapper
 {
     Q_OBJECT
 public:
@@ -117,7 +109,7 @@ private slots:
     void listProperty();
 
 private:
-    void waitForResponse(QVariant id, int code=-1, QVariant notificationId=QVariant());
+    void waitForExitOrTimeout();
     void waitForItemsCreated(int items);
     QStringList getOrderValues(const JsonDbListModel *listModel);
     JsonDbListModel *createModel();
@@ -125,23 +117,17 @@ private:
     QVariant readJsonFile(const QString &filename);
 
 private:
-    QEventLoop       mEventLoop;
     QProcess        *mProcess;
-    JsonDbClient    *mClient;
     QStringList      mNotificationsReceived;
     QList<ModelData*> mModels;
     QString           mPluginPath;
 
     // Response values
-    QString          mMessage;
-    QString          mLastUuid;
-    int              mCode;
     int              mItemsCreated;
-    QVariant         mId, mData, mNotificationId;
     bool             mWaitingForNotification;
     bool             mWaitingForDataChange;
     bool             mWaitingForRowsRemoved;
-    QList<Notification> mNotifications;
+    QTimer           mTimer;
 };
 
 #endif

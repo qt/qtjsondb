@@ -66,8 +66,7 @@ ModelData::~ModelData()
 }
 
 TestJsonDbListModel::TestJsonDbListModel()
-    : mClient(NULL), mCode(0),
-      mWaitingForNotification(false), mWaitingForDataChange(false), mWaitingForRowsRemoved(false)
+    : mWaitingForNotification(false), mWaitingForDataChange(false), mWaitingForRowsRemoved(false)
 {
     QDeclarativeEngine *engine = new QDeclarativeEngine();
     QStringList pluginPaths = engine->importPathList();
@@ -193,8 +192,10 @@ void TestJsonDbListModel::notified( const QString& notifyUuid,
 {
     mNotificationId = notifyUuid;
     mNotifications << Notification( notifyUuid, object, action );
-    if (mWaitingForNotification && mId.isValid())
+    if (mWaitingForNotification && mId.isValid()) {
+        mTimer.stop();
 	mEventLoop.exit(0);
+    }
 }
 
 void TestJsonDbListModel::response( int id, const QVariant& data )
@@ -202,8 +203,10 @@ void TestJsonDbListModel::response( int id, const QVariant& data )
     mId     = id;
     mData   = data;
     mLastUuid = data.toMap().value("_uuid").toString();
-    if (!mWaitingForNotification || mNotificationId.isValid())
+    if (!mWaitingForNotification || mNotificationId.isValid()) {
+        mTimer.stop();
         mEventLoop.exit(0);
+    }
 }
 
 void TestJsonDbListModel::error( int id, int code, const QString& message )
@@ -212,30 +215,21 @@ void TestJsonDbListModel::error( int id, int code, const QString& message )
     mId      = id;
     mCode    = code;
     mMessage = message;
+    mTimer.stop();
     mEventLoop.exit(0);
-}
-
-void TestJsonDbListModel::waitForResponse(QVariant id, int code, QVariant notificationId)
-{
-    mNotificationId = QVariant();
-    mId          = QVariant();
-    mMessage     = QString();
-    mCode        = -1;
-    mData        = QVariant();
-    mWaitingForNotification = notificationId.isValid();
-
-    mEventLoop.exec( QEventLoop::AllEvents );
-    QCOMPARE(id, mId);
-    if (notificationId.isValid())
-	QCOMPARE(notificationId, mNotificationId);
-    QCOMPARE(mCode, code);
 }
 
 void TestJsonDbListModel::waitForItemsCreated(int items)
 {
     mItemsCreated = 0;
     while(mItemsCreated != items)
-        mEventLoop.processEvents(QEventLoop::AllEvents);
+        mEventLoop.processEvents(QEventLoop::AllEvents, mClientTimeout);
+}
+
+void TestJsonDbListModel::waitForExitOrTimeout()
+{
+    mTimer.singleShot(mClientTimeout, &mEventLoop, SLOT(quit()));
+    mEventLoop.exec(QEventLoop::AllEvents);
 }
 
 // Create items in the model.
@@ -246,7 +240,7 @@ void TestJsonDbListModel::createItem()
     item.insert("name", "Charlie");
     int id = mClient->create(item);
 
-    waitForResponse(id);
+    waitForResponse1(id);
 
     JsonDbListModel *listModel = createModel();
     if (!listModel) return;
@@ -260,15 +254,15 @@ void TestJsonDbListModel::createItem()
     listModel->componentComplete();
     QCOMPARE(listModel->count(), 0);
 
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForExitOrTimeout();
     QCOMPARE(listModel->count(), 1);
 
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Baker");
     id = mClient->create(item);
-    waitForResponse(id);
+    waitForResponse1(id);
 
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForExitOrTimeout();;
     QCOMPARE(listModel->count(), 2);
     deleteModel(listModel);
 }
@@ -280,7 +274,7 @@ void TestJsonDbListModel::updateItemClient()
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
     int id = mClient->create(item);
-    waitForResponse(id);
+    waitForResponse1(id);
 
     JsonDbListModel *listModel = createModel();
     if (!listModel) return;
@@ -293,7 +287,7 @@ void TestJsonDbListModel::updateItemClient()
     listModel->componentComplete();
     QCOMPARE(listModel->rowCount(), 0);
 
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForExitOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
 
     item.insert("_uuid", mLastUuid);
@@ -302,7 +296,7 @@ void TestJsonDbListModel::updateItemClient()
     mWaitingForDataChange = true;
 
     id = mClient->update(item);
-    waitForResponse(id);
+    waitForResponse1(id);
 
     while (mWaitingForDataChange)
         mEventLoop.processEvents(QEventLoop::AllEvents);
@@ -322,7 +316,7 @@ void TestJsonDbListModel::updateItemSet()
     item.insert("name", "Charlie");
     item.insert("phone", "123456789");
     int id = mClient->create(item);
-    waitForResponse(id);
+    waitForResponse1(id);
 
     JsonDbListModel *listModel = createModel();
     if (!listModel) return;
@@ -335,7 +329,7 @@ void TestJsonDbListModel::updateItemSet()
     listModel->componentComplete();
     QCOMPARE(listModel->rowCount(), 0);
 
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForExitOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
 
     QJSEngine engine;
@@ -365,7 +359,7 @@ void TestJsonDbListModel::updateItemSetProperty()
     item.insert("name", "Charlie");
     item.insert("phone", "123456789");
     int id = mClient->create(item);
-    waitForResponse(id);
+    waitForResponse1(id);
 
     JsonDbListModel *listModel = createModel();
     if (!listModel) return;
@@ -378,7 +372,7 @@ void TestJsonDbListModel::updateItemSetProperty()
     listModel->componentComplete();
     QCOMPARE(listModel->rowCount(), 0);
 
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForExitOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
 
     mWaitingForDataChange = true;
@@ -401,7 +395,7 @@ void TestJsonDbListModel::deleteItem()
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
     int id = mClient->create(item);
-    waitForResponse(id);
+    waitForResponse1(id);
 
     JsonDbListModel *listModel = createModel();
     if (!listModel) return;
@@ -412,19 +406,19 @@ void TestJsonDbListModel::deleteItem()
 
     // now start it working
     listModel->componentComplete();
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForExitOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
 
     item.insert("name", "Baker");
     id = mClient->create(item);
-    waitForResponse(id);
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForResponse1(id);
+    waitForExitOrTimeout();
     QCOMPARE(listModel->rowCount(), 2);
 
     mWaitingForRowsRemoved = true;
     item.insert("_uuid", mLastUuid);
     id = mClient->remove(item);
-    waitForResponse(id);
+    waitForResponse1(id);
     while(mWaitingForRowsRemoved)
         mEventLoop.processEvents(QEventLoop::AllEvents);
 
@@ -442,7 +436,7 @@ void TestJsonDbListModel::sortedQuery()
         item.insert("_type", "RandNumber");
         item.insert("number", i);
         id = mClient->create(item);
-        waitForResponse(id);
+        waitForResponse1(id);
     }
 
     JsonDbListModel *listModel = createModel();
@@ -456,13 +450,13 @@ void TestJsonDbListModel::sortedQuery()
 
     listModel->setQuery("[?_type=\"RandNumber\"][/number]");
 
-    mEventLoop.exec(QEventLoop::AllEvents);
+    waitForExitOrTimeout();
     QCOMPARE(listModel->count(), 1000);
     for (int i = 0; i < 1000; i++)
         QCOMPARE(listModel->get(i,"number").toInt(), i);
 
     listModel->setQuery("[?_type=\"RandNumber\"][\\number]");
-    mEventLoop.exec(QEventLoop::AllEvents);
+    waitForExitOrTimeout();
     for (int i = 0; i < 1000; i++)
         QCOMPARE(listModel->get(i,"number").toInt(), 999-i);
 
@@ -478,7 +472,7 @@ void TestJsonDbListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("order", QString::number(i));
         int id = mClient->create(item);
-        waitForResponse(id);
+        waitForResponse1(id);
     }
 
     JsonDbListModel *listModel = createModel();
@@ -492,7 +486,7 @@ void TestJsonDbListModel::ordering()
     listModel->componentComplete();
     QCOMPARE(listModel->rowCount(), 0);
 
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForExitOrTimeout();
 
     QStringList expectedOrder = QStringList() << "1" << "2" << "3" << "4" <<
         "5" << "6" << "7" << "8" << "9";
@@ -508,7 +502,7 @@ void TestJsonDbListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("order", "99");  // move it to the end
         int id = mClient->update(item);
-        waitForResponse(id);
+        waitForResponse1(id);
     }
 
     while (mWaitingForDataChange)
@@ -528,7 +522,7 @@ void TestJsonDbListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("order", "22");    // move it after "2"
         int id = mClient->update(item);
-        waitForResponse(id);
+        waitForResponse1(id);
     }
 
     while (mWaitingForDataChange)
@@ -548,7 +542,7 @@ void TestJsonDbListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("order", "0");    // move it to the beginning
         int id = mClient->update(item);
-        waitForResponse(id);
+        waitForResponse1(id);
     }
 
     while (mWaitingForDataChange)
@@ -572,7 +566,7 @@ void TestJsonDbListModel::itemNotInCache()
         itemList << item;
     }
     int id = mClient->create(itemList);
-    waitForResponse(id);
+    waitForResponse1(id);
 
     JsonDbListModel *listModel = createModel();
     if (!listModel) return;
@@ -582,7 +576,7 @@ void TestJsonDbListModel::itemNotInCache()
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "order");
     listModel->setRoleNames(roleNames);
     listModel->componentComplete();
-    mEventLoop.exec(QEventLoop::AllEvents);
+    waitForExitOrTimeout();
 
     QCOMPARE(listModel->rowCount(), 1000);
 
@@ -604,7 +598,7 @@ void TestJsonDbListModel::roles()
     item.insert("phone", "123456789");
     int id = mClient->create(item);
 
-    waitForResponse(id);
+    waitForResponse1(id);
 
     JsonDbListModel *listModel = createModel();
     if (!listModel) return;
@@ -616,7 +610,7 @@ void TestJsonDbListModel::roles()
 
     // now start it working
     listModel->componentComplete();
-    mEventLoop.exec( QEventLoop::AllEvents );
+    waitForExitOrTimeout();
     QCOMPARE(listModel->count(), 1);
 
     QVariantMap roles = listModel->roleNames().toMap();
@@ -644,7 +638,7 @@ void TestJsonDbListModel::totalRowCount()
         item.insert("_type", __FUNCTION__);
         item.insert("order", i);
         id = mClient->create(item);
-        waitForResponse(id);
+        waitForResponse1(id);
         insertedItems << mData;
     }
 
@@ -658,7 +652,7 @@ void TestJsonDbListModel::totalRowCount()
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "order");
     listModel->setRoleNames(roleNames);
     listModel->componentComplete();
-    mEventLoop.exec(QEventLoop::AllEvents);
+    waitForExitOrTimeout();
 
     QCOMPARE(listModel->rowCount(), 10);
 
@@ -674,7 +668,7 @@ void TestJsonDbListModel::totalRowCount()
 
     // Change query
     listModel->setQuery(QString("[?_type=\"%1\"][\\order]").arg(__FUNCTION__));
-    mEventLoop.exec(QEventLoop::AllEvents);
+    waitForExitOrTimeout();
 
     QCOMPARE(listModel->rowCount(), 50);
 
@@ -698,7 +692,7 @@ void TestJsonDbListModel::listProperty()
     int id = 0;
     for (int i = 0; i < itemList.count(); i++) {
         id = mClient->create(itemList[i].toMap());
-        waitForResponse(id);
+        waitForResponse1(id);
     }
 
     JsonDbListModel *listModel = createModel();
@@ -711,7 +705,7 @@ void TestJsonDbListModel::listProperty()
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "features.0.properties.0.description"<< "features.0.feature");
     listModel->setRoleNames(roleNames);
     listModel->componentComplete();
-    mEventLoop.exec(QEventLoop::AllEvents);
+    waitForExitOrTimeout();
 
     QCOMPARE(listModel->count(), itemList.count());
     QCOMPARE(listModel->get(0, "_type").toString(), type);
@@ -735,7 +729,7 @@ void TestJsonDbListModel::listProperty()
     roleNames = (QStringList() << "_type" << "_uuid" << "features[0].properties[0].description"<< "features[0].supported[0]");
     listModel->setRoleNames(roleNames);
     listModel->componentComplete();
-    mEventLoop.exec(QEventLoop::AllEvents);
+    waitForExitOrTimeout();
 
     QCOMPARE(listModel->count(), itemList.count());
     QCOMPARE(listModel->get(0, "_type").toString(), type);
@@ -761,6 +755,7 @@ QStringList TestJsonDbListModel::getOrderValues(const JsonDbListModel *listModel
 void TestJsonDbListModel::modelReset()
 {
     //qDebug() << "TestJsonDbListModel::modelReset";
+    mTimer.stop();
     mEventLoop.exit(0);
 }
 void TestJsonDbListModel::dataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)
@@ -777,6 +772,7 @@ void TestJsonDbListModel::rowsInserted(const QModelIndex &parent, int first, int
     Q_UNUSED(last);
     mItemsCreated++;
     //qDebug() << "TestJsonDbListModel::rowsInserted";
+    mTimer.stop();
     mEventLoop.exit(0);
 }
 void TestJsonDbListModel::rowsRemoved(const QModelIndex &parent, int first, int last)
