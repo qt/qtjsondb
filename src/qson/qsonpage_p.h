@@ -94,6 +94,7 @@ public:
     QsonPage();
     QsonPage(PageType type);
     QsonPage(const char *data, qson_size size);
+    QsonPage(const QByteArray &page, quint32 pageOffset, qson_size pageSize);
     QsonPage(const QsonPage &copy);
     ~QsonPage();
 
@@ -125,19 +126,35 @@ public:
     {
         if (mOffset != other.mOffset)
             return false;
-        if (mPage == other.mPage)
-            return true;
-        return memcmp(mPage, other.mPage, mOffset) == 0;
+        // can't test complete byte array, it might be shared
+        return memcmp(constData(), other.constData(), mOffset) == 0;
     }
     inline bool operator!=(const QsonPage &other) const
     {
         return !operator==(other);
     }
+    inline void resize(int size)
+    {
+        if (mPageOffset != 0) {
+            if (size < mOffset) {
+                mPage = QByteArray(constData(), size);
+            } else {
+                QByteArray newBuffer;
+                newBuffer.reserve(size);
+                newBuffer.append(constData(), mOffset);
+                newBuffer.resize(size);
+                mPage = newBuffer;
+            }
+            mPageOffset = 0;
+        } else {
+            mPage.resize(size);
+        }
+    }
 private:
-    const bool mOwnsData;
     qson_size mMaxSize;
     qson_size mOffset;
-    char *mPage;
+    QByteArray mPage;
+    qint32 mPageOffset;
 
     inline qson_size stringSize(const QString &string) const;
     bool writeString(const QString &string);
@@ -145,9 +162,10 @@ private:
     {
         if (type() == QsonPage::EMPTY_PAGE || type() == QsonPage::UNKNOWN_PAGE)
             return;
-        memcpy(mPage + 2, &mOffset, 2);
+        memcpy(data() + 2, &mOffset, 2);
     }
 
+    friend class QsonObject;
     friend class QsonMap;
 };
 

@@ -207,21 +207,21 @@ double QsonMap::valueDouble(const QString &key, double fallback) const
 
 QString QsonMap::valueString(const QString &key, const QString &fallback) const
 {
-    if (isDocument() && key == QsonStrings::kLastVersionStr) // make sure we can always read it
-        return mHeader->readString(4);
+    // do not require the index for fixed location stuff
+    if (isDocument() && !key.isEmpty() && key.at(0) == QChar::fromLatin1('_')) {
+        if (key == QsonStrings::kUuidStr)
+            return mHeader->readString(26);
+        else if (key == QsonStrings::kVersionStr)
+            return mFooter->readString(4);
+        else if (key == QsonStrings::kLastVersionStr)
+            return mHeader->readString(4);
+    }
 
     QsonEntry entry = index()->value(key);
-    if (entry.pageNumber == -2) { // _uuid
-        return mHeader->readString(26);
-    } else if (entry.pageNumber == -3) { // _version
-        return mFooter->readString(4);
-    } else if (entry.pageNumber == -4) { // _lastVersion
-        return mHeader->readString(4);
-    } else if (entry.pageNumber == -1 || entry.valueOffset == 0) {
+    if (entry.pageNumber == -1 || entry.valueOffset == 0)
         return fallback;
-    } else {
+    else
         return mBody.at(entry.pageNumber)->readString(entry.valueOffset);
-    }
 }
 
 QUuid QsonMap::uuid() const
@@ -479,8 +479,14 @@ QsonMap& QsonMap::remove(const QString &key)
             int cutFromPos = entry.valueOffset;
             int cutToPos = cutFromPos + entry.valueLength;
 
-            if (cutToPos < valuePage->mOffset)
-                memmove(valuePage->data() + cutFromPos, valuePage->constData() + cutToPos, valuePage->mOffset - cutToPos);
+            if (cutToPos < valuePage->mOffset) {
+                QByteArray newPage;
+                newPage.reserve(valuePage->mOffset);
+                newPage.append(valuePage->constData(), cutFromPos);
+                newPage.append(valuePage->constData() + cutToPos, valuePage->mOffset - cutToPos);
+                valuePage->mPage = newPage;
+                valuePage->mPageOffset = 0;
+            }
             valuePage->mOffset -= entry.valueLength;
             valuePage->updateOffset();
             mBody[entry.pageNumber] = valuePage;
@@ -497,6 +503,7 @@ QsonMap& QsonMap::remove(const QString &key)
         if (newSize == 4) {
             mBody.removeAt(keyPageNr);
         } else {
+            keyPage->resize(newSize);
             keyPage->mOffset = newSize;
             keyPage->updateOffset();
             mBody[keyPageNr] = keyPage;

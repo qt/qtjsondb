@@ -57,9 +57,9 @@ public:
 
     void append(const QByteArray& buffer);
     void append(const char *data, int size);
+    void append(QIODevice& device);
 
     bool hasError() const;
-    bool recover();
 
     bool isObjectReady() const;
     QsonObject getObject();
@@ -101,6 +101,8 @@ private:
     bool mStreamMode;
     bool mStreamReady;
     bool mStreamDone;
+
+    qint32 mParseOffset;
 };
 
 } } // end namespace QtAddOn::JsonDb

@@ -46,18 +46,19 @@
 namespace QtAddOn { namespace JsonDb {
 
 QsonParser::QsonParser(bool streamMode)
+    : mObjectReady(false)
+    , mHasError(false)
+    , mStreamMode(streamMode)
+    , mStreamReady(false)
+    , mStreamDone(false)
+    , mParseOffset(0)
 {
-    mObjectReady = false;
-    mHasError = false;
-    mStreamMode = streamMode;
-    mStreamReady = false;
-    mStreamDone = false;
 }
 
 void QsonParser::append(const QByteArray &buffer)
 {
     mBuffer.append(buffer);
-    if (!mHasError & !mObjectReady && !mStreamDone)
+    if (!mHasError && !mObjectReady && !mStreamDone)
         scanBuffer();
 }
 
@@ -68,26 +69,40 @@ void QsonParser::append(const char *data, int size)
         scanBuffer();
 }
 
-bool QsonParser::hasError() const
+void QsonParser::append(QIODevice& device)
 {
-    return mHasError;
+    if (mHasError || mObjectReady || mStreamDone)
+        return;
+
+    int available = device.bytesAvailable();
+    if (available < 4)
+        return;
+
+    char peek[4];
+    if (device.peek(peek, 4) != 4) {
+        qWarning() << __FUNCTION__ << "peek() failed";
+        return;
+    }
+
+    int shouldRead = pageSize(peek, available);
+    if (shouldRead > 0) {
+        int currentSize = mBuffer.size();
+        mBuffer.resize(currentSize + shouldRead);
+        int didRead = device.read(mBuffer.data() + currentSize, shouldRead);
+        if (didRead != shouldRead) {
+            mBuffer.resize(currentSize + didRead);
+        }
+        if (!mHasError && !mObjectReady && !mStreamDone)
+            scanBuffer();
+
+        append(device);
+    } else if (shouldRead < 0) {
+        qWarning() << __FUNCTION__ << "was unable to discover a page";
+    }
 }
 
-bool QsonParser::recover()
+bool QsonParser::hasError() const
 {
-    if (!mHasError)
-        return true;
-
-    int posOfReset = mBuffer.indexOf("QSNR");
-    if (posOfReset == -1)
-        return false;
-
-    mBuffer = mBuffer.mid(posOfReset + 4);
-    mObjectReady = false;
-    mHasError = false;
-    mStreamReady = false;
-    mStreamDone = false;
-    scanBuffer();
     return mHasError;
 }
 
@@ -174,15 +189,16 @@ int QsonParser::pageSize(const char *data, int maxSize)
 
 void QsonParser::scanBuffer()
 {
-    int nextPageSize = pageSize(mBuffer.constData(), mBuffer.size());
+    int nextPageSize = pageSize(mBuffer.constData() + mParseOffset, mBuffer.size() - mParseOffset);
 
     if (nextPageSize == -1) {
         qWarning() << __FUNCTION__ << "unknown qsonpage";
         mHasError = true;
     } else if (!mHasError && nextPageSize > 0) {
-        QsonPagePtr page = QsonPagePtr(new QsonPage(mBuffer.constData(), nextPageSize));
+        QsonPagePtr page = QsonPagePtr(new QsonPage(mBuffer, mParseOffset, nextPageSize));
+
         QsonPage::PageType type = page->type();
-        mBuffer = mBuffer.mid(nextPageSize);
+        mParseOffset += nextPageSize;
 
         switch (type) {
         case QsonPage::KEY_VALUE_PAGE:
@@ -212,7 +228,7 @@ void QsonParser::scanBuffer()
             break;
         case QsonPage::META_HEADER_PAGE:
             if (mStack.isEmpty() || mContent.last()->type() != QsonPage::DOCUMENT_HEADER_PAGE) {
-                qWarning() << __FUNCTION__ << "unexpected meta header";
+                qWarning() << __FUNCTION__ << "unexpected meta header" << mStack.isEmpty() << "hello" << (char) mContent.last()->type();
                 mHasError = true;
             } else {
                 mContent.append(page);
@@ -241,6 +257,14 @@ void QsonParser::scanBuffer()
         default:
             qWarning() << __FUNCTION__ << "unknown page type";
             mHasError = true;
+        }
+
+        if (mParseOffset == mBuffer.size()) {
+            mBuffer.clear();
+            mParseOffset = 0;
+        } else if (mStack.isEmpty()) {
+            mBuffer = mBuffer.mid(mParseOffset);
+            mParseOffset = 0;
         }
 
         if (!mHasError && !mObjectReady && !mStreamDone)

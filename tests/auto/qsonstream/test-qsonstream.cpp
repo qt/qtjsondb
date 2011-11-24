@@ -43,6 +43,7 @@
 #include <qsonstream.h>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QBuffer>
 
 #include <QDebug>
 
@@ -54,10 +55,12 @@ class TestQsonStream: public QObject
 
 public slots:
     void handleSocketConnection();
+    void chunkSocketConnection();
     void receiveStream(const QsonObject &qson);
 
 private slots:
     void testQsonStream();
+    void testChunking();
 
 private:
     QLocalServer *server;
@@ -88,8 +91,38 @@ void TestQsonStream::testQsonStream()
     qApp->processEvents();
     qApp->processEvents();
     qApp->processEvents();
+    qApp->processEvents();
+    qApp->processEvents();
     QVERIFY(serverOk);
-    QCOMPARE(receiverOk, 1);
+    QCOMPARE(receiverOk, 3);
+}
+
+void TestQsonStream::testChunking()
+{
+    serverOk = false;
+    receiverOk = 0;
+
+    QLocalServer::removeServer("testChunking");
+    server = new QLocalServer(this);
+    connect(server, SIGNAL(newConnection()), this, SLOT(chunkSocketConnection()));
+    QVERIFY(server->listen("testChunking"));
+
+    QLocalSocket *device = new QLocalSocket(this);
+    device->connectToServer("testChunking");
+    QVERIFY(device->waitForConnected());
+    QVERIFY(device->state() == QLocalSocket::ConnectedState);
+
+    QsonStream *stream = new QsonStream(device, this);
+
+    connect(stream, SIGNAL(receive(const QsonObject&)),
+                this, SLOT(receiveStream(const QsonObject&)));
+
+    while (!serverOk) {
+        qApp->processEvents();
+    }
+
+    QVERIFY(serverOk);
+    QCOMPARE(receiverOk, 3);
 }
 
 void TestQsonStream::handleSocketConnection()
@@ -98,18 +131,68 @@ void TestQsonStream::handleSocketConnection()
     serverOk = true;
     QsonStream sender(server->nextPendingConnection());
 
-    QsonMap qson;
-    qson.insert("hello", QString("world"));
-    sender.send(qson);
+    QsonMap qson1;
+    qson1.insert("hello", QString("world"));
+    sender.send(qson1);
+    QsonMap qson2;
+    qson2.insert("hello", QString("again"));
+    qson2.insert("a", 1);
+    sender.send(qson2);
+    QsonMap qson3;
+    qson3.insert("hello", QString("document"));
+    qson3.generateUuid();
+    qson3.computeVersion();
+    sender.send(qson3);
+}
+
+void TestQsonStream::chunkSocketConnection()
+{
+    qDebug() << "chunkSocketConnection";
+    QLocalSocket *stream = server->nextPendingConnection();
+
+    QByteArray data;
+    QsonMap qson1;
+    qson1.insert("hello", QString("world"));
+    data.append(qson1.data());
+    QsonMap qson2;
+    qson2.insert("hello", QString("again"));
+    qson2.insert("a", 1);
+    data.append(qson2.data());
+    QsonMap qson3;
+    qson3.insert("hello", QString("document"));
+    qson3.generateUuid();
+    qson3.computeVersion();
+    data.append(qson3.data());
+
+    qDebug() << "Sending " << data.size() << "bytes";
+
+    for (int ii = 0; ii < data.size(); ii++) {
+        stream->write(data.constData() + ii, 1);
+        qApp->processEvents();
+    }
+    qApp->processEvents();
+    serverOk = true;
 }
 
 void TestQsonStream::receiveStream(const QsonObject &incoming)
 {
-    qDebug() << "receiveStream";
+    qDebug() << "receiveStream" << ++receiverOk;
     QsonMap qson(incoming);
-    receiverOk++;
-    QCOMPARE(qson.size(), 1);
-    QCOMPARE(qson.valueString("hello"), QString("world"));
+    QCOMPARE(qson.size(), receiverOk);
+    switch (receiverOk) {
+    case 1:
+        QCOMPARE(qson.valueString("hello"), QString("world"));
+        break;
+    case 2:
+        QCOMPARE(qson.valueString("hello"), QString("again"));
+        break;
+    case 3:
+        QCOMPARE(qson.valueString("hello"), QString("document"));
+        QVERIFY(qson.isDocument());
+        break;
+    default:
+        QFAIL("test case ran off");
+    }
 }
 
 

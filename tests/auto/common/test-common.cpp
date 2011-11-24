@@ -97,7 +97,7 @@ private slots:
     void testEquals();
     void testQsonParser();
     void testQsonParserStreaming();
-    void qsonParseDocument();
+    void testQsonParseDocument();
     void testComplexElement();
     void testInsertEmptyObject();
     void testIsEmpty();
@@ -1287,7 +1287,7 @@ void TestCommon::testQsonParserStreaming()
     QVERIFY(!parser.streamDone());
 }
 
-void TestCommon::qsonParseDocument()
+void TestCommon::testQsonParseDocument()
 {
     QsonMap document;
     document.generateUuid();

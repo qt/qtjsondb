@@ -152,6 +152,22 @@ int QsonObject::dataSize() const
 
 QByteArray QsonObject::data() const
 {
+    // speed mode (the whole object is already in header's array)
+    if (mHeader->mPageOffset == 0) {
+        int size = mHeader->dataSize();
+        foreach (const QsonPagePtr &page, mBody)
+            if (page->mPageOffset == size)
+                size += page->dataSize();
+            else
+                break;
+        if (size == mFooter->mPageOffset) {
+            size += mFooter->dataSize();
+            if (size == mHeader->mPage.size())
+                return mHeader->mPage;
+        }
+    }
+
+    // slow mode (the serialization needs to be assembled)
     QByteArray result;
     result.append(mHeader->constData(), mHeader->dataSize());
     foreach (const QsonPagePtr &page, mBody)
