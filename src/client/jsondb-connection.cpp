@@ -119,7 +119,8 @@ JsonDbConnectionPrivate::~JsonDbConnectionPrivate()
 JsonDbConnection *JsonDbConnection::instance()
 {
     JsonDbConnection *c = qtjsondbConnection();
-    c->connectToServer();
+    if (!c->isConnected())
+        c->connectToServer();
     return c;
 }
 
@@ -349,16 +350,17 @@ void JsonDbConnection::connectToServer(const QString &socketName)
 {
     Q_D(JsonDbConnection);
 
+    if (d->mStream.device() != 0) {
+        qWarning() << "JsonDbConnection" << "already connected";
+        return;
+    }
+
     QString name = socketName;
     if (name.isEmpty())
         name = QLatin1String(::getenv("JSONDB_SOCKET"));
     if (name.isEmpty())
         name = QLatin1String("qt5jsondb");
 
-    if (d->mStream.device() != 0) {
-        qWarning() << "JsonDbConnection" << "already connected";
-        return;
-    }
     QLocalSocket *socket = new QLocalSocket(this);
     connect(socket, SIGNAL(disconnected()), this, SIGNAL(disconnected()));
     connect(socket, SIGNAL(connected()), this, SIGNAL(connected()));
