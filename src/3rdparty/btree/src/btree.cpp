@@ -3850,7 +3850,8 @@ btree_stat(struct btree *bt)
         return &bt->stat;
 }
 
-const char *tohexstr(const char *src, size_t srclen, char* dst, int dstlen, int tobytes = 0)
+const char *
+tohexstr(const char *src, size_t srclen, char* dst, size_t dstlen, int tobytes = 0)
 {
     assert(dstlen > 1);
     int bytesleft = dstlen - 1; // reserve space for the null charact
@@ -3874,6 +3875,25 @@ const char *tohexstr(const char *src, size_t srclen, char* dst, int dstlen, int 
     return dst;
 }
 
+const char *
+get_node_data(struct btree *bt, struct node *node, char *dst, size_t dstlen)
+{
+    assert(dstlen > 1);
+    if (F_ISSET(node->flags, F_BIGDATA)) {
+        btval data;
+        if (btree_read_data(bt, 0, node, &data) == BT_FAIL) {
+            strncpy(dst, "ERROR: could not read overflow page", dstlen);
+            dst[dstlen - 1] = 0;
+            return dst;
+        }
+        tohexstr((const char *)data.data, data.size, dst, dstlen);
+        btval_reset(&data);
+        return dst;
+    } else {
+        return tohexstr((const char*)NODEDATA(node), NODEDSZ(node), dst, dstlen);
+    }
+}
+
 void
 btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
 {
@@ -3883,7 +3903,7 @@ btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
         struct page     *p;
         struct mpage    *mp;
         char indent[32] = {0};
-        const int hexlen = 512;
+        const int hexlen = MAXKEYSIZE;
         char khexstr[hexlen];
         char dhexstr[hexlen];
 
@@ -3923,21 +3943,23 @@ btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
                         fprintf(stderr, "-> Node %d [key:%s, data:%s]\n",
                                 i,
                                 tohexstr((const char*)node->data, node->ksize, khexstr, hexlen),
-                                tohexstr((const char*)NODEDATA(node), NODEDSZ(node), dhexstr, hexlen));
+                                get_node_data(bt, node, dhexstr, hexlen));
                         if (F_ISSET(node->flags, F_BIGDATA)) {
                                 bcopy(NODEDATA(node), &next, sizeof(next));
                                 fprintf(stderr, "%s", indent);
-                                fprintf (stderr, "[!] Data is on overflow page %d\n", next);
+                                fprintf (stderr, "[!] Data size %zu is on overflow page %d\n", node->n_dsize, next);
                                 btree_dump_tree(bt, next, depth + 1);
                         }
                 }
         } else if (F_ISSET(p->flags, P_OVERFLOW)) {
                 fprintf(stderr, "%s", indent);
-                fprintf (stderr, "Page: %d is an overflow page\n", pgno);
-                        pnext = &p->p_next_pgno;
-                        if (*pnext > 0) {
-                               btree_dump_tree(bt, *pnext, depth + 1);
-                        }
+                pnext = &p->p_next_pgno;
+                if (*pnext > 0)
+                        fprintf (stderr, "Overflow page %d -> %d\n", pgno, *pnext);
+                else
+                        fprintf (stderr, "Overflow page %d -> NULL\n", pgno);
+                if (*pnext > 0)
+                        btree_dump_tree(bt, *pnext, depth);
         } else
                 assert(0);
 }
