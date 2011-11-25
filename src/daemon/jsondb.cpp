@@ -1197,12 +1197,10 @@ QsonMap JsonDb::remove(const JsonDbOwner *owner, const QsonMap &object, const QS
 
 QsonMap JsonDb::removeViewObject(const JsonDbOwner *owner, QsonMap object, const QString &partition)
 {
-    QsonMap resultmap, errormap;
+    QsonMap errormap;
     QString uuid;
 
     RETURN_IF_ERROR(errormap, checkUuidPresent(object, uuid));
-
-    QString objectType = object.valueString(JsonDbString::kTypeStr);
 
     QsonMap tombstone;
     tombstone.insert(JsonDbString::kTypeStr, object.valueString(JsonDbString::kTypeStr));

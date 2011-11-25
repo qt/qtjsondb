@@ -868,7 +868,6 @@ void JsonDbBtreeStorage::initIndexes()
 QsonObject JsonDbBtreeStorage::addIndex(const QString &fieldname, const QString &fieldType, const QString &objectType, bool lazy)
 {
     //qDebug() << "JsonDbBtreeStorage::addIndex" << fieldname << objectType;
-    QsonObject resultmap, errormap;
     ObjectTable *table = findObjectTable(objectType);
     const IndexSpec *indexSpec = table->indexSpec(fieldname);
     if (indexSpec)
@@ -1453,7 +1452,6 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         if (queryTerms.size() == 1) {
             QueryTerm queryTerm = queryTerms[0];
             QString fieldName = queryTerm.fieldName();
-            QString fieldValue = queryTerm.value().toString();
             QString op = queryTerm.op();
 
             if (!queryTerm.joinField().isEmpty()) {

@@ -428,7 +428,6 @@ QsonMap ObjectTable::getObjects(const QString &keyName, const QVariant &keyValue
     AoDbCursor cursor(indexSpec->index->bdb());
     if (cursor.seekRange(forwardKey)) {
         do {
-            QByteArray serializedObject;
             QByteArray checkKey;
             QByteArray forwardValue;
             bool ok = cursor.current(checkKey, forwardValue);
