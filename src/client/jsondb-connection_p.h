@@ -67,12 +67,13 @@ public:
     static void              setDefaultToken( const QString& token );
     static QString           defaultToken();
 
-    static QVariantMap makeFindRequest(const QVariant &);
-    static QVariantMap makeCreateRequest(const QVariant &);
-    static QVariantMap makeUpdateRequest(const QVariant &);
-    static QVariantMap makeRemoveRequest(const QVariant &);
-    static QVariantMap makeRemoveRequest(const QString &);
-    static QsonObject makeFindRequest(const QsonObject &);
+    QT_DEPRECATED static QVariantMap makeFindRequest(const QVariant &);
+    QT_DEPRECATED static QsonObject makeFindRequest(const QsonObject &);
+    QT_DEPRECATED static QVariantMap makeRemoveRequest(const QString &);
+
+    static QVariantMap makeCreateRequest(const QVariant &, const QString &partitionName = QString());
+    static QVariantMap makeUpdateRequest(const QVariant &, const QString &partitionName = QString());
+    static QVariantMap makeRemoveRequest(const QVariant &, const QString &partitionName = QString());
 
     static QVariantMap makeQueryRequest(const QString &, int offset = 0, int limit = -1, const QString &partitionName = QString());
     static QsonObject makeCreateRequest(const QsonObject &, const QString &partitionName = QString());

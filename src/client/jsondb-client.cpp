@@ -173,7 +173,13 @@ void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const Qso
     Q_Q(JsonDbClient);
     if (notifyCallbacks.contains(notifyUuid)) {
         NotifyCallback c = notifyCallbacks.value(notifyUuid);
-        c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QsonObject, data), Q_ARG(QString, action));
+        QList<QByteArray> params = c.method.parameterTypes();
+        if (params.size() >= 2 && params.at(1) == QByteArray("QsonObject")) {
+            c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QsonObject, data), Q_ARG(QString, action));
+        } else {
+            const QVariant vdata = qsonToVariant(data);
+            c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QVariant, vdata), Q_ARG(QString, action));
+        }
         emit q->notified(notifyUuid, data, action);
         emit q->notified(notifyUuid, qsonToVariant(data), action);
     }
@@ -201,8 +207,16 @@ void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
             QByteArray norm = QMetaObject::normalizedSignature(c.successSlot);
             idx = mo->indexOfMethod(norm.constData()+1);
         }
-        if (idx >= 0)
-            mo->method(idx).invoke(object, Q_ARG(int, id), Q_ARG(QsonObject, data));
+        if (idx >= 0) {
+            QMetaMethod method = mo->method(idx);
+            QList<QByteArray> params = method.parameterTypes();
+            if (params.size() >= 2 && params.at(1) == QByteArray("QsonObject")) {
+                method.invoke(object, Q_ARG(int, id), Q_ARG(QsonObject, data));
+            } else {
+                const QVariant vdata = qsonToVariant(data);
+                method.invoke(object, Q_ARG(int, id), Q_ARG(QVariant, vdata));
+            }
+        }
     }
     emit q->response(id, qsonToVariant(data));
     emit q->response(id, data);
@@ -288,41 +302,8 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
 }
 
 /*!
-  \deprecated
-
-  Sends a request to insert \a object into the database. Returns the reference id of the query.
-
-  The \a queryObject contains \c query: a query string and my
-  optionally contain \c bindings, \c limit and \c offset values. If
-  provided, \c bindings maps names in the query string to values
-  used in the query.
-
-  A successful response will include the following properties:
-
-  \list
-  \o \c data: a list of objects matching the query
-  \o \c length: the number of returned objects
-  \o \c offset: the offset of the returned objects in the list of all objects matching the query.
-  \endlist
-
-  \sa response(), error()
-*/
-int JsonDbClient::create(const QVariant &object)
-{
-    Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeCreateRequest(object));
-    if (id == -1)
-        return -1;
-    d->ids.insert(id, JsonDbClientPrivate::Callback());
-    if (object.toMap().value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
-        d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
-    return id;
-}
-
-/*!
   \inmodule QtJsonDb
+  \deprecated
 
   \brief Sends a request to insert \a object into the database. Returns the reference id of the query.
 
@@ -355,22 +336,39 @@ int JsonDbClient::create(const QsonObject &object, const QString &partitionName,
 
 /*!
   \inmodule QtJsonDb
-  \deprecated
+
+  \brief Sends a request to insert \a object into the database. Returns the reference id of the query.
+
+  Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
+  On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
+
+  A successful response will include the following properties:
+
+  \list
+  \o \c _uuid: the unique id of the created object
+  \o \c _version: the version of the created object
+  \endlist
+
+  \sa response()
+  \sa error()
 */
-int JsonDbClient::update(const QVariant &object)
+int JsonDbClient::create(const QVariant &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
     if (!d->connection)
         return -1;
-    int id = d->connection->request(JsonDbConnection::makeUpdateRequest(object));
+    int id = d->connection->request(JsonDbConnection::makeCreateRequest(object, partitionName));
     if (id == -1)
         return -1;
-    d->ids.insert(id, JsonDbClientPrivate::Callback());
+    d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+    if (object.toMap().value(JsonDbString::kTypeStr).toString() == JsonDbString::kNotificationTypeStr)
+        d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
     return id;
 }
 
 /*!
   \inmodule QtJsonDb
+  \deprecated
 
   \brief Sends a request to update \a object in the database. Returns the reference id of the query.
 
@@ -401,24 +399,37 @@ int JsonDbClient::update(const QsonObject &object, const QString &partitionName,
 
 /*!
   \inmodule QtJsonDb
-  \deprecated
+
+  \brief Sends a request to update \a object in the database. Returns the reference id of the query.
+
+  Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
+  On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
+
+  A successful response will include the following properties:
+
+  \list
+  \o \c _uuid: the unique id of the updated object
+  \o \c _version: the version of the updated object
+  \endlist
+
+  \sa response()
+  \sa error()
 */
-int JsonDbClient::remove(const QVariant &object)
+int JsonDbClient::update(const QVariant &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
     if (!d->connection)
         return -1;
-    int id = d->connection->request(JsonDbConnection::makeRemoveRequest(object));
+    int id = d->connection->request(JsonDbConnection::makeUpdateRequest(object, partitionName));
     if (id == -1)
         return -1;
-    d->ids.insert(id, JsonDbClientPrivate::Callback());
-    if (object.toMap().value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
-        d->notifyCallbacks.remove(object.toMap().value(JsonDbString::kUuidStr).toString());
+    d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
     return id;
 }
 
 /*!
   \inmodule QtJsonDb
+  \deprecated
 
   \brief Sends a request to remove \a object from the database. Returns the reference id of the query.
 
@@ -445,6 +456,37 @@ int JsonDbClient::remove(const QsonObject &object, const QString &partitionName,
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
     if (object.toMap().valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
         d->notifyCallbacks.remove(object.toMap().valueString(JsonDbString::kUuidStr));
+    return id;
+}
+
+/*!
+  \inmodule QtJsonDb
+
+  \brief Sends a request to remove \a object from the database. Returns the reference id of the query.
+
+  Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
+  On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
+
+  A successful response will include the following properties:
+
+  \list
+  \o \c _uuid: the unique id of the removed object
+  \endlist
+
+  \sa response()
+  \sa error()
+*/
+int JsonDbClient::remove(const QVariant &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
+{
+    Q_D(JsonDbClient);
+    if (!d->connection)
+        return -1;
+    int id = d->connection->request(JsonDbConnection::makeRemoveRequest(object, partitionName));
+    if (id == -1)
+        return -1;
+    d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+    if (object.toMap().value(JsonDbString::kTypeStr).toString() == JsonDbString::kNotificationTypeStr)
+        d->notifyCallbacks.remove(object.toMap().value(JsonDbString::kUuidStr).toString());
     return id;
 }
 
@@ -555,12 +597,12 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
 }
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notify_uuid, const QVariant &object, const QString &action)
+    \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notifyUuid, const QVariant &object, const QString &action)
 
     Signal that a notification has been received.  The notification
     object must have been created previously, usually with the
     \c create() function (an object with ``_type="notification"``).  The
-    \a notify_uuid field is the uuid of the notification object.  The
+    \a notifyUuid field is the uuid of the notification object.  The
     \a object field is the actual database object and the \a action
     field is the action that started the notification (one of
     "create", "update", or "remove").
@@ -570,6 +612,8 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
 
 /*!
     \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notify_uuid, const QsonObject &object, const QString &action)
+
+    \deprecated
 
     Signal that a notification has been received.  The notification
     object must have been created previously, usually with the
@@ -595,6 +639,8 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
 
 /*!
     \fn void QtAddOn::JsonDb::JsonDbClient::response(int id, const QsonObject &object)
+
+    \deprecated
 
     Signal that a response to a request has been received from the
     database.  The \a id parameter will match with the return result

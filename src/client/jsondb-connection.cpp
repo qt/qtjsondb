@@ -213,11 +213,12 @@ QVariantMap JsonDbConnection::makeQueryRequest(const QString &queryString, int o
     return request;
 }
 
-QVariantMap JsonDbConnection::makeCreateRequest(const QVariant &object)
+QVariantMap JsonDbConnection::makeCreateRequest(const QVariant &object, const QString &partitionName)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kCreateStr);
     request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
 }
 
@@ -230,11 +231,12 @@ QsonObject JsonDbConnection::makeCreateRequest(const QsonObject &object, const Q
     return request;
 }
 
-QVariantMap JsonDbConnection::makeUpdateRequest(const QVariant &object)
+QVariantMap JsonDbConnection::makeUpdateRequest(const QVariant &object, const QString &partitionName)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kUpdateStr);
     request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
 }
 
@@ -247,11 +249,12 @@ QsonObject JsonDbConnection::makeUpdateRequest(const QsonObject &object, const Q
     return request;
 }
 
-QVariantMap JsonDbConnection::makeRemoveRequest(const QVariant &object)
+QVariantMap JsonDbConnection::makeRemoveRequest(const QVariant &object, const QString &partitionName)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kRemoveStr);
     request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
 }
 
