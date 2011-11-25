@@ -64,7 +64,7 @@ ModelData::~ModelData()
 }
 
 TestListModel::TestListModel()
-    : mClient(0), mProcess(0), mId(0)
+    : mProcess(0)
 {
     QDeclarativeEngine *engine = new QDeclarativeEngine();
     QStringList pluginPaths = engine->importPathList();
@@ -85,18 +85,6 @@ TestListModel::TestListModel()
 
 TestListModel::~TestListModel()
 {
-}
-
-void TestListModel::connectJsonDbClient()
-{
-    connect( mClient, SIGNAL(notified(const QString&, const QVariant&, const QString&)),
-             this, SLOT(notified(const QString&, const QVariant&, const QString&)));
-    connect( mClient, SIGNAL(response(int, const QVariant&)),
-             this, SLOT(response(int, const QVariant&)));
-    connect( mClient, SIGNAL(error(int, int, const QString&)),
-             this, SLOT(error(int, int, const QString&)));
-    connect( mClient, SIGNAL(disconnected()),
-             this, SLOT(disconnected()));
 }
 
 void TestListModel::connectListModel(JsonDbListModel *model)
@@ -133,7 +121,7 @@ void TestListModel::initTestCase()
 
     mClient = new JsonDbClient(this);
     QVERIFY(mClient!= 0);
-    connectJsonDbClient();
+    connectToServer();
 
     // Create alot of items in the database
     QVariantList friendsList;
@@ -220,11 +208,6 @@ void TestListModel::cleanupTestCase()
         mProcess = NULL;
     }
     deleteDbFiles();
-}
-
-void TestListModel::disconnected()
-{
-    qDebug() << "Disconnected";
 }
 
 void TestListModel::notified(const QString& notifyUuid, const QVariant& object, const QString& action)
@@ -399,7 +382,7 @@ void TestListModel::changeOneItemClient()
         mEventLoop.exec(QEventLoop::AllEvents);
     }
 
-    connectJsonDbClient();
+    connectToServer();
 
     mEventLoop.processEvents();
     QCoreApplication::instance()->processEvents();
@@ -458,7 +441,7 @@ void TestListModel::changeOneItemSetProperty()
         mEventLoop.exec(QEventLoop::AllEvents);
     }
 
-    connectJsonDbClient();
+    connectToServer();
 
     mEventLoop.processEvents();
     QCoreApplication::instance()->processEvents();

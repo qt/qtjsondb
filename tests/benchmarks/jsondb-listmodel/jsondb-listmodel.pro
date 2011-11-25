@@ -6,6 +6,7 @@ INCLUDEPATH += .
 QT = core network testlib gui declarative jsondb-private jsondbqson-private
 CONFIG -= app_bundle
 
+include($$PWD/../../shared/shared.pri)
 include($$PWD/../../../qtjsondb.pri)
 include($$PWD/../../../src/3rdparty/qjson/qjson.pri)
 

@@ -53,6 +53,7 @@
 #include <jsondb-client.h>
 #include <jsondb-error.h>
 
+#include "clientwrapper.h"
 #include "jsondb-listmodel.h"
 
 Q_USE_JSONDB_NAMESPACE
@@ -70,7 +71,7 @@ public:
     QObject *model;
 };
 
-class TestListModel: public QObject
+class TestListModel: public ClientWrapper
 {
     Q_OBJECT
 public:
@@ -78,14 +79,12 @@ public:
     ~TestListModel();
 
     void deleteDbFiles();
-    void connectJsonDbClient();
     void connectListModel(JsonDbListModel *model);
 
 public slots:
     void notified(const QString& notifyUuid, const QVariant& object, const QString& action);
     void response(int id, const QVariant& data);
     void error(int id, int code, const QString& message);
-    void disconnected();
 
     void dataChanged(QModelIndex,QModelIndex);
     void modelReset();
@@ -113,12 +112,8 @@ private:
     JsonDbListModel *createModel();
     void deleteModel(JsonDbListModel *model);
 private:
-    JsonDbClient *mClient;
     QProcess *mProcess;
-    QEventLoop mEventLoop;
-    QString mLastUuid;
     QVariant mLastResponseData;
-    int mId;
     QList<ModelData*> mModels;
     QString mPluginPath;
 };
