@@ -112,10 +112,10 @@ JsonDbClient::JsonDbClient(const QString &socketName, QObject *parent)
     : QObject(parent)
 {
     JsonDbConnection *connection = new JsonDbConnection(this);
-    connection->connectToServer(socketName);
     d_ptr.reset(new JsonDbClientPrivate(this, connection));
     Q_D(JsonDbClient);
     d->init();
+    connection->connectToServer(socketName);
 }
 
 /*!
@@ -136,36 +136,110 @@ JsonDbClient::~JsonDbClient()
 {
 }
 
+JsonDbClient::Status JsonDbClient::status() const
+{
+    return d_func()->status;
+}
+
+void JsonDbClientPrivate::_q_statusChanged()
+{
+    Q_Q(JsonDbClient);
+    JsonDbClient::Status newStatus = status;
+    switch (connection->status()) {
+    case JsonDbConnection::Disconnected:
+        if (status != JsonDbClient::Error) {
+            requestQueue.unite(sentRequestQueue);
+            sentRequestQueue.clear();
+            newStatus = JsonDbClient::Connecting;
+            reconnectionTimer.start(5000);
+        }
+        break;
+    case JsonDbConnection::Connecting:
+    case JsonDbConnection::Authenticating:
+        newStatus = JsonDbClient::Connecting;
+        break;
+    case JsonDbConnection::Ready:
+        newStatus = JsonDbClient::Ready;
+        _q_processQueue();
+        break;
+    case JsonDbConnection::Error:
+        newStatus = JsonDbClient::Error;
+        break;
+    }
+    if (status != newStatus) {
+        status = newStatus;
+        emit q->statusChanged();
+    }
+}
+
+void JsonDbClientPrivate::_q_timeout()
+{
+    reconnectionTimer.stop();
+    if (status != JsonDbClient::Error)
+        connection->connectToServer();
+}
+
+void JsonDbClientPrivate::_q_processQueue()
+{
+    Q_Q(JsonDbClient);
+    if (requestQueue.isEmpty())
+        return;
+    if (connection->status() != JsonDbConnection::Ready)
+        return;
+
+    QMap<int, QVariantMap>::iterator it = requestQueue.begin();
+    int requestId = it.key();
+    QVariantMap request = it.value();
+    requestQueue.erase(it);
+
+    if (!connection->request(requestId, request)) {
+        requestQueue.insert(requestId, request);
+        qWarning("qtjsondb: Cannot send request to the server from processQueue!");
+        return;
+    } else {
+        sentRequestQueue.insert(requestId, request);
+    }
+
+    if (!requestQueue.isEmpty())
+        QMetaObject::invokeMethod(q, "_q_processQueue", Qt::QueuedConnection);
+}
+
+bool JsonDbClientPrivate::send(int requestId, const QVariantMap &request)
+{
+    if (requestQueue.isEmpty() && connection->request(requestId, request)) {
+        sentRequestQueue.insert(requestId, request);
+        return true;
+    }
+    requestQueue.insert(requestId, request);
+    return false;
+}
+
 /*!
     Returns true if the client is connected to the database.
 */
 bool JsonDbClient::isConnected() const
 {
     Q_D(const JsonDbClient);
-    Q_ASSERT(d->connection);
-    return d->connection->isConnected();
-}
-
-JsonDbClientPrivate::JsonDbClientPrivate(JsonDbClient *q, JsonDbConnection *c)
-    :q_ptr(q), connection(c)
-{
-     Q_ASSERT(connection);
-}
-
-JsonDbClientPrivate::~JsonDbClientPrivate()
-{
+    return d->status == JsonDbClient::Ready;
 }
 
 void JsonDbClientPrivate::init(Qt::ConnectionType type)
 {
     Q_Q(JsonDbClient);
+
+    q->connect(&reconnectionTimer, SIGNAL(timeout()), q, SLOT(_q_timeout()));
+
+    q->connect(connection, SIGNAL(statusChanged()), q, SLOT(_q_statusChanged()));
     q->connect(connection, SIGNAL(notified(QString,QsonObject,QString)),
                SLOT(_q_handleNotified(QString,QsonObject,QString)),type);
     q->connect(connection, SIGNAL(response(int,QsonObject)),
                SLOT(_q_handleResponse(int,QsonObject)),type);
     q->connect(connection, SIGNAL(error(int,int,QString)),
                SLOT(_q_handleError(int,int,QString)),type);
+
     q->connect(connection, SIGNAL(disconnected()),  SIGNAL(disconnected()));
+
+    // TODO: remove this one
     q->connect(connection, SIGNAL(readyWrite()),  SIGNAL(readyWrite()));
 }
 
@@ -189,6 +263,9 @@ void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const Qso
 void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
 {
     Q_Q(JsonDbClient);
+
+    sentRequestQueue.remove(id);
+
     QHash<int, NotifyCallback>::iterator it = unprocessedNotifyCallbacks.find(id);
     if (it != unprocessedNotifyCallbacks.end()) {
         NotifyCallback c = it.value();
@@ -217,6 +294,9 @@ void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
                 const QVariant vdata = qsonToVariant(data);
                 method.invoke(object, Q_ARG(int, id), Q_ARG(QVariant, vdata));
             }
+        } else {
+            qWarning() << "JsonDbClient: non existent slot" << QLatin1String(c.successSlot+1)
+                       << "on" << object;
         }
     }
     emit q->response(id, qsonToVariant(data));
@@ -226,7 +306,10 @@ void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
 void JsonDbClientPrivate::_q_handleError(int id, int code, const QString &message)
 {
     Q_Q(JsonDbClient);
+
+    sentRequestQueue.remove(id);
     unprocessedNotifyCallbacks.remove(id);
+
     QHash<int, Callback>::iterator it = ids.find(id);
     if (it == ids.end())
         return;
@@ -268,24 +351,26 @@ void JsonDbClientPrivate::_q_handleError(int id, int code, const QString &messag
 int JsonDbClient::find(const QVariant &object)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeFindRequest(object));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
     d->ids.insert(id, JsonDbClientPrivate::Callback());
+    QVariantMap request = JsonDbConnection::makeFindRequest(object);
+    d->send(id, request);
     return id;
 }
 
+/*!
+  \deprecated
+*/
 int JsonDbClient::find(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeFindRequest(object));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+    int id = d->connection->makeRequestId();
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+    QsonMap request = JsonDbConnection::makeFindRequest(object).toMap();
+    d->send(id, qsonToVariant(request).toMap());
     return id;
 }
 
@@ -293,12 +378,11 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
                         const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeQueryRequest(queryString, offset, limit, partitionName));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+    int id = d->connection->makeRequestId();
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+    QVariantMap request = JsonDbConnection::makeQueryRequest(queryString, offset, limit, partitionName);
+    d->send(id, request);
     return id;
 }
 
@@ -324,14 +408,16 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
 int JsonDbClient::create(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeCreateRequest(object, partitionName));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
     if (object.toMap().valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
         d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
+
+    QsonMap request = JsonDbConnection::makeCreateRequest(object, partitionName).toMap();
+    d->send(id, qsonToVariant(request).toMap());
+
     return id;
 }
 
@@ -356,14 +442,17 @@ int JsonDbClient::create(const QsonObject &object, const QString &partitionName,
 int JsonDbClient::create(const QVariant &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeCreateRequest(object, partitionName));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
+
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
     if (object.toMap().value(JsonDbString::kTypeStr).toString() == JsonDbString::kNotificationTypeStr)
         d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
+
+    QVariantMap request = JsonDbConnection::makeCreateRequest(object, partitionName);
+    d->send(id, request);
+
     return id;
 }
 
@@ -389,12 +478,15 @@ int JsonDbClient::create(const QVariant &object, const QString &partitionName, Q
 int JsonDbClient::update(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeUpdateRequest(object, partitionName));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
+
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+
+    QsonMap request = JsonDbConnection::makeUpdateRequest(object, partitionName).toMap();
+    d->send(id, qsonToVariant(request).toMap());
+
     return id;
 }
 
@@ -419,12 +511,15 @@ int JsonDbClient::update(const QsonObject &object, const QString &partitionName,
 int JsonDbClient::update(const QVariant &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeUpdateRequest(object, partitionName));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
+
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+
+    QVariantMap request = JsonDbConnection::makeUpdateRequest(object, partitionName);
+    d->send(id, request);
+
     return id;
 }
 
@@ -449,14 +544,17 @@ int JsonDbClient::update(const QVariant &object, const QString &partitionName, Q
 int JsonDbClient::remove(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeRemoveRequest(object, partitionName));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
+
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
     if (object.toMap().valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
         d->notifyCallbacks.remove(object.toMap().valueString(JsonDbString::kUuidStr));
+
+    QsonMap request = JsonDbConnection::makeRemoveRequest(object, partitionName).toMap();
+    d->send(id, qsonToVariant(request).toMap());
+
     return id;
 }
 
@@ -480,14 +578,17 @@ int JsonDbClient::remove(const QsonObject &object, const QString &partitionName,
 int JsonDbClient::remove(const QVariant &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeRemoveRequest(object, partitionName));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
+
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
     if (object.toMap().value(JsonDbString::kTypeStr).toString() == JsonDbString::kNotificationTypeStr)
         d->notifyCallbacks.remove(object.toMap().value(JsonDbString::kUuidStr).toString());
+
+    QVariantMap request = JsonDbConnection::makeRemoveRequest(object, partitionName);
+    d->send(id, request);
+
     return id;
 }
 
@@ -510,12 +611,15 @@ int JsonDbClient::remove(const QVariant &object, const QString &partitionName, Q
 int JsonDbClient::remove(const QString &queryString, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeRemoveRequest(queryString));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
+
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+
+    QVariantMap request = JsonDbConnection::makeRemoveRequest(queryString);
+    d->send(id, request);
+
     return id;
 }
 
@@ -534,22 +638,23 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
                          QObject *responseTarget, const char *responseSuccessSlot, const char *responseErrorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    QsonList actions;
+    Q_ASSERT(d->connection);
+
+    QVariantList actions;
     if (types & JsonDbClient::NotifyCreate)
         actions.append(JsonDbString::kCreateStr);
     if (types & JsonDbClient::NotifyRemove)
         actions.append(JsonDbString::kRemoveStr);
     if (types & JsonDbClient::NotifyUpdate)
         actions.append(JsonDbString::kUpdateStr);
-    QsonMap create;
+
+    QVariantMap create;
     create.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
     create.insert(JsonDbString::kQueryStr, query);
     create.insert(JsonDbString::kActionsStr, actions);
-    int id = d->connection->request(JsonDbConnection::makeCreateRequest(create, partitionName));
-    if (id == -1)
-        return -1;
+
+    int id = d->connection->makeRequestId();
+
     d->ids.insert(id, JsonDbClientPrivate::Callback(responseTarget, responseSuccessSlot, responseErrorSlot));
     if (notifyTarget && notifySlot) {
         const QMetaObject *mo = notifyTarget->metaObject();
@@ -567,6 +672,10 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
     } else {
         d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
     }
+
+    QVariantMap request = JsonDbConnection::makeCreateRequest(create, partitionName);
+    d->send(id, request);
+
     return id;
 }
 
@@ -588,12 +697,15 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
                                const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
-    if (!d->connection)
-        return -1;
-    int id = d->connection->request(JsonDbConnection::makeChangesSinceRequest(stateNumber, types, partitionName));
-    if (id == -1)
-        return -1;
+    Q_ASSERT(d->connection);
+
+    int id = d->connection->makeRequestId();
+
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+
+    QVariantMap request = JsonDbConnection::makeChangesSinceRequest(stateNumber, types, partitionName);
+    d->send(id, request);
+
     return id;
 }
 
@@ -659,6 +771,14 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
     database.  The \a code and \a message parameters indicate the error.
 
     \sa create(), update(), remove(), JsonDbError::ErrorCode
+*/
+
+/*!
+    \fn void JsonDbClient::disconnected()
+*/
+/*!
+    \fn void JsonDbClient::readyWrite()
+    \deprecated
 */
 
 #include "moc_jsondb-client.cpp"

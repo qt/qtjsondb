@@ -63,11 +63,14 @@ class JsonDbClientPrivate;
 class Q_ADDON_JSONDB_EXPORT JsonDbClient : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(Status status READ status NOTIFY statusChanged)
 public:
-    JsonDbClient(JsonDbConnection *connection, QObject *parent = 0);
     JsonDbClient(const QString &socketName, QObject *parent = 0);
     JsonDbClient(QObject *parent = 0);
     ~JsonDbClient();
+
+    // this is private api
+    explicit JsonDbClient(JsonDbConnection *connection, QObject *parent = 0);
 
     bool isConnected() const;
 
@@ -77,6 +80,14 @@ public:
         NotifyRemove = 0x04
     };
     Q_DECLARE_FLAGS(NotifyTypes, NotifyType)
+
+    enum Status {
+        Null,
+        Connecting,
+        Ready,
+        Error
+    };
+    Status status() const;
 
 public slots:
     QT_DEPRECATED
@@ -139,20 +150,26 @@ Q_SIGNALS:
     void response(int id, const QVariant &object);
     void error(int id, int code, const QString &message);
 
-    // these two are deprecated and will be removed
+    // these three are deprecated and will be removed
     void notified(const QString &notify_uuid, const QsonObject &object, const QString &action);
     void response(int id, const QsonObject &object);
+    void readyWrite();
 
     void disconnected();
-    void readyWrite();
+
+    // signals for properties
+    void statusChanged();
 
 private:
     Q_DISABLE_COPY(JsonDbClient)
     Q_DECLARE_PRIVATE(JsonDbClient)
     QScopedPointer<JsonDbClientPrivate> d_ptr;
-    Q_PRIVATE_SLOT(d_func(), void _q_handleResponse(int, const QsonObject&))
-    Q_PRIVATE_SLOT(d_func(), void _q_handleError(int, int, const QString&))
-    Q_PRIVATE_SLOT(d_func(), void _q_handleNotified(const QString &notifyUuid, const QsonObject &data, const QString &action))
+    Q_PRIVATE_SLOT(d_func(), void _q_statusChanged())
+    Q_PRIVATE_SLOT(d_func(), void _q_handleResponse(int,QsonObject))
+    Q_PRIVATE_SLOT(d_func(), void _q_handleError(int,int,QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_handleNotified(QString,QsonObject,QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_timeout())
+    Q_PRIVATE_SLOT(d_func(), void _q_processQueue())
 };
 } } // end namespace QtAddOn::JsonDb
 

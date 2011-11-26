@@ -48,6 +48,9 @@
 
 #include <QMetaMethod>
 #include <QWeakPointer>
+#include <QTimer>
+
+#include "jsondb-client.h"
 
 namespace QtAddOn { namespace JsonDb {
 
@@ -59,16 +62,33 @@ class JsonDbClientPrivate
 {
     Q_DECLARE_PUBLIC(JsonDbClient)
 public:
-    JsonDbClientPrivate(JsonDbClient *q, JsonDbConnection *c);
-    ~JsonDbClientPrivate();
-    void init(Qt::ConnectionType type=Qt::AutoConnection);
+    JsonDbClientPrivate(JsonDbClient *q, JsonDbConnection *c)
+        : q_ptr(q), connection(c)
+    {
+         Q_ASSERT(connection);
+    }
 
+    ~JsonDbClientPrivate()
+    { }
+
+    void init(Qt::ConnectionType type=Qt::AutoConnection);
+    bool send(int requestId, const QVariantMap &request);
+
+    void _q_statusChanged();
     void _q_handleNotified(const QString &, const QsonObject &, const QString &);
     void _q_handleResponse(int id, const QsonObject &data);
     void _q_handleError(int id, int code, const QString &message);
+    void _q_timeout();
+    void _q_processQueue();
 
     JsonDbClient *q_ptr;
     JsonDbConnection *connection;
+
+    QTimer reconnectionTimer;
+    JsonDbClient::Status status;
+
+    QMap<int, QVariantMap> requestQueue;
+    QMap<int, QVariantMap> sentRequestQueue;
 
     struct Callback
     {
@@ -77,7 +97,17 @@ public:
         const char *errorSlot;
 
         inline Callback(QObject *obj = 0, const char *success = 0, const char *error = 0)
-            : object(obj), successSlot(success), errorSlot(error) { }
+            : object(obj), successSlot(success), errorSlot(error)
+        {
+#ifdef _DEBUG
+            if (obj) {
+                if (successSlot && obj->metaObject()->indexOfMethod(QMetaObject::normalizedSignature(successSlot).constData()+1) < 0)
+                    qWarning() << "JsonDbClient: passing non existent success slot" << QLatin1String(successSlot+1);
+                if (errorSlot && obj->metaObject()->indexOfMethod(QMetaObject::normalizedSignature(errorSlot).constData()+1) < 0)
+                    qWarning() << "JsonDbClient: passing non existent error slot" << QLatin1String(errorSlot+1);
+            }
+#endif
+        }
     };
     QHash<int, Callback> ids;
 

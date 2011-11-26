@@ -241,11 +241,11 @@ bool Client::connectToServer()
             this, SLOT(error(int,int,QString)));
     connect(mConnection, SIGNAL(notified(QString,QVariant,QString)),
             this, SLOT(notified(QString,QVariant,QString)));
+    connect(mConnection, SIGNAL(statusChanged()), this, SLOT(statusChanged()));
 
-    if (!mConnection->isConnected()) {
-        qCritical() << "Unable to connect to server";
-        return false;
-    }
+    if (!mConnection->isConnected())
+        qCritical() << "Not connected to the server yet... retrying";
+
     return true;
 }
 
@@ -260,7 +260,6 @@ void Client::interactiveMode()
 void Client::disconnected()
 {
     qCritical() << "Lost connection to the server";
-    QCoreApplication::exit(0);
 }
 
 void Client::notified(const QString &notify_uuid, const QVariant &object, const QString &action)
@@ -275,6 +274,18 @@ void Client::notified(const QString &notify_uuid, const QVariant &object, const 
 
     if (!mInputThread)
         QCoreApplication::exit(0);  // Non-interactive mode just stops
+}
+
+void Client::statusChanged()
+{
+    switch (mConnection->status()) {
+    case JsonDbClient::Ready:
+        qCritical() << "Connected to the server";
+        break;
+    case JsonDbClient::Error:
+        qCritical() << "Cannot connect to the server";
+        break;
+    }
 }
 
 void Client::response(int id, const QVariant &msg)

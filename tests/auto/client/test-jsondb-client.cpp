@@ -123,7 +123,7 @@ class Handler : public QObject
 {
     Q_OBJECT
 public slots:
-    void success(int id, const QsonObject &d)
+    void success(int id, const QVariant &d)
     {
         requestId = id;
         data = d;
@@ -136,7 +136,7 @@ public slots:
         errorMessage = message;
         ++errorCount;
     }
-    void notify(const QString &uuid, const QsonObject &d, const QString &a)
+    void notify(const QString &uuid, const QVariant &d, const QString &a)
     {
         notifyUuid = uuid;
         data = d;
@@ -147,7 +147,7 @@ public slots:
     void clear()
     {
         requestId = 0;
-        data = QsonObject();
+        data = QVariant();
         errorCode = 0;
         errorMessage = QString();
         notifyUuid = QString();
@@ -159,7 +159,7 @@ public:
     Handler() { clear(); }
 
     int requestId;
-    QsonObject data;
+    QVariant data;
     int errorCode;
     QString errorMessage;
     QString notifyUuid;
@@ -1121,8 +1121,8 @@ void TestJsonDbClient::requestWithSlot()
 
     // create notification object
     int id = mClient->notify(JsonDbClient::NotifyCreate, "[?_type=\"requestWithSlot\"]",
-                             &handler, SLOT(notify(QString,QsonObject,QString)),
-                             &handler, SLOT(success(int,QsonObject)), SLOT(error(int,int,QString)));
+                             &handler, SLOT(notify(QString,QVariant,QString)),
+                             &handler, SLOT(success(int,QVariant)), SLOT(error(int,int,QString)));
     waitForResponse1(id);
     QVERIFY(mData.toMap().contains("_uuid"));
     QString notifyUuid = mData.toMap().value("_uuid").toString();
@@ -1133,14 +1133,14 @@ void TestJsonDbClient::requestWithSlot()
     QsonMap item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("requestWithSlot"));
     item.insert("create-test", 42);
-    id = mClient->create(item, &handler, SLOT(success(int,QsonObject)), SLOT(error(int,int,QString)));
+    id = mClient->create(item, &handler, SLOT(success(int,QVariant)), SLOT(error(int,int,QString)));
     waitForResponse4(id, -1, notifyUuid, 1);
     QVERIFY(mData.toMap().contains("_uuid"));
     QString uuid = mData.toMap().value("_uuid").toString();
 
     QCOMPARE(handler.requestId, id);
     QVERIFY(handler.data.toMap().contains("_uuid"));
-    QCOMPARE(handler.data.toMap().valueString("_uuid"), uuid);
+    QCOMPARE(handler.data.toMap().value("_uuid").toString(), uuid);
 
     QCOMPARE(handler.errorCount, 0);
     QCOMPARE(handler.successCount, 1);

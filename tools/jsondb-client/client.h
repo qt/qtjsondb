@@ -97,6 +97,7 @@ protected slots:
     void response(int, const QVariant &map);
     void error(int id, int code, const QString &message);
     void notified(const QString &notify_uuid, const QVariant &object, const QString &action);
+    void statusChanged();
 
 signals:
     void requestsProcessed();

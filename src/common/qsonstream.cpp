@@ -103,6 +103,9 @@ void QsonStream::sendQsonPage(const QsonPage &page)
         } else if (didWrite < shouldWrite) {
             mWriteBuffer.append(page.constData() + didWrite, shouldWrite - didWrite);
         }
+        QLocalSocket *s = qobject_cast<QLocalSocket *>(mDevice);
+        if (s)
+            s->flush();
     } else {
         qWarning() << "Buffering, slow down your writes";
         mWriteBuffer.append(page.constData(), shouldWrite);
