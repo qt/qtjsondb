@@ -53,6 +53,10 @@
 #include "signals.h"
 #include "dbserver.h"
 
+#ifdef USE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
+
 QString progname;
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -307,5 +311,10 @@ int main(int argc, char * argv[])
         return 0;
     if (detach)
         daemonize();
+#ifdef USE_SYSTEMD
+    else
+        sd_notify(0, "READY=1");
+#endif
+
     return app.exec();
 }

@@ -18,3 +18,8 @@ HEADERS += \
 SOURCES += \
     $$PWD/main.cpp \
     $$PWD/dbserver.cpp
+
+systemd {
+    DEFINES += USE_SYSTEMD
+    LIBS += -lsystemd-daemon
+}
