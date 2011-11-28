@@ -20,22 +20,14 @@ include(../../common/common.pri)
 HEADERS += \
     jsondb-listmodel.h \
     jsondb-listmodel_p.h \
-    javascript-listmodel.h \
-    jsondb-singletonwatcher.h \
-    jsondb-watcher.h \
     jsondb-component.h \
-    cuid.h \
     plugin.h
 
 HEADERS += $$QSONCONVERSION_HEADERS
 
 SOURCES += \
     jsondb-listmodel.cpp \
-    javascript-listmodel.cpp \ 
-    jsondb-singletonwatcher.cpp \
-    jsondb-watcher.cpp \
     jsondb-component.cpp \
-    cuid.cpp \
     plugin.cpp
 
 SOURCES += $$QSONCONVERSION_SOURCES

@@ -44,9 +44,6 @@
 #include "jsondb-client.h"
 #include "jsondb-component.h"
 #include "jsondb-listmodel.h"
-#include "javascript-listmodel.h"
-#include "cuid.h"
-#include "jsondb-singletonwatcher.h"
 
 Q_EXPORT_STATIC_PLUGIN(JsonDbListModelPlugin)
 Q_EXPORT_PLUGIN2(jsondblistmodelplugin, JsonDbListModelPlugin)
@@ -61,8 +58,5 @@ void JsonDbListModelPlugin::registerTypes(const char *uri)
 {
     Q_ASSERT(uri == QLatin1String("QtAddOn.JsonDb"));
     qmlRegisterType<JsonDbListModel>(uri, 1, 0, "JsonDbListModel");
-    qmlRegisterType<JavaScriptListModel>(uri, 1, 0, "JavaScriptListModel");
     qmlRegisterType<JsonDbComponent>(uri, 1, 0, "JsonDb");
-    qmlRegisterType<Cuid>(uri, 1, 0, "Cuid");
-    qmlRegisterType<JsonDbSingletonWatcher>(uri, 1, 0, "JsonDbSingletonWatcher");
 }
