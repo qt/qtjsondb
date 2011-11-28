@@ -1041,13 +1041,15 @@ void TestJsonDbBdb::pageChecksum()
 
 void TestJsonDbBdb::keySizes()
 {
-    const int legalsizes[][2] = {
-        {2027, 'e'},
-        {2027, 'd'},
-        {2027, 'g'},
-        {2027, 'z'},
-        {2027, 'b'},
-        {2027, 'c'},
+    const int legalsizes[][3] = {
+        {2027, 'e', 1023},
+        {2027, 'd', 2000},
+        {2027, 'g', 500},
+        {2027, 'z', 1023},
+        {2027, 'b', 1023},
+        {2027, 'c', 500},
+        {500, 'm', 800},
+        {500, 'n', 500},
     };
 
     const int illegalsizes[] = {
@@ -1060,6 +1062,7 @@ void TestJsonDbBdb::keySizes()
     const int illegalcount = sizeof(illegalsizes) / sizeof(illegalsizes[0]);
 
     QVector<QByteArray> legalkeys;
+    QVector<QByteArray> legalvalues;
     QVector<QByteArray> illegalkeys;
 
     bdb->clearData();
@@ -1067,8 +1070,10 @@ void TestJsonDbBdb::keySizes()
 
     for (int i = 0; i < legalcount; ++i) {
         QByteArray key(legalsizes[i][0], (char)legalsizes[i][1]);
+        QByteArray value(legalsizes[i][2], (char)legalsizes[i][1]);
         legalkeys.append(key);
-        QVERIFY(bdb->put(key, key + key));
+        legalvalues.append(value);
+        QVERIFY(bdb->put(key, value));
     }
 
     for (int i = 0; i < illegalcount; ++i) {
@@ -1080,7 +1085,7 @@ void TestJsonDbBdb::keySizes()
     for (int i = 0; i < legalkeys.size(); ++i) {
         QByteArray value;
         QVERIFY(bdb->get(legalkeys[i], value));
-        QCOMPARE(value, legalkeys[i] + legalkeys[i]);
+        QCOMPARE(value, legalvalues[i]);
     }
 
     for (int i = 0; i < illegalkeys.size(); ++i) {

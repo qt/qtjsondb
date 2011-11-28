@@ -343,8 +343,9 @@ static void              common_prefix(struct btree *bt, struct btkey *min,
                             struct btkey *max, struct btkey *pfx);
 static void              find_common_prefix(struct btree *bt, struct mpage *mp);
 
-static size_t            bt_leaf_size(struct btree *bt, struct btval *key,
+static size_t            bt_leaf_size(struct mpage *mp, struct btval *key,
                             struct btval *data);
+static int               bt_is_overflow(struct mpage *mp, size_t ksize, size_t dsize);
 static size_t            bt_branch_size(struct btree *bt, struct btval *key);
 
 static pgno_t            btree_compact_tree(struct btree *bt, pgno_t pgno,
@@ -2374,17 +2375,27 @@ btree_new_page(struct btree *bt, uint32_t flags)
 }
 
 static size_t
-bt_leaf_size(struct btree *bt, struct btval *key, struct btval *data)
+bt_leaf_size(struct mpage *mp, struct btval *key, struct btval *data)
 {
         size_t           sz;
 
         sz = LEAFSIZE(key, data);
-        if (data->size >= bt->head.psize / BT_MINKEYS) {
+        if (bt_is_overflow(mp, key->size, data->size)) {
                 /* put on overflow page */
                 sz -= data->size - sizeof(pgno_t);
         }
 
         return sz + sizeof(indx_t);
+}
+
+static int
+bt_is_overflow(struct mpage *mp, size_t ksize, size_t dsize)
+{
+    size_t node_size = dsize + ksize + NODESIZE;
+    if ((node_size + sizeof(indx_t) > SIZELEFT(mp))
+        || (NUMKEYS(mp) == 0 && (SIZELEFT(mp) - (node_size + sizeof(indx_t))) < MAXKEYSIZE))
+        return 1;
+    return 0;
 }
 
 static size_t
@@ -2466,8 +2477,7 @@ btree_add_node(struct btree *bt, struct mpage *mp, indx_t indx,
                 if (F_ISSET(flags, F_BIGDATA)) {
                         /* Data already on overflow page. */
                         node_size -= data->size - sizeof(pgno_t);
-                } else if ((data->size >= bt->head.psize / BT_MINKEYS)
-                           || (node_size + sizeof(indx_t) > SIZELEFT(mp))) {
+                } else if (bt_is_overflow(mp, (key ? key->size : 0), data->size)) {
                         /* Put data on overflow page. */
                         DPRINTF("data size is %zu, put on overflow page",
                             data->size);
@@ -3576,7 +3586,7 @@ btree_txn_put(struct btree *bt, struct btree_txn *txn,
         xkey.data = key->data;
         xkey.size = key->size;
 
-        if (SIZELEFT(mp) < bt_leaf_size(bt, key, data)) {
+        if (SIZELEFT(mp) < bt_leaf_size(mp, key, data)) {
                 rc = btree_split(bt, &mp, &ki, &xkey, data, P_INVALID);
         } else {
                 /* There is room already in this leaf page. */
