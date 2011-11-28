@@ -46,13 +46,36 @@ Item {
     width: 400
     height: 300
 
+    JsonDb.Partition {
+        id: systemPartition
+        name: "com.nokia.qtjsondb.System"
+    }
+    JsonDb.Partition {
+        id: nokiaPartition
+        name: "com.nokia.shared"
+    }
+
     JsonDb.JsonDbListModel {
         id: contacts
         query: '[?_type="Contact"]'
         roleNames: ["firstName", "lastName", "_uuid"]
         limit: 40
     }
+    function partitionCreateCallback(error, meta, response) {
+        if (error) {
+            console.log(response.status+ " " +response.message);
+        } else {
+            console.log("Partition Created meta.id = "+meta.id +" count = "+response.length);
+            for (var i = 0; i < response.length; i++) {
+                console.log("response._uuid = "+response[i]._uuid +" ._version = "+response[i]._version);
+            }
+        }
+        contacts.partition = nokiaPartition;
+    }
 
+    Component.onCompleted: {
+        systemPartition.create({_type :"Partition", name :"com.nokia.shared"}, partitionCreateCallback)
+    }
     Button {
         id: buttonAdd
         anchors.top: parent.top
@@ -66,7 +89,7 @@ Item {
 
             var firstName = firstNames[rand(firstNames.length)]
             var lastName = lastNames[rand(lastNames.length)]
-            JsonDb.create({"_type":"Contact", "firstName":firstName, "lastName":lastName})
+            nokiaPartition.create({"_type":"Contact", "firstName":firstName, "lastName":lastName})
         }
     }
 
@@ -78,7 +101,7 @@ Item {
         text: "Delete item"
 
         onClicked: {
-            JsonDb.remove({"_uuid": contacts.get(listView.currentIndex, "_uuid")})
+            nokiaPartition.remove({"_uuid": contacts.get(listView.currentIndex, "_uuid")})
             console.log("Removed Item : " + contacts.get(listView.currentIndex, "_uuid"))
         }
     }

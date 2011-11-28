@@ -1,0 +1,775 @@
+/****************************************************************************
+**
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
+** All rights reserved.
+** Contact: Nokia Corporation (qt-info@nokia.com)
+**
+** This file is part of the QtAddOn.JsonDb module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:LGPL$
+** GNU Lesser General Public License Usage
+** This file may be used under the terms of the GNU Lesser General Public
+** License version 2.1 as published by the Free Software Foundation and
+** appearing in the file LICENSE.LGPL included in the packaging of this
+** file. Please review the following information to ensure the GNU Lesser
+** General Public License version 2.1 requirements will be met:
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+**
+** In addition, as a special exception, Nokia gives you certain additional
+** rights. These rights are described in the Nokia Qt LGPL Exception
+** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU General
+** Public License version 3.0 as published by the Free Software Foundation
+** and appearing in the file LICENSE.GPL included in the packaging of this
+** file. Please review the following information to ensure the GNU General
+** Public License version 3.0 requirements will be met:
+** http://www.gnu.org/copyleft/gpl.html.
+**
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms and
+** conditions contained in a signed written agreement between you and Nokia.
+**
+**
+**
+**
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+#include "private/jsondb-strings_p.h"
+#include "jsondbpartition.h"
+#include "jsondbnotification.h"
+#include "plugin.h"
+#include "jsondb-client.h"
+#include "jsondbqueryobject.h"
+#include "jsondbchangessinceobject.h"
+#include <qdebug.h>
+
+Q_USE_JSONDB_NAMESPACE
+
+
+/*!
+    \qmlclass Partition
+    \inqmlmodule QtJsonDb
+    \since 1.x
+
+    The partition object allows you find, create, update, or remove objects from JsonDb.
+    It also allows to create query, notification  and changesSince objects, query. A partition
+    object is identified by its name.
+
+    Most of the methods take script objects as parameters. The last parameter can be
+    a callback function.
+*/
+
+JsonDbPartition::JsonDbPartition(const QString &partitionName, QObject *parent)
+    :QObject(parent)
+    ,_name(partitionName)
+{
+    connect(&jsonDb, SIGNAL(response(int,const QVariant&)),
+            this, SLOT(dbResponse(int,const QVariant&)),
+            Qt::QueuedConnection);
+    connect(&jsonDb, SIGNAL(error(int,int,QString)),
+            this, SLOT(dbErrorResponse(int,int,QString)),
+            Qt::QueuedConnection);
+    connect(&jsonDb, SIGNAL(notified(const QString&,const QVariant&,const QString&)),
+            this, SLOT(dbNotified(const QString&,const QVariant&,const QString&)),
+            Qt::QueuedConnection);
+}
+
+JsonDbPartition::~JsonDbPartition()
+{
+}
+
+/*!
+    \qmlproperty string QtJsonDb::Partition::name
+     Holds the human readable name of the partition.
+*/
+
+QString JsonDbPartition::name() const
+{
+    return _name;
+}
+
+void JsonDbPartition::setName(const QString &partitionName)
+{
+    if (partitionName != _name) {
+        _name = partitionName;
+        //Drop all notifications
+        foreach (QPointer<JsonDbNotify> notify, newNotifications) {
+            removeNotification(notify);
+        }
+        newNotifications.clear();
+        foreach (QPointer<JsonDbNotify> notify, notifications) {
+            removeNotification(notify);
+        }
+        notifications.clear();
+        // tell notifications to resubscribe
+        emit nameChanged(partitionName);
+    }
+}
+
+/*!
+    \qmlmethod int QtJsonDb::Partition::create(object newObject, object options, function callback)
+
+    Creates the \a newObject (or list of objects) in the partition. The callback will be called
+    in case of failure or success. It returns the id of the request. If it fails to create an
+    object, the whole transaction will be aborted. The \a options is not used now. The \a options and \a
+    callback parameters are optional. If the \a callback parameter is used, it has to be the
+    last parameter specified in the function call. The \a callback has the following signature.
+
+    \code
+    function createCallback(error, meta, response) {
+        if (error) {
+            // communication error or failed to create one or more objects.
+            // in case of error response will be  {status: Code, message: "plain text" }
+        } else {
+            // response is an array of objects, the order of the request is preserved
+        }
+    }
+    \endcode
+
+    The \a error is a boolean value, which is set in case of error. The error details are part
+    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
+    The \a meta object conatins the following properties :
+    \list
+    \o id -  The id of the request.
+    \o stateNumber - The state label of the partition this write was committed in.
+    \endlist
+    If the request was successful, the response will be an array of objects (in the same order as the request).
+    Each item in the \a response array has the following properties:
+    \list
+    \o _uuid - The _uuid of the newly created object
+    \o _version - The _version of the newly created object
+    \endlist
+
+    \code
+    import QtJsonDb 1.0 as JsonDb
+    var nokiaSharedDb = JsonDb.partition("com.nokia.shared", parent)
+    var id = nokiaSharedDb.create({"_type":"Contact", "firstName":firstName, "lastName":lastName }, createCallback)
+    \endcode
+
+
+*/
+
+int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, const QJSValue &callback)
+{
+    QJSValue actualOptions = options;
+    QJSValue actualCallback = callback;
+    if (options.isFunction()) {
+        if (callback.isValid()) {
+            qWarning() << "Callback should be the last parameter.";
+            return -1;
+        }
+        actualCallback = actualOptions;
+        actualOptions = QJSValue();
+    }
+    //#TODO ADD options
+    int id = jsonDb.create(object.toVariant(), _name);
+    createCallbacks.insert(id, actualCallback);
+    return id;
+}
+
+/*!
+    \qmlmethod int QtJsonDb::Partition::update(object updatedObject, object options, function callback)
+
+    Update the object \a updatedObject (or list of objects) in the partition. Returns the id of this
+    request. If the request fails to update an object, the whole transaction will be aborted. The
+    \a options specifies how update should be handled.
+    \list
+    \o options.mode - Supported values: "normal", "forced".
+    \list
+    \o"normal" creates the document if it does not exist otherwise it enforces that the
+    "_version" matches or fails - lost update prevention.
+    \o"forced" ignores the existing database content.
+    \endlist
+    Default is "normal"
+    \endlist
+
+    The callback will be called in case of failure or success. The \a options and \a callback parameters
+    are optional. If the \a callback parameter is used, it has to be the last parameter specified in the
+    function call. The \a callback has the following signature.
+
+    \code
+    function updateCallback(error, meta, response) {
+        if (error) {
+            // communication error or failed to update one or more objects.
+            // in case of error response will be  {status: Code, message: "plain text" }
+        } else {
+            // response is an array of objects, the order of the request is preserved
+        }
+    }
+    \endcode
+
+    The \a error is a boolean value, which is set in case of error. The error details are part
+    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
+    The \a meta object conatins the following properties :
+    \list
+    \o id -  The id of the request.
+    \o stateNumber - The state label of the partition this write was committed in.
+    \endlist
+    If the request was successful, the response will be an array of objects (in the same order as the request).
+    Each item in the \a response array has the following properties:
+    \list
+    \o _uuid - The _uuid of the object
+    \o _version - The _version of the updated object
+    \endlist
+
+    \code
+    import QtJsonDb 1.0 as JsonDb
+    var nokiaSharedDb = JsonDb.partition("com.nokia.shared", parent)
+    var id = nokiaSharedDb.update(updatedObject, updateCallback)
+    \endcode
+
+
+*/
+
+
+int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, const QJSValue &callback)
+{
+    QJSValue actualOptions = options;
+    QJSValue actualCallback = callback;
+    if (options.isFunction()) {
+        if (callback.isValid()) {
+            qWarning() << "Callback should be the last parameter.";
+            return -1;
+        }
+        actualCallback = actualOptions;
+        actualOptions = QJSValue();
+    }
+    //#TODO ADD options
+    int id = jsonDb.update(object.toVariant(), _name);
+    updateCallbacks.insert(id, actualCallback);
+    return id;
+}
+
+/*!
+    \qmlmethod int QtJsonDb::Partition::remove(object objectToRemove, object options, function callback)
+
+    Removes the \a objectToRemove (or list of objects) from the partition. It returns the id of this
+    request. The \a options specifies how removal should be handled.
+    \list
+    \o options.mode - Supported values: "normal", which requires a an object with _uuid and
+    _version set to be passed.
+    \endlist
+
+    The callback will be called in case of failure or success. The \a options and \a callback parameters
+    are optional. If the \a callback parameter is used, it has to be the last parameter specified in the
+    function call. The \a callback has the following signature.
+
+    \code
+    function removeCallback(error, meta, response) {
+        if (error) {
+            // communication error or failed to update one or more objects.
+            // in case of error response will be  {status: Code, message: "plain text" }
+        } else {
+            // response is an array of objects, the order of the request is preserved
+        }
+    }
+    \endcode
+
+    The \a error is a boolean value, which is set in case of error. The error details are part
+    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
+    The \a meta object conatins the following properties :
+    \list
+    \o id -  The id of the request.
+    \o stateNumber - The state label of the partition this write was committed in.
+    \endlist
+    If the request was successful, the response will be an array of objects (in the same order as the request).
+    Each item in the \a response array has the following properties:
+    \list
+    \o _uuid - The _uuid of the object
+    \o _version - The _version of the updated object
+    \endlist
+
+    \code
+    import QtJsonDb 1.0 as JsonDb
+    var nokiaSharedDb = JsonDb.partition("com.nokia.shared", parent)
+    var id = nokiaSharedDb.remove({"_uuid":"xxxx-xxxx-xxxx", "_version":"1-xxxx-xxxx-xxxx"}, removeCallback)
+    \endcode
+
+*/
+
+int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, const QJSValue &callback)
+{
+    QJSValue actualOptions = options;
+    QJSValue actualCallback = callback;
+    if (options.isFunction()) {
+        if (callback.isValid()) {
+            qWarning() << "Callback should be the last parameter.";
+            return -1;
+        }
+        actualCallback = actualOptions;
+        actualOptions = QJSValue();
+    }
+    //#TODO ADD options
+    int id = jsonDb.remove(object.toVariant(), _name);
+    removeCallbacks.insert(id, actualCallback);
+    return id;
+}
+
+/*!
+    \qmlmethod QtJsonDb::Partition::find(object query, object options, function callback)
+
+    Finds the objects matching the \a query string in the partition. The \a options specifies
+    how query should be handled. The \a query should be specified in JsonQuery format.
+    \a options support the following properties.
+    \list
+    \o options.limit - Maximum number of items to be fetched
+    \o options.offset - fetch results from this offset onwards in the result set.
+    \endlist
+
+    The callback will be called in case of failure or success. It has the following signature
+    \code
+    function findCallback(error, meta, response) {
+        if (error) {
+            // communication error or wrong parameters.
+            // in case of error response will be  {status: Code, message: "plain text" }
+        } else {
+            // response an array of objects matching the query and options.
+            // meta contains the total number of items retrieved
+            console.log("Total items = " + response.length)
+            for (var i = 0; i < response.length; i++) {
+                console.log("response["+i+"] : "+ response[i]._uuid)
+            }
+
+        }
+    }
+    \endcode
+
+    The \a error is a boolean value, which is set in case of error. The error details are part
+    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
+    The \a meta object conatins the following properties :
+    \list
+    \o id -  The id of the request.
+    \o stateNumber - The state label of the partition when the request was issued.
+    \endlist
+    If the request was successful, the response will be an array of objects. Each item in the \a response
+    array will be a complete object (depending on the query).
+*/
+
+
+int JsonDbPartition::find(const QJSValue &query,  const QJSValue &options, const QJSValue &callback)
+{
+    QJSValue actualOptions = options;
+    QJSValue actualCallback = callback;
+    if (options.isFunction()) {
+        if (callback.isValid()) {
+            qWarning() << "Callback should be the last parameter.";
+            return -1;
+        }
+        actualCallback = actualOptions;
+        actualOptions = QJSValue();
+    }
+    //#TODO ADD options
+    int id = jsonDb.query(query.toString(), 0, -1, _name);
+    findCallbacks.insert(id, actualCallback);
+    return id;
+}
+
+/*!
+    \qmlmethod QtJsonDb::Partition::changesSince(int stateNumber, object options, function callback)
+
+    Finds the objects that changed between the \a stateNumber and the current state of the partition.
+    The search can be restricted by specifying a set of \a options.types in the partition. Supported
+    properties for option are:
+    \list
+    \o options.types - Search will be limited to the a list of types.
+    \endlist
+
+
+    The callback will be called in case of failure or success. It has the following signature
+    \code
+    function changesCallback(error, meta, response) {
+        if (error) {
+            // communication error or wrong parameters.
+            // in case of error response will be  {status: Code, message: "plain text" }
+        } else {
+            // response : array of objects of type {"after" : {} , "before" : {}}
+            // meta contains the total number of items retrieved
+            console.log("Total items = " + response.length)
+            for (var i = 0; i < response.length; i++) {
+                console.log("response["+i+"] : After "+ response[i].after._uuid);
+                console.log("response["+i+"] : Before "+ response[i].before._uuid);
+            }
+
+        }
+    }
+    \endcode
+
+    The \a error is a boolean value, which is set in case of error. The error details are part
+    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
+    The \a meta object conatins the following properties :
+    \list
+    \o id -  The id of the request.
+    \o startingStateNumber - The state number from which the changesSince list is creeated.
+    \o currentStateNumber - The state label of the partition when the request was issued.
+    \endlist
+    If the request was successful, the response will be an array of objects. Each item in the \a response
+    array will be an object of type {"after" : {} , "before" : {}}. The \a after sub-object will be undefined
+    for deleted objects. For newly created objects, the \a before sub-object will be undefined. If both
+    sub-objects are valid the change represents an update.
+
+    \code
+    import QtJsonDb 1.0 as JsonDb
+    var nokiaSharedDb = JsonDb.partition("com.nokia.shared", parent);
+    var id = nokiaSharedDb.changesSince(lastStateNumber, {"types" : "Contact" }, changesCallback);
+    \endcode
+
+
+*/
+
+int JsonDbPartition::changesSince(int stateNumber,  const QJSValue &options, const QJSValue &callback)
+{
+    QJSValue actualOptions = options;
+    QJSValue actualCallback = callback;
+    if (options.isFunction()) {
+        if (callback.isValid()) {
+            qWarning() << "Callback should be the last parameter.";
+            return -1;
+        }
+        actualCallback = actualOptions;
+        actualOptions = QJSValue();
+    }
+    QStringList strTypes;
+    if (actualOptions.isValid()) {
+        strTypes = actualOptions.property(QLatin1String("types")).toVariant().toStringList();
+    }
+    int id = jsonDb.changesSince(stateNumber, strTypes, _name);
+    changesCallbacks.insert(id, actualCallback);
+    return id;
+}
+
+/*!
+    \qmlmethod object QtJsonDb::Partition::createNotification(query, actions, parentItem)
+
+    Create the Notification object for the specifed \a actions  matching the \a query.
+    The \a parentItem decides the life time of the returned object. If the \a parentItem
+    is null, the script engine will destroy the object during garbage collection.
+
+    \code
+    import QtJsonDb 1.0 as JsonDb
+    function onCreateNotification(result, action)
+    {
+        console.log("create Notification : object " + result._uuid );
+        console.log(result._type + result.firstName + " " + result.lastName );
+    }
+
+    Component.onCompleted: {
+        var createNotification = nokiaPartition.createNotification('[?_type="Contact"]',
+                                        JsonDb.Notification.Create, topLevelItem);
+        createNotification.notification.connect(onCreateNotification);
+
+    }
+    \endcode
+    See Also \sa QtJsonDb::Notification
+
+*/
+
+JsonDbNotify* JsonDbPartition::createNotification(const QJSValue &query, const QJSValue &actions, QObject *parentItem)
+{
+    JsonDbNotify* notify = new JsonDbNotify(parentItem);
+    notify->setPartition(this);
+    notify->setQuery(query.toString());
+    notify->setActions(actions.toVariant());
+    notify->componentComplete();
+    return notify;
+}
+
+/*!
+    \qmlmethod object QtJsonDb::Partition::createQuery(query, offset, limit, parentItem)
+
+    Create the Query object with the specified \a query string and other parameters.
+    Users have to call exec() to start the query in this partition. The \a parentItem
+    decides the life time of the returned object. If the \a parentItem
+    is null, the script engine will destroy the object during garbage collection.
+
+    \code
+    import QtJsonDb 1.0 as JsonDb
+    function onFinished()
+    {
+        var results = queryObject.takeResults();
+        console.log("Results: Count + results.length );
+    }
+
+    Component.onCompleted: {
+        queryObject = nokiaPartition.createQuery('[?_type="Contact"]', 0, -1, topLevelItem);
+        queryObject.finished.connect(onFinished);
+        queryObject.exec();
+
+    }
+    \endcode
+    See Also \sa QtJsonDb::Query
+
+*/
+
+JsonDbQueryObject* JsonDbPartition::createQuery(const QJSValue &query, int offset, int limit, QObject *parentItem)
+{
+    JsonDbQueryObject* queryObject = new JsonDbQueryObject(parentItem);
+    queryObject->setQuery(query.toString());
+    queryObject->setOffset(offset);
+    queryObject->setLimit(limit);
+    queryObject->setPartition(this);
+    queryObject->componentComplete();
+    return queryObject;
+}
+
+/*!
+    \qmlmethod object QtJsonDb::Partition::createChangesSince(stateNumber, types, parentItem)
+
+    Create the ChangesSince object. It will set the \a stateNumber, filter \a types parameters
+    of the object. Users have to call exec() to start the changesSince query in this partition.
+    The \a parentItem decides the life time of the returned object. If the \a parentItem
+    is null, the script engine will destroy the object during garbage collection.
+
+    \code
+    import QtJsonDb 1.0 as JsonDb
+    function onFinished()
+    {
+        var results = queryObject.takeResults();
+        console.log("Results: Count + results.length );
+    }
+
+    Component.onCompleted: {
+        changesObject = nokiaPartition.createChangesSince(10, ["Contact"], topLevelItem);
+        changesObject.finished.connect(onFinished);
+        changesObject.exec()
+
+    }
+    \endcode
+    See Also \sa QtJsonDb::ChangesSince
+
+*/
+
+JsonDbChangesSinceObject* JsonDbPartition::createChangesSince(int stateNumber, const QStringList &types, QObject *parentItem)
+{
+    JsonDbChangesSinceObject* changesSinceObject = new JsonDbChangesSinceObject(parentItem);
+    changesSinceObject->setTypes(types);
+    changesSinceObject->setStateNumber(stateNumber);
+    changesSinceObject->setPartition(this);
+    changesSinceObject->componentComplete();
+    return changesSinceObject;
+}
+
+void JsonDbPartition::updateNotification(JsonDbNotify *notify)
+{
+    JsonDbClient::NotifyTypes notifyActions;
+    QVariantList actionList = notify->actions().toList();
+    if (actionList.contains(JsonDbNotify::Create))
+        notifyActions |= JsonDbClient::NotifyCreate;
+    if (actionList.contains(JsonDbNotify::Update))
+        notifyActions |= JsonDbClient::NotifyUpdate;
+    if (actionList.contains(JsonDbNotify::Remove))
+        notifyActions |= JsonDbClient::NotifyRemove;
+    int id = jsonDb.notify(notifyActions, notify->query().toString());
+    newNotifications.insert(id, QPointer<JsonDbNotify>(notify));
+}
+
+
+void JsonDbPartition::removeNotification(JsonDbNotify *notify)
+{
+    if (notify->uuid.isEmpty()) {
+        QMap<int, QPointer<JsonDbNotify> >::const_iterator i = newNotifications.constBegin();
+        while (i != newNotifications.constEnd()) {
+            if (i.value() == notify) {
+                notificationsToRemove.insert(i.key(), i.value());
+                newNotifications.remove(i.key());
+                break;
+            }
+            ++i;
+        }
+    } else if (notifications.contains(notify->uuid)) {
+        QVariantMap notificationObject;
+        notificationObject.insert("_uuid", notify->uuid);
+        notificationObject.insert("_version", notify->version);
+        jsonDb.remove(QVariant(notificationObject));
+        notifications.remove(notify->uuid);
+    }
+}
+
+void JsonDbPartition::call(QMap<int, QJSValue> &callbacks, int id, const QVariant &result)
+{
+    // Make sure that id exists in the map.
+    QJSValue callback = callbacks[id];
+    QJSEngine *engine = callback.engine();
+    if (!engine) {
+        callbacks.remove(id);
+        return;
+    }
+    QJSValueList args;
+    QVariantMap object = result.toMap();
+    // meta object : count , id
+    QJSValue meta = engine->newObject();
+    meta.setProperty(JsonDbString::kStateNumberStr, object.value(JsonDbString::kStateNumberStr).toInt());
+    meta.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
+    args << false << meta;
+
+    // response object : object { _version & _uuid } (can be a list)
+    if (object.contains(QLatin1String("data"))) {
+        QJSValue response = engine->toScriptValue(object.value(QLatin1String("data")));
+        args << response;
+    } else {
+        // Create an array with a single element
+        QJSValue responseObject = engine->newObject();
+        responseObject.setProperty(JsonDbString::kUuidStr, object.value(JsonDbString::kUuidStr).toString());
+        responseObject.setProperty(JsonDbString::kVersionStr, object.value(JsonDbString::kVersionStr).toString());
+        QJSValue response = engine->newArray(1);
+        response.setProperty(0, responseObject);
+        args << response;
+    }
+    callback.call(QJSValue(), args);
+    callbacks.remove(id);
+}
+
+void JsonDbPartition::callChangesSince(QMap<int, QJSValue> &callbacks, int id, const QVariant &result)
+{
+    // Make sure that id exists in the map.
+    QJSValue callback = callbacks[id];
+    QJSEngine *engine = callback.engine();
+    if (!engine) {
+        callbacks.remove(id);
+        return;
+    }
+    QJSValueList args;
+    QVariantMap object = result.toMap();
+    // meta object : count , id
+    QJSValue meta = engine->newObject();
+    meta.setProperty(JsonDbString::kCurrentStateNumberStr, object.value(JsonDbString::kCurrentStateNumberStr).toInt());
+    meta.setProperty(JsonDbString::kStartingStateNumberStr, object.value(JsonDbString::kStartingStateNumberStr).toInt());
+    meta.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
+    args << false << meta;
+
+    // response object : object { _version & _uuid } (can be a list)
+    QJSValue response = engine->toScriptValue(object.value(QLatin1String("changes")));
+    args << response;
+
+    callback.call(QJSValue(), args);
+    callbacks.remove(id);
+}
+
+void JsonDbPartition::callFindCallback(QMap<int, QJSValue> &callbacks, int id, const QVariant &result)
+{
+    // Make sure that id exists in the map.
+    QJSValue callback = callbacks[id];
+    QJSEngine *engine = callback.engine();
+    if (!engine) {
+        callbacks.remove(id);
+        return;
+    }
+    QJSValueList args;
+    QVariantMap object = result.toMap();
+    // meta object : count , id
+    QJSValue meta = engine->newObject();
+    meta.setProperty(JsonDbString::kCountStr, object.value(JsonDbString::kLengthStr).toInt());
+    meta.setProperty(JsonDbString::kOffsetStr, object.value(JsonDbString::kOffsetStr).toInt());
+    meta.setProperty(QLatin1String("sateNumber"), object.value(JsonDbString::kStateNumberStr).toInt());
+    meta.setProperty(QLatin1String("sortKeys"), object.value(QLatin1String("sortKeys")).toString());
+    meta.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
+    args << false << meta;
+
+    // response object : object { _version & _uuid } (can be a list)
+    if (object.contains(QLatin1String("data"))) {
+        QJSValue response = engine->toScriptValue(object.value(QLatin1String("data")));
+        args << response;
+    } else {
+        args << engine->newObject();
+    }
+    callback.call(QJSValue(), args);
+    callbacks.remove(id);
+}
+
+void JsonDbPartition::callErrorCallback(QMap<int, QJSValue> &callbacks, int id, int code, const QString &message)
+{
+    // Make sure that id exists in the map.
+    QJSValue callback = callbacks[id];
+    QJSEngine *engine = callback.engine();
+    if (!engine) {
+        callbacks.remove(id);
+        return;
+    }
+    QJSValueList args;
+    // meta object : count , id
+    QJSValue meta = engine->newObject();
+    meta.setProperty(JsonDbString::kCountStr, 1);
+    meta.setProperty(JsonDbString::kStateNumberStr, 0);
+    meta.setProperty(JsonDbString::kIdStr, id);
+    args << true << meta;
+
+    QVariantMap response;
+    response.insert("status", code);
+    response.insert("message", message);
+
+    args << engine->toScriptValue(QVariant(response));
+    callback.call(QJSValue(), args);
+    callbacks.remove(id);
+}
+
+void JsonDbPartition::dbResponse(int id, const QVariant &result)
+{
+    if (createCallbacks.contains(id)) {
+        call(createCallbacks, id, result);
+    } else if (updateCallbacks.contains(id)) {
+        call(updateCallbacks, id, result);
+    } else if (removeCallbacks.contains(id)) {
+        call(removeCallbacks, id, result);
+    } else if (changesCallbacks.contains(id)) {
+        callChangesSince(changesCallbacks, id, result);
+    } else if (findCallbacks.contains(id)) {
+        callFindCallback(findCallbacks, id, result);
+    } else if (newNotifications.contains(id)) {
+        QPointer<JsonDbNotify> notify = newNotifications[id];
+        if (notify) {
+            QVariantMap object = result.toMap();
+            notify->uuid = object.value(JsonDbString::kUuidStr).toString();
+            notify->version = object.value(JsonDbString::kVersionStr).toString();
+            notifications.insert(notify->uuid, notify);
+        }
+        newNotifications.remove(id);
+    } else if (notificationsToRemove.contains(id)) {
+        QPointer<JsonDbNotify> notify = notificationsToRemove[id];
+        if (notify) {
+            QVariantMap notificationObject;
+            QVariantMap object = result.toMap();
+            notify->uuid = object.value(JsonDbString::kUuidStr).toString();
+            notify->version = object.value(JsonDbString::kVersionStr).toString();
+            notificationObject.insert(QLatin1String("_uuid"), notify->uuid);
+            notificationObject.insert(QLatin1String("_version"), notify->version);
+            jsonDb.remove(QVariant(notificationObject));
+        }
+        notificationsToRemove.remove(id);
+    }
+}
+
+void JsonDbPartition::dbErrorResponse(int id, int code, const QString &message)
+{
+    if (createCallbacks.contains(id)) {
+        callErrorCallback(createCallbacks, id, code, message);
+    } else if (removeCallbacks.contains(id)) {
+        callErrorCallback(removeCallbacks, id, code, message);
+    } else if (updateCallbacks.contains(id)) {
+        callErrorCallback(updateCallbacks, id, code, message);
+    } else if (findCallbacks.contains(id)) {
+        callErrorCallback(findCallbacks, id, code, message);
+    } else if (changesCallbacks.contains(id)) {
+        callErrorCallback(changesCallbacks, id, code, message);
+    } else if (newNotifications.contains(id)) {
+        QPointer<JsonDbNotify> notify = newNotifications[id];
+        if (notify) {
+            notify->emitError(code,message);
+        }
+        newNotifications.remove(id);
+    }
+
+}
+
+void JsonDbPartition::dbNotified(const QString& currentNotifyUuid, const QVariant &v, const QString &action)
+{
+    if (notifications.contains(currentNotifyUuid)) {
+        QPointer<JsonDbNotify> notify = notifications[currentNotifyUuid];
+        if (notify) {
+            notify->emitNotification(g_declEngine->newVariant(v), action);
+        }
+    }
+}

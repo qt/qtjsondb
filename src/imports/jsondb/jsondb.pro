@@ -18,16 +18,27 @@ VERSION = 1.0
 include(../../common/common.pri)
 
 HEADERS += \
+    jsondbpartition.h \
+    jsondbnotification.h \
+    jsondbsortinglistmodel.h \
+    jsondbsortinglistmodel_p.h \
     jsondblistmodel.h \
     jsondblistmodel_p.h \
-    jsondbcomponent.h \
-    plugin.h
+    plugin.h \
+    jsondatabase.h \
+    jsondbqueryobject.h \
+    jsondbchangessinceobject.h
 
 HEADERS += $$QSONCONVERSION_HEADERS
 
 SOURCES += \
+    jsondbpartition.cpp \
+    jsondbnotification.cpp \
+    jsondbsortinglistmodel.cpp \
     jsondblistmodel.cpp \
-    jsondbcomponent.cpp \
-    plugin.cpp
+    plugin.cpp \
+    jsondatabase.cpp \
+    jsondbqueryobject.cpp \
+    jsondbchangessinceobject.cpp
 
 SOURCES += $$QSONCONVERSION_SOURCES

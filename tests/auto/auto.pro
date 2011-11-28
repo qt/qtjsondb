@@ -5,5 +5,7 @@ SUBDIRS = \
     bdb \
     qbtree \
     jsondb-listmodel \
+    jsondblistmodel \
+    jsondbsortinglistmodel \
     common \
     qsonstream

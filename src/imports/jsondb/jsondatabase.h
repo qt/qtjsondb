@@ -39,21 +39,36 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_PLUGIN_H
-#define JSONDB_PLUGIN_H
+#ifndef JSONDBDATABASE_H
+#define JSONDBDATABASE_H
 
-#include <QDeclarativeExtensionPlugin>
-#include <QDeclarativeEngine>
-#include <QtDeclarative/qdeclarative.h>
+#include <QObject>
+#include <QJSValue>
+#include <QPointer>
+#include "jsondb-client.h"
 
-extern QDeclarativeEngine *g_declEngine;
+class JsonDbPartition;
 
-class JsonDbPlugin : public QDeclarativeExtensionPlugin
+Q_USE_JSONDB_NAMESPACE
+
+class JsonDatabase : public QObject
 {
     Q_OBJECT
 public:
-    void initializeEngine(QDeclarativeEngine *engine, const char *uri);
-    void registerTypes(const char *uri);
+    JsonDatabase(QObject *parent = 0);
+    ~JsonDatabase();
+
+    Q_INVOKABLE JsonDbPartition* partition(const QJSValue &partitionName, QObject *parentItem);
+    Q_INVOKABLE void listPartitions(const QJSValue &callback, QObject *parentItem);
+
+private Q_SLOTS:
+    void dbResponse(int id, const QVariant &result);
+    void dbErrorResponse(int id, int code, const QString &message);
+
+private:
+    QMap<int, QJSValue> listCallbacks;
+    QMap<int, QPointer<QObject> > parentItems;
+    JsonDbClient jsonDb;
 };
 
 #endif

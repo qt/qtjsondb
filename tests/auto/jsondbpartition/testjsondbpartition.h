@@ -38,22 +38,76 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
+#ifndef TestJsonDbPartition_H
+#define TestJsonDbPartition_H
 
-#ifndef JSONDB_PLUGIN_H
-#define JSONDB_PLUGIN_H
+#include <QCoreApplication>
+#include <QList>
+#include <QTest>
+#include <QFile>
+#include <QProcess>
+#include <QEventLoop>
+#include <QDebug>
+#include <QLocalSocket>
+#include <QTimer>
 
-#include <QDeclarativeExtensionPlugin>
-#include <QDeclarativeEngine>
-#include <QtDeclarative/qdeclarative.h>
+#include <jsondb-client.h>
+#include <jsondb-error.h>
 
-extern QDeclarativeEngine *g_declEngine;
+#include <QAbstractItemModel>
+#include "clientwrapper.h"
 
-class JsonDbPlugin : public QDeclarativeExtensionPlugin
+Q_USE_JSONDB_NAMESPACE
+
+class QDeclarativeEngine;
+class QDeclarativeComponent;
+
+class ComponentData {
+public:
+    ComponentData();
+    ~ComponentData();
+    QDeclarativeEngine *engine;
+    QDeclarativeComponent *component;
+    QObject *qmlElement;
+};
+
+class TestJsonDbPartition: public ClientWrapper
 {
     Q_OBJECT
 public:
-    void initializeEngine(QDeclarativeEngine *engine, const char *uri);
-    void registerTypes(const char *uri);
-};
+    TestJsonDbPartition();
+    ~TestJsonDbPartition();
 
+    void deleteDbFiles();
+private slots:
+    void initTestCase();
+    void cleanupTestCase();
+
+    void create();
+    void update();
+    void remove();
+    void find();
+    void changesSince();
+
+public slots:
+    void callbackSlot(bool error, QVariant meta, QVariant response);
+
+protected slots:
+    void timeout();
+
+private:
+    ComponentData *createComponent();
+    void deleteComponent(ComponentData *componentData);
+    QVariant readJsonFile(const QString &filename);
+
+private:
+    QProcess *mProcess;
+    QStringList mNotificationsReceived;
+    QList<ComponentData*> mComponents;
+    QString mPluginPath;
+    bool mTimedOut;
+    bool callbackError;
+    QVariant callbackMeta;
+    QVariant callbackResponse;
+};
 #endif

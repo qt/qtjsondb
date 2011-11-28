@@ -39,26 +39,21 @@
 ****************************************************************************/
 
 import QtQuick 2.0
-import QtAddOn.JsonDb 1.0
+import QtJsonDb 1.0 as JsonDb
 
 
 Rectangle {
     width: 360
     height: 360
 
-    property int fontsize: 20
+    property int fontsize: 16
 
-    JsonDb {
-        id: jsondb
+    JsonDb.Partition {
+        id: systemPartition
+        name: "com.nokia.qtjsondb.System"
     }
 
-    function errorcb(e)
-    {
-        console.error('Error: ' + e);
-        text.text = 'Error: ' + e;
-    }
-
-    function createViewSchema(cb)
+    function createViewSchema()
     {
         var schema = {
             "_type": "_schemaType",
@@ -67,19 +62,32 @@ Rectangle {
                 "extends": "View"
             }
         };
-        jsondb.query('[?_type="_schemaType"][?name="PhoneView"][/_type]', function (r) {
-                         if (r.data.length > 0) {
-                             cb(r.data[0])
-                         } else {
-                             jsondb.create(schema, cb, function (e) { console.log(e) });
-                         }
-                     });
+        systemPartition.find('[?_type="_schemaType"][?name="PhoneView"][/_type]',
+             function (error, meta, response) {
+                 if (error) {
+                     console.log("Error " + response.status + " " + response.message);
+                     return;
+                 }
+                 if (response.length > 0) {
+                     console.log("Schema exists");
+                     createMap(false, {}, response);
+                 } else {
+                     console.log("Create Schema");
+                     systemPartition.create(schema, createMap);
+                 }
+            });
     }
 
 //! [Creating a Map Object]
-    function createMap(cb)
+    function createMap(error, meta, response)
     {
         console.log("Creating map");
+
+        if (error) {
+            console.log("Error " + response.status + " " + response.message);
+            return;
+        }
+
         var mapDefinition = {
             "_type": "Map",
             "targetType": "PhoneView",
@@ -98,29 +106,35 @@ Rectangle {
 //! [Creating a Map Object]
 
 //! [Installing the Map Object]
-        jsondb.query('[?_type="Map"][?targetType="PhoneView"]', function (r) {
-                         if (r.data.length > 0) {
-                             cb(r.data[0])
-                         } else {
-                             jsondb.create(mapDefinition, function (v) { cb(v); }, function (e) { console.log(e) });
-                         }
-                     });
+        systemPartition.find('[?_type="Map"][?targetType="PhoneView"]',
+             function (error, meta, response) {
+                 if (error) {
+                     console.log("Error " + response.status + " " + response.message);
+                     return;
+                 }
+                 if (response.length > 0) {
+                     console.log("Map Object exists, set partition");
+                     contacts.partition = systemPartition;
+                 } else {
+                     console.log("Create Map Object");
+                     systemPartition.create(mapDefinition, createMap);
+                 }
+            });
 //! [Installing the Map Object]
     }
 
-
-    JsonDbListModel {
+    JsonDb.JsonDbListModel {
         id: contacts
         query: '[?_type="PhoneView"][/phoneNumber]'
         roleNames: ["phoneNumber", "value"]
-        limit: 40
+        limit: 100
     }
 
     Rectangle {
-        id: buttonAdd
+        id: buttonInit
         anchors.top: parent.top
         anchors.margins: 2
-        width: parent.width/4
+        width: parent.width/2
         height: 50
         color: 'gray'
         border.color: "black"
@@ -128,18 +142,55 @@ Rectangle {
         radius: 10
         Text {
             anchors.centerIn: parent
-            text: "Update"
+            text: "Init"
             font.pointSize: fontsize
         }
         MouseArea {
             anchors.fill: parent
-            onClicked: { createViewSchema(createMap); contacts.query = '[?_type="PhoneView"]'; }
+            onClicked: { createViewSchema(); }
+        }
+    }
+    Rectangle {
+        id: buttonAdd
+        anchors.left: buttonInit.right
+        anchors.top: parent.top
+        anchors.margins: 2
+        width: parent.width/2
+        height: 50
+        color: 'gray'
+        border.color: "black"
+        border.width: 5
+        radius: 10
+        Text {
+            anchors.centerIn: parent
+            text: "Add Contact"
+            font.pointSize: fontsize
+        }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                var firstNames = ["Malcolm", "Zoe", "Hoban", "Inara", "Jayne", "Kaylee", "Simon", "River", "Shepard"]
+                var lastNames = ["Reinolds", "Washburn", "Serra", "Cobb", "Frye", "Tam", "Book"]
+                function rand(n) { return Math.floor(Math.random() * n); }
+
+                var firstName = firstNames[rand(firstNames.length)]
+                var lastName = lastNames[rand(lastNames.length)]
+                systemPartition.create({ "_type":"Contact", "firstName":firstName,
+                                           "lastName":lastName, "phoneNumbers": [rand(1000), rand(1000)]},
+                                       function (error, meta, response) {
+                                           if (error) {
+                                               console.log("Error " + response.status + " " + response.message);
+                                               return;
+                                           }
+                                           console.log("Created Contact");
+                                      });
+            }
         }
     }
 
     ListView {
         id: listView
-        anchors.top: buttonAdd.bottom
+        anchors.top: buttonInit.bottom
         anchors.bottom: statusText.top
         anchors.topMargin: 10
         anchors.bottomMargin: 10
@@ -169,8 +220,8 @@ Rectangle {
         color:  "lightgray"
         Text {
             anchors.centerIn: parent
-            font.pointSize: fontsize
-            text: "limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
+            font.pointSize: fontsize-2
+            text: "Cache Limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
         }
     }
     Rectangle {

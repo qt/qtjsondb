@@ -39,26 +39,21 @@
 ****************************************************************************/
 
 import QtQuick 2.0
-import QtAddOn.JsonDb 1.0
+import QtJsonDb 1.0 as JsonDb
 
 
 Rectangle {
     width: 360
     height: 360
 
-    property int fontsize: 20
+    property int fontsize: 16
 
-    JsonDb {
-        id: jsondb
+    JsonDb.Partition {
+        id: systemPartition
+        name: "com.nokia.qtjsondb.System"
     }
 
-    function errorcb(e)
-    {
-        console.error('Error: ' + e);
-        text.text = 'Error: ' + e;
-    }
-
-    function createViewSchema(cb)
+    function createViewSchema()
     {
         var schema = {
             "_type": "_schemaType",
@@ -67,19 +62,30 @@ Rectangle {
                 "extends": "View"
             }
         };
-        jsondb.query('[?_type="_schemaType"][?name="ReducedPhoneView"][/_type]', function (r) {
-                         if (r.data.length > 0) {
-                             console.log("schema exists.");
-                             cb(r.data[0]);
-                         } else {
-                             jsondb.create(schema, function (r) { console.log("schema created."); cb (r)}, function (e) { console.log(e) });
-                         }
-                     });
+        systemPartition.find('[?_type="_schemaType"][?name="ReducedPhoneView"][/_type]',
+             function (error, meta, response) {
+                 if (error) {
+                     console.log("Error " + response.status + " " + response.message);
+                     return;
+                 }
+                 if (response.length > 0) {
+                     console.log("Schema exists");
+                     createReduce(false, {}, response);
+                 } else {
+                     console.log("Create Schema");
+                     systemPartition.create(schema, createReduce);
+                 }
+            });
     }
 
-    function createReduce(cb)
+    function createReduce(error, meta, response)
     {
         console.log("Creating reduce");
+        if (error) {
+            console.log("Error " + response.status + " " + response.message);
+            return;
+        }
+
         var reduceDefinition = {
             "_type": "Reduce",
             "sourceType": "PhoneView",
@@ -109,29 +115,36 @@ Rectangle {
                          return v0;
                     }).toString()
         };
-        jsondb.query('[?_type="Reduce"][?targetType="ReducedPhoneView"]',
-                     function (r) {
-                         if (r.data.length > 0) {
-                             cb(r.data[0])
-                         } else {
-                             jsondb.create(reduceDefinition, function (v) { cb(v); }, function (e) { console.log(e) });
-                         }
-                     });
+        systemPartition.find('[?_type="Reduce"][?targetType="ReducedPhoneView"]',
+             function (error, meta, response) {
+                 if (error) {
+                     console.log("Error " + response.status + " " + response.message);
+                     return;
+                 }
+                 if (response.length > 0) {
+                     console.log("Reduce Object exists, set partition");
+                     contacts.partition = systemPartition;
+                 } else {
+                     console.log("Create Reduce Object");
+                     systemPartition.create(reduceDefinition, createReduce);
+                 }
+            });
+
     }
 
 
-    JsonDbListModel {
+    JsonDb.JsonDbListModel {
         id: contacts
         query: '[?_type="ReducedPhoneView"][/key]'
         roleNames: ["key", "value"]
-        limit: 40
+        limit: 100
     }
 
     Rectangle {
         id: buttonAdd
         anchors.top: parent.top
         anchors.margins: 2
-        width: parent.width/4
+        width: parent.width
         height: 50
         color: 'gray'
         border.color: "black"
@@ -144,7 +157,7 @@ Rectangle {
         }
         MouseArea {
             anchors.fill: parent
-            onClicked: { createViewSchema(createReduce); contacts.query = '[?_type="ReducedPhoneView"]'; }
+            onClicked: { createViewSchema();}
         }
     }
 
@@ -180,8 +193,8 @@ Rectangle {
         color:  "lightgray"
         Text {
             anchors.centerIn: parent
-            font.pointSize: fontsize
-            text: "limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
+            font.pointSize: fontsize-2
+            text: "Cache limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
         }
     }
     Rectangle {

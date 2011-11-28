@@ -53,6 +53,7 @@
 #include <QScopedPointer>
 
 #include "jsondb-global.h"
+#include "jsondbpartition.h"
 
 namespace QtAddOn { namespace JsonDb {
 class QsonObject;
@@ -65,7 +66,7 @@ class JsonDbSortKeyPrivate;
 class JsonDbSortKey {
 public:
     JsonDbSortKey();
-    JsonDbSortKey(const QsonMap &object, const QStringList &directions, const QList<QStringList> &paths);
+    JsonDbSortKey(const QVariantMap &object, const QStringList &directions, const QList<QStringList> &paths);
     JsonDbSortKey(const JsonDbSortKey&);
 
     const QVariantList &keys() const;
@@ -77,6 +78,7 @@ private:
 bool operator <(const JsonDbSortKey &a, const JsonDbSortKey &b);
 
 class JsonDbListModelPrivate;
+class JsonDbPartition;
 
 class JsonDbListModel : public QAbstractListModel, public QDeclarativeParserStatus
 {
@@ -94,6 +96,7 @@ public:
     Q_PROPERTY(int chunkSize READ chunkSize WRITE setChunkSize)
     Q_PROPERTY(int lowWaterMark READ lowWaterMark WRITE setLowWaterMark)
     Q_PROPERTY(QVariant roleNames READ roleNames WRITE setRoleNames)
+    Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
 
     virtual void classBegin();
     virtual void componentComplete();
@@ -117,6 +120,9 @@ public:
     QString query() const;
     void setQuery(const QString &newQuery);
 
+    JsonDbPartition* partition();
+    void setPartition(JsonDbPartition *newPartiton);
+
     void setLimit(int newLimit);
     int limit() const;
 
@@ -137,19 +143,20 @@ public:
                                   const QJSValue &errorCallback = QJSValue());
 
 signals:
-    void needAnotherChunk(int offset) const;
     void stateChanged() const;
     void countChanged() const;
     void rowCountChanged() const;
+
+private Q_SLOTS:
+    void partitionNameChanged(const QString &partitionName);
 
 private:
     Q_DISABLE_COPY(JsonDbListModel)
     Q_DECLARE_PRIVATE(JsonDbListModel)
     QScopedPointer<JsonDbListModelPrivate> d_ptr;
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QsonObject&))
+    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QVariant&))
     Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, int, const QString&))
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, const QString&))
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbNotified(const QString&, const QsonObject&, const QString&))
+    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbNotified(const QString&, const QVariant&, const QString&))
     Q_PRIVATE_SLOT(d_func(), void _q_requestAnotherChunk(int))
 
 };

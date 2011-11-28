@@ -41,31 +41,40 @@
 
 #include "plugin.h"
 
-#include "jsondbcomponent.h"
 #include "jsondblistmodel.h"
+#include "jsondbsortinglistmodel.h"
+#include "jsondatabase.h"
+#include "jsondbpartition.h"
+#include "jsondbnotification.h"
+#include "jsondbqueryobject.h"
+#include "jsondbchangessinceobject.h"
 
 Q_EXPORT_PLUGIN2(jsondbplugin, JsonDbPlugin)
+QDeclarativeEngine *g_declEngine = 0;
 
-static QObject *jsondb_module_api_provider(QDeclarativeEngine *engine, QJSEngine *scriptEngine)
+static QObject *jsondb_new_module_api_provider(QDeclarativeEngine *engine, QJSEngine *scriptEngine)
 {
     Q_UNUSED(engine)
     Q_UNUSED(scriptEngine)
 
-    JsonDbComponent *component = new JsonDbComponent();
-    return component;
+    JsonDatabase *database = new JsonDatabase();
+    return database;
 }
 
 void JsonDbPlugin::initializeEngine(QDeclarativeEngine *engine, const char *uri)
 {
-    Q_UNUSED(engine);
     Q_UNUSED(uri);
+    g_declEngine = engine;
 }
 
 void JsonDbPlugin::registerTypes(const char *uri)
 {
     Q_ASSERT(uri == QLatin1String("QtJsonDb"));
-    qmlRegisterModuleApi(uri, 1, 0, jsondb_module_api_provider);
+    qmlRegisterModuleApi(uri, 1, 0, jsondb_new_module_api_provider);
     qmlRegisterType<JsonDbListModel>(uri, 1, 0, "JsonDbListModel");
-    qmlRegisterType<JsonDbComponent>(uri, 1, 0, "JsonDatabase");
-
+    qmlRegisterType<JsonDbSortingListModel>(uri, 1, 0, "JsonDbSortingListModel");
+    qmlRegisterType<JsonDbPartition>(uri, 1, 0, "Partition");
+    qmlRegisterType<JsonDbNotify>(uri, 1, 0, "Notification");
+    qmlRegisterType<JsonDbQueryObject>(uri, 1, 0, "Query");
+    qmlRegisterType<JsonDbChangesSinceObject>(uri, 1, 0, "ChangesSince");
 }

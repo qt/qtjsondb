@@ -47,6 +47,7 @@
 #include <QObject>
 #include <QSet>
 #include <QStringList>
+#include <QPointer>
 
 #include "jsondb-client.h"
 #include "private/jsondb-connection_p.h"
@@ -63,7 +64,7 @@ struct CallbackInfo {
 
 struct NotifyItem {
     QString  notifyUuid;
-    QsonObject item;
+    QVariant item;
     QString action;
 };
 
@@ -72,6 +73,10 @@ class JsonDbListModelPrivate
     Q_DECLARE_PUBLIC(JsonDbListModel)
 public:
     JsonDbListModel *q_ptr;
+
+    QPointer<JsonDbPartition> partitionObject;
+    QPointer<JsonDbPartition> defaultPartitionObject;
+
     int chunkSize;
     int lowWaterMark;
     int maxCacheSize;
@@ -131,10 +136,10 @@ public:
     int makeSpaceFor(int count, int insertAt);
     void removeItem(int index);
     int findSortedPosition(const QString& uuid);
-    JsonDbSortKey sortKey(const QsonMap &object);
-    void insertItem(const QsonMap &item, bool emitCountChanged = true);
-    void deleteItem(const QsonMap &item, bool emitCountChanged = true);
-    void updateItem(const QsonMap &item);
+    JsonDbSortKey sortKey(const QVariantMap &object);
+    void insertItem(const QVariantMap &item, bool emitCountChanged = true);
+    void deleteItem(const QVariantMap &item, bool emitCountChanged = true);
+    void updateItem(const QVariantMap &item);
     QVariantMap getItem(int index, bool handleCacheMiss, bool &cacheMiss);
     QVariantMap getItem(const QModelIndex &modelIndex, int role, bool handleCacheMiss, bool &cacheMiss);
     void set(int index, const QJSValue& valuemap, const QJSValue &successCallback,
@@ -143,14 +148,13 @@ public:
                      const QJSValue &errorCallback);
 
     void fetchChunkSynchronous(int offset);
-    void updateCache(const QsonObject &v);
+    void updateCache(const QVariant &v);
     void resetModelFinished();
 
     // private slots
-    void _q_jsonDbResponse(int , const QsonObject &);
-    void _q_jsonDbNotified(const QString&, const QsonObject &, const QString &);
+    void _q_jsonDbResponse(int , const QVariant &);
+    void _q_jsonDbNotified(const QString&, const QVariant &, const QString &);
     void _q_jsonDbErrorResponse(int , int, const QString&);
-    void _q_jsonDbErrorResponse(int, const QString&);
 
     void _q_requestAnotherChunk(int offset);
 
