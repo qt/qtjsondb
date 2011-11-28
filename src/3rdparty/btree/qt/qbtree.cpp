@@ -73,6 +73,8 @@ bool QBtree::open(const QString &filename, QBtree::DbFlags flags)
         btflags |= BT_RDONLY;
     if (flags & QBtree::UseSyncMarker)
         btflags |= BT_USEMARKER;
+    if (flags & QBtree::NoPageChecksums)
+        btflags |= BT_NOPGCHECKSUM;
 
     mBtree = btree_open(mFilename.toLocal8Bit().constData(), btflags, 0644);
     if (!mBtree) {

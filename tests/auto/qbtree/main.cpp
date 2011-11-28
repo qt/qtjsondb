@@ -47,6 +47,7 @@
 #include <QDir>
 #include <QTime>
 
+#include "btree.h"
 #include "qbtree.h"
 #include "qbtreelocker.h"
 #include "qbtreetxn.h"
@@ -83,8 +84,10 @@ private slots:
     void readFromTag();
     void btreeRollback();
     void lockers();
+    void pageChecksum();
 
 private:
+    void corruptSinglePage(int psize, int pgno = -1, qint32 flag = -1);
     QBtree *db;
 };
 
@@ -925,6 +928,107 @@ void TestQBtree::lockers()
         QVERIFY(!r1.get(QByteArray("bar"), &result));
         QVERIFY(r2.get(QByteArray("bar"), &result));
     }
+}
+
+void TestQBtree::corruptSinglePage(int psize, int pgno, qint32 flag)
+{
+    const int asize = psize / 4;
+    quint32 *page = new quint32[asize];
+    QFile::OpenMode om = QFile::ReadWrite;
+
+    if (pgno == -1)  // we'll be appending
+        om |= QFile::Append;
+
+    if (db->handle())
+        db->close();
+
+    QFile file(dbname);
+    QVERIFY(file.open(om));
+    QVERIFY(file.seek((pgno == -1 ? 0 : pgno * psize)));
+    QVERIFY(file.read((char*)page, psize));
+
+    if (pgno == -1)
+        pgno = file.size() / psize; // next pgno
+    page[1] = pgno;
+    if (flag > 0)
+        page[2] = flag; // set page flag if specified
+
+    for (int j = 3; j < asize; ++j) // randomly corrupt page (skip flag and pgno)
+        page[j] = rand();
+
+    QVERIFY(file.seek(pgno * psize));
+    QCOMPARE(file.write((char*)page, psize), (qint64)psize);
+    file.close();
+
+    delete [] page;
+}
+
+void TestQBtree::pageChecksum()
+{
+    const qint64 psize = db->stat()->psize;
+    QByteArray value;
+
+    QBtreeTxn *txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo1"), QByteArray("bar1")));
+    QVERIFY(txn->commit(1));
+
+    txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo2"), QByteArray("bar2")));
+    QVERIFY(txn->commit(2));
+
+    txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo3"), QByteArray("bar3")));
+    QVERIFY(txn->commit(3));
+
+    db->close();
+
+    QFile f0(dbname);
+    QCOMPARE(f0.size(), psize * 7); // Should have 7 pages in db
+    f0.close();
+
+    corruptSinglePage(psize, 6); // corrupt page 6 (the meta with tag 3)
+
+    QFile f1(dbname);
+    QCOMPARE(f1.size(), psize * 7); // Should have 7 pages in db
+    f1.close();
+
+    corruptSinglePage(psize); // add corrupted page
+
+    QFile f2(dbname);
+    QCOMPARE(f2.size(), psize * 8);  // Should have 8 pages in db
+    f2.close();
+
+    QVERIFY(db->open(dbname, QBtree::NoSync));
+    QCOMPARE(db->tag(), 2u); // page with tag 3 corrupted, should get tag 2
+
+    txn = db->beginRead();
+    QVERIFY(txn);
+    QVERIFY(txn->get(QByteArray("foo1"), &value));
+    QCOMPARE(value, QByteArray("bar1"));
+    QVERIFY(txn->get(QByteArray("foo2"), &value));
+    QCOMPARE(value, QByteArray("bar2"));
+
+    QVERIFY(!txn->get(QByteArray("foo3"), &value)); // should not exist
+    txn->abort();
+
+    db->close();
+
+    corruptSinglePage(psize, 3); // corrupt page 3 (leaf with key foo2)
+
+    QFile f3(dbname);
+    QCOMPARE(f3.size(), psize * 8);  // Should have 9 pages in db
+    f3.close();
+
+    QVERIFY(db->open(dbname, QBtree::NoSync));
+
+    txn = db->beginRead();
+    QVERIFY(txn);
+    QVERIFY(!txn->get(QByteArray("foo1"), &value)); // page 3 should be corrupted
+    QVERIFY(!txn->get(QByteArray("foo2"), &value)); // page 3 should be corrupted
+    txn->abort();
 }
 
 QTEST_MAIN(TestQBtree)
