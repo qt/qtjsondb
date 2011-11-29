@@ -62,17 +62,12 @@ class JsonDbClientPrivate
 {
     Q_DECLARE_PUBLIC(JsonDbClient)
 public:
-    JsonDbClientPrivate(JsonDbClient *q, JsonDbConnection *c)
-        : q_ptr(q), connection(c)
-    {
-         Q_ASSERT(connection);
-    }
+    JsonDbClientPrivate(JsonDbClient *q)
+        : q_ptr(q), connection(0)
+    { }
 
     ~JsonDbClientPrivate()
     { }
-
-    void init(Qt::ConnectionType type=Qt::AutoConnection);
-    bool send(int requestId, const QVariantMap &request);
 
     void _q_statusChanged();
     void _q_handleNotified(const QString &, const QsonObject &, const QString &);
@@ -84,7 +79,6 @@ public:
     JsonDbClient *q_ptr;
     JsonDbConnection *connection;
 
-    QTimer reconnectionTimer;
     JsonDbClient::Status status;
 
     QMap<int, QVariantMap> requestQueue;
@@ -121,6 +115,9 @@ public:
 
     QHash<int, NotifyCallback> unprocessedNotifyCallbacks;
     QHash<QString, NotifyCallback> notifyCallbacks;
+
+    void init(JsonDbConnection *connection);
+    bool send(int requestId, const QVariantMap &request);
 };
 
 } } // end namespace QtAddOn::JsonDb

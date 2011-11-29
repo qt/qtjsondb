@@ -160,6 +160,9 @@ Q_SIGNALS:
     // signals for properties
     void statusChanged();
 
+protected:
+    bool event(QEvent *);
+
 private:
     Q_DISABLE_COPY(JsonDbClient)
     Q_DECLARE_PRIVATE(JsonDbClient)

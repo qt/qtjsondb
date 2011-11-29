@@ -45,6 +45,8 @@
 
 #include "jsondb-connection_p.h"
 
+#include <QEvent>
+
 /*!
     \namespace QtAddOn
     \inmodule QtJsonDb
@@ -97,10 +99,10 @@ namespace QtAddOn { namespace JsonDb {
     Uses JsonDbConnection \a connection to connect.
 */
 JsonDbClient::JsonDbClient(JsonDbConnection *connection, QObject *parent)
-    : QObject(parent), d_ptr(new JsonDbClientPrivate(this, connection))
+    : QObject(parent), d_ptr(new JsonDbClientPrivate(this))
 {
     Q_D(JsonDbClient);
-    d->init();
+    d->init(connection);
 }
 
 /*!
@@ -112,9 +114,9 @@ JsonDbClient::JsonDbClient(const QString &socketName, QObject *parent)
     : QObject(parent)
 {
     JsonDbConnection *connection = new JsonDbConnection(this);
-    d_ptr.reset(new JsonDbClientPrivate(this, connection));
+    d_ptr.reset(new JsonDbClientPrivate(this));
     Q_D(JsonDbClient);
-    d->init();
+    d->init(connection);
     connection->connectToServer(socketName);
 }
 
@@ -125,15 +127,30 @@ JsonDbClient::JsonDbClient(const QString &socketName, QObject *parent)
     JsonDbConnection::instance() as for the database connection.
 */
 JsonDbClient::JsonDbClient(QObject *parent)
-    :  QObject(parent), d_ptr(new JsonDbClientPrivate(this, JsonDbConnection::instance()))
+    :  QObject(parent), d_ptr(new JsonDbClientPrivate(this))
 {
     Q_D(JsonDbClient);
-    d->init();
+    JsonDbConnection *connection = JsonDbConnection::instance();
+    if (connection->thread() != thread())
+        connection = new JsonDbConnection(this);
+    d->init(connection);
     d->connection->connectToServer();
 }
 
 JsonDbClient::~JsonDbClient()
 {
+}
+
+bool JsonDbClient::event(QEvent *event)
+{
+    if (event->type() == QEvent::ThreadChange) {
+        Q_D(JsonDbClient);
+        if (JsonDbConnection::instance() == d->connection) {
+            d->init(new JsonDbConnection(this));
+            d->connection->connectToServer();
+        }
+    }
+    return QObject::event(event);
 }
 
 JsonDbClient::Status JsonDbClient::status() const
@@ -151,7 +168,7 @@ void JsonDbClientPrivate::_q_statusChanged()
             requestQueue.unite(sentRequestQueue);
             sentRequestQueue.clear();
             newStatus = JsonDbClient::Connecting;
-            reconnectionTimer.start(5000);
+            QTimer::singleShot(5000, q, SLOT(_q_timeout()));
         }
         break;
     case JsonDbConnection::Connecting:
@@ -174,7 +191,6 @@ void JsonDbClientPrivate::_q_statusChanged()
 
 void JsonDbClientPrivate::_q_timeout()
 {
-    reconnectionTimer.stop();
     if (status != JsonDbClient::Error)
         connection->connectToServer();
 }
@@ -223,19 +239,28 @@ bool JsonDbClient::isConnected() const
     return d->status == JsonDbClient::Ready;
 }
 
-void JsonDbClientPrivate::init(Qt::ConnectionType type)
+void JsonDbClientPrivate::init(JsonDbConnection *c)
 {
     Q_Q(JsonDbClient);
 
-    q->connect(&reconnectionTimer, SIGNAL(timeout()), q, SLOT(_q_timeout()));
+    if (connection) {
+        q->disconnect(q, SLOT(_q_statusChanged()));
+        q->disconnect(q, SLOT(_q_handleNotified(QString,QsonObject,QString)));
+        q->disconnect(q, SLOT(_q_handleResponse(int,QsonObject)));
+        q->disconnect(q, SLOT(_q_handleError(int,int,QString)));
+        q->disconnect(q, SIGNAL(disconnected()));
+        // TODO: remove this one
+        q->disconnect(q,  SIGNAL(readyWrite()));
+    }
+    connection = c;
 
     q->connect(connection, SIGNAL(statusChanged()), q, SLOT(_q_statusChanged()));
     q->connect(connection, SIGNAL(notified(QString,QsonObject,QString)),
-               SLOT(_q_handleNotified(QString,QsonObject,QString)),type);
+               SLOT(_q_handleNotified(QString,QsonObject,QString)));
     q->connect(connection, SIGNAL(response(int,QsonObject)),
-               SLOT(_q_handleResponse(int,QsonObject)),type);
+               SLOT(_q_handleResponse(int,QsonObject)));
     q->connect(connection, SIGNAL(error(int,int,QString)),
-               SLOT(_q_handleError(int,int,QString)),type);
+               SLOT(_q_handleError(int,int,QString)));
 
     q->connect(connection, SIGNAL(disconnected()),  SIGNAL(disconnected()));
 
