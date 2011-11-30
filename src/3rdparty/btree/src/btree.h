@@ -78,6 +78,7 @@ struct btree_stat {
 	unsigned int		 depth;
 	unsigned long long int	 entries;
 	unsigned int		 psize;
+        unsigned int             ksize;
 	time_t			 created_at;
         unsigned int             tag;
 };

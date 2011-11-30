@@ -47,6 +47,11 @@
 #include "btree.h"
 
 #define ATTR_PACKED __attribute__((packed))
+//#define ENABLE_BIG_KEYS
+
+#ifdef ENABLE_BIG_KEYS
+#warning "Big keys may cause unforseen circumstances. Avoid for now."
+#endif
 
 #undef DEBUG
 
@@ -131,6 +136,7 @@ struct node {
 
 #define NODESIZE         offsetof(struct node, data)
 
+#ifdef ENABLE_BIG_KEYS
 /*  page header (minus the ptrs field)
     + the size to store an index into the page to the node
     + the node header (minus data field)
@@ -138,6 +144,10 @@ struct node {
     + one index_t and nodesize to make room for at least one other branch node
     + divide by 2, we need at least two keys for splitting to work */
 #define MAXKEYSIZE       ((PAGESIZE - (PAGEHDRSZ + (sizeof(indx_t) + NODESIZE + sizeof(pgno_t)) * 2)) / 2)
+#else
+#define MAXKEYSIZE       255
+#endif
+
 #define MAXPFXSIZE       255
 
 #define INDXSIZE(k)      (NODESIZE + ((k) == NULL ? 0 : (k)->size))
@@ -154,6 +164,7 @@ struct bt_head {                                /* header page content */
         uint32_t         version;
         uint32_t         flags;
         uint32_t         psize;                 /* page size */
+        uint16_t         ksize;
 } ATTR_PACKED;
 
 struct bt_meta {                                /* meta (footer) page content */
@@ -343,9 +354,10 @@ static void              common_prefix(struct btree *bt, struct btkey *min,
                             struct btkey *max, struct btkey *pfx);
 static void              find_common_prefix(struct btree *bt, struct mpage *mp);
 
-static size_t            bt_leaf_size(struct mpage *mp, struct btval *key,
+static size_t            bt_leaf_size(struct btree *bt, struct mpage *mp, struct btval *key,
                             struct btval *data);
-static int               bt_is_overflow(struct mpage *mp, size_t ksize, size_t dsize);
+static int               bt_is_overflow(struct btree *bt, struct mpage *mp, size_t ksize,
+                            size_t dsize);
 static size_t            bt_branch_size(struct btree *bt, struct btval *key);
 
 static pgno_t            btree_compact_tree(struct btree *bt, pgno_t pgno,
@@ -1139,6 +1151,7 @@ btree_write_header(struct btree *bt, int fd)
         h->magic = BT_MAGIC;
         h->version = BT_VERSION;
         h->psize = psize;
+        h->ksize = MAXKEYSIZE;
         bcopy(h, &bt->head, sizeof(*h));
 
         p->checksum = calculate_checksum(bt, p);
@@ -1199,6 +1212,13 @@ btree_read_header(struct btree *bt)
                 goto fail;
         }
 
+        if (h->ksize != MAXKEYSIZE) {
+                EPRINTF("database uses max key size %u, expected max key size %u",
+                    bt->head.ksize, MAXKEYSIZE);
+                errno = EINVAL;
+                goto fail;
+        }
+
         bcopy(h, &bt->head, sizeof(*h));
 
         if (bt->head.psize == PAGESIZE) {
@@ -1224,6 +1244,7 @@ btree_read_header(struct btree *bt)
         DPRINTF("btree_read_header: version = %d", bt->head.version);
         DPRINTF("btree_read_header: flags = %d", bt->head.flags);
         DPRINTF("btree_read_header: psize = %d", bt->head.psize);
+        DPRINTF("btree_read_header: ksize = %d", bt->head.ksize);
 
         return 0;
 fail:
@@ -2375,12 +2396,12 @@ btree_new_page(struct btree *bt, uint32_t flags)
 }
 
 static size_t
-bt_leaf_size(struct mpage *mp, struct btval *key, struct btval *data)
+bt_leaf_size(struct btree *bt, struct mpage *mp, struct btval *key, struct btval *data)
 {
         size_t           sz;
 
         sz = LEAFSIZE(key, data);
-        if (bt_is_overflow(mp, key->size, data->size)) {
+        if (bt_is_overflow(bt, mp, key->size, data->size)) {
                 /* put on overflow page */
                 sz -= data->size - sizeof(pgno_t);
         }
@@ -2389,13 +2410,20 @@ bt_leaf_size(struct mpage *mp, struct btval *key, struct btval *data)
 }
 
 static int
-bt_is_overflow(struct mpage *mp, size_t ksize, size_t dsize)
+bt_is_overflow(struct btree *bt, struct mpage *mp, size_t ksize, size_t dsize)
 {
-    size_t node_size = dsize + ksize + NODESIZE;
-    if ((node_size + sizeof(indx_t) > SIZELEFT(mp))
-        || (NUMKEYS(mp) == 0 && (SIZELEFT(mp) - (node_size + sizeof(indx_t))) < MAXKEYSIZE))
-        return 1;
-    return 0;
+        assert(bt && mp);
+#ifdef ENABLE_BIG_KEYS
+        size_t node_size = dsize + ksize + NODESIZE;
+        if ((node_size + sizeof(indx_t) > SIZELEFT(mp))
+            || (NUMKEYS(mp) == 0 && (SIZELEFT(mp) - (node_size + sizeof(indx_t))) < MAXKEYSIZE))
+                return 1;
+#else
+        if (dsize >= bt->head.psize / BT_MINKEYS)
+                return 1;
+
+#endif
+        return 0;
 }
 
 static size_t
@@ -2477,7 +2505,12 @@ btree_add_node(struct btree *bt, struct mpage *mp, indx_t indx,
                 if (F_ISSET(flags, F_BIGDATA)) {
                         /* Data already on overflow page. */
                         node_size -= data->size - sizeof(pgno_t);
-                } else if (bt_is_overflow(mp, (key ? key->size : 0), data->size)) {
+#ifdef ENABLE_BIG_KEYS
+                } else if (bt_is_overflow(bt, mp, (key ? key->size : 0), data->size)) {
+#else
+                } else if (bt_is_overflow(bt, mp, (key ? key->size : 0), data->size)
+                           || (node_size + sizeof(indx_t) > SIZELEFT(mp))) {
+#endif
                         /* Put data on overflow page. */
                         DPRINTF("data size is %zu, put on overflow page",
                             data->size);
@@ -3340,10 +3373,12 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
          */
         bzero(&sepkey, sizeof(sepkey));
 
+#ifdef ENABLE_BIG_KEYS
         /* This could happen if there are less than 3 keys in the tree
          */
         if (split_indx >= NUMKEYSP(copy))
                 split_indx = NUMKEYSP(copy) - 1;
+#endif
 
         if (newindx == split_indx) {
                 sepkey.size = newkey->size;
@@ -3586,7 +3621,7 @@ btree_txn_put(struct btree *bt, struct btree_txn *txn,
         xkey.data = key->data;
         xkey.size = key->size;
 
-        if (SIZELEFT(mp) < bt_leaf_size(mp, key, data)) {
+        if (SIZELEFT(mp) < bt_leaf_size(bt, mp, key, data)) {
                 rc = btree_split(bt, &mp, &ki, &xkey, data, P_INVALID);
         } else {
                 /* There is room already in this leaf page. */
@@ -3846,6 +3881,7 @@ btree_stat(struct btree *bt)
         bt->stat.psize = bt->head.psize;
         bt->stat.created_at = bt->meta.created_at;
         bt->stat.tag = bt->meta.tag;
+        bt->stat.ksize = bt->head.ksize;
 
         return &bt->stat;
 }
@@ -4013,6 +4049,13 @@ btree_dump_page_from_memory(struct page *p)
                 return;
         }
 
+        if (head->ksize != MAXKEYSIZE) {
+                EPRINTF("database uses max key size %u, expected max key size %u",
+                    head->ksize, MAXKEYSIZE);
+                errno = EINVAL;
+                return;
+        }
+
         fprintf(stderr, "* %s page %d with flags %0X offsets [%d -> %d]\n", pgstr, pgno,
                 p->flags, p->lower, p->upper);
 
@@ -4067,6 +4110,13 @@ btree_dump_page_from_file(const char *filename, unsigned int pagen)
     if (h->version != BT_VERSION) {
             EPRINTF("database is version %u, expected version %u",
                 h->version, BT_VERSION);
+            errno = EINVAL;
+            return 0;
+    }
+
+    if (h->ksize != MAXKEYSIZE) {
+            EPRINTF("database uses max key size %u, expected max key size %u",
+                h->ksize, MAXKEYSIZE);
             errno = EINVAL;
             return 0;
     }

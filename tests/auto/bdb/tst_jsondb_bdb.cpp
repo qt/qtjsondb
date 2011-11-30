@@ -1041,62 +1041,49 @@ void TestJsonDbBdb::pageChecksum()
 
 void TestJsonDbBdb::keySizes()
 {
-    const int legalsizes[][3] = {
-        {2027, 'e', 1023},
-        {2027, 'd', 2000},
-        {2027, 'g', 500},
-        {2027, 'z', 1023},
-        {2027, 'b', 1023},
-        {2027, 'c', 500},
-        {500, 'm', 800},
-        {500, 'n', 500},
-    };
+    const int numlegal = 10;
+    const int numillegal = 3;
 
-    const int illegalsizes[] = {
-        2028,
-        4999,
-        6000,
-    };
-
-    const int legalcount = sizeof(legalsizes) / sizeof(legalsizes[0]);
-    const int illegalcount = sizeof(illegalsizes) / sizeof(illegalsizes[0]);
-
+    QByteArray value;
     QVector<QByteArray> legalkeys;
-    QVector<QByteArray> legalvalues;
     QVector<QByteArray> illegalkeys;
+    QVector<QByteArray> values;
 
     bdb->clearData();
     bdb->setCmpFunc(0);
 
-    for (int i = 0; i < legalcount; ++i) {
-        QByteArray key(legalsizes[i][0], (char)legalsizes[i][1]);
-        QByteArray value(legalsizes[i][2], (char)legalsizes[i][1]);
-        legalkeys.append(key);
-        legalvalues.append(value);
-        QVERIFY(bdb->put(key, value));
+    qDebug() << "Testing with max key size:" << bdb->stat()->ksize;
+
+    for (int i = 0; i < numlegal; ++i) {
+        legalkeys.append(QByteArray(bdb->stat()->ksize - i, 'a' + i));
+        if (i < numillegal)
+            illegalkeys.append(QByteArray(bdb->stat()->ksize + i + 1, 'a' + i));
+        values.append(QByteArray(500 + myRand(2000), 'a' + i));
     }
 
-    for (int i = 0; i < illegalcount; ++i) {
-        QByteArray key(illegalsizes[i], 'a' + (char)i);
-        illegalkeys.append(key);
-        QVERIFY(!bdb->put(key, key));
+    for (int i = 0; i < numlegal; ++i) {
+        QVERIFY(bdb->put(legalkeys[i], values[i]));
+    }
+
+    for (int i = 0; i < numillegal; ++i) {
+        QVERIFY(!bdb->put(illegalkeys[i], values[i]));
     }
 
     for (int i = 0; i < legalkeys.size(); ++i) {
-        QByteArray value;
         QVERIFY(bdb->get(legalkeys[i], value));
-        QCOMPARE(value, legalvalues[i]);
+        QCOMPARE(value, values[i]);
     }
 
     for (int i = 0; i < illegalkeys.size(); ++i) {
-        QByteArray value;
         QVERIFY(!bdb->get(illegalkeys[i], value));
     }
-
 }
 
 void TestJsonDbBdb::prefixSizes()
 {
+    // This test is for when key size of bigger than prefix size.
+    // If keysize == 255 (the default btree key size) then we change
+    // the key we insert.
     const int count = 100;
     const int pfxsize = 300;
     const int keysize = 10;
@@ -1108,6 +1095,8 @@ void TestJsonDbBdb::prefixSizes()
         QByteArray key(pfxsize + keysize, 'a');
         for (int j = 0; j < keysize; ++j)
             key[pfxsize + j] = '0' + myRand(10);
+        if (bdb->stat()->ksize == 255) // chop off if max key size is 255
+            key = key.mid(key.size() - 255);
         keys.append(key);
     }
 
