@@ -1502,9 +1502,10 @@ QsonMap JsonDb::validateMapObject(QsonMap map)
             return makeError(JsonDbError::InvalidMap, "Map 'join' and 'sourceType' options are mutually exclusive");
 
     } else {
-        if (map.valueString("sourceType").isEmpty())
+        if (map.valueString("sourceType").isEmpty() && (map.valueType("map") != QsonElement::MapType))
             return makeError(JsonDbError::InvalidMap, "sourceType property for Map not specified");
-        if (map.valueString("map").isEmpty())
+        if (!map.contains("map")
+                || ((map.valueType("map") != QsonElement::StringType) && (map.valueType("map") != QsonElement::MapType)))
             return makeError(JsonDbError::InvalidMap, "map function for Map not specified");
     }
 
