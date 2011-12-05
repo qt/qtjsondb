@@ -85,6 +85,8 @@ private slots:
     void btreeRollback();
     void lockers();
     void pageChecksum();
+    void keySizes();
+    void prefixSizes();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 flag = -1);
@@ -1029,6 +1031,82 @@ void TestQBtree::pageChecksum()
     QVERIFY(!txn->get(QByteArray("foo1"), &value)); // page 3 should be corrupted
     QVERIFY(!txn->get(QByteArray("foo2"), &value)); // page 3 should be corrupted
     txn->abort();
+}
+
+void TestQBtree::keySizes()
+{
+    const int numlegal = 10;
+    const int numillegal = 3;
+
+    QByteArray value;
+    QVector<QByteArray> legalkeys;
+    QVector<QByteArray> illegalkeys;
+    QVector<QByteArray> values;
+
+    qDebug() << "Testing with max key size:" << db->stat()->ksize;
+
+    for (int i = 0; i < numlegal; ++i) {
+        legalkeys.append(QByteArray(db->stat()->ksize - i, 'a' + i));
+        if (i < numillegal)
+            illegalkeys.append(QByteArray(db->stat()->ksize + i + 1, 'a' + i));
+        values.append(QByteArray(500 + myRand(2000), 'a' + i));
+    }
+
+    for (int i = 0; i < numlegal; ++i) {
+        QBtreeTxn *txn = db->beginReadWrite();
+        QVERIFY(txn);
+        QVERIFY(txn->put(legalkeys[i], values[i]));
+        txn->commit(0);
+    }
+
+    for (int i = 0; i < numillegal; ++i) {
+        QBtreeTxn *txn = db->beginReadWrite();
+        QVERIFY(txn);
+        QVERIFY(!txn->put(illegalkeys[i], values[i]));
+        txn->commit(0);
+    }
+
+    for (int i = 0; i < legalkeys.size(); ++i) {
+        QBtreeTxn *txn = db->beginRead();
+        QVERIFY(txn);
+        QVERIFY(txn->get(legalkeys[i], &value));
+        QCOMPARE(value, values[i]);
+        txn->abort();
+    }
+
+    for (int i = 0; i < illegalkeys.size(); ++i) {
+        QBtreeTxn *txn = db->beginRead();
+        QVERIFY(txn);
+        QVERIFY(!txn->get(illegalkeys[i], &value));
+        txn->abort();
+    }
+}
+
+void TestQBtree::prefixSizes()
+{
+    // This test is for when key size of bigger than prefix size.
+    // If keysize == 255 (the default btree key size) then we change
+    // the key we insert.
+    const int count = 100;
+    const int pfxsize = 300;
+    const int keysize = 10;
+    QVector<QByteArray> keys;
+
+    for (int i = 0; i < count; ++i) {
+        QByteArray key(pfxsize + keysize, 'a');
+        for (int j = 0; j < keysize; ++j)
+            key[pfxsize + j] = '0' + myRand(10);
+        if (db->stat()->ksize == 255) // chop off if max key size is 255
+            key = key.mid(key.size() - 255);
+        keys.append(key);
+    }
+
+    for (int i = 0; i < keys.size(); ++i) {
+        QBtreeTxn *txn = db->beginReadWrite();
+        QVERIFY(txn);
+        QVERIFY(txn->put(keys[i], QString::number(i).toAscii()));
+        txn->commit(0);
+    }
 }
 
 QTEST_MAIN(TestQBtree)
