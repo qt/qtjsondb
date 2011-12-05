@@ -36,6 +36,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
 #if defined(__APPLE__)
 #  define COMMON_DIGEST_FOR_OPENSSL
 #  include <CommonCrypto/CommonDigest.h>
@@ -2419,6 +2422,7 @@ bt_is_overflow(struct btree *bt, struct mpage *mp, size_t ksize, size_t dsize)
             || (NUMKEYS(mp) == 0 && (SIZELEFT(mp) - (node_size + sizeof(indx_t))) < MAXKEYSIZE))
                 return 1;
 #else
+        (void)ksize;
         if (dsize >= bt->head.psize / BT_MINKEYS)
                 return 1;
 
@@ -3983,7 +3987,7 @@ btree_dump_tree(struct btree *bt, pgno_t pgno, int depth)
                         if (F_ISSET(node->flags, F_BIGDATA)) {
                                 bcopy(NODEDATA(node), &next, sizeof(next));
                                 fprintf(stderr, "%s", indent);
-                                fprintf (stderr, "[!] Data size %zu is on overflow page %d\n", node->n_dsize, next);
+                                fprintf (stderr, "[!] Data size %d is on overflow page %d\n", node->n_dsize, next);
                                 btree_dump_tree(bt, next, depth + 1);
                         }
                 }
@@ -4006,7 +4010,7 @@ btree_dump(struct btree *bt)
         assert(bt != NULL);
         fprintf(stderr, "btree_dump %s\n", bt->path);
         if (bt->meta.root != P_INVALID) {
-                fprintf(stderr, "Root page %d [depth:%d, entries:%lld, leaves:%d, branches:%d, bt-size:%ld, psize:%d]\n",
+                fprintf(stderr, "Root page %d [depth:%d, entries:%" PRIu64 ", leaves:%d, branches:%d, bt-size:%ld, psize:%d]\n",
                         bt->meta.root,
                         bt->meta.depth,
                         bt->meta.entries,

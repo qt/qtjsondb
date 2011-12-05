@@ -285,6 +285,8 @@ void Client::statusChanged()
     case JsonDbClient::Error:
         qCritical() << "Cannot connect to the server";
         break;
+    default:
+        return;
     }
 }
 

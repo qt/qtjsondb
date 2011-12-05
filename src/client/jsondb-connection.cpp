@@ -502,7 +502,7 @@ void JsonDbConnectionPrivate::_q_onReceiveMessage(const QsonObject &msg)
 
     int id = qsonMsg.valueInt(JsonDbString::kIdStr);
     if (id == tokenRequestId) {
-        bool error = !qsonMsg.isNull("error");
+        bool error = !qsonMsg.isNull(QLatin1String("error"));
         // if token auth failed, socket will be disconnected.
         if (!error) {
             status = JsonDbConnection::Ready;
