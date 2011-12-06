@@ -58,7 +58,7 @@ public:
     enum Action { None = 0x0000, Create = 0x0001, Update = 0x0002, Delete = 0x0004 };
     Q_DECLARE_FLAGS(Actions, Action)
 
-    Notification(const JsonDbOwner *owner, const QString& uuid, const QString& query, QStringList  actions);
+    Notification(const JsonDbOwner *owner, const QString &uuid, const QString &query, QStringList actions, const QString &partition);
     ~Notification();
 
     const JsonDbOwner *owner() const { return mOwner; }
@@ -67,14 +67,14 @@ public:
     Actions         actions() const { return mActions; }
     JsonDbQuery *parsedQuery() { return mCompiledQuery; }
     void            setCompiledQuery(JsonDbQuery *parsedQuery) { mCompiledQuery = parsedQuery; }
-
+    const QString & partition() const { return mPartition; }
 private:
-
     const JsonDbOwner *mOwner;
     QString       mUuid;
     QString       mQuery;
     JsonDbQuery *mCompiledQuery;
     Actions       mActions;
+    QString       mPartition;
 };
 
 } } // end namespace QtAddOn::JsonDb

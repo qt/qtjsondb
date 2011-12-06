@@ -829,7 +829,7 @@ QsonMap JsonDb::createViewObject(const JsonDbOwner *owner, QsonMap& object, cons
 
     storage->addToQuota(owner, dataSize);
 
-    checkNotifications( object, Notification::Create );
+    checkNotifications(partition, object, Notification::Create);
 
     return response;
 }
@@ -895,15 +895,15 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
             response = mEphemeralStorage->remove(master);
             if (isNotification)
                 removeNotification(uuid);
-            checkNotifications(master, Notification::Delete);
+            checkNotifications(partition, master, Notification::Delete);
         } else if (!exists) {
             response = mEphemeralStorage->create(object);
             if (isNotification)
                 createNotification(owner, object);
-            checkNotifications(object, Notification::Create);
+            checkNotifications(partition, object, Notification::Create);
         } else {
             response = mEphemeralStorage->update(object);
-            checkNotifications(object, Notification::Update);
+            checkNotifications(partition, object, Notification::Update);
         }
 
         return response;
@@ -1048,9 +1048,9 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
     // TODO: fix tests/benchmarks/jsondb-listmodel before re-enabling this
     //    if (forCreation || headVersionUpdated)
     if (!forRemoval)
-        checkNotifications( object, action );
+        checkNotifications(partition, object, action);
     else
-        checkNotifications( _delrec, action );
+        checkNotifications(partition, _delrec, action);
 
     return response;
 }
@@ -1177,7 +1177,7 @@ QsonMap JsonDb::updateViewObject(const JsonDbOwner *owner, QsonMap& object, cons
     if (objectType == JsonDbString::kSchemaTypeStr)
         setSchema(object.valueString("name"), object.subObject("schema"));
 
-    checkNotifications( (action == Notification::Delete ? _delrec : object), action );
+    checkNotifications(partition, (action == Notification::Delete ? _delrec : object), action);
 
     return response;
 }
@@ -1258,7 +1258,7 @@ QsonMap JsonDb::getObjects(const QString &keyName, const QVariant &key, const QS
     return QsonMap();
 }
 
-void JsonDb::checkNotifications(QsonMap object, Notification::Action action)
+void JsonDb::checkNotifications(const QString &partition, QsonMap object, Notification::Action action)
 {
     //DBG() << object;
 
@@ -1282,8 +1282,8 @@ void JsonDb::checkNotifications(QsonMap object, Notification::Action action)
         QMultiMap<QString, Notification *>::const_iterator it = mKeyedNotifications.find(key);
         while ((it != mKeyedNotifications.end()) && (it.key() == key)) {
             Notification *n = it.value();
-            DBG() << "Notification" << n->query() << n->actions();
-            if ( n->actions() & action ) {
+            DBG() << "Notification" << n->query() << n->actions() << n->partition();
+            if (n->partition() == partition && n->actions() & action) {
                 QsonMap r;
                 if (!n->query().isEmpty()) {
                     DBG() << "Checking notification" << n->query() << endl
@@ -1709,8 +1709,9 @@ const Notification *JsonDb::createNotification(const JsonDbOwner *owner, QsonMap
     QStringList actions = object.value<QsonList>(JsonDbString::kActionsStr).toStringList();
     QString       query = object.valueString(JsonDbString::kQueryStr);
     QsonMap bindings = object.subObject("bindings");
+    QString partition = object.valueString(JsonDbString::kPartitionStr);
 
-    Notification *n = new Notification(owner, uuid, query, actions);
+    Notification *n = new Notification(owner, uuid, query, actions, partition);
     JsonDbQuery parsedQuery = JsonDbQuery::parse(query, bindings);
     const QList<OrQueryTerm> &orQueryTerms = parsedQuery.queryTerms;
     n->setCompiledQuery(new JsonDbQuery(parsedQuery.queryTerms, parsedQuery.orderTerms));
@@ -1853,7 +1854,7 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
     mStorages.insert(name, storage);
     initMap(name);
 
-    checkNotifications(partition, Notification::Create);
+    checkNotifications(JsonDbString::kSystemPartitionName, partition, Notification::Create);
 
     return result;
 }

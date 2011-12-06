@@ -54,11 +54,13 @@ namespace QtAddOn { namespace JsonDb {
 
 static QMap<QString,Notification*> sNotificationMap;
 
-Notification::Notification(const JsonDbOwner *owner, const QString &uuid, const QString& query, QStringList actions)
+Notification::Notification(const JsonDbOwner *owner, const QString &uuid, const QString& query,
+                           QStringList actions, const QString &partition)
     : mOwner(owner)
     , mUuid(uuid)
     , mQuery(query)
     , mActions(None)
+    , mPartition(partition)
 {
     foreach (QString s, actions) {
         if (s == JsonDbString::kCreateStr)

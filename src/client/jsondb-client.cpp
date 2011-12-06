@@ -677,6 +677,7 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
     create.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
     create.insert(JsonDbString::kQueryStr, query);
     create.insert(JsonDbString::kActionsStr, actions);
+    create.insert(JsonDbString::kPartitionStr, partitionName);
 
     int id = d->connection->makeRequestId();
 

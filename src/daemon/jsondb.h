@@ -178,7 +178,7 @@ protected:
 
     JsonDbQuery parseJsonQuery(const QString &query, QsonObject &bindings) const;
 
-    void checkNotifications(QsonMap obj, Notification::Action action);
+    void checkNotifications(const QString &partition, QsonMap obj, Notification::Action action);
 
     const Notification *createNotification(const JsonDbOwner *owner, QsonMap object);
     void removeNotification(const QString &uuid);
