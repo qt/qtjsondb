@@ -321,12 +321,12 @@ void Client::usage()
     out << "Valid commands:" << std::endl
               << std::endl
               << "Direct database commands - these take an explict object" << std::endl
-              << "   create OBJECT" << std::endl
-              << "   update OBJECT" << std::endl
-              << "   remove OBJECT" << std::endl
-              << "   remove QUERY" << std::endl
-              << "   find QUERY" << std::endl
-              << "   changesSince STATENUMBER [type1 type2 ...]" << std::endl
+              << "   create [partition:<name>] OBJECT" << std::endl
+              << "   update [partition:<name>] OBJECT" << std::endl
+              << "   remove [partition:<name>] OBJECT" << std::endl
+              << "   remove [partition:<name>] QUERY" << std::endl
+              << "   find [partition:<name>] QUERY" << std::endl
+              << "   changesSince [partition:<name>] STATENUMBER [type1 type2 ...]" << std::endl
               << std::endl
               << "Convenience functions" << std::endl
               << "   query STRING [offset [limit]]" << std::endl
@@ -364,6 +364,14 @@ bool Client::processCommand(const QString &command)
 
     gDebug = true;
 
+    QString partition;
+    if (rest.startsWith(QLatin1String("partition:"))) {
+        partition = rest.left(rest.indexOf(' '));
+        rest.remove(0, partition.size());
+        partition.remove(0, 10);
+        rest = rest.trimmed();
+    }
+
     if (cmd == "quit") {
         exit(0);
     } else if (cmd == "help") {
@@ -390,7 +398,7 @@ bool Client::processCommand(const QString &command)
         }
         if (gDebug)
             qDebug() << "Sending query:" << QVariant(rest);
-        mRequests << mConnection->query(rest, offset, limit);
+        mRequests << mConnection->query(rest, offset, limit, partition);
     } else if (cmd == "notify") {
         int s = rest.indexOf(' ');
         if (s <= 0)
@@ -414,7 +422,7 @@ bool Client::processCommand(const QString &command)
         QString query = rest.mid(s+1).trimmed();
         if (gDebug)
             qDebug() << "Creating notification:" << alist << ":" << query;
-        mRequests << mConnection->notify(actions, query);
+        mRequests << mConnection->notify(actions, query, partition);
     } else if (cmd == "remove") {
         rest = rest.trimmed();
         bool isquery = false;
@@ -443,7 +451,7 @@ bool Client::processCommand(const QString &command)
             QVariant arg = parser.result();
             if (gDebug)
                 qDebug() << "Sending remove:" << arg;
-            mRequests << mConnection->remove(QVariant(arg));
+            mRequests << mConnection->remove(arg, partition);
         }
     } else if (cmd == "create" || cmd == "update" || cmd == "find" ) {
         JsonReader parser;
@@ -457,7 +465,8 @@ bool Client::processCommand(const QString &command)
         if (gDebug)
             qDebug() << "Sending" << cmd << ":" << arg;
         int id = 0;
-        QMetaObject::invokeMethod(mConnection, cmd.toLatin1(), Q_RETURN_ARG(int, id), Q_ARG(QVariant, arg));
+        QMetaObject::invokeMethod(mConnection, cmd.toLatin1(), Q_RETURN_ARG(int, id),
+                                  Q_ARG(QVariant, arg), Q_ARG(QString, partition));
         mRequests << id;
     } else if (cmd == "changesSince") {
         int stateNumber = 0;
@@ -478,7 +487,7 @@ bool Client::processCommand(const QString &command)
         if (gDebug)
             qDebug() << "Sending changesSince: " << stateNumber << "types: " << types;
 
-        mRequests << mConnection->changesSince(stateNumber, types);
+        mRequests << mConnection->changesSince(stateNumber, types, partition);
     } else if (!cmd.isEmpty()) {
         InputThread::print("Unrecognized command: " % cmd);
         usage();
