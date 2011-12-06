@@ -276,9 +276,10 @@ void DBServer::processCreate(QsonStream *stream, const QsonObject &object, int i
         QsonMap obj = object.toMap();
         result = mJsonDb->create(owner, obj, partitionName);
         QString uuid = result.value<QsonMap>(JsonDbString::kResultStr).valueString(JsonDbString::kUuidStr);
-        if ( !uuid.isEmpty() &&
-             obj.valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr )
+        if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName &&
+                obj.valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr) {
             mNotifications.insert(uuid, stream);
+        }
         break; }
     default:
         result = createError( JsonDbError::MissingObject, "Create requires list or object" );
@@ -304,15 +305,15 @@ void DBServer::processUpdate(QsonStream *stream, const QsonObject &object,
 
         // The user could be changing a _type='notification' object to some other type
         QString uuid = obj.valueString(JsonDbString::kUuidStr);
-        if (!uuid.isEmpty())
+        if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName)
             mNotifications.remove(uuid);
 
         result = mJsonDb->update(owner, obj, partitionName, replication);
         if (result.contains(JsonDbString::kErrorStr) && !result.isNull(JsonDbString::kErrorStr))
             qCritical() << "UPDATE:" << obj << " Error Message : " << result.subObject(JsonDbString::kErrorStr).valueString(JsonDbString::kMessageStr);
 
-        if ( !uuid.isEmpty() &&
-             obj.valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr )
+        if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName &&
+                obj.valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
             mNotifications.insert(uuid, stream);
         break; }
     default:
@@ -604,7 +605,7 @@ void DBServer::removeConnection()
             QString notificationId = iter.key();
             QsonMap notificationObject;
             notificationObject.insert(JsonDbString::kUuidStr, notificationId);
-            mJsonDb->remove(owner, notificationObject);
+            mJsonDb->remove(owner, notificationObject, JsonDbString::kEphemeralPartitionName);
             mNotifications.remove(notificationId);
         }
     }

@@ -98,5 +98,6 @@ const QString JsonDbString::kPartitionTypeStr = QString::fromLatin1("Partition")
 const QString JsonDbString::kPartitionStr = QString::fromLatin1("partition");
 
 const QString JsonDbString::kSystemPartitionName = QString::fromLatin1("com.nokia.qtjsondb.System");
+const QString JsonDbString::kEphemeralPartitionName = QString::fromLatin1("com.nokia.qtjsondb.Ephemeral");
 
 } } // end namespace QtAddOn::JsonDb

@@ -698,7 +698,7 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
         d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
     }
 
-    QVariantMap request = JsonDbConnection::makeCreateRequest(create, partitionName);
+    QVariantMap request = JsonDbConnection::makeCreateRequest(create, JsonDbString::kEphemeralPartitionName);
     d->send(id, request);
 
     return id;

@@ -103,6 +103,7 @@ public:
     static const QString kPartitionStr;
 
     static const QString kSystemPartitionName;
+    static const QString kEphemeralPartitionName;
 };
 
 Q_ADDON_JSONDB_END_NAMESPACE

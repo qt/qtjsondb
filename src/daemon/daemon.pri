@@ -8,8 +8,10 @@ HEADERS += \
     $$PWD/jsondb-owner.h \
     $$PWD/jsondb-proxy.h \
     $$PWD/jsondb-trace.h \
+    $$PWD/jsondb-response.h \
     $$PWD/jsondb.h \
     $$PWD/jsondbbtreestorage.h \
+    $$PWD/jsondbephemeralstorage.h \
     $$PWD/jsondbindex.h \
     $$PWD/jsondbquery.h \
     $$PWD/notification.h \
@@ -31,8 +33,10 @@ SOURCES += \
     $$PWD/jsondb-owner.cpp \
     $$PWD/jsondb-proxy.cpp \
     $$PWD/jsondb-trace.cpp \
+    $$PWD/jsondb-response.cpp \
     $$PWD/jsondb.cpp \
     $$PWD/jsondbbtreestorage.cpp \
+    $$PWD/jsondbephemeralstorage.cpp \
     $$PWD/jsondbindex.cpp \
     $$PWD/jsondbquery.cpp \
     $$PWD/notification.cpp \

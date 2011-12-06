@@ -87,6 +87,7 @@ class JsonDbProxy;
 class JsonDbQuery;
 class ObjectTable;
 class JsonDbBtreeStorage;
+class JsonDbEphemeralStorage;
 
 class JsonDb : public QObject
 {
@@ -203,6 +204,7 @@ Q_SIGNALS:
 protected:
     JsonDbOwner *mOwner;
     QHash<QString, JsonDbBtreeStorage *> mStorages;
+    JsonDbEphemeralStorage *mEphemeralStorage;
     QJSEngine            *mScriptEngine;
     JsonDbProxy          *mJsonDbProxy;
     bool                  mOpen;

@@ -71,6 +71,7 @@
 #include "jsondb-proxy.h"
 #include "jsondb-map-reduce.h"
 #include "jsondbbtreestorage.h"
+#include "jsondbephemeralstorage.h"
 #include "schemamanager_impl_p.h"
 #include "qsonobjecttypes_impl_p.h"
 
@@ -492,6 +493,9 @@ JsonDb::~JsonDb()
 
 bool JsonDb::open()
 {
+    // init ephemeral partition
+    mEphemeralStorage = new JsonDbEphemeralStorage(this);
+
     // open system partition
     QString systemFileName = mFilePath + JsonDbString::kSystemPartitionName + QLatin1String(".db");
     JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(systemFileName, JsonDbString::kSystemPartitionName, this);
@@ -619,12 +623,6 @@ QsonMap JsonDb::find(const JsonDbOwner *owner, QsonMap obj, const QString &parti
     int limit = obj.valueInt(JsonDbString::kLimitStr, -1);
     int offset = obj.valueInt(JsonDbString::kOffsetStr, 0);
 
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    if (!storage) {
-        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
-        return makeResponse(resultmap, errormap);
-    }
-
     if ( limit < -1 )
         setError( errormap, JsonDbError::InvalidLimit, "Invalid limit" );
     else if ( offset < 0 )
@@ -639,6 +637,15 @@ QsonMap JsonDb::find(const JsonDbOwner *owner, QsonMap obj, const QString &parti
         if (!parsedQuery.queryTerms.size() && !parsedQuery.orderTerms.size()) {
             setError( errormap, JsonDbError::MissingQuery, QString("Missing query: ") + parsedQuery.queryExplanation.join("\n"));
             return makeResponse( resultmap, errormap );
+        }
+
+        if (partition == JsonDbString::kEphemeralPartitionName)
+            return mEphemeralStorage->query(parsedQuery, limit, offset);
+
+        JsonDbBtreeStorage *storage = findPartition(partition);
+        if (!storage) {
+            setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+            return makeResponse(resultmap, errormap);
         }
 
         QStringList explanation = parsedQuery.queryExplanation;
@@ -864,6 +871,44 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
     }
     object.computeVersion();
 
+    if (partition == JsonDbString::kEphemeralPartitionName
+            || objectType == JsonDbString::kNotificationTypeStr) { // hack! remove me soon
+        const bool isNotification = objectType == JsonDbString::kNotificationTypeStr;
+        QsonMap master;
+        bool exists = mEphemeralStorage->get(object.uuid(), &master);
+        if (exists && isNotification) {
+            // ensure this objects belongs to this connection so that other clients
+            // cannot update / remove someone else's notifications
+            if (owner->ownerId() != master.valueString(JsonDbString::kOwnerStr)) {
+                setError(errormap, JsonDbError::MismatchedNotifyId, "Cannot touch notification objects that doesn't belong to you");
+                return makeResponse(resultmap, errormap);
+            }
+        }
+        bool deleted = object.valueBool(JsonDbString::kDeletedStr, false);
+        if (deleted && !exists) {
+            setError(errormap, JsonDbError::MissingObject, QLatin1String("Cannot remove non-existing ephemeral object"));
+            return makeResponse(resultmap, errormap);
+        }
+
+        QsonMap response;
+        if (deleted) {
+            response = mEphemeralStorage->remove(master);
+            if (isNotification)
+                removeNotification(uuid);
+            checkNotifications(master, Notification::Delete);
+        } else if (!exists) {
+            response = mEphemeralStorage->create(object);
+            if (isNotification)
+                createNotification(owner, object);
+            checkNotifications(object, Notification::Create);
+        } else {
+            response = mEphemeralStorage->update(object);
+            checkNotifications(object, Notification::Update);
+        }
+
+        return response;
+    }
+
     JsonDbBtreeStorage *storage = findPartition(partition);
     if (!storage) {
         setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
@@ -984,16 +1029,12 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
         QString oldType = _delrec.valueString(JsonDbString::kTypeStr);
         if (oldType == JsonDbString::kSchemaTypeStr)
             removeSchema(_delrec.valueString("name"));
-        else if (oldType == JsonDbString::kNotificationTypeStr)
-            removeNotification(uuid);
     }
 
     // create new schema, map, etc.
     if (!forRemoval && (forCreation || headVersionUpdated)) {
         if (objectType == JsonDbString::kSchemaTypeStr)
             setSchema(object.valueString("name"), object.subObject("schema"));
-        else if (objectType == JsonDbString::kNotificationTypeStr)
-            createNotification(owner, master);
         else if (objectType == kIndexTypeStr)
             addIndex(master, partition);
     }
@@ -1131,14 +1172,10 @@ QsonMap JsonDb::updateViewObject(const JsonDbOwner *owner, QsonMap& object, cons
     // handle removing old schema, map, etc.
     if (oldType == JsonDbString::kSchemaTypeStr)
         removeSchema(_delrec.valueString("name"));
-    else if (oldType == JsonDbString::kNotificationTypeStr)
-        removeNotification(uuid);
 
     // create new schema, map, etc.
     if (objectType == JsonDbString::kSchemaTypeStr)
         setSchema(object.valueString("name"), object.subObject("schema"));
-    else if (objectType == JsonDbString::kNotificationTypeStr)
-        createNotification(owner, master);
 
     checkNotifications( (action == Notification::Delete ? _delrec : object), action );
 
@@ -1167,11 +1204,12 @@ QsonMap JsonDb::remove(const JsonDbOwner *owner, const QsonMap &object, const QS
 
     // quick fix for the case when object only contains _uuid
     // TODO: refactor
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    QsonMap delrec;
-    bool gotDelrec = storage->getObject(uuid, delrec, objectType);
-    if (!gotDelrec)
-        delrec = object;
+    QsonMap delrec = object;
+    bool exists = false;
+    if (JsonDbBtreeStorage *storage = findPartition(partition))
+        exists = storage->getObject(uuid, delrec, objectType);
+    if (!exists)
+        mEphemeralStorage->get(object.uuid(), &delrec);
 
     QsonMap tombstone;
     tombstone.insert(JsonDbString::kUuidStr, uuid);
@@ -1220,7 +1258,7 @@ QsonMap JsonDb::getObjects(const QString &keyName, const QVariant &key, const QS
     return QsonMap();
 }
 
-void JsonDb::checkNotifications( QsonMap object, Notification::Action action )
+void JsonDb::checkNotifications(QsonMap object, Notification::Action action)
 {
     //DBG() << object;
 
