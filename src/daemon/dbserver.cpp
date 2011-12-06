@@ -230,7 +230,7 @@ JsonDbOwner *DBServer::getOwner(QsonStream *stream)
     if (!mOwners.contains(device)) {
         // security hole
         JsonDbOwner *owner = new JsonDbOwner(this);
-        owner->setOwnerId("unknown app");
+        owner->setOwnerId(QString::fromLatin1("unknown app %1").arg((unsigned int)stream));
         owner->setDomain("unknown app domain");
         mOwners[stream->device()] = owner;
     }
