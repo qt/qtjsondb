@@ -186,39 +186,6 @@ void TestJsonDbListModel::cleanupTestCase()
     deleteDbFiles();
 }
 
-void TestJsonDbListModel::notified( const QString& notifyUuid,
-				 const QVariant& object, 
-				 const QString& action )
-{
-    mNotificationId = notifyUuid;
-    mNotifications << Notification( notifyUuid, object, action );
-    if (mWaitingForNotification && mId.isValid()) {
-        mTimer.stop();
-	mEventLoop.exit(0);
-    }
-}
-
-void TestJsonDbListModel::response( int id, const QVariant& data )
-{
-    mId     = id;
-    mData   = data;
-    mLastUuid = data.toMap().value("_uuid").toString();
-    if (!mWaitingForNotification || mNotificationId.isValid()) {
-        mTimer.stop();
-        mEventLoop.exit(0);
-    }
-}
-
-void TestJsonDbListModel::error( int id, int code, const QString& message )
-{
-    qDebug() << Q_FUNC_INFO << id << code << message;
-    mId      = id;
-    mCode    = code;
-    mMessage = message;
-    mTimer.stop();
-    mEventLoop.exit(0);
-}
-
 void TestJsonDbListModel::waitForItemsCreated(int items)
 {
     mItemsCreated = 0;
@@ -228,7 +195,11 @@ void TestJsonDbListModel::waitForItemsCreated(int items)
 
 void TestJsonDbListModel::waitForExitOrTimeout()
 {
-    mTimer.singleShot(mClientTimeout, &mEventLoop, SLOT(quit()));
+    QTimer timer;
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
+    QObject::connect(&timer, SIGNAL(timeout()), &mEventLoop, SLOT(quit()));
+    timer.start(mClientTimeout);
+    mElapsedTimer.start();
     mEventLoop.exec(QEventLoop::AllEvents);
 }
 
@@ -755,7 +726,6 @@ QStringList TestJsonDbListModel::getOrderValues(const JsonDbListModel *listModel
 void TestJsonDbListModel::modelReset()
 {
     //qDebug() << "TestJsonDbListModel::modelReset";
-    mTimer.stop();
     mEventLoop.exit(0);
 }
 void TestJsonDbListModel::dataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)
@@ -772,7 +742,6 @@ void TestJsonDbListModel::rowsInserted(const QModelIndex &parent, int first, int
     Q_UNUSED(last);
     mItemsCreated++;
     //qDebug() << "TestJsonDbListModel::rowsInserted";
-    mTimer.stop();
     mEventLoop.exit(0);
 }
 void TestJsonDbListModel::rowsRemoved(const QModelIndex &parent, int first, int last)

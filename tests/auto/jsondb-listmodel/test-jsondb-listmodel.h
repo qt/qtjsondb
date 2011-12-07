@@ -83,9 +83,6 @@ public:
     void connectListModel(JsonDbListModel *model);
 
 public slots:
-    void notified(const QString& notifyUuid, const QVariant& object, const QString& action );
-    void response(int id, const QVariant& data);
-    void error( int id, int code, const QString& message );
     void dataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
     void rowsInserted(const QModelIndex &parent, int first, int last);
     void rowsRemoved(const QModelIndex &parent, int first, int last);
@@ -127,7 +124,6 @@ private:
     bool             mWaitingForNotification;
     bool             mWaitingForDataChange;
     bool             mWaitingForRowsRemoved;
-    QTimer           mTimer;
 };
 
 #endif
