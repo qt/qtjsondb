@@ -171,9 +171,9 @@ bool DBServer::clear()
     return mJsonDb->clear();
 }
 
-void DBServer::load(const QString &jsonFileName)
+bool DBServer::load(const QString &jsonFileName)
 {
-    mJsonDb->load(jsonFileName);
+    return mJsonDb->load(jsonFileName);
 }
 
 void DBServer::sigHUP()

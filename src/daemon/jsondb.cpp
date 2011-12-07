@@ -588,26 +588,28 @@ void JsonDb::close()
     mOpen = false;
 }
 
-void JsonDb::load(const QString &jsonFileName)
+bool JsonDb::load(const QString &jsonFileName)
 {
     QFile jsonFile(jsonFileName);
     if (!jsonFile.exists()) {
         qCritical() << QString("File %1 does not exist").arg(jsonFileName);
-        return;
+        return false;
     }
     if (!jsonFile.open(QIODevice::ReadOnly)) {
         qCritical() << QString("Cannot open file %1").arg(jsonFileName);
-        return;
+        return false;
     }
 
     QByteArray json = jsonFile.readAll();
     QJSValue sv = scriptEngine()->evaluate(QString::fromUtf8(json.constData(), json.size()), jsonFileName);
     if (sv.isError()) {
-        qWarning() << QString("DbServer::Load load %1: error:\n").arg(jsonFileName) << sv.toVariant();
+        qCritical() << QString("DbServer::Load load %1: error:\n").arg(jsonFileName) << sv.toVariant();
+        return false;
     } else if (sv.isValid()) {
         if (gDebug)
             qDebug() << QString("DbServer::Load load %1: result:\n").arg(jsonFileName) << sv.toVariant();
     }
+    return true;
 }
 
 QsonMap JsonDb::find(const JsonDbOwner *owner, QsonMap obj, const QString &partition)

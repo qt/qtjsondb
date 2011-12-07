@@ -69,7 +69,7 @@ public:
     bool start();
     bool socket();
     bool clear();
-    void load(const QString &jsonFileName);
+    bool load(const QString &jsonFileName);
 
 public slots:
     void sigTerm();

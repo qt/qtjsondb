@@ -127,6 +127,7 @@ static void usage()
          << "     -pid pidfilename" << endl
          << "     -load file.json     Load objects from a json file" << endl
          << "     -json" << endl
+         << "     -terminate          Terminate after loading files" << endl
          << "     -reject-stale-updates" << endl
          << "     -validate-schemas   Validate schemas of objects on create and update" << endl
          << "     -enforce-access-control " << endl
@@ -174,6 +175,7 @@ int main(int argc, char * argv[])
     QString logFileName;
     QCoreApplication app(argc, argv);
     QStringList args = QCoreApplication::arguments();
+    bool terminate = false;
 
     progname = args.takeFirst();
     while (args.size()) {
@@ -199,6 +201,8 @@ int main(int argc, char * argv[])
             if (!args.size())
                 usage();
             jsonFiles.append(args.takeFirst());
+        } else if (arg == "-terminate") {
+            terminate = true;
 #ifndef QT_NO_DEBUG_OUTPUT
         } else if (arg == "-debug") {
             gDebug = true;
@@ -291,8 +295,14 @@ int main(int argc, char * argv[])
 
     if (jsonFiles.size()) {
         foreach (QString jsonFile, jsonFiles) {
-            server.load(jsonFile);
+            bool ok = server.load(jsonFile);
+            if (!ok) {
+                qCritical() << "Failed to load" << jsonFile;
+                return -1;
+            }
         }
     }
+    if (terminate)
+        return 0;
     return app.exec();
 }
