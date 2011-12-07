@@ -1659,8 +1659,9 @@ bool JsonDbBtreeStorage::checkQuota(const JsonDbOwner *owner, int size) const
 
 bool JsonDbBtreeStorage::addToQuota(const JsonDbOwner *owner, int size)
 {
-    if (!size)
+    if (owner->storageQuota() <= 0)
         return true;
+
     const QString ownerId(owner->ownerId());
     if (ownerId.isEmpty())
         return true;

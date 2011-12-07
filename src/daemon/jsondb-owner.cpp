@@ -49,7 +49,7 @@ namespace QtAddOn { namespace JsonDb {
 bool gEnforceAccessControlPolicies = false;
 
 JsonDbOwner::JsonDbOwner( QObject *parent )
-    : QObject(parent), mStorageQuota(100*1000*1000), mAllowAll(false)
+    : QObject(parent), mStorageQuota(-1), mAllowAll(false)
 {
     QList<QString> defaultQueries;
     defaultQueries.append(".*");
