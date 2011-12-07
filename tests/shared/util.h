@@ -68,6 +68,7 @@ inline QString findFile(const char *srcdir, const char *filename)
 inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketName, const QStringList &args)
 {
     static bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
+    static bool useValgrind = qgetenv("AUTOTEST_VALGRIND_JSONDB").toInt() == 1;
     if (dontlaunch)
         return 0;
     QString jsondb_app = QString::fromLocal8Bit(prefix) + QDir::separator() + "jsondb";
@@ -82,15 +83,20 @@ inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketNam
     process->setProcessEnvironment(env);
     ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
     qDebug() << "Starting process" << jsondb_app << args << "with socket" << socketName;
-    process->start(jsondb_app, args);
-
+    if (useValgrind) {
+        QStringList args1 = args;
+        args1.prepend(jsondb_app);
+        process->start("valgrind", args1);
+    } else {
+        process->start(jsondb_app, args);
+    }
     if (!process->waitForStarted())
         qFatal("Unable to start jsondb database process");
 
     /* Wait until the jsondb is accepting connections */
     int tries = 0;
     bool connected = false;
-    while (!connected && tries++ < 10) {
+    while (!connected && tries++ < 100) {
         QLocalSocket socket;
         socket.connectToServer(socketName);
         if (socket.waitForConnected())
