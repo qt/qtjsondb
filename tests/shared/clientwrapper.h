@@ -43,6 +43,7 @@
 #define CLIENTWRAPPER_H
 
 #include <QEventLoop>
+#include <QElapsedTimer>
 
 #include "private/jsondb-connection_p.h"
 #include "jsondb-client.h"
@@ -60,8 +61,10 @@
     (result)->mLastUuid    = QString(); \
     \
     QTimer timer; \
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout())); \
     QObject::connect(&timer, SIGNAL(timeout()), &eventloop, SLOT(quit())); \
     timer.start(mClientTimeout);                                       \
+    mElapsedTimer.start(); \
     eventloop.exec(QEventLoop::AllEvents); \
     if (debug_output) { \
         qDebug() << "waitForResponse" << "expected id" << givenid_ << "got id" << (result)->mId; \
@@ -108,12 +111,12 @@ public:
         : QObject(parent), debug_output(false)
         , mClient(0), mCode(0), mNeedId(false), mNotificationWaitCount(0), mClientTimeout(20000)
     {
+        if (qgetenv("JSONDB_CLIENT_TIMEOUT").size())
+            mClientTimeout = QString::fromLatin1(qgetenv("JSONDB_CLIENT_TIMEOUT")).toLong();
     }
 
     void connectToServer()
     {
-      if (qgetenv("JSONDB_CLIENT_TIMEOUT").size())
-            mClientTimeout = QString::fromLatin1(qgetenv("JSONDB_CLIENT_TIMEOUT")).toLong();
         mClient = new Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)(this);
         connect(mClient, SIGNAL(response(int,QVariant)),
                 this, SLOT(response(int,QVariant)));
@@ -136,10 +139,13 @@ public:
     int mNotificationWaitCount;
     QList<Notification> mNotifications;
     quint32 mClientTimeout;
+    QElapsedTimer mElapsedTimer;
 
 protected slots:
     virtual void notified(const QString &notifyUuid, const QVariant &object, const QString &action)
     {
+        if (debug_output)
+            qDebug() << "notified" << notifyUuid << action << endl << object;
         mNotificationId = notifyUuid;
         mNotifications << Notification(notifyUuid, object, action);
         mNotificationWaitCount -= 1;
@@ -151,6 +157,8 @@ protected slots:
 
     virtual void response(int id, const QVariant &data)
     {
+        if (debug_output)
+            qDebug() << "response" << id << endl << data;
         mId = id;
         mData = data;
         mLastUuid = data.toMap().value("_uuid").toString();
@@ -162,6 +170,8 @@ protected slots:
 
     virtual void error(int id, int code, const QString &message)
     {
+        if (debug_output)
+            qDebug() << "response" << id << code << message;
         mId = id;
         mCode = code;
         mMessage = message;
@@ -169,6 +179,10 @@ protected slots:
     }
     virtual void disconnected()
     {
+    }
+    virtual void timeout()
+    {
+        qDebug() << "timeout" << mElapsedTimer.elapsed();
     }
 };
 
