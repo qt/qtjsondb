@@ -23,11 +23,11 @@
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondb-listmodel;date &amp;&amp; ./tst_jsondb-listmodel -platform minimal&amp;&amp; date</step>
       </case>
       <case name="tst_qbtree" requirement="BAT" component="qt5jsondb"  timeout="2000">
-        <description>Btree tests</description>sphone
+        <description>Btree tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/qbtree;date &amp;&amp; ./tst_qbtree&amp;&amp; date</step>
       </case>
       <case name="tst_qsonstream" requirement="BAT" component="qt5jsondb"  timeout="2000">
-        <description>Client-Server IPC tests</description>sphone
+        <description>Client-Server IPC tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/qsonstream;date &amp;&amp; ./tst_qsonstream &amp;&amp; date</step>
       </case>
     </set>
