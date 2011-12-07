@@ -233,6 +233,7 @@ void TestJsonDbClient::connectionStatus()
     QEventLoop ev;
     QTimer timer;
     QObject::connect(&timer, SIGNAL(timeout()), &ev, SLOT(quit()));
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
     QObject::connect(connection, SIGNAL(statusChanged()), &ev, SLOT(quit()));
 
     connection->connectToServer();
@@ -244,9 +245,10 @@ void TestJsonDbClient::connectionStatus()
     connection->setToken(QLatin1String("foobar"));
     connection->connectToServer();
     QCOMPARE((int)connection->status(), (int)JsonDbConnection::Connecting);
+    mElapsedTimer.start();
     timer.start(mClientTimeout);
     ev.exec();
-    QCOMPARE(connection->status(), JsonDbConnection::Disconnected);
+    QCOMPARE((int)connection->status(), (int)JsonDbConnection::Disconnected);
 
     delete connection;
 }
