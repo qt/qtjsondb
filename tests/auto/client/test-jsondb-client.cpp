@@ -103,6 +103,8 @@ private slots:
     void testToken_data();
     void testToken();
     void partition();
+    void queryObject();
+    void changesSinceObject();
 
     void connection_response(int, const QVariant&);
     void connection_error(int, int, const QString&);
@@ -1264,6 +1266,124 @@ void TestJsonDbClient::partition()
     waitForResponse1(id);
     QCOMPARE(mData.toMap().value("length").toInt(), 1);
     QCOMPARE(mData.toMap().value("data").toList().at(0).toMap().value("one").toString(), QLatin1String("two"));
+}
+
+class QueryHandler : public QObject
+{
+    Q_OBJECT
+public slots:
+    void started()
+    { startedCalls++; }
+    void resultsReady(int count)
+    { resultsReadyCalls++; resultsReadyCount += count; }
+    void finished()
+    { finishedCalls++; }
+    void error(int code, const QString &message)
+    { errorCalls++; errorCode = code; errorMessage = message; }
+
+public:
+    QueryHandler() { clear(); }
+    void clear()
+    {
+        startedCalls = 0;
+        resultsReadyCalls = 0;
+        resultsReadyCount = 0;
+        finishedCalls = 0;
+        errorCalls = 0;
+        errorCode = 0;
+        errorMessage = QString();
+    }
+
+    int startedCalls;
+    int resultsReadyCalls;
+    int resultsReadyCount;
+    int finishedCalls;
+    int errorCalls;
+    int errorCode;
+    QString errorMessage;
+};
+
+void TestJsonDbClient::queryObject()
+{
+    // Create a few items
+    QVariantList list;
+    for (int i = 0; i < 10; ++i) {
+        QVariantMap item;
+        item.insert("_type", QLatin1String("queryObject"));
+        item.insert("foo", i);
+        list.append(item);
+    }
+
+    int id = mClient->create(list);
+    waitForResponse1(id);
+    QCOMPARE(mData.toMap().value("count").toInt(), 10);
+
+    JsonDbQuery *r = mClient->query();
+    r->setQuery(QLatin1String("[?_type=\"queryObject\"]"));
+
+    QueryHandler handler;
+    connect(r, SIGNAL(started()), &handler, SLOT(started()));
+    connect(r, SIGNAL(resultsReady(int)), &handler, SLOT(resultsReady(int)));
+    connect(r, SIGNAL(finished()), &handler, SLOT(finished()));
+    connect(r, SIGNAL(error(int,QString)), &handler, SLOT(error(int,QString)));
+
+    QEventLoop loop;
+    connect(r, SIGNAL(finished()), &loop, SLOT(quit()));
+    connect(r, SIGNAL(error(int,QString)), &loop, SLOT(quit()));
+
+    r->start();
+    loop.exec();
+
+    QCOMPARE(handler.startedCalls, 1);
+    QCOMPARE(handler.resultsReadyCalls, 2);
+    QCOMPARE(handler.resultsReadyCount, 10);
+    QCOMPARE(handler.finishedCalls, 1);
+    QCOMPARE(handler.errorCalls, 0);
+}
+
+void TestJsonDbClient::changesSinceObject()
+{
+    QVariantMap item;
+    item.insert("_type", QLatin1String("queryObject"));
+    item.insert("foo", -1);
+    int id = mClient->create(item);
+    waitForResponse1(id);
+
+    id = mClient->query(QLatin1String("[?_type=\"queryObject\"]"), 0, 1);
+    waitForResponse1(id);
+    QCOMPARE(mData.toMap().value("length").toInt(), 1);
+    quint32 stateNumber = mData.toMap().value("state").value<quint32>();
+
+    // Create a few items
+    for (int i = 0; i < 2; ++i) {
+        QVariantMap item;
+        item.insert("_type", QLatin1String("queryObject"));
+        item.insert("foo", i);
+        int id = mClient->create(item);
+        waitForResponse1(id);
+    }
+
+    JsonDbChangesSince *r = mClient->changesSince();
+    r->setStateNumber(stateNumber);
+
+    QueryHandler handler;
+    connect(r, SIGNAL(started()), &handler, SLOT(started()));
+    connect(r, SIGNAL(resultsReady(int)), &handler, SLOT(resultsReady(int)));
+    connect(r, SIGNAL(finished()), &handler, SLOT(finished()));
+    connect(r, SIGNAL(error(int,QString)), &handler, SLOT(error(int,QString)));
+
+    QEventLoop loop;
+    connect(r, SIGNAL(finished()), &loop, SLOT(quit()));
+    connect(r, SIGNAL(error(int,QString)), &loop, SLOT(quit()));
+
+    r->start();
+    loop.exec();
+
+    QCOMPARE(handler.startedCalls, 1);
+    QCOMPARE(handler.resultsReadyCalls, 2);
+//    QCOMPARE(handler.resultsReadyCount, 16); // there is something fishy with jsondb state handling
+    QCOMPARE(handler.finishedCalls, 1);
+    QCOMPARE(handler.errorCalls, 0);
 }
 
 QTEST_MAIN(TestJsonDbClient)

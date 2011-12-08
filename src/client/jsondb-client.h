@@ -50,6 +50,7 @@
 
 #include "jsondb-global.h"
 #include "jsondb-error.h"
+#include "jsondb-query.h"
 
 QT_BEGIN_HEADER
 
@@ -112,10 +113,14 @@ public slots:
     { return notify(types, query, QString(), notifyTarget, notifySlot, responseTarget, responseSuccessSlot, responseErrorSlot); }
     QT_DEPRECATED
     int query(const QString &query, int offset, int limit, QObject *target, const char *successSlot, const char *errorSlot)
-    { return this->query(query, offset, limit, QString(), target, successSlot, errorSlot); }
+    { return this->query(query, offset, limit, QMap<QString,QVariant>(), QString(), target, successSlot, errorSlot); }
     QT_DEPRECATED
     int changesSince(int stateNumber, QStringList types, QObject *target, const char *successSlot, const char *errorSlot)
     { return changesSince(stateNumber, types, QString(), target, successSlot, errorSlot); }
+    QT_DEPRECATED
+    int query(const QString &query, int offset, int limit,
+              const QString &partitionName,
+              QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
 
     QT_DEPRECATED
     int create(const QsonObject &object, const QString &partitionName,
@@ -137,10 +142,15 @@ public slots:
     int notify(NotifyTypes types, const QString &query, const QString &partitionName,
                QObject *notifyTarget = 0, const char *notifySlot = 0,
                QObject *responseTarget = 0, const char *responseSuccessSlot = 0, const char *responseErrorSlot = 0);
-    int query(const QString &query, int offset = 0, int limit = -1, const QString &partitionName = QString(),
+    int query(const QString &query, int offset = 0, int limit = -1,
+              const QMap<QString,QVariant> &bindings = QMap<QString,QVariant>(),
+              const QString &partitionName = QString(),
               QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
     int changesSince(int stateNumber, QStringList types = QStringList(), const QString &partitionName = QString(),
                      QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+
+    JsonDbQuery *query();
+    JsonDbChangesSince *changesSince();
 
     QT_DEPRECATED
     int find(const QVariant &query);

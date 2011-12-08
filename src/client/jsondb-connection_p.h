@@ -88,7 +88,9 @@ public:
     static QVariantMap makeUpdateRequest(const QVariant &, const QString &partitionName = QString());
     static QVariantMap makeRemoveRequest(const QVariant &, const QString &partitionName = QString());
 
-    static QVariantMap makeQueryRequest(const QString &, int offset = 0, int limit = -1, const QString &partitionName = QString());
+    static QVariantMap makeQueryRequest(const QString &, int offset = 0, int limit = -1,
+                                        const QMap<QString,QVariant> &bindings = QMap<QString,QVariant>(),
+                                        const QString &partitionName = QString());
     static QsonObject makeCreateRequest(const QsonObject &, const QString &partitionName = QString());
     static QsonObject makeUpdateRequest(const QsonObject &, const QString &partitionName = QString());
     static QsonObject makeRemoveRequest(const QsonObject &, const QString &partitionName = QString());

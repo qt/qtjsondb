@@ -406,9 +406,27 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
     Q_ASSERT(d->connection);
     int id = d->connection->makeRequestId();
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-    QVariantMap request = JsonDbConnection::makeQueryRequest(queryString, offset, limit, partitionName);
+    QVariantMap request = JsonDbConnection::makeQueryRequest(queryString, offset, limit, QMap<QString,QVariant>(), partitionName);
     d->send(id, request);
     return id;
+}
+
+int JsonDbClient::query(const QString &queryString, int offset, int limit,
+                        const QMap<QString,QVariant> &bindings,
+                        const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
+{
+    Q_D(JsonDbClient);
+    Q_ASSERT(d->connection);
+    int id = d->connection->makeRequestId();
+    d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
+    QVariantMap request = JsonDbConnection::makeQueryRequest(queryString, offset, limit, bindings, partitionName);
+    d->send(id, request);
+    return id;
+}
+
+JsonDbQuery *JsonDbClient::query()
+{
+    return new JsonDbQuery(this, this);
 }
 
 /*!
@@ -734,6 +752,12 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
 
     return id;
 }
+
+JsonDbChangesSince *JsonDbClient::changesSince()
+{
+    return new JsonDbChangesSince(this, this);
+}
+
 
 /*!
     \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notifyUuid, const QVariant &object, const QString &action)

@@ -24,12 +24,14 @@ HEADERS += \
     jsondb-client_p.h \
     jsondb-connection_p.h \
     jsondb-connection_p_p.h \
+    jsondb-query.h \
     jsondb-oneshot_p.h
 
 SOURCES += \
     jsondb-error.cpp \
     jsondb-client.cpp \
     jsondb-connection.cpp \
+    jsondb-query.cpp \
     jsondb-oneshot.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondb.name

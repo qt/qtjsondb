@@ -145,7 +145,9 @@ QsonObject JsonDbConnection::makeFindRequest( const QsonObject& object )
     return request;
 }
 
-QVariantMap JsonDbConnection::makeQueryRequest(const QString &queryString, int offset, int limit, const QString &partitionName)
+QVariantMap JsonDbConnection::makeQueryRequest(const QString &queryString, int offset, int limit,
+                                               const QMap<QString,QVariant> &bindings,
+                                               const QString &partitionName)
 {
     QVariantMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kFindStr);
@@ -155,6 +157,8 @@ QVariantMap JsonDbConnection::makeQueryRequest(const QString &queryString, int o
         object.insert(JsonDbString::kOffsetStr, offset);
     if (limit != -1)
         object.insert(JsonDbString::kLimitStr, limit);
+    if (!bindings.isEmpty())
+        object.insert(QLatin1String("bindings"), bindings);
     request.insert(JsonDbString::kObjectStr, object);
     request.insert(JsonDbString::kPartitionStr, partitionName);
     return request;
