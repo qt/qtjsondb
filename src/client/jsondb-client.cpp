@@ -724,6 +724,89 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
 }
 
 /*!
+  Creates a notification for a given notification \a types and \a query in a \a partition.
+
+  When an object that is matched a \a query is created/update/removed (depending on the given
+  \a types), the \a notifySlot will be invoken on \a notifyTarget.
+
+  Upon success, invokes \a responseSuccessSlot of \a responseTarget, if provided, else emits \c response().
+  On error, invokes \a responseErrorSlot of \a responseTarget, if provided, else emits \c error().
+
+  \a notifySlot has the following signature notifySlot(const QString &notifyUuid, const QVariant &object, const QString &action)
+
+  Returns a uuid of a notification object that is passed as notifyUuid argument to the \a notifySlot.
+
+  \sa unregisterNotification
+*/
+QString JsonDbClient::registerNotification(NotifyTypes types, const QString &query, const QString &partition,
+                                           QObject *notifyTarget, const char *notifySlot,
+                                           QObject *responseTarget, const char *responseSuccessSlot, const char *responseErrorSlot)
+{
+    Q_D(JsonDbClient);
+    Q_ASSERT(d->connection);
+
+    QVariantList actions;
+    if (types & JsonDbClient::NotifyCreate)
+        actions.append(JsonDbString::kCreateStr);
+    if (types & JsonDbClient::NotifyRemove)
+        actions.append(JsonDbString::kRemoveStr);
+    if (types & JsonDbClient::NotifyUpdate)
+        actions.append(JsonDbString::kUpdateStr);
+
+    QString uuid = QUuid::createUuid().toString();
+    QVariantMap create;
+    create.insert(JsonDbString::kUuidStr, uuid);
+    create.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
+    create.insert(JsonDbString::kQueryStr, query);
+    create.insert(JsonDbString::kActionsStr, actions);
+    create.insert(JsonDbString::kPartitionStr, partition);
+
+    int id = d->connection->makeRequestId();
+
+    d->ids.insert(id, JsonDbClientPrivate::Callback(responseTarget, responseSuccessSlot, responseErrorSlot));
+    if (notifyTarget && notifySlot) {
+        const QMetaObject *mo = notifyTarget->metaObject();
+        int idx = mo->indexOfMethod(notifySlot+1);
+        if (idx < 0) {
+            QByteArray norm = QMetaObject::normalizedSignature(notifySlot);
+            idx = mo->indexOfMethod(norm.constData()+1);
+        }
+        if (idx < 0) {
+            qWarning("JsonDbClient::notify: No such method %s::%s",
+                     mo->className(), notifySlot);
+        } else {
+            d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback(notifyTarget, mo->method(idx)));
+        }
+    } else {
+        d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
+    }
+
+    QVariantMap request = JsonDbConnection::makeUpdateRequest(create, JsonDbString::kEphemeralPartitionName);
+    d->send(id, request);
+
+    return uuid;
+}
+
+/*!
+  Deletes a notification for a given \a notifyUuid.
+
+  \sa registerNotification
+*/
+void JsonDbClient::unregisterNotification(const QString &notifyUuid)
+{
+    Q_D(JsonDbClient);
+    Q_ASSERT(d->connection);
+
+    QVariantMap object;
+    object.insert(JsonDbString::kUuidStr, notifyUuid);
+
+    int id = d->connection->makeRequestId();
+    QVariantMap request = JsonDbConnection::makeRemoveRequest(object, JsonDbString::kEphemeralPartitionName);
+    d->send(id, request);
+}
+
+
+/*!
   \inmodule QtJsonDb
 
   \brief Sends a request to retrieve a description of changes since

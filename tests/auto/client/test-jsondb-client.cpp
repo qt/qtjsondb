@@ -89,6 +89,7 @@ private slots:
     void createList();
     void update();
     void find();
+    void registerNotification();
     void notify();
     void notifyRemoveBatch();
     void notifyMultiple();
@@ -496,6 +497,55 @@ void TestJsonDbClient::notify()
     id = mClient->remove(notifyObject);
     waitForResponse1(id);
 }
+
+void TestJsonDbClient::registerNotification()
+{
+    int id = 400;
+
+    // Create a notification object
+    JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
+    const QString query = "[?_type=\"registerNotification\"]";
+    QString notifyUuid = mClient->registerNotification(actions, query);
+
+    // Create a registerNotification object
+    QVariantMap object;
+    object.insert("_type","registerNotification");
+    object.insert("name","test1");
+    id = mClient->create(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+    QVariant uuid = mData.toMap().value("_uuid");
+    QString version = mData.toMap().value("_version").toString();
+
+    QCOMPARE(mNotifications.size(), 1);
+    Notification n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QString("create"));
+
+    // Update the registerNotification object
+    object.insert("_uuid",uuid);
+    object.insert("_version", version);
+    object.insert("name","test2");
+    id = mClient->update(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+
+    QCOMPARE(mNotifications.size(), 1);
+    n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QLatin1String("update"));
+
+    // Remove the registerNotification object
+    id = mClient->remove(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+
+    QCOMPARE(mNotifications.size(), 1);
+    n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QLatin1String("remove"));
+
+    // Remove the notification object
+    mClient->unregisterNotification(notifyUuid);
+}
+
 
 static const char *rbnames[] = { "Fred", "Joe", "Sam", NULL };
 

@@ -47,6 +47,7 @@
 #include <QList>
 #include <QStringList>
 #include <QScopedPointer>
+#include <QUuid>
 
 #include "jsondb-global.h"
 #include "jsondb-error.h"
@@ -139,9 +140,16 @@ public slots:
     int remove(const QVariant &object, const QString &partitionName = QString(),
                QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
 
+    QT_DEPRECATED
     int notify(NotifyTypes types, const QString &query, const QString &partitionName,
                QObject *notifyTarget = 0, const char *notifySlot = 0,
                QObject *responseTarget = 0, const char *responseSuccessSlot = 0, const char *responseErrorSlot = 0);
+
+    QString registerNotification(NotifyTypes types, const QString &query, const QString &partitionName = QString(),
+                                 QObject *notifyTarget = 0, const char *notifySlot = 0,
+                                 QObject *responseTarget = 0, const char *responseSuccessSlot = 0, const char *responseErrorSlot = 0);
+    void unregisterNotification(const QString &notifyUuid);
+
     int query(const QString &query, int offset = 0, int limit = -1,
               const QMap<QString,QVariant> &bindings = QMap<QString,QVariant>(),
               const QString &partitionName = QString(),
