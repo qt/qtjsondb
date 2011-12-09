@@ -109,8 +109,12 @@ void JsonDbQueryPrivate::_q_response(int reqId, const QVariant &response_)
 
     r = QVariantList(); // just to free this memory
 
-    emit q->resultsReady(results.size());
-    QMetaObject::invokeMethod(q, "_q_emitMoreData", Qt::QueuedConnection);
+    if (!results.isEmpty()) {
+        emit q->resultsReady(results.size());
+        QMetaObject::invokeMethod(q, "_q_emitMoreData", Qt::QueuedConnection);
+    } else {
+        emit q->finished();
+    }
 }
 
 void JsonDbQueryPrivate::_q_emitMoreData()
