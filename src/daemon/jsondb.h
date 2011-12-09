@@ -118,7 +118,6 @@ public:
     QsonMap changesSince(const JsonDbOwner *owner, QsonMap object, const QString &partition = QString());
 
     JsonDbOwner *owner() const { return mOwner; }
-    QJSEngine *scriptEngine() { return mScriptEngine; }
     bool load(const QString &jsonFileName);
 
     QsonMap getObjects(const QString &keyName, const QVariant &key, const QString &type = QString(), const QString &partition = QString()) const;
@@ -205,7 +204,6 @@ protected:
     JsonDbOwner *mOwner;
     QHash<QString, JsonDbBtreeStorage *> mStorages;
     JsonDbEphemeralStorage *mEphemeralStorage;
-    QJSEngine            *mScriptEngine;
     JsonDbProxy          *mJsonDbProxy;
     bool                  mOpen;
     QString               mFilePath;

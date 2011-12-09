@@ -465,7 +465,6 @@ QVariant JsonDb::propertyLookup(QsonMap object, const QStringList &path)
 JsonDb::JsonDb(const QString &path, QObject *parent)
     : QObject(parent)
     , mOwner(0)
-    , mScriptEngine(new QJSEngine(this))
     , mJsonDbProxy(new JsonDbProxy(0, this, this))
     , mOpen(false)
 {
@@ -479,9 +478,6 @@ JsonDb::JsonDb(const QString &path, QObject *parent)
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId("com.nrcc.noklab.JsonDb");
 
-    QJSValue globalObject = mScriptEngine->globalObject();
-    globalObject.setProperty("jsondb", mScriptEngine->newQObject(mJsonDbProxy));
-    globalObject.setProperty("console", mScriptEngine->newQObject( new Console));
     mJsonDbProxy->setOwner(owner());
 
 }
@@ -601,14 +597,21 @@ bool JsonDb::load(const QString &jsonFileName)
     }
 
     QByteArray json = jsonFile.readAll();
-    QJSValue sv = scriptEngine()->evaluate(QString::fromUtf8(json.constData(), json.size()), jsonFileName);
+    QJSEngine *scriptEngine = new QJSEngine(this);
+    QJSValue globalObject = scriptEngine->globalObject();
+    globalObject.setProperty("jsondb", scriptEngine->newQObject(mJsonDbProxy));
+    globalObject.setProperty("console", scriptEngine->newQObject( new Console));
+
+    QJSValue sv = scriptEngine->evaluate(QString::fromUtf8(json.constData(), json.size()), jsonFileName);
     if (sv.isError()) {
         qCritical() << QString("DbServer::Load load %1: error:\n").arg(jsonFileName) << sv.toVariant();
+        delete scriptEngine;
         return false;
     } else if (sv.isValid()) {
         if (gDebug)
             qDebug() << QString("DbServer::Load load %1: result:\n").arg(jsonFileName) << sv.toVariant();
     }
+    delete scriptEngine;
     return true;
 }
 
