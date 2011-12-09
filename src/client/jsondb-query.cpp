@@ -104,7 +104,7 @@ void JsonDbQueryPrivate::_q_response(int reqId, const QVariant &response_)
     results.reserve(results.size() + count);
     for (int i = 0; i < count; ++i)
         results.append(r.at(i).toMap());
-    for (int i = count; i < results.size(); ++i)
+    for (int i = count; i < r.size(); ++i)
         moreResults.append(r.at(i).toMap());
 
     r = QVariantList(); // just to free this memory
@@ -304,7 +304,7 @@ void JsonDbChangesSincePrivate::_q_response(int reqId, const QVariant &response_
     results.reserve(results.size() + count);
     for (int i = 0; i < count; ++i)
         results.append(r.at(i).toMap());
-    for (int i = count; i < results.size(); ++i)
+    for (int i = count; i < r.size(); ++i)
         moreResults.append(r.at(i).toMap());
 
     r = QVariantList(); // just to free this memory

@@ -1325,7 +1325,7 @@ public slots:
     void started()
     { startedCalls++; }
     void resultsReady(int count)
-    { resultsReadyCalls++; resultsReadyCount += count; }
+    { resultsReadyCalls++; resultsReadyCount = count; }
     void finished()
     { finishedCalls++; }
     void error(int code, const QString &message)
@@ -1387,8 +1387,12 @@ void TestJsonDbClient::queryObject()
     QCOMPARE(handler.startedCalls, 1);
     QCOMPARE(handler.resultsReadyCalls, 2);
     QCOMPARE(handler.resultsReadyCount, 10);
+    QCOMPARE(r->resultsAvailable(), 10);
     QCOMPARE(handler.finishedCalls, 1);
     QCOMPARE(handler.errorCalls, 0);
+    QList<QVariantMap> results = r->takeResults();
+    QCOMPARE(results.size(), 10);
+    QCOMPARE(r->resultsAvailable(), 0);
 }
 
 void TestJsonDbClient::changesSinceObject()
