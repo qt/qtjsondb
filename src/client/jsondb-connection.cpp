@@ -146,7 +146,7 @@ QsonObject JsonDbConnection::makeFindRequest( const QsonObject& object )
 }
 
 QVariantMap JsonDbConnection::makeQueryRequest(const QString &queryString, int offset, int limit,
-                                               const QMap<QString,QVariant> &bindings,
+                                               const QVariantMap &bindings,
                                                const QString &partitionName)
 {
     QVariantMap request;

@@ -406,7 +406,7 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
     Q_ASSERT(d->connection);
     int id = d->connection->makeRequestId();
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-    QVariantMap request = JsonDbConnection::makeQueryRequest(queryString, offset, limit, QMap<QString,QVariant>(), partitionName);
+    QVariantMap request = JsonDbConnection::makeQueryRequest(queryString, offset, limit, QVariantMap(), partitionName);
     d->send(id, request);
     return id;
 }
