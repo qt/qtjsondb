@@ -283,8 +283,8 @@ void ObjectTable::reindexObjects(const QString &propertyName, const QStringList 
         index->begin();
     for (bool ok = cursor.first(); ok; ok = cursor.next()) {
         QByteArray baKey, baObject;
-        bool ok = cursor.current(baKey, baObject);
-        Q_ASSERT(ok);
+        bool rok = cursor.current(baKey, baObject);
+        Q_ASSERT(rok);
         if (baKey.size() != 16) // state key is 5 bytes, or history key is 5 + 16 bytes
             continue;
         ObjectKey objectKey(baKey);
