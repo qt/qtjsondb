@@ -62,6 +62,8 @@ QBtree::~QBtree()
 
 bool QBtree::open(const QString &filename, QBtree::DbFlags flags)
 {
+    close();
+
     mFilename = filename;
 
     int btflags = 0;
@@ -78,7 +80,7 @@ bool QBtree::open(const QString &filename, QBtree::DbFlags flags)
 
     mBtree = btree_open(mFilename.toLocal8Bit().constData(), btflags, 0644);
     if (!mBtree) {
-        qDebug() << "QBtree::open" << "failed" << errno;
+        qDebug() << "QBtree::open" << "failed" << mFilename << errno;
         return false;
     }
     if (mCacheSize)
