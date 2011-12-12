@@ -77,45 +77,42 @@ Rectangle {
     }
 
 //! [Creating a Map Object]
-    function createMapDefinition(cb)
+    function createMap(cb)
     {
         console.log("Creating map");
         var mapDefinition = {
             "_type": "Map",
             "targetType": "PhoneView",
             "map": {
-                "Contact": (function (c) {
-                    for (var i in c.phoneNumbers) {
-                        var info = c.phoneNumbers[i];
-                        for (var k in info)
-                            jsondb.emit({ "key": info[k], "firstName": c.firstName, "lastName": c.lastName});
-                    }
-                }
-                           ).toString()
+                "Contact":
+                    (function (c) {
+                        for (var i in c.phoneNumbers) {
+                            var info = c.phoneNumbers[i];
+                            for (var k in info)
+                                jsondb.emit({"phoneNumber": info[k], "firstName": c.firstName, "lastName": c.lastName});
+                        }
+                        }
+                    ).toString()
             }
         };
-        return mapDefinition;
-    }
 //! [Creating a Map Object]
 
 //! [Installing the Map Object]
-    function installMap(cb)
-    {
-        mapDefinition = createMapDefinition();
         jsondb.query('[?_type="Map"][?targetType="PhoneView"]', function (r) {
                          if (r.data.length > 0) {
                              cb(r.data[0])
                          } else {
-                             jsondb.emit(mapDefinition, cb, function (e) { console.log(e) });
+                             jsondb.create(mapDefinition, function (v) { cb(v); }, function (e) { console.log(e) });
                          }
                      });
-    }
 //! [Installing the Map Object]
+    }
+
 
     JsonDbListModel {
         id: contacts
-        query: '[?_type="PhoneView"][/key]'
-        roleNames: ["key", "value"]
+        query: '[?_type="PhoneView"][/phoneNumber]'
+        roleNames: ["phoneNumber", "value"]
         limit: 40
     }
 
@@ -153,7 +150,7 @@ Rectangle {
         delegate: Row {
             spacing: 10
             Text {
-                text: key + ":   " + value.firstName + ", " + value.lastName
+                text: phoneNumber + ":   " + firstName + ", " + lastName
                 font.pointSize: fontsize
                 MouseArea {
                    anchors.fill: parent;
