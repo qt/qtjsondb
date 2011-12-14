@@ -2043,7 +2043,7 @@ void TestJsonDb::mapMapFunctionError()
     mapDefinition.insert(JsonDbString::kTypeStr, QString("Map"));
     mapDefinition.insert("targetType", QString("MyViewType"));
     mapDefinition.insert("sourceType", QString("Contact"));
-    mapDefinition.insert("map", QString("function map (c) { invalidobject.fail(); };")); // error in map function
+    mapDefinition.insert("map", QString("function map (c) { invalidobject.fail(); }")); // error in map function
 
     QsonMap defRes = mJsonDb->create(mOwner, mapDefinition);
     verifyGoodResult(defRes);

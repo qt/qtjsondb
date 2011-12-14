@@ -459,7 +459,7 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
             const QString &sourceType = mSourceTypes[i];
             const QString &script = sourceFunctions.valueString(sourceType);
             QJSValue mapFunction =
-                mScriptEngine->evaluate(QString("var map_%1 = %2; map_%1;").arg(sourceType).arg(script));
+                mScriptEngine->evaluate(QString("var map_%1 = (%2); map_%1;").arg(QString(sourceType).replace(".", "_")).arg(script));
             if (mapFunction.isError() || !mapFunction.isFunction())
                 setError( "Unable to parse map function: " + mapFunction.toString());
             mMapFunctions[sourceType] = mapFunction;
@@ -482,10 +482,10 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
             mScriptEngine->evaluate("var jsondb = { emit: _jsondb.create };");
 
     } else {
-        QString sourceType = mDefinition.valueString("sourceType");
+        const QString sourceType = mDefinition.valueString("sourceType");
         const QString &script = mDefinition.valueString("map");
         QJSValue mapFunction =
-            mScriptEngine->evaluate(QString("var map_%1 = %2; map_%1;").arg(sourceType).arg(script));
+            mScriptEngine->evaluate(QString("var map_%1 = (%2); map_%1;").arg(QString(sourceType).replace(".", "_")).arg(script));
         if (mapFunction.isError() || !mapFunction.isFunction())
             setError( "Unable to parse map function: " + mapFunction.toString());
         mMapFunctions[sourceType] = mapFunction;
