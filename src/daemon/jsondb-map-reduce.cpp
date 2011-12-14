@@ -498,8 +498,8 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
                 this, SLOT(lookupRequested(QJSValue,QJSValue)));
         connect(mMapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
                 this, SLOT(viewObjectEmitted(QJSValue)));
-        globalObject.setProperty("_jsondb", mScriptEngine->newQObject(mMapProxy));
-        mScriptEngine->evaluate("var jsondb = {emit: _jsondb.create, emitViewObject: _jsondb.emitViewObject, lookup: _jsondb.lookup };");
+        globalObject.setProperty("jsondb", mScriptEngine->newQObject(mMapProxy));
+        qWarning() << "Old-style Map from sourceType" << sourceType << " to targetType" << mDefinition.valueString("targetType");
     }
 }
 
@@ -547,15 +547,18 @@ void JsonDbMapDefinition::unmapObject(const QsonMap &object)
 void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue &context)
 {
     QString objectType = query.property("objectType").toString();
-    if (objectType.isEmpty()) {
-        setError("No objectType provided to jsondb.lookup");
-        return;
-    }
-    if (!mSourceTypes.contains(objectType)) {
-        setError(QString("lookup requested for type %1 not in source types: %2")
-                 .arg(objectType)
-                 .arg(mSourceTypes.join(", ")));
-        return;
+    // compatibility for old style maps
+    if (mDefinition.valueType("map") == QsonObject::MapType) {
+        if (objectType.isEmpty()) {
+            setError("No objectType provided to jsondb.lookup");
+            return;
+        }
+        if (!mSourceTypes.contains(objectType)) {
+            setError(QString("lookup requested for type %1 not in source types: %2")
+                     .arg(objectType)
+                     .arg(mSourceTypes.join(", ")));
+            return;
+        }
     }
     QString findKey = query.property("index").toString();
     QJSValue findValue = query.property("value").toString();
