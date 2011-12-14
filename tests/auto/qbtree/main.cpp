@@ -87,6 +87,7 @@ private slots:
     void pageChecksum();
     void keySizes();
     void prefixSizes();
+    void prefixTest();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 flag = -1);
@@ -1107,6 +1108,82 @@ void TestQBtree::prefixSizes()
         QVERIFY(txn->put(keys[i], QString::number(i).toAscii()));
         txn->commit(0);
     }
+}
+
+typedef struct {
+    quint32 time_low;
+    quint16 time_mid;
+    quint16 time_hi_and_version;
+    quint8  clock_seq_hi_and_reserved;
+    quint8  clock_seq_low;
+    char  node[6];
+} qson_uuid_t;
+
+qson_uuid_t QsonUuidNs = {
+    0x6ba7b811,
+    0x9dad,
+    0x11d1,
+    0x80,
+    0xb4,
+    {0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8}
+};
+
+QByteArray QsonUUIDv3(const QString &source) {
+    QCryptographicHash md5(QCryptographicHash::Md5);
+    md5.addData((char *) &QsonUuidNs, sizeof(QsonUuidNs));
+    md5.addData((char *) source.constData(), source.size() * 2);
+
+    QByteArray result = md5.result();
+
+    qson_uuid_t *uuid = (qson_uuid_t*) result.data();
+    uuid->time_hi_and_version &= 0x0FFF;
+    uuid->time_hi_and_version |= (3 << 12);
+    uuid->clock_seq_hi_and_reserved &= 0x3F;
+    uuid->clock_seq_hi_and_reserved |= 0x80;
+
+    return result;
+}
+
+void TestQBtree::prefixTest()
+{
+    const char *data[4] = { "1aaaa", "1bbbb", "2aaaa", "1cccc" };
+    for (int i = 0; i < 4; ++i) {
+        QBtreeTxn *txn = db->beginReadWrite();
+        txn->put(data[i], strlen(data[i])+1, "aaaa", 5);
+        txn->commit(i);
+    }
+
+    const int count = 50000;
+    for (int i = 0; i < count; ++i) {
+        QBtreeTxn *txn = db->beginReadWrite();
+
+        QByteArray key("1Person", 7);
+        // make determenistic uuid so that the test is stable.
+        key += QUuid::fromRfc4122(QsonUUIDv3(QString::number(i))).toString();
+        txn->put(key.constData(), key.size(), "foobar", 7);
+
+        txn->commit(4+i);
+    }
+    QBtreeTxn *txn = db->beginRead();
+    QBtreeCursor cursor(txn);
+    QVERIFY(cursor.seekRange(QByteArray("1Person")));
+    int i = 0;
+    do {
+        if (i == count)
+            break;
+        QBtreeData key, value;
+        cursor.current(&key, &value);
+        if (key.size() != 7+38) {
+            QString error = QString::fromLatin1("key: '%1' (%2 bytes), value '%3' (%4 bytes). i = %5")
+                    .arg(QLatin1String(key.constData())).arg(key.size())
+                    .arg(QLatin1String(value.constData())).arg(value.size())
+                    .arg(i);
+            QVERIFY2(false, error.toLatin1().constData());
+        }
+        ++i;
+    } while (cursor.next());
+    QCOMPARE(i, count);
+    txn->abort();
 }
 
 QTEST_MAIN(TestQBtree)

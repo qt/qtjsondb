@@ -314,8 +314,10 @@ btval_reset(struct btval *btv)
         if (btv) {
                 if (btv->mp)
                         btv->mp->ref--;
-                if (btv->free_data)
+                if (btv->free_data) {
+                        assert(btv->data);
                         free(btv->data);
+                }
                 bzero(btv, sizeof(*btv));
         }
 }
@@ -2990,6 +2992,7 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
         struct mpage    *pright, *p, *mp;
         struct btval     sepkey, tmpkey, rkey, rdata;
         struct page     *copy;
+        void *allocated_block = 0;
 
         assert(bt != NULL);
         assert(bt->txn != NULL);
@@ -3074,8 +3077,8 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
                         mp->prefix.len, mp->prefix.str,
                         sepkey.size, (char *)sepkey.data);
                 tmpkey.size = mp->prefix.len + sepkey.size;
-                tmpkey.data = malloc(tmpkey.size);
-                tmpkey.free_data = 1;
+                tmpkey.data = allocated_block = malloc(tmpkey.size);
+                tmpkey.free_data = 0;
                 tmpkey.mp = 0;
                 concat_prefix(bt, mp->prefix.str, mp->prefix.len,
                               (char *)sepkey.data, sepkey.size, (char*)tmpkey.data, &tmpkey.size);
@@ -3115,7 +3118,11 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
 
         if (rc != BT_SUCCESS) {
                 free(copy);
-                btval_reset(&sepkey);
+                if (allocated_block) {
+                    sepkey.data = allocated_block;
+                    sepkey.free_data = 1;
+                    btval_reset(&sepkey);
+                }
                 return BT_FAIL;
         }
 
@@ -3190,7 +3197,11 @@ btree_split(struct btree *bt, struct mpage **mpp, unsigned int *newindxp,
         }
 
         free(copy);
-        btval_reset(&sepkey);
+        if (allocated_block) {
+                sepkey.data = allocated_block;
+                sepkey.free_data = 1;
+                btval_reset(&sepkey);
+        }
         return rc;
 }
 
