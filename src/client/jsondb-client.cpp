@@ -93,6 +93,18 @@ namespace QtAddOn { namespace JsonDb {
 */
 
 /*!
+    \enum QtAddOn::JsonDb::JsonDbClient::NotifyType
+
+    This type is used to subscribe to certain notification actions.
+
+    \value NotifyCreate Send notification when an object is created.
+    \value NotifyUpdate Send notification when an object is updated.
+    \value NotifyRemove Send notification when an object is removed.
+
+    \sa registerNotification()
+*/
+
+/*!
     \internal
     \brief The JsonDbClient class provides a client interface which connects to the JsonDb server.
 
@@ -274,14 +286,31 @@ void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const Qso
     if (notifyCallbacks.contains(notifyUuid)) {
         NotifyCallback c = notifyCallbacks.value(notifyUuid);
         QList<QByteArray> params = c.method.parameterTypes();
-        if (params.size() >= 2 && params.at(1) == QByteArray("QsonObject")) {
+        const QVariant vdata = qsonToVariant(data);
+
+        JsonDbClient::NotifyType type;
+        if (action == JsonDbString::kCreateStr)
+            type = JsonDbClient::NotifyCreate;
+        else if (action == JsonDbString::kUpdateStr)
+            type = JsonDbClient::NotifyUpdate;
+        else if (action == JsonDbString::kRemoveStr)
+            type = JsonDbClient::NotifyRemove;
+        else
+            Q_ASSERT(false);
+
+        quint32 stateNumber = quint32(0); // ### TODO
+
+        if (params.size() == 2 && params.at(1) == QByteArray("QtAddOn::JsonDb::JsonDbNotification")) {
+            JsonDbNotification n(vdata.toMap(), type, stateNumber);
+            c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(JsonDbNotification, n));
+        } else if (params.size() >= 2 && params.at(1) == QByteArray("QsonObject")) {
             c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QsonObject, data), Q_ARG(QString, action));
         } else {
-            const QVariant vdata = qsonToVariant(data);
             c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QVariant, vdata), Q_ARG(QString, action));
         }
         emit q->notified(notifyUuid, data, action);
-        emit q->notified(notifyUuid, qsonToVariant(data), action);
+        emit q->notified(notifyUuid, vdata, action);
+        emit q->notified(notifyUuid, JsonDbNotification(vdata.toMap(), type, stateNumber));
     }
 }
 
@@ -737,11 +766,11 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
   Upon success, invokes \a responseSuccessSlot of \a responseTarget, if provided, else emits \c response().
   On error, invokes \a responseErrorSlot of \a responseTarget, if provided, else emits \c error().
 
-  \a notifySlot has the following signature notifySlot(const QString &notifyUuid, const QVariant &object, const QString &action)
+  \a notifySlot has the following signature notifySlot(const QString &notifyUuid, const JsonDbNotification &notification)
 
   Returns a uuid of a notification object that is passed as notifyUuid argument to the \a notifySlot.
 
-  \sa unregisterNotification()
+  \sa unregisterNotification(), notified(), JsonDbNotification
 */
 QString JsonDbClient::registerNotification(NotifyTypes types, const QString &query, const QString &partition,
                                            QObject *notifyTarget, const char *notifySlot,
@@ -851,9 +880,21 @@ JsonDbChangesSince *JsonDbClient::changesSince()
     return new JsonDbChangesSince(this, this);
 }
 
+/*!
+    \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notifyUuid, const QtAddOn::JsonDb::JsonDbNotification &notification)
+
+    Signal that a notification has been received. The notification object must
+    have been created previously, usually with the \c registerNotification()
+    function. The \a notifyUuid field is the uuid of the notification object.
+    The \a notification object contains information describing the event.
+
+    \sa registerNotification()
+*/
 
 /*!
     \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notifyUuid, const QVariant &object, const QString &action)
+
+    \deprecated
 
     Signal that a notification has been received.  The notification
     object must have been created previously, usually with the

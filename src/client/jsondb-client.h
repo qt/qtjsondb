@@ -61,6 +61,7 @@ class QsonObject;
 
 class JsonDbConnection;
 class JsonDbClientPrivate;
+class JsonDbNotification;
 
 class Q_ADDON_JSONDB_EXPORT JsonDbClient : public QObject
 {
@@ -150,7 +151,6 @@ public slots:
                                  QObject *responseTarget = 0, const char *responseSuccessSlot = 0, const char *responseErrorSlot = 0);
     void unregisterNotification(const QString &notifyUuid);
 
-
     int query(const QString &query, int offset = 0, int limit = -1,
               const QVariantMap &bindings = QVariantMap(),
               const QString &partitionName = QString(),
@@ -165,11 +165,12 @@ public slots:
     int find(const QVariant &query);
 
 Q_SIGNALS:
-    void notified(const QString &notify_uuid, const QVariant &object, const QString &action);
+    void notified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &notification);
     void response(int id, const QVariant &object);
     void error(int id, int code, const QString &message);
 
-    // these three are deprecated and will be removed
+    // these four are deprecated and will be removed
+    void notified(const QString &notify_uuid, const QVariant &object, const QString &action);
     void notified(const QString &notify_uuid, const QsonObject &object, const QString &action);
     void response(int id, const QsonObject &object);
     void readyWrite();
@@ -198,5 +199,8 @@ private:
 Q_DECLARE_OPERATORS_FOR_FLAGS(QtAddOn::JsonDb::JsonDbClient::NotifyTypes)
 
 QT_END_HEADER
+
+// for compatibility, include struct here that is needed for notifications
+#include "jsondb-notification.h"
 
 #endif // JSONDB_CLIENT_H

@@ -139,11 +139,11 @@ public slots:
         errorMessage = message;
         ++errorCount;
     }
-    void notify(const QString &uuid, const QVariant &d, const QString &a)
+    void notify(const QString &uuid, const QtAddOn::JsonDb::JsonDbNotification &n)
     {
         notifyUuid = uuid;
-        data = d;
-        notifyAction = a;
+        data = n.object();
+        notifyAction = n.action();
         ++notifyCount;
     }
 
@@ -154,7 +154,7 @@ public slots:
         errorCode = 0;
         errorMessage = QString();
         notifyUuid = QString();
-        notifyAction = QString();
+        notifyAction = JsonDbClient::NotifyType(0);
         successCount = errorCount = notifyCount = 0;
     }
 
@@ -166,7 +166,7 @@ public:
     int errorCode;
     QString errorMessage;
     QString notifyUuid;
-    QString notifyAction;
+    JsonDbClient::NotifyType notifyAction;
     int successCount;
     int errorCount;
     int notifyCount;
@@ -863,8 +863,8 @@ void TestJsonDbClient::capabilitiesAllowAll()
     connection.setToken(jsondb_token);
     connection.connectToServer();
     JsonDbClient tokenClient(&connection);
-    connect( &tokenClient, SIGNAL(notified(const QString&, const QVariant&, const QString&)),
-             this, SLOT(notified(const QString&, const QVariant&, const QString&)));
+    connect( &tokenClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
+             this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
     connect( &tokenClient, SIGNAL(response(int, const QVariant&)),
              this, SLOT(response(int, const QVariant&)));
     connect( &tokenClient, SIGNAL(error(int, int, const QString&)),
@@ -935,8 +935,8 @@ void TestJsonDbClient::capabilitiesReadOnly()
     connection.setToken(jsondb_token);
     connection.connectToServer();
     JsonDbClient tokenClient(&connection);
-    connect( &tokenClient, SIGNAL(notified(const QString&, const QVariant&, const QString&)),
-             this, SLOT(notified(const QString&, const QVariant&, const QString&)));
+    connect( &tokenClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
+             this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
     connect( &tokenClient, SIGNAL(response(int, const QVariant&)),
              this, SLOT(response(int, const QVariant&)));
     connect( &tokenClient, SIGNAL(error(int, int, const QString&)),
@@ -1020,8 +1020,8 @@ void TestJsonDbClient::capabilitiesTypeQuery()
     connection.setToken(jsondb_token);
     connection.connectToServer();
     JsonDbClient tokenClient(&connection);
-    connect( &tokenClient, SIGNAL(notified(const QString&, const QVariant&, const QString&)),
-             this, SLOT(notified(const QString&, const QVariant&, const QString&)));
+    connect( &tokenClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
+             this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
     connect( &tokenClient, SIGNAL(response(int, const QVariant&)),
              this, SLOT(response(int, const QVariant&)));
     connect( &tokenClient, SIGNAL(error(int, int, const QString&)),
@@ -1106,8 +1106,8 @@ void TestJsonDbClient::storageQuotas()
     connection.setToken(jsondb_token);
     connection.connectToServer();
     JsonDbClient tokenClient(&connection);
-    connect( &tokenClient, SIGNAL(notified(const QString&, const QVariant&, const QString&)),
-             this, SLOT(notified(const QString&, const QVariant&, const QString&)));
+    connect( &tokenClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
+             this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
     connect( &tokenClient, SIGNAL(response(int, const QVariant&)),
              this, SLOT(response(int, const QVariant&)));
     connect( &tokenClient, SIGNAL(error(int, int, const QString&)),
@@ -1175,7 +1175,7 @@ void TestJsonDbClient::requestWithSlot()
 
     // create notification object
     int id = mClient->notify(JsonDbClient::NotifyCreate, "[?_type=\"requestWithSlot\"]",
-                             &handler, SLOT(notify(QString,QVariant,QString)),
+                             &handler, SLOT(notify(QString,QtAddOn::JsonDb::JsonDbNotification)),
                              &handler, SLOT(success(int,QVariant)), SLOT(error(int,int,QString)));
     waitForResponse1(id);
     QVERIFY(mData.toMap().contains("_uuid"));

@@ -44,8 +44,8 @@
 
 #include <QEventLoop>
 #include <QElapsedTimer>
+#include <QDebug>
 
-#include "private/jsondb-connection_p.h"
 #include "jsondb-client.h"
 
 #define waitForResponse(eventloop, result, id_, code, notificationId, count) \
@@ -122,8 +122,8 @@ public:
                 this, SLOT(response(int,QVariant)));
         connect(mClient, SIGNAL(error(int,int,QString)),
                 this, SLOT(error(int,int,QString)));
-        connect(mClient, SIGNAL(notified(QString,QVariant,QString)),
-                this, SLOT(notified(QString,QVariant,QString)));
+        connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
+                this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
     }
 
     bool debug_output;
@@ -142,12 +142,19 @@ public:
     QElapsedTimer mElapsedTimer;
 
 protected slots:
-    virtual void notified(const QString &notifyUuid, const QVariant &object, const QString &action)
+    virtual void notified(const QString &notifyUuid, const QtAddOn::JsonDb::JsonDbNotification &notification)
     {
         if (debug_output)
-            qDebug() << "notified" << notifyUuid << action << endl << object;
+            qDebug() << "notified" << notifyUuid << notification.action() << endl << notification.object();
         mNotificationId = notifyUuid;
-        mNotifications << Notification(notifyUuid, object, action);
+        QString action;
+        switch (notification.action()) {
+        case Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyCreate: action = QLatin1String("create"); break;
+        case Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyUpdate: action = QLatin1String("update"); break;
+        case Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyRemove: action = QLatin1String("remove"); break;
+        }
+
+        mNotifications << Notification(notifyUuid, notification.object(), action);
         mNotificationWaitCount -= 1;
         if (mId.isValid() && !mNotificationWaitCount)
             mEventLoop.quit();
