@@ -637,7 +637,7 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, JsonDbOwner *owne
     globalObject.setProperty("console", mScriptEngine->newQObject(new Console()));
 
     QString script = mDefinition.valueString("add");
-    mAddFunction = mScriptEngine->evaluate(QString("var %1 = %2; %1;").arg("add").arg(script));
+    mAddFunction = mScriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("add").arg(script));
 
     if (mAddFunction.isError() || !mAddFunction.isFunction()) {
         setError("Unable to parse add function: " + mAddFunction.toString());
@@ -645,7 +645,7 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, JsonDbOwner *owne
     }
 
     script = mDefinition.valueString("subtract");
-    mSubtractFunction = mScriptEngine->evaluate(QString("var %1 = %2; %1;").arg("subtract").arg(script));
+    mSubtractFunction = mScriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("subtract").arg(script));
 
     if (mSubtractFunction.isError() || !mSubtractFunction.isFunction())
         setError("Unable to parse subtract function: " + mSubtractFunction.toString());
