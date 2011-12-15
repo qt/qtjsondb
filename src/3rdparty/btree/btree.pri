@@ -8,7 +8,8 @@ HEADERS += \
     $$PWD/qt/qbtreedata.h \
     $$PWD/qt/qbtreelocker.h \
     $$PWD/qt/qbtreetxn.h \
-    $$PWD/qt/qbtreecursor.h
+    $$PWD/qt/qbtreecursor.h \
+    $$PWD/src/btree_p.h
 
 SOURCES += \
     $$PWD/src/btree.cpp \
