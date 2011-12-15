@@ -68,6 +68,8 @@ class Q_ADDON_JSONDB_EXPORT JsonDbResultBase : public QObject
     Q_PROPERTY(QString partition READ partition WRITE setPartition)
 
 public:
+    ~JsonDbResultBase();
+
     int requestId() const;
     bool isFinished() const;
 
@@ -107,6 +109,8 @@ class Q_ADDON_JSONDB_EXPORT JsonDbQuery : public JsonDbResultBase
     Q_PROPERTY(QString sortKey READ sortKey)
 
 public:
+    ~JsonDbQuery();
+
     quint32 stateNumber() const;
     QString sortKey() const;
 
@@ -147,6 +151,8 @@ class Q_ADDON_JSONDB_EXPORT JsonDbChangesSince : public JsonDbResultBase
     Q_PROPERTY(quint32 currentStateNumber READ currentStateNumber)
 
 public:
+    ~JsonDbChangesSince();
+
     quint32 startingStateNumber() const;
     quint32 currentStateNumber() const;
 

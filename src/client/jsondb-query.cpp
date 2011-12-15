@@ -142,6 +142,10 @@ JsonDbResultBase::JsonDbResultBase(JsonDbResultBasePrivate *d, QObject *parent)
     Q_ASSERT(d != 0);
 }
 
+JsonDbResultBase::~JsonDbResultBase()
+{
+}
+
 int JsonDbResultBase::requestId() const
 {
     return d_func()->requestId;
@@ -193,6 +197,10 @@ JsonDbQuery::JsonDbQuery(JsonDbClient *client, QObject *parent)
     : JsonDbResultBase(new JsonDbQueryPrivate(client, this), parent)
 {
     Q_ASSERT(client);
+}
+
+JsonDbQuery::~JsonDbQuery()
+{
 }
 
 quint32 JsonDbQuery::stateNumber() const
@@ -336,6 +344,10 @@ JsonDbChangesSince::JsonDbChangesSince(JsonDbClient *client, QObject *parent)
     : JsonDbResultBase(new JsonDbChangesSincePrivate(client, this), parent)
 {
     Q_ASSERT(client);
+}
+
+JsonDbChangesSince::~JsonDbChangesSince()
+{
 }
 
 quint32 JsonDbChangesSince::startingStateNumber() const
