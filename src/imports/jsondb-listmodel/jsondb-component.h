@@ -55,13 +55,13 @@ class JsonDbNotificationHandle;
 
 Q_USE_JSONDB_NAMESPACE
 
-class JsonDbNotification: public QObject
+class JsonDbNotificationComponent: public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(QString uuid READ uuid)
 public:
-    ~JsonDbNotification();
+    ~JsonDbNotificationComponent();
 
     QString uuid() const { return mUuid; }
     Q_INVOKABLE void remove();
@@ -72,7 +72,7 @@ signals:
     void removed(QString uuid);
 
 private:
-    JsonDbNotification(JsonDbComponent *repo);
+    JsonDbNotificationComponent(JsonDbComponent *repo);
 
     int mId; // the request id
     QString mUuid; // for a fully created notification, this is the uuid of the db entry
@@ -87,13 +87,13 @@ class JsonDbNotificationHandle: public QObject
     Q_OBJECT
     Q_PROPERTY(QString uuid READ uuid)
 public:
-    JsonDbNotificationHandle(JsonDbNotification *notification);
+    JsonDbNotificationHandle(JsonDbNotificationComponent *notification);
     ~JsonDbNotificationHandle();
 
     QString uuid() const;
     Q_INVOKABLE void remove();
 private:
-    QPointer<JsonDbNotification> mNotification;
+    QPointer<JsonDbNotificationComponent> mNotification;
 };
 
 class JsonDbComponent : public QObject
@@ -159,9 +159,9 @@ public:
     };
 
     QMap<int, RequestInfo> mRequests;
-    QMap<int, JsonDbNotification*> mPendingNotifications;
+    QMap<int, JsonDbNotificationComponent*> mPendingNotifications;
     QSet<int> mKilledNotifications; // notifications that were removed before they were really created
-    QMap<QString, JsonDbNotification*> mNotifications;
+    QMap<QString, JsonDbNotificationComponent*> mNotifications;
 };
 
 #endif

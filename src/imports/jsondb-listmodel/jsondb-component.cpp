@@ -50,18 +50,18 @@
 
 #include "qsonconversion.h"
 
-JsonDbNotification::JsonDbNotification(JsonDbComponent *repo)
+JsonDbNotificationComponent::JsonDbNotificationComponent(JsonDbComponent *repo)
     : QObject(repo)
     , mId(-1)
 {
 }
 
-JsonDbNotification::~JsonDbNotification()
+JsonDbNotificationComponent::~JsonDbNotificationComponent()
 {
     remove();
 }
 
-void JsonDbNotification::remove()
+void JsonDbNotificationComponent::remove()
 {
     if (!mUuid.isEmpty())
         emit removed(mUuid); // the JsonDbComponent connects to this and does the real work.
@@ -69,7 +69,7 @@ void JsonDbNotification::remove()
         emit removed(mId);
 }
 
-JsonDbNotificationHandle::JsonDbNotificationHandle(JsonDbNotification *notification)
+JsonDbNotificationHandle::JsonDbNotificationHandle(JsonDbNotificationComponent *notification)
     : QObject(notification)
     , mNotification(notification)
 {
@@ -270,7 +270,7 @@ QJSValue JsonDbComponent::notification(const QJSValue &object,
         return QJSValue();
 
     // -- create notification object
-    JsonDbNotification* notification = new JsonDbNotification(this);
+    JsonDbNotificationComponent* notification = new JsonDbNotificationComponent(this);
     notification->mId = id;
     notification->mCallback = callback;
     mPendingNotifications.insert(id, notification);
@@ -312,7 +312,7 @@ void JsonDbComponent::jsonDbResponse(int id, const QsonObject &result)
                 qDebug() << "successful created notification with" << scriptResult.property(JsonDbString::kUuidStr).toString();
 
             // -- finish the notification with the new uuid
-            JsonDbNotification* notification = mPendingNotifications.take(id);
+            JsonDbNotificationComponent* notification = mPendingNotifications.take(id);
             if (notification) {
                 // - if the removal was requested before the actual success:
                 // note: at this state the notification object is already deleted
@@ -381,7 +381,7 @@ void JsonDbComponent::jsonDbErrorResponse(int id, int code, const QString& messa
 
 void JsonDbComponent::jsonDbNotified(const QString& notify_uuid, const QsonObject& object, const QString& action)
 {
-    JsonDbNotification* notification = mNotifications.value(notify_uuid);
+    JsonDbNotificationComponent* notification = mNotifications.value(notify_uuid);
     if (notification) {
         QJSValueList args;
         args << qsonToJSValue(object, notification->mCallback.engine());
