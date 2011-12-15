@@ -1390,7 +1390,7 @@ void TestJsonDbClient::queryObject()
     QCOMPARE(r->resultsAvailable(), 10);
     QCOMPARE(handler.finishedCalls, 1);
     QCOMPARE(handler.errorCalls, 0);
-    QList<QVariantMap> results = r->takeResults();
+    QVariantList results = r->takeResults();
     QCOMPARE(results.size(), 10);
     QCOMPARE(r->resultsAvailable(), 0);
 }

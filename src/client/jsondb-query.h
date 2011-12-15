@@ -82,7 +82,7 @@ public:
 
 public Q_SLOTS:
     virtual void start();
-    QList<QVariantMap> takeResults();
+    QVariantList takeResults();
 
 Q_SIGNALS:
     void started();

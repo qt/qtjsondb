@@ -60,7 +60,7 @@ public:
     bool isFinished;
 
     QVariantMap header;
-    QList<QVariantMap> results;
+    QVariantList results;
 
     QString partition;
 };
@@ -78,7 +78,7 @@ public:
     void _q_emitMoreData();
 
     // HACK HACK HACK
-    QList<QVariantMap> moreResults;
+    QVariantList moreResults;
 
     QString query;
     int queryOffset;
@@ -101,13 +101,9 @@ void JsonDbQueryPrivate::_q_response(int reqId, const QVariant &response_)
     // to mimic future behavior with streaming / client-side reads split data into two chunks
     QVariantList r = response.value(JsonDbString::kDataStr).toList();
     int count = r.size() / 2;
-    results.reserve(results.size() + count);
-    for (int i = 0; i < count; ++i)
-        results.append(r.at(i).toMap());
-    for (int i = count; i < r.size(); ++i)
-        moreResults.append(r.at(i).toMap());
-
-    r = QVariantList(); // just to free this memory
+    results = r.mid(0, count);
+    r.erase(r.begin(), r.begin() + count);
+    moreResults = r;
 
     if (!results.isEmpty()) {
         emit q->resultsReady(results.size());
@@ -121,7 +117,7 @@ void JsonDbQueryPrivate::_q_emitMoreData()
 {
     Q_Q(JsonDbQuery);
     results += moreResults;
-    moreResults = QList<QVariantMap>();
+    moreResults = QVariantList();
 
     isFinished = true;
 
@@ -177,10 +173,10 @@ void JsonDbResultBase::setPartition(const QString &partition)
     d->partition = partition;
 }
 
-QList<QVariantMap> JsonDbResultBase::takeResults()
+QVariantList JsonDbResultBase::takeResults()
 {
     Q_D(JsonDbResultBase);
-    QList<QVariantMap> results;
+    QVariantList results;
     results.swap(d->results);
     return results;
 }
@@ -287,7 +283,7 @@ public:
     void _q_emitMoreData();
 
     // HACK HACK HACK
-    QList<QVariantMap> moreResults;
+    QVariantList moreResults;
 
     QStringList types;
     quint32 stateNumber;
@@ -308,13 +304,9 @@ void JsonDbChangesSincePrivate::_q_response(int reqId, const QVariant &response_
     // to mimic future behavior with streaming / client-side reads split data into two chunks
     QVariantList r = response.value(QLatin1String("changes")).toList();
     int count = r.size() / 2;
-    results.reserve(results.size() + count);
-    for (int i = 0; i < count; ++i)
-        results.append(r.at(i).toMap());
-    for (int i = count; i < r.size(); ++i)
-        moreResults.append(r.at(i).toMap());
-
-    r = QVariantList(); // just to free this memory
+    results = r.mid(0, count);
+    r.erase(r.begin(), r.begin() + count);
+    moreResults = r;
 
     emit q->resultsReady(results.size());
     QMetaObject::invokeMethod(q, "_q_emitMoreData", Qt::QueuedConnection);
@@ -324,7 +316,7 @@ void JsonDbChangesSincePrivate::_q_emitMoreData()
 {
     Q_Q(JsonDbChangesSince);
     results += moreResults;
-    moreResults = QList<QVariantMap>();
+    moreResults = QVariantList();
 
     isFinished = true;
 
