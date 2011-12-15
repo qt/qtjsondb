@@ -1328,7 +1328,7 @@ public slots:
     { resultsReadyCalls++; resultsReadyCount = count; }
     void finished()
     { finishedCalls++; }
-    void error(int code, const QString &message)
+    void error(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString &message)
     { errorCalls++; errorCode = code; errorMessage = message; }
 
 public:
@@ -1375,11 +1375,12 @@ void TestJsonDbClient::queryObject()
     connect(r, SIGNAL(started()), &handler, SLOT(started()));
     connect(r, SIGNAL(resultsReady(int)), &handler, SLOT(resultsReady(int)));
     connect(r, SIGNAL(finished()), &handler, SLOT(finished()));
-    connect(r, SIGNAL(error(int,QString)), &handler, SLOT(error(int,QString)));
+    connect(r, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)),
+            &handler, SLOT(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
 
     QEventLoop loop;
     connect(r, SIGNAL(finished()), &loop, SLOT(quit()));
-    connect(r, SIGNAL(error(int,QString)), &loop, SLOT(quit()));
+    connect(r, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)), &loop, SLOT(quit()));
 
     r->start();
     loop.exec();
@@ -1424,11 +1425,11 @@ void TestJsonDbClient::changesSinceObject()
     connect(r, SIGNAL(started()), &handler, SLOT(started()));
     connect(r, SIGNAL(resultsReady(int)), &handler, SLOT(resultsReady(int)));
     connect(r, SIGNAL(finished()), &handler, SLOT(finished()));
-    connect(r, SIGNAL(error(int,QString)), &handler, SLOT(error(int,QString)));
+    connect(r, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)), &handler, SLOT(error(int,QString)));
 
     QEventLoop loop;
     connect(r, SIGNAL(finished()), &loop, SLOT(quit()));
-    connect(r, SIGNAL(error(int,QString)), &loop, SLOT(quit()));
+    connect(r, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)), &loop, SLOT(quit()));
 
     r->start();
     loop.exec();

@@ -424,6 +424,11 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
     return id;
 }
 
+/*!
+  \brief Constructs and returns an object for executing a query.
+
+  \sa JsonDbQuery
+*/
 JsonDbQuery *JsonDbClient::query()
 {
     return new JsonDbQuery(this, this);
@@ -736,7 +741,7 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
 
   Returns a uuid of a notification object that is passed as notifyUuid argument to the \a notifySlot.
 
-  \sa unregisterNotification
+  \sa unregisterNotification()
 */
 QString JsonDbClient::registerNotification(NotifyTypes types, const QString &query, const QString &partition,
                                            QObject *notifyTarget, const char *notifySlot,
@@ -790,7 +795,7 @@ QString JsonDbClient::registerNotification(NotifyTypes types, const QString &que
 /*!
   Deletes a notification for a given \a notifyUuid.
 
-  \sa registerNotification
+  \sa registerNotification()
 */
 void JsonDbClient::unregisterNotification(const QString &notifyUuid)
 {
@@ -836,6 +841,11 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
     return id;
 }
 
+/*!
+  \brief Constructs and returns an object for executing a changesSince query.
+
+  \sa JsonDbChangesSince
+*/
 JsonDbChangesSince *JsonDbClient::changesSince()
 {
     return new JsonDbChangesSince(this, this);

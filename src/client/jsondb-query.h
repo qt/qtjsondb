@@ -49,6 +49,7 @@
 #include <QScopedPointer>
 
 #include "jsondb-global.h"
+#include "jsondb-error.h"
 
 QT_BEGIN_HEADER
 
@@ -88,7 +89,7 @@ Q_SIGNALS:
     void started();
     void resultsReady(int resultsAvailable);
     void finished();
-    void error(int code, const QString &message);
+    void error(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString &message);
 
 protected:
     JsonDbResultBase(JsonDbResultBasePrivate *d, QObject *parent = 0);
@@ -101,9 +102,11 @@ protected:
 class Q_ADDON_JSONDB_EXPORT JsonDbQuery : public JsonDbResultBase
 {
     Q_OBJECT
+    Q_PROPERTY(QString partition READ partition WRITE setPartition)
     Q_PROPERTY(QString query READ query WRITE setQuery)
     Q_PROPERTY(int queryOffset READ queryOffset WRITE setQueryOffset)
     Q_PROPERTY(int queryLimit READ queryLimit WRITE setQueryLimit)
+    Q_PROPERTY(int resultsAvailable READ resultsAvailable)
 
     Q_PROPERTY(quint32 stateNumber READ stateNumber)
     Q_PROPERTY(QString sortKey READ sortKey)
@@ -122,6 +125,18 @@ public:
 
     int queryLimit() const;
     void setQueryLimit(int limit);
+
+#ifdef qdoc
+    int requestId() const;
+    bool isFinished() const;
+Q_SIGNALS:
+    void started();
+    void resultsReady(int resultsAvailable);
+    void finished();
+    void error(JsonDbError::ErrorCode code, const QString &message);
+public Q_SLOTS:
+    QVariantList takeResults();
+#endif
 
 public Q_SLOTS:
     virtual void start();
@@ -146,6 +161,7 @@ class Q_ADDON_JSONDB_EXPORT JsonDbChangesSince : public JsonDbResultBase
     Q_PROPERTY(QString partition READ partition WRITE setPartition)
     Q_PROPERTY(QStringList types READ types WRITE setTypes)
     Q_PROPERTY(quint32 stateNumber READ stateNumber WRITE setStateNumber)
+    Q_PROPERTY(int resultsAvailable READ resultsAvailable)
 
     Q_PROPERTY(quint32 startingStateNumber READ startingStateNumber)
     Q_PROPERTY(quint32 currentStateNumber READ currentStateNumber)
@@ -161,6 +177,18 @@ public:
 
     quint32 stateNumber() const;
     void setStateNumber(quint32 stateNumber);
+
+#ifdef qdoc
+    int requestId() const;
+    bool isFinished() const;
+Q_SIGNALS:
+    void started();
+    void resultsReady(int resultsAvailable);
+    void finished();
+    void error(JsonDbError::ErrorCode code, const QString &message);
+public Q_SLOTS:
+    QVariantList takeResults();
+#endif
 
 public Q_SLOTS:
     virtual void start();
