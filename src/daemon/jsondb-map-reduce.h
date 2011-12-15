@@ -116,10 +116,9 @@ public:
     void updateObject(QsonMap before, QsonMap after);
     QsonObject addObject(const QString &keyValue, const QsonObject &previousResult, QsonMap object);
     QsonObject subtractObject(const QString &keyValue, const QsonObject &previousResult, QsonMap object);
-
-private:
     void setError(const QString &errorMsg);
 
+private:
     JsonDb        *mJsonDb;
     JsonDbOwner   *mOwner;
     QString        mPartition;

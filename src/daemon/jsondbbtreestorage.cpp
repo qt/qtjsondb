@@ -737,8 +737,9 @@ QsonMap JsonDbBtreeStorage::getObjects(const QString &keyName, const QVariant &k
 
     const IndexSpec *indexSpec = table->indexSpec(keyName);
     if (!indexSpec) {
-        qDebug() << "getObject" << "no index for" << objectType << keyName;
+        qDebug() << "JsonDbBtreeStorage::getObject" << "no index for" << objectType << keyName;
         resultmap.insert(JsonDbString::kCountStr, 0);
+        resultmap.insert("error", QString("no index for key '%1' object type '%2'").arg(keyName).arg(objectType));
         return resultmap;
     }
 

@@ -173,6 +173,11 @@ void JsonDb::createReduceDefinition(QsonMap reduceDefinition, bool firstTime, co
 
     if (firstTime && def->isActive()) {
         QsonMap getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceType);
+        if (getObjectResponse.contains("error")) {
+            if (gVerbose)
+                qDebug() << "createReduceDefinition" << targetType << getObjectResponse.valueString("error");
+            def->setError(getObjectResponse.valueString("error"));
+        }
         QsonList objects = getObjectResponse.subList("result");
         for (int i = 0; i < objects.size(); i++)
             def->updateObject(QsonMap(), objects.objectAt(i));
@@ -573,6 +578,11 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
     QJSValue findValue = query.property("value").toString();
     QsonMap getObjectResponse =
         mJsonDb->getObjects(findKey, findValue.toVariant(), objectType);
+    if (getObjectResponse.contains("error")) {
+        if (gVerbose)
+            qDebug() << "lookupRequested" << mSourceTypes << mTargetType << getObjectResponse.valueString("error");
+        setError(getObjectResponse.valueString("error"));
+    }
     QsonList objectList = getObjectResponse.subList("result");
     for (int i = 0; i < objectList.size(); ++i) {
         QsonMap object = objectList.at<QsonMap>(i);
@@ -687,6 +697,10 @@ void JsonDbReduceDefinition::updateObject(QsonMap before, QsonMap after)
         return;
 
     QsonMap getObjectResponse = mJsonDb->getObjects(mTargetKeyName, keyValue, mTargetType);
+    if (getObjectResponse.contains("error")) {
+        qDebug() << "JsonDbReduceDefinition::updateObject" << mTargetType << getObjectResponse.valueString("error");
+        setError(getObjectResponse.valueString("error"));
+    }
     QsonMap previousResult;
     QsonObject previousValue;
 
