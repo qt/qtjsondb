@@ -289,7 +289,6 @@ public:
     // HACK HACK HACK
     QList<QVariantMap> moreResults;
 
-    QString partition;
     QStringList types;
     quint32 stateNumber;
 };
