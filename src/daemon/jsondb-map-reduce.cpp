@@ -115,6 +115,11 @@ void JsonDb::createMapDefinition(QsonMap mapDefinition, bool firstTime, const QS
 
     if (firstTime && def->isActive()) {
         QsonMap getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceTypes[0]);
+        if (getObjectResponse.contains("error")) {
+            if (gVerbose)
+                qDebug() << "createMapDefinition" << sourceTypes << targetType << getObjectResponse.valueString("error");
+            def->setError(getObjectResponse.valueString("error"));
+        };
         QsonList objects = getObjectResponse.subList("result");
         for (int i = 0; i < objects.size(); i++)
             def->mapObject(objects.objectAt(i));
@@ -224,7 +229,7 @@ void JsonDb::updateMap(const QString &viewType, const QString &partitionName)
     JsonDbBtreeStorage *partition = findPartition(partitionName);
     ObjectTable *targetTable = partition->findObjectTable(viewType);
     quint32 targetStateNumber = qMax(1u, targetTable->stateNumber());
-    if (gVerbose) qDebug() << "JsonDb::updateMap" << viewType << targetStateNumber << mViewsUpdating.contains(viewType) << "targetStateNumber" << targetStateNumber;
+    if (gVerbose) qDebug() << "JsonDb::updateMap" << viewType << targetStateNumber << (mViewsUpdating.contains(viewType) ? "already updating" : "") << "targetStateNumber" << targetStateNumber;
     if (mViewsUpdating.contains(viewType))
         return;
     mViewsUpdating.insert(viewType);
@@ -354,7 +359,7 @@ void JsonDb::updateReduce(const QString &viewType, const QString &partitionName)
     JsonDbBtreeStorage *partition = findPartition(partitionName);
     ObjectTable *targetTable = partition->findObjectTable(viewType);
     quint32 targetStateNumber = qMax(1u, targetTable->stateNumber());
-    if (0) qDebug() << "JsonDb::updateReduce" << viewType << targetStateNumber << mViewsUpdating.contains(viewType);
+    if (gVerbose) qDebug() << "JsonDb::updateReduce" << viewType << targetStateNumber << (mViewsUpdating.contains(viewType) ? "already updating" : "");
     if (mViewsUpdating.contains(viewType))
         return;
     mViewsUpdating.insert(viewType);
@@ -420,15 +425,18 @@ void JsonDb::updateReduce(const QString &viewType, const QString &partitionName)
         ObjectTable *sourceTable = *it;
         QStringList sourceTypes = objectTableSourceType.values(sourceTable);
         QsonMap changes = sourceTable->changesSince(targetStateNumber).subObject("result");
-        quint32 count = changes.valueInt("count", 0);
         QsonList changeList = changes.subList("changes");
+        quint32 count = changeList.size();
         for (quint32 i = 0; i < count; i++) {
             QsonMap change = changeList.objectAt(i).toMap();
             QsonMap before = change.subObject("before").toMap();
             QsonMap after = change.subObject("after").toMap();
-            QString sourceType = before.valueString(JsonDbString::kTypeStr);
-            if (sourceTypes.contains(sourceType))
-              reduceDefinitions.value(sourceType)->updateObject(before, after);
+            QString beforeType = before.valueString(JsonDbString::kTypeStr);
+            QString afterType = after.valueString(JsonDbString::kTypeStr);
+            if (sourceTypes.contains(beforeType))
+                reduceDefinitions.value(beforeType)->updateObject(before, after);
+            else if (sourceTypes.contains(afterType))
+                reduceDefinitions.value(afterType)->updateObject(before, after);
         }
     }
 
@@ -546,6 +554,7 @@ void JsonDbMapDefinition::unmapObject(const QsonMap &object)
 
 void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue &context)
 {
+    //qDebug() << "lookupRequested" << query.toVariant() << context.toVariant();
     QString objectType = query.property("objectType").toString();
     // compatibility for old style maps
     if (mDefinition.valueType("map") == QsonObject::MapType) {

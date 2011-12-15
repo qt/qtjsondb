@@ -73,14 +73,13 @@ public:
 
     void mapObject(QsonMap object);
     void unmapObject(const QsonMap &object);
+    void setError(const QString &errorMsg);
 
 public slots:
     void viewObjectEmitted(const QJSValue &value);
     void lookupRequested(const QJSValue &spec, const QJSValue &context);
 
 private:
-    void setError(const QString &errorMsg);
-
     JsonDb        *mJsonDb;
     QString        mPartition;
     JsonDbOwner   *mOwner;
