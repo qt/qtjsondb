@@ -105,14 +105,17 @@ void JsonDbQueryPrivate::_q_response(int reqId, const QVariant &response_)
 
     // to mimic future behavior with streaming / client-side reads split data into two chunks
     QVariantList r = response.value(JsonDbString::kDataStr).toList();
-    int count = r.size() / 2;
-    results = r.mid(0, count);
-    r.erase(r.begin(), r.begin() + count);
-    moreResults = r;
+    if (r.size()) {
+        int count = qMax((r.size() / 2), 1);
+        results = r.mid(0, count);
+        r.erase(r.begin(), r.begin() + count);
+        moreResults = r;
+    }
 
     if (!results.isEmpty()) {
         emit q->resultsReady(results.size());
-        QMetaObject::invokeMethod(q, "_q_emitMoreData", Qt::QueuedConnection);
+        if (!moreResults.isEmpty())
+            QMetaObject::invokeMethod(q, "_q_emitMoreData", Qt::QueuedConnection);
     } else {
         emit q->finished();
     }
