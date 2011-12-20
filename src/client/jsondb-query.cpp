@@ -114,8 +114,7 @@ void JsonDbQueryPrivate::_q_response(int reqId, const QVariant &response_)
 
     if (!results.isEmpty()) {
         emit q->resultsReady(results.size());
-        if (!moreResults.isEmpty())
-            QMetaObject::invokeMethod(q, "_q_emitMoreData", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(q, "_q_emitMoreData", Qt::QueuedConnection);
     } else {
         emit q->finished();
     }
