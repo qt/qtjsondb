@@ -91,6 +91,7 @@ private slots:
     void find();
     void registerNotification();
     void notify();
+    void notifyViaCreate();
     void notifyRemoveBatch();
     void notifyMultiple();
     void remove();
@@ -376,7 +377,7 @@ void TestJsonDbClient::update()
     id = mClient->find(query);
     waitForResponse1(id);
     QCOMPARE(mData.toMap().value("length").toInt(), 1);
-   
+
     QMap<QString, QVariant> obj = mData.toMap().value("data").toList().first().toMap();
     QCOMPARE(obj.value("name").toString(), QString(names[1]));
 
@@ -478,7 +479,64 @@ void TestJsonDbClient::notify()
     object.insert("name","test2");
     id = mClient->update(object);
     waitForResponse4(id, -1, notifyUuid, 1);
-    
+
+    QCOMPARE(mNotifications.size(), 1);
+    n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QLatin1String("update"));
+
+    // Remove the notify-test object
+    id = mClient->remove(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+
+    QCOMPARE(mNotifications.size(), 1);
+    n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QLatin1String("remove"));
+
+    // Remove the notification object
+    id = mClient->remove(notifyObject);
+    waitForResponse1(id);
+}
+
+void TestJsonDbClient::notifyViaCreate()
+{
+    int id = 400;
+
+    // Create a notification object
+    QVariantMap notificationObject;
+    QStringList actions;
+    actions << "create" << "update" << "remove";
+    const QString query = "[?_type=\"notify-test\"]";
+    notificationObject.insert("_type", "notification");
+    notificationObject.insert("query", query);
+    notificationObject.insert("actions", actions);
+    id = mClient->create(notificationObject);
+    waitForResponse1(id);
+    QVariantMap notifyObject = mData.toMap();
+    QString notifyUuid = notifyObject.value("_uuid").toString();
+
+    // Create a notify-test object
+    QVariantMap object;
+    object.insert("_type","notify-test");
+    object.insert("name","test1");
+    id = mClient->create(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+    QVariant uuid = mData.toMap().value("_uuid");
+    QString version = mData.toMap().value("_version").toString();
+
+    QCOMPARE(mNotifications.size(), 1);
+    Notification n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QString("create"));
+
+    // Update the notify-test object
+    object.insert("_uuid",uuid);
+    object.insert("_version", version);
+    object.insert("name","test2");
+    id = mClient->update(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
