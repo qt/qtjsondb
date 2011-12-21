@@ -36,11 +36,8 @@
 \o \c {[?_type="Application"]}
 \o Return all objects that are Application types.
 \row
-\o \c {[*][/_type]}
-\o All objects in the database, sorted by _type.
-\row
-\o \c {[/_type]}
-\o All objects in the database, sorted by _type.
+\o \c {[*]}
+\o All objects in the database.
 \row
 \o \c {[?name exists][/_type]}
 \o All objects with a "name" field in the database, sorted by _type.
@@ -69,16 +66,16 @@ binding for thename in the bindings object provided to find, sorted by _type.
 \o \c {[?count != 47]}
 \o All objects in the database with a "count" field not equal to 47.
 \row
-\o \c {[?name < 47]}
+\o \c {[?count < 47]}
 \o All objects in the database with a "count" field less than 47.
 \row
-\o \c {[?name <= 47]}
+\o \c {[?count <= 47]}
 \o All objects in the database with a "count field less than or equal to 47.
 \row
-\o \c {[?name > 47]}
+\o \c {[?count > 47]}
 \o All objects in the database with a "count" field greater than 47.
 \row
-\o \c {[?name >= 47]}
+\o \c {[?count >= 47]}
 \o All objects in the database with a "count" field greater than or equal to 47.
 \row
 \o \c {[?email contains "foo@example.com"]}
@@ -100,7 +97,7 @@ list [3, 4, 5].
 \o All objects in the database with a "size" field that is not contained in the
 list [3, 4, 5].
 \row
-\o \c {?name =~ "!fred.*!"]}
+\o \c {[?name =~ "!fred.*!"]}
 \o Objects with a name field matching the regular expression "fred.*", case
 sensitive.
 \row
