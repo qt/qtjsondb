@@ -142,6 +142,7 @@ protected:
     QsonMap validateSchema(const QString &schemaName, QsonMap object);
     QsonMap validateMapObject(QsonMap map);
     QsonMap validateReduceObject(QsonMap reduce);
+    QsonMap checkPartitionPresent(const QString &partition);
     QsonMap checkUuidPresent(QsonMap object, QString &uuid);
     QsonMap checkTypePresent(QsonMap, QString &type);
     QsonMap checkNaturalObjectType(QsonMap object, QString &type);

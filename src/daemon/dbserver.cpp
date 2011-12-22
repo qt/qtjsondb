@@ -261,7 +261,6 @@ void DBServer::updateView( const QString &viewType, const QString &partitionName
     mJsonDb->updateView(viewType, partitionName);
 }
 
-
 void DBServer::processCreate(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName)
 {
     QsonMap result;
@@ -276,7 +275,7 @@ void DBServer::processCreate(QsonStream *stream, const QsonObject &object, int i
         QsonMap obj = object.toMap();
         result = mJsonDb->create(owner, obj, partitionName);
         QString uuid = result.value<QsonMap>(JsonDbString::kResultStr).valueString(JsonDbString::kUuidStr);
-        if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName &&
+        if (!uuid.isEmpty() /*&& partitionName == JsonDbString::kEphemeralPartitionName*/ && // ### TODO: uncomment me
                 obj.valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr) {
             mNotifications.insert(uuid, stream);
         }

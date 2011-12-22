@@ -851,7 +851,7 @@ QsonMap JsonDb::createViewObject(const JsonDbOwner *owner, QsonMap& object, cons
 
 */
 
-QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString &partition, bool replication)
+QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString &partition_, bool replication)
 {
     QsonMap resultmap, errormap;
     QString uuid, objectType;
@@ -862,6 +862,9 @@ QsonMap JsonDb::update(const JsonDbOwner *owner, QsonMap& object, const QString 
     if (!object.contains(JsonDbString::kDeletedStr) || !object.valueBool(JsonDbString::kDeletedStr, false))
         RETURN_IF_ERROR(errormap, validateSchema(objectType, object));
     RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, "write"));
+
+    QString partition = partition_.isEmpty() ? JsonDbString::kSystemPartitionName : partition_;
+    RETURN_IF_ERROR(errormap, checkPartitionPresent(partition));
 
     // don't repopulate if deleting object, if it's a schema type then _id is altered.
     if (!object.contains(JsonDbString::kDeletedStr)) {
@@ -1578,6 +1581,13 @@ QsonMap JsonDb::validateReduceObject(QsonMap reduce)
     return QsonMap();
 }
 
+QsonMap JsonDb::checkPartitionPresent(const QString &partition)
+{
+    if (!mStorages.contains(partition) && partition != JsonDbString::kEphemeralPartitionName)
+        return makeError(JsonDbError::InvalidPartition, QString::fromLatin1("Unknown partition '%1'").arg(partition));
+    return QsonMap();
+}
+
 QsonMap JsonDb::checkUuidPresent(QsonMap object, QString &uuid)
 {
     if (!object.isDocument())
@@ -1715,6 +1725,8 @@ const Notification *JsonDb::createNotification(const JsonDbOwner *owner, QsonMap
     QString       query = object.valueString(JsonDbString::kQueryStr);
     QsonMap bindings = object.subObject("bindings");
     QString partition = object.valueString(JsonDbString::kPartitionStr);
+    if (partition.isEmpty())
+        partition = JsonDbString::kSystemPartitionName;
 
     Notification *n = new Notification(owner, uuid, query, actions, partition);
     JsonDbQuery parsedQuery = JsonDbQuery::parse(query, bindings);
