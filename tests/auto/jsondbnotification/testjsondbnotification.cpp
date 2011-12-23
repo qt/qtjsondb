@@ -66,7 +66,7 @@ static const char dbfile[] = "dbFile-jsondb-partition";
     callbackError = false; \
     eventloop.exec(QEventLoop::AllEvents); \
     QCOMPARE(false, mTimedOut); \
-}
+    }
 
 #define waitForCallback() waitForCallbackGeneric(mEventLoop2)
 
@@ -238,20 +238,6 @@ void TestJsonDbNotification::deleteDbFiles()
     }
 }
 
-QVariant TestJsonDbNotification::readJsonFile(const QString& filename)
-{
-    QString filepath = findFile(SRCDIR, filename);
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << filepath << parser.errorString();
-    }
-    return parser.result();
-}
-
 void TestJsonDbNotification::initTestCase()
 {
     // make sure there is no old db files.
@@ -293,9 +279,9 @@ ComponentData *TestJsonDbNotification::createComponent()
     if (componentData->component->isError())
         qDebug() << componentData->component->errors();
     QObject::connect(componentData->qmlElement, SIGNAL(notificationSignal(QVariant, int, int)),
-                         this, SLOT(notificationSlot(QVariant, int, int)));
+                     this, SLOT(notificationSlot(QVariant, int, int)));
     QObject::connect(componentData->qmlElement, SIGNAL(error(int, QString)),
-                         this, SLOT(errorSlot(int, QString)));
+                     this, SLOT(errorSlot(int, QString)));
     mComponents.append(componentData);
     return componentData;
 }
@@ -320,9 +306,11 @@ void TestJsonDbNotification::cleanupTestCase()
 
 void TestJsonDbNotification::notificationSlot(QVariant result, int action, int stateNumber)
 {
-    callbackResult = result.toMap();
-    callbackAction = action;
-    callbackStateNumber = stateNumber;
+    CallbackData data;
+    data.result = result.toMap();
+    data.action = action;
+    data.stateNumber = stateNumber;
+    cbData.append(data);
     mEventLoop2.quit();
 }
 
@@ -347,29 +335,104 @@ void TestJsonDbNotification::singleObjectNotifications()
     actionsList.append(4);
     notification->qmlElement->setProperty("actions", actionsList);
 
+    CallbackData data;
     //Create an object
-    QVariantMap item;
-    item.insert("_type", __FUNCTION__);
-    item.insert("name", "Charlie");
+    QVariantMap item = createObject(__FUNCTION__).toMap();
     mClient->create(item,  "com.nokia.shared");
     waitForCallback();
-    QCOMPARE(callbackAction, 1);
-    QCOMPARE(callbackResult.value("name"), item.value("name"));
-    QString uuid = callbackResult.value("_uuid").toString();
+    QCOMPARE(cbData.size(), 1);
+    data = cbData.takeAt(0);
+    QCOMPARE(data.action, 1);
+    QCOMPARE(data.result.value("alphabet"), item.value("alphabet"));
+    QString uuid = data.result.value("_uuid").toString();
     //update the object
-    QString newName = callbackResult.value("name").toString()+QString("**");
-    callbackResult.insert("name", newName);
-    mClient->update(callbackResult,  "com.nokia.shared");
+    QString newAlphabet = data.result.value("alphabet").toString()+QString("**");
+    data.result.insert("alphabet", newAlphabet);
+    mClient->update(data.result,  "com.nokia.shared");
     waitForCallback();
-    QCOMPARE(callbackAction, 2);
-    QCOMPARE(callbackResult.value("name").toString(), newName);
+    QCOMPARE(cbData.size(), 1);
+    data = cbData.takeAt(0);
+    QCOMPARE(data.action, 2);
+    QCOMPARE(data.result.value("alphabet").toString(), newAlphabet);
     //Remove the object
-    mClient->remove(callbackResult,  "com.nokia.shared");
+    mClient->remove(data.result,  "com.nokia.shared");
     waitForCallback();
-    QCOMPARE(callbackAction, 4);
-    QCOMPARE(callbackResult.value("_uuid").toString(), uuid);
+    QCOMPARE(cbData.size(), 1);
+    data = cbData.takeAt(0);
+    QCOMPARE(data.action, 4);
+    QCOMPARE(data.result.value("_uuid").toString(), uuid);
     deleteComponent(notification);
 }
 
+void TestJsonDbNotification::multipleObjectNotifications()
+{
+    ComponentData *notification = createComponent();
+    if (!notification || !notification->qmlElement) return;
+
+    const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"]");
+    notification->qmlElement->setProperty("query", queryString);
+    QVariantList actionsList;
+    actionsList.append(1);
+    actionsList.append(2);
+    actionsList.append(4);
+    notification->qmlElement->setProperty("actions", actionsList);
+
+    //Create objects
+    QVariantList items = createObjectList(__FUNCTION__, 10).toList();
+    mClient->create(QVariant(items),  "com.nokia.shared");
+    for (int i = 0; i<10; i++) {
+        waitForCallback();
+        if (cbData.size() >= 10)
+            break;
+    }
+    QCOMPARE(cbData.size(), 10);
+    QVariantList objList;
+    for (int i = 0; i<10; i++) {
+        QCOMPARE(cbData[i].action, 1);
+        QVariantMap item = items[i].toMap();
+        QVariantMap obj = cbData[i].result;
+        QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
+        QString newAlphabet = cbData[i].result.value("alphabet").toString()+QString("**");
+        obj.insert("alphabet", newAlphabet);
+        objList.append(obj);
+    }
+    cbData.clear();
+
+    //update the object
+    mClient->update(QVariant(objList),  "com.nokia.shared");
+    for (int i = 0; i<10; i++) {
+        waitForCallback();
+        if (cbData.size() >= 10)
+            break;
+    }
+    QCOMPARE(cbData.size(), 10);
+    QVariantList lst = objList;
+    objList.clear();
+    for (int i = 0; i<10; i++) {
+        QCOMPARE(cbData[i].action, 2);
+        QVariantMap item = lst[i].toMap();
+        QVariantMap obj = cbData[i].result;
+        QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
+        objList.append(obj);
+    }
+    cbData.clear();
+
+    //Remove the object
+    mClient->remove(objList,  "com.nokia.shared");
+    for (int i = 0; i<10; i++) {
+        waitForCallback();
+        if (cbData.size() >= 10)
+            break;
+    }
+    QCOMPARE(cbData.size(), 10);
+    for (int i = 0; i<10; i++) {
+        QCOMPARE(cbData[i].action, 4);
+        QVariantMap item = objList[i].toMap();
+        QVariantMap obj = cbData[i].result;
+        QCOMPARE(obj.value("_uuid"), item.value("_uuid"));
+    }
+    cbData.clear();
+    deleteComponent(notification);
+}
 QTEST_MAIN(TestJsonDbNotification)
 

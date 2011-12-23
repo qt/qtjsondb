@@ -71,6 +71,12 @@ public:
     QObject *qmlElement;
 };
 
+struct CallbackData {
+    int action;
+    int stateNumber;
+    QVariantMap result;
+};
+
 class TestJsonDbNotification: public ClientWrapper
 {
     Q_OBJECT
@@ -84,6 +90,7 @@ private slots:
     void cleanupTestCase();
 
     void singleObjectNotifications();
+    void multipleObjectNotifications();
 
 public slots:
     void notificationSlot(QVariant result, int action, int stateNumber);
@@ -94,7 +101,6 @@ protected slots:
 private:
     ComponentData *createComponent();
     void deleteComponent(ComponentData *componentData);
-    QVariant readJsonFile(const QString &filename);
 
 private:
     QProcess *mProcess;
@@ -105,9 +111,7 @@ private:
     bool callbackError;
     int callbackErrorCode;
     QString callbackErrorMessage;
-    int callbackAction;
-    int callbackStateNumber;
-    QVariantMap callbackResult;
+    QList<CallbackData> cbData;
     QEventLoop mEventLoop2;
 };
 #endif
