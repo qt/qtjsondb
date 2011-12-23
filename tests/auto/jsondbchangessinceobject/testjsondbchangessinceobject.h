@@ -38,8 +38,8 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-#ifndef TESTJSONDBNOTIFICATION_H
-#define TESTJSONDBNOTIFICATION_H
+#ifndef TESTJSONDBCHANGESSINCEOBJECT_H
+#define TESTJSONDBCHANGESSINCEOBJECT_H
 
 #include <QCoreApplication>
 #include <QList>
@@ -61,36 +61,26 @@
 
 QT_ADDON_JSONDB_USE_NAMESPACE
 
-struct CallbackData {
-    int action;
-    int stateNumber;
-    QVariantMap result;
-};
-
-class TestJsonDbNotification: public ClientWrapper
+class TestJsonDbChangesSinceObject: public ClientWrapper
 {
     Q_OBJECT
 public:
-    TestJsonDbNotification();
-    ~TestJsonDbNotification();
-
-    // Tricking moc to accept the signal in JsonDbNotify.Action
-    Q_ENUMS(Actions)
-    enum Actions { Create = 1, Update = 2, Remove = 4 };
-
+    TestJsonDbChangesSinceObject();
+    ~TestJsonDbChangesSinceObject();
     void deleteDbFiles();
+
 private slots:
     void initTestCase();
     void cleanupTestCase();
 
-    void singleObjectNotifications();
-    void multipleObjectNotifications();
-    void createNotification();
+    void singleType();
+    void multipleObjects();
+    void multipleTypes();
+    void createChangesSince();
 
 public slots:
-    void notificationSlot(QVariant result, int action, int stateNumber);
     void errorSlot(int code, const QString &message);
-    void notificationSlot2(QJSValue result, Actions action, int stateNumber);
+    void finishedSlot();
 
 protected slots:
     void timeout();
@@ -109,8 +99,10 @@ private:
     bool callbackError;
     int callbackErrorCode;
     QString callbackErrorMessage;
-    QList<CallbackData> cbData;
+    QVariantList cbData;
     QEventLoop mEventLoop2;
+    QObject *currentQmlElement;
+
 };
 
 #endif

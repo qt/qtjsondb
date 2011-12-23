@@ -9,5 +9,7 @@ SUBDIRS = \
     jsondbsortinglistmodel \
     jsondbpartition \
     jsondbnotification \
+    jsondbqueryobject \
+    jsondbchangessinceobject \
     common \
     qsonstream

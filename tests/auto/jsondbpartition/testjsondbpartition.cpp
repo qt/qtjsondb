@@ -42,32 +42,12 @@
 #include <QtTest/QtTest>
 #include <QJSEngine>
 #include "testjsondbpartition.h"
-
 #include "../../shared/util.h"
-#include <QDeclarativeEngine>
-#include <QDeclarativeComponent>
-#include <QDeclarativeContext>
 #include <QJSValueIterator>
 #include <QDir>
 #include "json.h"
-#include <QDeclarativeExpression>
-#include <QDeclarativeError>
 
 static const char dbfile[] = "dbFile-jsondb-partition";
-
-#define waitForCallbackGeneric(eventloop) \
-{ \
-    QTimer timer; \
-    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout())); \
-    QObject::connect(&timer, SIGNAL(timeout()), &eventloop, SLOT(quit())); \
-    timer.start(mClientTimeout);                                       \
-    mElapsedTimer.start(); \
-    mTimedOut = false;\
-    eventloop.exec(QEventLoop::AllEvents); \
-    QCOMPARE(false, mTimedOut); \
-}
-
-#define waitForCallback() waitForCallbackGeneric(mEventLoop)
 
 const QString qmlProgram = QLatin1String(
             "import QtQuick 2.0 \n"
@@ -77,116 +57,6 @@ const QString qmlProgram = QLatin1String(
                 "id: sharedPartition;"
                 "name: \"com.nokia.shared.1\";"
             "}");
-
-ComponentData::ComponentData(): engine(0), component(0), qmlElement(0)
-{
-}
-
-ComponentData::~ComponentData()
-{
-    if (qmlElement)
-        delete qmlElement;
-    if (component)
-        delete component;
-    if (engine)
-        delete engine;
-}
-
-QVariant createObject(const QString& functionName)
-{
-    static QStringList greekAlphabets;
-    static int size = 0;
-    if (greekAlphabets.isEmpty()) {
-        greekAlphabets  << "alpha" << "beta" << "gamma" << "epsilon" << "zeta"
-                        << "eta" << "theta"<< "iota" << "kappa"  << "lambda";
-        size = greekAlphabets.size();
-    }
-
-    QVariantMap obj;
-    obj.insert("_type", functionName);
-    int position = qrand()%size;
-    obj.insert("alphabet", greekAlphabets[position]);
-    obj.insert("pos", position);
-    return obj;
-}
-
-QVariant createObjectList(const QString& functionName, int size)
-{
-    QVariantList list;
-    for (int i = 0; i<size; i++) {
-        list.append(createObject(functionName));
-    }
-    return list;
-}
-
-QVariant updateObjectList(QVariantList objects, QVariantList extra)
-{
-    QVariantList list;
-    for (int i = 0; i<objects.size(); i++) {
-        QVariantMap objMap = objects[i].toMap();
-        QVariantMap extraMap = extra[i].toMap();
-        QVariantMap::Iterator j = extraMap.begin();
-        while (j != extraMap.end()) {
-            objMap.insert(j.key(), j.value());
-            ++j;
-        }
-        list.append(objMap);
-    }
-    return list;
-}
-
-QVariant updateObject(QVariant object, QVariantList extra)
-{
-    QVariantMap objMap = object.toMap();
-    QVariantMap extraMap = extra[0].toMap();
-    QVariantMap::Iterator j = extraMap.begin();
-    while (j != extraMap.end()) {
-        objMap.insert(j.key(), j.value());
-        ++j;
-    }
-    return objMap;
-}
-
-
-QString objectString(QString key, QVariant value)
-{
-    QString fullObject;
-    if (!key.isEmpty()) {
-        fullObject = QString("%1:").arg(key);
-    }
-    if (value.type() == QVariant::Map) {
-        fullObject += "{";
-        QVariantMap map = value.toMap();
-        QVariantMap::Iterator i = map.begin();
-        int count = 0;
-        while (i != map.end()) {
-            if (count)
-                fullObject += ",";
-            fullObject += objectString(i.key(),i.value());
-            ++i;
-            ++count;
-        }
-        fullObject += "}";
-    } else if (value.type() == QVariant::List) {
-        fullObject += "[";
-        QVariantList list = value.toList();
-        QVariantList::Iterator i = list.begin();
-        int count = 0;
-        while (i != list.end()) {
-            if (count)
-                fullObject += ",";
-            fullObject += objectString(QString(),*i);
-            ++i;
-            ++count;
-        }
-        fullObject += "]";
-
-    } else {
-        fullObject += QString("'%1'").arg(value.toString());
-    }
-    return fullObject;
-}
-
 
 TestJsonDbPartition::TestJsonDbPartition()
     : mTimedOut(false)

@@ -38,8 +38,8 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-#ifndef TestJsonDbPartition_H
-#define TestJsonDbPartition_H
+#ifndef TESTJSONDBPARTITION_H
+#define TESTJSONDBPARTITION_H
 
 #include <QCoreApplication>
 #include <QList>
@@ -56,23 +56,9 @@
 
 #include <QAbstractItemModel>
 #include "clientwrapper.h"
-
-QT_BEGIN_NAMESPACE
-class QDeclarativeEngine;
-class QDeclarativeComponent;
-QT_END_NAMESPACE
+#include "../../shared/qmltestutil.h"
 
 QT_ADDON_JSONDB_USE_NAMESPACE
-
-
-class ComponentData {
-public:
-    ComponentData();
-    ~ComponentData();
-    QDeclarativeEngine *engine;
-    QDeclarativeComponent *component;
-    QObject *qmlElement;
-};
 
 class TestJsonDbPartition: public ClientWrapper
 {
@@ -113,4 +99,5 @@ private:
     QVariant callbackMeta;
     QVariant callbackResponse;
 };
+
 #endif
