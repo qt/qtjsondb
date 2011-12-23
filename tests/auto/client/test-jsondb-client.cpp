@@ -59,12 +59,15 @@
 #include "private/jsondb-connection_p.h"
 
 #include "jsondb-client.h"
+#include "jsondb-object.h"
 #include "jsondb-error.h"
 
 #include "json.h"
 
 #include "util.h"
 #include "clientwrapper.h"
+
+Q_DECLARE_METATYPE(QUuid)
 
 QT_ADDON_JSONDB_USE_NAMESPACE
 
@@ -107,6 +110,8 @@ private slots:
     void partition();
     void queryObject();
     void changesSinceObject();
+    void jsondbobject();
+    void jsondbobject_uuidFromObject();
 
     void connection_response(int, const QVariant&);
     void connection_error(int, int, const QString&);
@@ -1497,6 +1502,71 @@ void TestJsonDbClient::changesSinceObject()
 //    QCOMPARE(handler.resultsReadyCount, 16); // there is something fishy with jsondb state handling
     QCOMPARE(handler.finishedCalls, 1);
     QCOMPARE(handler.errorCalls, 0);
+}
+
+void TestJsonDbClient::jsondbobject()
+{
+    JsonDbObject o;
+    QVERIFY(o.isEmpty());
+    QUuid uuid = o.uuid();
+    QVERIFY(uuid.isNull());
+    QVERIFY(!o.contains(QLatin1String("_uuid")));
+
+    uuid = QUuid::createUuid();
+    o.setUuid(uuid);
+    QCOMPARE(o.uuid(), uuid);
+    QVariant v = o.value(QLatin1String("_uuid"));
+    QVERIFY(!v.isNull());
+    QVERIFY(v.canConvert<QUuid>());
+    QCOMPARE(v.value<QUuid>(), uuid);
+
+    o = JsonDbObject();
+    QVERIFY(o.uuid().isNull());
+    o.insert(QLatin1String("_uuid"), QVariant::fromValue(uuid));
+    QCOMPARE(o.uuid(), uuid);
+    v = o.value(QLatin1String("_uuid"));
+    QVERIFY(!v.isNull());
+    QVERIFY(v.canConvert<QUuid>());
+    QCOMPARE(v.value<QUuid>(), uuid);
+}
+
+void TestJsonDbClient::jsondbobject_uuidFromObject()
+{
+    {
+        // empty object
+        JsonDbObject o;
+        QUuid uuid = JsonDbObject::uuidFromObject(o);
+        QVERIFY(!uuid.isNull());
+    }
+
+    {
+        // object without _id
+        JsonDbObject o;
+        o.insert(QLatin1String("foo"), QLatin1String("bar"));
+        QUuid uuid = JsonDbObject::uuidFromObject(o);
+        QVERIFY(!uuid.isNull());
+        QUuid uuid2 = JsonDbObject::uuidFromObject(o);
+        QVERIFY(!uuid2.isNull());
+        QVERIFY(uuid != uuid2);
+    }
+
+    {
+        // object _id
+        JsonDbObject o;
+        o.insert(QLatin1String("_id"), QLatin1String("Venus"));
+        o.insert(QLatin1String("foo"), QLatin1String("bar"));
+        QUuid uuid = JsonDbObject::uuidFromObject(o);
+        QVERIFY(!uuid.isNull());
+        QUuid uuid2 = JsonDbObject::uuidFromObject(o);
+        QVERIFY(!uuid2.isNull());
+        QCOMPARE(uuid, uuid2);
+
+        o.insert(QLatin1String("foo"), QLatin1String("ZZZZZAAAAAPPPP"));
+        o.insert(QLatin1String("a"), QLatin1String("b"));
+        QUuid uuid3 = JsonDbObject::uuidFromObject(o);
+        QVERIFY(!uuid3.isNull());
+        QCOMPARE(uuid, uuid3);
+    }
 }
 
 QTEST_MAIN(TestJsonDbClient)

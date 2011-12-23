@@ -21,6 +21,7 @@ HEADERS += qtaddonjsondbversion.h
 HEADERS += \
     jsondb-error.h \
     jsondb-client.h \
+    jsondb-object.h \
     jsondb-client_p.h \
     jsondb-connection_p.h \
     jsondb-connection_p_p.h \
@@ -31,6 +32,7 @@ HEADERS += \
 SOURCES += \
     jsondb-error.cpp \
     jsondb-client.cpp \
+    jsondb-object.cpp \
     jsondb-connection.cpp \
     jsondb-query.cpp \
     jsondb-oneshot.cpp \
