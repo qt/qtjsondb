@@ -7,5 +7,7 @@ SUBDIRS = \
     jsondb-listmodel \
     jsondblistmodel \
     jsondbsortinglistmodel \
+    jsondbpartition \
+    jsondbnotification \
     common \
     qsonstream

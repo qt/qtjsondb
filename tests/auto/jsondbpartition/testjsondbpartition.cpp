@@ -55,17 +55,19 @@
 
 static const char dbfile[] = "dbFile-jsondb-partition";
 
-#define waitForCallback() \
+#define waitForCallbackGeneric(eventloop) \
 { \
     QTimer timer; \
     QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout())); \
-    QObject::connect(&timer, SIGNAL(timeout()), &mEventLoop, SLOT(quit())); \
+    QObject::connect(&timer, SIGNAL(timeout()), &eventloop, SLOT(quit())); \
     timer.start(mClientTimeout);                                       \
     mElapsedTimer.start(); \
     mTimedOut = false;\
-    mEventLoop.exec(QEventLoop::AllEvents); \
+    eventloop.exec(QEventLoop::AllEvents); \
     QCOMPARE(false, mTimedOut); \
 }
+
+#define waitForCallback() waitForCallbackGeneric(mEventLoop)
 
 const QString qmlProgram = QLatin1String(
             "import QtQuick 2.0 \n"

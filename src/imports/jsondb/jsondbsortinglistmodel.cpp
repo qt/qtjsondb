@@ -71,14 +71,11 @@ void JsonDbSortingListModelPrivate::init()
 {
     Q_Q(JsonDbSortingListModel);
     q->connect(&dbClient, SIGNAL(response(int,const QVariant&)),
-               q, SLOT(_q_jsonDbResponse(int,const QVariant&)),
-               Qt::QueuedConnection);
+               q, SLOT(_q_jsonDbResponse(int,const QVariant&)));
     q->connect(&dbClient, SIGNAL(error(int,int,const QString&)),
-               q, SLOT(_q_jsonDbErrorResponse(int,int,const QString&)),
-               Qt::QueuedConnection);
+               q, SLOT(_q_jsonDbErrorResponse(int,int,const QString&)));
     q->connect(&dbClient, SIGNAL(notified(const QString&,const QVariant&,const QString&)),
-               q, SLOT(_q_jsonDbNotified(const QString&,const QVariant&,const QString&)),
-               Qt::QueuedConnection);
+               q, SLOT(_q_jsonDbNotified(const QString&,const QVariant&,const QString&)));
 }
 
 JsonDbSortingListModelPrivate::~JsonDbSortingListModelPrivate()

@@ -69,14 +69,11 @@ JsonDbPartition::JsonDbPartition(const QString &partitionName, QObject *parent)
     ,_name(partitionName)
 {
     connect(&jsonDb, SIGNAL(response(int,const QVariant&)),
-            this, SLOT(dbResponse(int,const QVariant&)),
-            Qt::QueuedConnection);
+            this, SLOT(dbResponse(int,const QVariant&)));
     connect(&jsonDb, SIGNAL(error(int,int,QString)),
-            this, SLOT(dbErrorResponse(int,int,QString)),
-            Qt::QueuedConnection);
-    connect(&jsonDb, SIGNAL(notified(const QString&,const QVariant&,const QString&)),
-            this, SLOT(dbNotified(const QString&,const QVariant&,const QString&)),
-            Qt::QueuedConnection);
+            this, SLOT(dbErrorResponse(int,int,QString)));
+    connect(&jsonDb, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
+            this, SLOT(dbNotified(QString,QtAddOn::JsonDb::JsonDbNotification)));
 }
 
 JsonDbPartition::~JsonDbPartition()
@@ -97,11 +94,6 @@ void JsonDbPartition::setName(const QString &partitionName)
 {
     if (partitionName != _name) {
         _name = partitionName;
-        //Drop all notifications
-        foreach (QPointer<JsonDbNotify> notify, newNotifications) {
-            removeNotification(notify);
-        }
-        newNotifications.clear();
         foreach (QPointer<JsonDbNotify> notify, notifications) {
             removeNotification(notify);
         }
@@ -563,28 +555,15 @@ void JsonDbPartition::updateNotification(JsonDbNotify *notify)
         notifyActions |= JsonDbClient::NotifyUpdate;
     if (actionList.contains(JsonDbNotify::Remove))
         notifyActions |= JsonDbClient::NotifyRemove;
-    int id = jsonDb.notify(notifyActions, notify->query().toString());
-    newNotifications.insert(id, QPointer<JsonDbNotify>(notify));
+    notify->uuid= jsonDb.registerNotification(notifyActions, notify->query().toString(), _name);
+    notifications.insert(notify->uuid, notify);
 }
 
 
 void JsonDbPartition::removeNotification(JsonDbNotify *notify)
 {
-    if (notify->uuid.isEmpty()) {
-        QMap<int, QPointer<JsonDbNotify> >::const_iterator i = newNotifications.constBegin();
-        while (i != newNotifications.constEnd()) {
-            if (i.value() == notify) {
-                notificationsToRemove.insert(i.key(), i.value());
-                newNotifications.remove(i.key());
-                break;
-            }
-            ++i;
-        }
-    } else if (notifications.contains(notify->uuid)) {
-        QVariantMap notificationObject;
-        notificationObject.insert("_uuid", notify->uuid);
-        notificationObject.insert("_version", notify->version);
-        jsonDb.remove(QVariant(notificationObject));
+    if (notifications.contains(notify->uuid)) {
+        jsonDb.unregisterNotification(notify->uuid);
         notifications.remove(notify->uuid);
     }
 }
@@ -718,27 +697,6 @@ void JsonDbPartition::dbResponse(int id, const QVariant &result)
         callChangesSince(changesCallbacks, id, result);
     } else if (findCallbacks.contains(id)) {
         callFindCallback(findCallbacks, id, result);
-    } else if (newNotifications.contains(id)) {
-        QPointer<JsonDbNotify> notify = newNotifications[id];
-        if (notify) {
-            QVariantMap object = result.toMap();
-            notify->uuid = object.value(JsonDbString::kUuidStr).toString();
-            notify->version = object.value(JsonDbString::kVersionStr).toString();
-            notifications.insert(notify->uuid, notify);
-        }
-        newNotifications.remove(id);
-    } else if (notificationsToRemove.contains(id)) {
-        QPointer<JsonDbNotify> notify = notificationsToRemove[id];
-        if (notify) {
-            QVariantMap notificationObject;
-            QVariantMap object = result.toMap();
-            notify->uuid = object.value(JsonDbString::kUuidStr).toString();
-            notify->version = object.value(JsonDbString::kVersionStr).toString();
-            notificationObject.insert(QLatin1String("_uuid"), notify->uuid);
-            notificationObject.insert(QLatin1String("_version"), notify->version);
-            jsonDb.remove(QVariant(notificationObject));
-        }
-        notificationsToRemove.remove(id);
     }
 }
 
@@ -754,22 +712,15 @@ void JsonDbPartition::dbErrorResponse(int id, int code, const QString &message)
         callErrorCallback(findCallbacks, id, code, message);
     } else if (changesCallbacks.contains(id)) {
         callErrorCallback(changesCallbacks, id, code, message);
-    } else if (newNotifications.contains(id)) {
-        QPointer<JsonDbNotify> notify = newNotifications[id];
-        if (notify) {
-            notify->emitError(code,message);
-        }
-        newNotifications.remove(id);
     }
-
 }
 
-void JsonDbPartition::dbNotified(const QString& currentNotifyUuid, const QVariant &v, const QString &action)
+void JsonDbPartition::dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &notification)
 {
-    if (notifications.contains(currentNotifyUuid)) {
-        QPointer<JsonDbNotify> notify = notifications[currentNotifyUuid];
+    if (notifications.contains(notify_uuid)) {
+        QPointer<JsonDbNotify> notify = notifications[notify_uuid];
         if (notify) {
-            notify->emitNotification(g_declEngine->newVariant(v), action);
+            notify->emitNotification(notification);
         }
     }
 }

@@ -48,6 +48,9 @@
 #include <QJSValue>
 #include <QDeclarativeParserStatus>
 #include <QDeclarativeListProperty>
+#include "jsondb-client.h"
+
+Q_USE_JSONDB_NAMESPACE
 
 class JsonDbPartition;
 class JsonDbPartitionPrivate;
@@ -59,7 +62,7 @@ class JsonDbNotify : public QObject, public QDeclarativeParserStatus
 
 public:
     Q_ENUMS(Actions)
-    enum Actions { Create, Update, Remove };
+    enum Actions { Create = 1, Update = 2, Remove = 4 };
 
     Q_PROPERTY(QVariant query READ query WRITE setQuery)
     Q_PROPERTY(QVariant actions READ actions WRITE setActions)
@@ -103,7 +106,7 @@ private:
     bool active;
 
     void init();
-    void emitNotification(const QJSValue &object, const QString &action);
+    void emitNotification(const QtAddOn::JsonDb::JsonDbNotification&);
     void removeNotifications();
     void emitError(int code, const QString &message);
 

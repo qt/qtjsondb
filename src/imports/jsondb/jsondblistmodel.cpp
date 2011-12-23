@@ -85,14 +85,11 @@ void JsonDbListModelPrivate::init()
 {
     Q_Q(JsonDbListModel);
     q->connect(&jsonDb, SIGNAL(response(int,const QVariant&)),
-               q, SLOT(_q_jsonDbResponse(int,const QVariant&)),
-               Qt::QueuedConnection);
+               q, SLOT(_q_jsonDbResponse(int,const QVariant&)));
     q->connect(&jsonDb, SIGNAL(error(int,int,const QString&)),
-               q, SLOT(_q_jsonDbErrorResponse(int,int,const QString&)),
-               Qt::QueuedConnection);
+               q, SLOT(_q_jsonDbErrorResponse(int,int,const QString&)));
     q->connect(&jsonDb, SIGNAL(notified(const QString&,const QVariant&,const QString&)),
-               q, SLOT(_q_jsonDbNotified(const QString&,const QVariant&,const QString&)),
-               Qt::QueuedConnection);
+               q, SLOT(_q_jsonDbNotified(const QString&,const QVariant&,const QString&)));
 }
 
 JsonDbListModelPrivate::~JsonDbListModelPrivate()

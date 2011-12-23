@@ -119,8 +119,6 @@ private:
     QMap<int, QJSValue> removeCallbacks;
     QMap<int, QJSValue> findCallbacks;
     QMap<int, QJSValue> changesCallbacks;
-    QMap<int, QPointer<JsonDbNotify> > newNotifications;
-    QMap<int, QPointer<JsonDbNotify> > notificationsToRemove;
     QMap<QString, QPointer<JsonDbNotify> > notifications;
 
     void updateNotification(JsonDbNotify *notify);
@@ -134,8 +132,7 @@ private:
 private Q_SLOTS:
     void dbResponse(int id, const QVariant &result);
     void dbErrorResponse(int id, int code, const QString &message);
-    void dbNotified(const QString& currentNotifyUuid,const QVariant &v,
-                       const QString &action);
+    void dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &notification);
 
     friend class JsonDatabase;
     friend class JsonDbNotify;

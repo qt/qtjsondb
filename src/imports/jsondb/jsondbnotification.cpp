@@ -42,6 +42,7 @@
 #include "jsondbnotification.h"
 #include "jsondbpartition.h"
 #include "private/jsondb-strings_p.h"
+#include "plugin.h"
 #include <qdebug.h>
 
 Q_USE_JSONDB_NAMESPACE
@@ -240,21 +241,15 @@ void JsonDbNotify::setEnabled(bool enabled)
     \endcode
 
 */
-void JsonDbNotify::emitNotification(const QJSValue &object, const QString &action)
+
+void JsonDbNotify::emitNotification(const QtAddOn::JsonDb::JsonDbNotification &_notification)
 {
     if (active) {
-        Actions notificationAction;
-        if (action == JsonDbString::kCreateStr) {
-            notificationAction = JsonDbNotify::Create;
-        } else if (action == JsonDbString::kUpdateStr) {
-            notificationAction = JsonDbNotify::Update;
-        } else if (action == JsonDbString::kRemoveStr) {
-            notificationAction = JsonDbNotify::Remove;
-        }
-        // TODO use the new API with stateNumber
-        emit notification(object, notificationAction, 0);
+        QJSValue obj = g_declEngine->toScriptValue(QVariant(_notification.object()));
+        emit notification(obj, (Actions)_notification.action(), _notification.stateNumber());
     }
 }
+
 
 
 /*!
