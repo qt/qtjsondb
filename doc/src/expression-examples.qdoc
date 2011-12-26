@@ -33,8 +33,8 @@
 
 \table
 \row
-\o \c {[?_type="Application"]}
-\o Return all objects that are Application types.
+\o \c {[?_type="Person"]}
+\o Return all objects that are Person types.
 \row
 \o \c {[*]}
 \o All objects in the database.

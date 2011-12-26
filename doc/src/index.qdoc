@@ -66,22 +66,22 @@ action.
 \o Expression
 \o Description
 \row
-\o \c {? filter}
+\o \c {[? filter]}
 \o Query for matching objects.
 \row
-\o \c {= fields}
+\o \c {[= fields]}
 \o Restrict returned objects to particular fields.
 \row
-\o \c {/ field}
+\o \c {[/ field]}
 \o Sort in ascending order by field.
 \row
-\o \c {\ field}
+\o \c {[\ field]}
 \o Sort in descending order by field.
 \row
-\o \c {count}
+\o \c {[count]}
 \o Aggregation operation.
 \row
-\o \c {*}
+\o \c {[*]}
 \o Match all objects.
 \endtable
 
@@ -101,9 +101,10 @@ See \l {Object Indexes}
 \section3 Query optimization
 
 In general, sorting should only be done on properties for which JSON DB has an
-index. Any sorts done on non-indexed properties will result in all of the
-objects being sorted in-memory, which should be avoided for all but the
-smallest data sets.
+index. Any query with a sort order given for which there is no index, will
+result in an error. For a query without explicitly provided sort order, full
+object scan is performed, which should be avoided for all but the smallest data
+sets.
 
 \section2 Views
 
@@ -113,22 +114,19 @@ smallest data sets.
 
 \section2 Notifications
 
-Notifications are created, updated, and removed by creating, updating, and
-removing notification objects, which have the following properties:
-
-\list
-\o _type: "NOTIFICATION"
-\o query: Notifications will be delivered for objects matching this query
-string (e.g., [?_type="com.nokia.mp.content.Image"])
-\o actions: A list specifying for which actions (create, update, remove)
-notifications will be delivered (e.g., ["create", "remove"])
-\endlist
+Notifications are created, updated, and removed by using a
+\l{QtAddOn::JsonDb::JsonDbClient::registerNotification()}{dedicated api} which
+takes a query expression and a list of actions as an argument. There are
+actions available that allow watching for objects being created, updated or
+removed from a database.
 
 When a notification matches an action performed on the database, the
 application is notified through one of the client APIs. The notification is
 identified by the UUID of the matching notification. The object being acted
-upon and the name of the action are delivered along with the notification UUID
+upon and the type of the action are delivered along with the notification UUID
 to the client.
+
+See also \l{QtAddOn::JsonDb::JsonDbNotification}
 
 \section1 Examples
 
