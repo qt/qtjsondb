@@ -470,12 +470,13 @@ QsonMap JsonDbBtreeStorage::createPersistentObject(QsonMap &object)
                                          table->errorMessage());
     }
 
-    table->storeStateChange(objectKey, ObjectChange::Created);
+    quint32 stateNumber = table->storeStateChange(objectKey, ObjectChange::Created);
     table->indexObject(objectKey, object, table->stateNumber());
 
     resultmap.insert(JsonDbString::kUuidStr, uuid);
     resultmap.insert(JsonDbString::kVersionStr, version);
     resultmap.insert(JsonDbString::kCountStr, 1);
+    resultmap.insert(JsonDbString::kStateNumberStr, stateNumber);
 
     return JsonDb::makeResponse( resultmap, errormap );
 }
@@ -617,10 +618,11 @@ QsonMap JsonDbBtreeStorage::updatePersistentObject(QsonMap &object)
 
     if (gDebug) qDebug() << "updateObject" << objectKey << endl << object << endl << oldObject;
 
+    quint32 stateNumber;
     if (exists) {
-        table->storeStateChange(objectKey, ObjectChange::Updated, oldObject);
+        stateNumber = table->storeStateChange(objectKey, ObjectChange::Updated, oldObject);
     } else {
-        table->storeStateChange(objectKey, ObjectChange::Created);
+        stateNumber = table->storeStateChange(objectKey, ObjectChange::Created);
     }
 
     table->indexObject(objectKey, object, table->stateNumber());
@@ -628,6 +630,7 @@ QsonMap JsonDbBtreeStorage::updatePersistentObject(QsonMap &object)
     resultmap.insert( JsonDbString::kCountStr, 1 );
     resultmap.insert( JsonDbString::kUuidStr, uuid );
     resultmap.insert( JsonDbString::kVersionStr, version );
+    resultmap.insert( JsonDbString::kStateNumberStr, stateNumber );
 
     return JsonDb::makeResponse( resultmap, errormap );
 }
@@ -671,7 +674,7 @@ QsonMap JsonDbBtreeStorage::removePersistentObject(QsonMap object, const QsonMap
                                          table->errorMessage());
     }
 
-    table->storeStateChange(objectKey, ObjectChange::Deleted, oldObject);
+    quint32 stateNumber = table->storeStateChange(objectKey, ObjectChange::Deleted, oldObject);
     table->deindexObject(objectKey, oldObject, table->stateNumber());
 
     QsonMap item;
@@ -682,6 +685,7 @@ QsonMap JsonDbBtreeStorage::removePersistentObject(QsonMap object, const QsonMap
     resultmap.insert(JsonDbString::kCountStr, 1);
     resultmap.insert(JsonDbString::kDataStr, data);
     resultmap.insert(JsonDbString::kErrorStr, QsonObject::NullValue);
+    resultmap.insert(JsonDbString::kStateNumberStr, stateNumber);
     QsonMap result = JsonDb::makeResponse( resultmap, errormap );
     return result;
 }

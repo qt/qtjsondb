@@ -249,10 +249,12 @@ QsonMap JsonDb::createList(const JsonDbOwner *owner, QsonList& list, const QStri
 
     WithTransaction lock(storage);
     CHECK_LOCK_RETURN(lock, "createList");
+    quint32 stateNumber = 0;
 
     for (int i = 0; i < list.size(); ++i) {
         QsonMap o = list.at<QsonMap>(i);
         QsonMap r = create(owner, o, partition);
+        stateNumber = r.value<quint32>(JsonDbString::kStateNumberStr);
         if (responseIsError(r))
             return r;
         count += 1;
@@ -263,6 +265,8 @@ QsonMap JsonDb::createList(const JsonDbOwner *owner, QsonList& list, const QStri
     QsonMap resultmap, errormap;
     resultmap.insert( JsonDbString::kDataStr, resultList );
     resultmap.insert( JsonDbString::kCountStr, count );
+    if (stateNumber > 0)
+        resultmap.insert( JsonDbString::kStateNumberStr, stateNumber);
     return makeResponse( resultmap, errormap );
 }
 
@@ -292,10 +296,12 @@ QsonMap JsonDb::updateList(const JsonDbOwner *owner, QsonList& list, const QStri
     CHECK_LOCK_RETURN(transaction, "updateList");
     int count = 0;
     QsonList resultList;
+    quint32 stateNumber = 0;
 
     for (int i = 0; i < list.size(); ++i) {
         QsonMap o = list.at<QsonMap>(i);
         QsonMap r = update(owner, o, partition, replication);
+        stateNumber = r.value<quint32>(JsonDbString::kStateNumberStr);
         if (responseIsError(r))
             return r;
         count += r.subObject(JsonDbString::kResultStr).valueInt(JsonDbString::kCountStr);
@@ -306,6 +312,8 @@ QsonMap JsonDb::updateList(const JsonDbOwner *owner, QsonList& list, const QStri
     QsonMap resultmap, errormap;
     resultmap.insert( JsonDbString::kDataStr, resultList );
     resultmap.insert( JsonDbString::kCountStr, count );
+    if (stateNumber > 0)
+        resultmap.insert( JsonDbString::kStateNumberStr, stateNumber );
     return makeResponse( resultmap, errormap );
 }
 
@@ -334,11 +342,13 @@ QsonMap JsonDb::removeList(const JsonDbOwner *owner, QsonList list, const QStrin
     WithTransaction transaction(storage);
     CHECK_LOCK_RETURN(transaction, "removeList");
     int count = 0;
+    quint32 stateNumber = 0;
     QsonList removedList, errorsList;
     for (int i = 0; i < list.size(); ++i) {
         QsonMap o = list.at<QsonMap>(i);
         QString uuid = o.valueString(JsonDbString::kUuidStr);
         QsonMap r = remove(owner, o, partition);
+        stateNumber = r.value<quint32>(JsonDbString::kStateNumberStr);
         QsonMap error = r.subObject(JsonDbString::kErrorStr);
         if (!error.isEmpty()) {
             QsonMap obj;
@@ -358,6 +368,8 @@ QsonMap JsonDb::removeList(const JsonDbOwner *owner, QsonList list, const QStrin
     resultmap.insert(JsonDbString::kCountStr, count);
     resultmap.insert(JsonDbString::kDataStr, removedList);
     resultmap.insert(JsonDbString::kErrorStr, errorsList);
+    if (stateNumber > 0)
+        resultmap.insert(JsonDbString::kStateNumberStr, stateNumber);
     QsonMap errormap;
     return makeResponse(resultmap, errormap);
 }

@@ -3456,7 +3456,9 @@ void TestJsonDb::testPrimaryKey()
     if (gVerbose) qDebug() << 1 << result1;
     if (gVerbose) qDebug() << 2 << result2;
 
-    QCOMPARE(result1, result2);
+    QCOMPARE(result1.subObject("result").valueString("_uuid"), result2.subObject("result").valueString("_uuid"));
+    QCOMPARE(result1.subObject("result").valueString("_version"), result1.subObject("result").valueString("_version"));
+    QCOMPARE(result1.subObject("result").value<int>("count"), result1.subObject("result").value<int>("count"));
 }
 
 void TestJsonDb::testStoredProcedure()
