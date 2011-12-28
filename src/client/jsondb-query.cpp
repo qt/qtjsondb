@@ -210,7 +210,7 @@ void JsonDbResultBase::start()
             QueryHandler()
             {
                 JsonDbClient *client = new JsonDbClient(this);
-                JsonDbQuery *query = client.query();
+                JsonDbQuery *query = client->query();
                 query->setQuery(QLatin1String("[?_type=\"Person\"]"));
                 QObject::connect(query, SIGNAL(resultsReady(int)), this, SLOT(onResultsReady(int)));
                 QObject::connect(query, SIGNAL(finished()), this, SLOT(onFinished()));

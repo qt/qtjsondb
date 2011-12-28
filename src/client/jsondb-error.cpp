@@ -46,6 +46,7 @@ QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
     \class JsonDbError
+    \brief The JsonDbError class lists possible error codes.
     \sa JsonDbError::ErrorCode
  */
 

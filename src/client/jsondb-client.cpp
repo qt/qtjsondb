@@ -48,26 +48,19 @@
 #include <QEvent>
 
 /*!
-    \namespace QtAddOn
+    \macro QT_ADDON_JSONDB_USE_NAMESPACE
     \inmodule QtJsonDb
-    \target Qt Namespace
-*/
 
-/*!
-    \namespace QtAddOn::JsonDb
-    \inmodule QtJsonDb
-    \target QtAddOn::JsonDb Namespace
-
-    \brief The QtAddOn::JsonDb namespace contains the C++ client for JsonDb.
-
-    To use namespace QtAddOn::JsonDb from C++, use macro QT_ADDON_JSONDB_USE_NAMESPACE.
+    This macro expands to using jsondb namespace and makes jsondb namespace
+    visible to C++ source code.
 
     \code
         #include <jsondb-client.h>
         QT_ADDON_JSONDB_USE_NAMESPACE
     \endcode
 
-To declare the class without including the declaration of the class:
+    To declare the class without including the declaration of the class:
+
     \code
         #include <jsondb-global.h>
         QT_ADDON_JSONDB_BEGIN_NAMESPACE
@@ -75,13 +68,26 @@ To declare the class without including the declaration of the class:
         QT_ADDON_JSONDB_END_NAMESPACE
         QT_ADDON_JSONDB_USE_NAMESPACE
     \endcode
-
 */
 
 /*!
-    \macro QT_ADDON_JSONDB_USE_NAMESPACE
+    \macro QT_ADDON_JSONDB_BEGIN_NAMESPACE
     \inmodule QtJsonDb
-    \brief Makes namespace QtAddOn::JsonDb visible to C++ source code.
+
+    This macro begins a jsondb namespace. All forward declarations of QtJsonDb classes need to
+    be wrapped in \c QT_ADDON_JSONDB_BEGIN_NAMESPACE and \c QT_ADDON_JSONDB_END_NAMESPACE.
+
+    \sa QT_ADDON_JSONDB_USE_NAMESPACE, QT_ADDON_JSONDB_END_NAMESPACE
+*/
+
+/*!
+    \macro QT_ADDON_JSONDB_END_NAMESPACE
+    \inmodule QtJsonDb
+
+    This macro ends a jsondb namespace. All forward declarations of QtJsonDb classes need to
+    be wrapped in \c QT_ADDON_JSONDB_BEGIN_NAMESPACE and \c QT_ADDON_JSONDB_END_NAMESPACE.
+
+    \sa QT_ADDON_JSONDB_USE_NAMESPACE, QT_ADDON_JSONDB_BEGIN_NAMESPACE
 */
 
 QT_ADDON_JSONDB_BEGIN_NAMESPACE
@@ -105,10 +111,20 @@ QT_ADDON_JSONDB_BEGIN_NAMESPACE
 */
 
 /*!
-    \internal
-    \brief The JsonDbClient class provides a client interface which connects to the JsonDb server.
+    \enum JsonDbClient::Status
 
-    Uses JsonDbConnection \a connection to connect.
+    This enum describes current database connection status.
+
+    \value Null Not connected.
+    \value Connecting Connection to the database is being established.
+    \value Ready Connection established.
+    \value Error Disconnected due to an error.
+*/
+
+/*!
+    \internal
+
+    Constructs a new client object using a given \a connection and \a parent.
 */
 JsonDbClient::JsonDbClient(JsonDbConnection *connection, QObject *parent)
     : QObject(parent), d_ptr(new JsonDbClientPrivate(this))
@@ -118,9 +134,8 @@ JsonDbClient::JsonDbClient(JsonDbConnection *connection, QObject *parent)
 }
 
 /*!
-    \brief The JsonDbClient class provides a client interface which connects to the JsonDb server.
-
-    Creates a new JsonDbConnection and connects to the socket named \a socketName.
+    Constructs a new client object and connects via the local socket with a
+    given name \a socketName and a given \a parent.
 */
 JsonDbClient::JsonDbClient(const QString &socketName, QObject *parent)
     : QObject(parent)
@@ -133,10 +148,8 @@ JsonDbClient::JsonDbClient(const QString &socketName, QObject *parent)
 }
 
 /*!
-    \brief The JsonDbClient class provides a client interface which connects to the JsonDb server.
-
-    Uses the singleton object returned by \c
-    JsonDbConnection::instance() as for the database connection.
+    Constructs a new client object and connects via the default local socket
+    and a given \a parent.
 */
 JsonDbClient::JsonDbClient(QObject *parent)
     :  QObject(parent), d_ptr(new JsonDbClientPrivate(this))
@@ -149,10 +162,16 @@ JsonDbClient::JsonDbClient(QObject *parent)
     d->connection->connectToServer();
 }
 
+/*!
+    Destroys the JsonDbClient object.
+*/
 JsonDbClient::~JsonDbClient()
 {
 }
 
+/*!
+    \internal
+*/
 bool JsonDbClient::event(QEvent *event)
 {
     if (event->type() == QEvent::ThreadChange) {
@@ -165,6 +184,16 @@ bool JsonDbClient::event(QEvent *event)
     return QObject::event(event);
 }
 
+/*!
+    \fn void JsonDbClient::statusChanged()
+    The signal is emitted when the connection status is changed.
+    \sa status
+*/
+/*!
+    \property JsonDbClient::status
+    \brief Returns the current database connection status.
+    \sa disconnected()
+*/
 JsonDbClient::Status JsonDbClient::status() const
 {
     return d_func()->status;
@@ -244,6 +273,7 @@ bool JsonDbClientPrivate::send(int requestId, const QVariantMap &request)
 
 /*!
     Returns true if the client is connected to the database.
+    \sa status
 */
 bool JsonDbClient::isConnected() const
 {
@@ -384,23 +414,11 @@ void JsonDbClientPrivate::_q_handleError(int id, int code, const QString &messag
 
 /*!
   \deprecated
+  \obsolete
 
-  Sends \a queryObject to the database. Returns the reference id of the query.
+  Creates \a object.
 
-  The \a queryObject contains \c query: a query string and my
-  optionally contain \c bindings, \c limit and \c offset values. If
-  provided, \c bindings maps names in the query string to values
-  used in the query.
-
-  A successful response will include the following properties:
-
-  \list
-  \o \c data: a list of objects matching the query
-  \o \c length: the number of returned objects
-  \o \c offset: the offset of the returned objects in the list of all objects matching the query.
-  \endlist
-
-  \sa response(), error()
+  \sa query()
 */
 int JsonDbClient::find(const QVariant &object)
 {
@@ -416,6 +434,7 @@ int JsonDbClient::find(const QVariant &object)
 
 /*!
   \deprecated
+  \obsolete
 */
 int JsonDbClient::find(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
 {
@@ -428,6 +447,12 @@ int JsonDbClient::find(const QsonObject &object, QObject *target, const char *su
     return id;
 }
 
+/*!
+  \deprecated
+  \obsolete
+  Starts a query \a queryString with \a offset and \a limit in partition \a partitionName.
+  In case of success \a successSlot is triggered on \a target, \a errorSlot is triggered otherwise.
+*/
 int JsonDbClient::query(const QString &queryString, int offset, int limit,
                         const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
 {
@@ -440,6 +465,54 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
     return id;
 }
 
+/*!
+  \fn int JsonDbClient::query(const QString &query, int offset = 0, int limit = -1,
+              const QVariantMap &bindings = QVariantMap(),
+              const QString &partitionName = QString(),
+              QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);
+
+  Starts a database \a query in a given \a partitionName.
+
+  This function starts a query, skipping the first matching \a offset items,
+  and asynchronously returning up to \a limit items. Returns the reference id
+  of the query.
+
+  \a bindings can be used to pass e.g. user-provided data to query constraints, e.g.
+  \code
+    void get(const QString &name)
+    {
+        QString queryString = QLatin1String("[?_type=\"Person\"][?name=%name]");
+        QVariantMap bindings;
+        bindings.insert(QLatin1String("%name"), name);
+        client->query(queryString, 0, -1, bindings);
+    }
+  \endcode
+
+  If the query fails (e.g. there is a syntax error in the \a query string) \a
+  errorSlot is called (if given) on \a target in addition to the error()
+  signal. The \a errorSlot should be a slot with the following format: \c {void
+  errorSlot(int id, int code, const QString &message)}
+
+  When the query result is ready \a successSlot is called (if given) on \a
+  target in addition to the response() signal. The \a successSlot should be a
+  slot with the following format: \c {void successSlot(int id, const QVariant
+  &object)}
+
+  Note that this function returns the whole response and hence is very
+  inefficient for large datasets, in general a query() function should be preferred instead.
+
+  A successful response object will include the following properties:
+
+  \list
+  \o \c data: a list of objects matching the query
+  \o \c length: the number of returned objects
+  \o \c offset: the offset of the returned objects in the list of all objects matching the query.
+  \endlist
+
+  \sa query(), JsonDbQuery, response(), error()
+*/
+// \sa query() doesn't generate proper link, but I still mention it so that we
+// can change it when qdoc3 is fixed
 int JsonDbClient::query(const QString &queryString, int offset, int limit,
                         const QMap<QString,QVariant> &bindings,
                         const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
@@ -454,7 +527,7 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
 }
 
 /*!
-  \brief Constructs and returns an object for executing a query.
+  Constructs and returns an object for executing a query.
 
   \sa JsonDbQuery
 */
@@ -464,10 +537,10 @@ JsonDbQuery *JsonDbClient::query()
 }
 
 /*!
-  \inmodule QtJsonDb
   \deprecated
+  \obsolete
 
-  \brief Sends a request to insert \a object into the database. Returns the reference id of the query.
+  Sends a request to insert \a object into the database. Returns the reference id of the query.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
   On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
@@ -499,9 +572,9 @@ int JsonDbClient::create(const QsonObject &object, const QString &partitionName,
 }
 
 /*!
-  \inmodule QtJsonDb
+  Sends a request to insert \a object into the database. Returns the reference id of the query.
 
-  \brief Sends a request to insert \a object into the database. Returns the reference id of the query.
+  Given \a object is created in partition \a partitionName.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
   On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
@@ -534,10 +607,10 @@ int JsonDbClient::create(const QVariant &object, const QString &partitionName, Q
 }
 
 /*!
-  \inmodule QtJsonDb
   \deprecated
+  \obsolete
 
-  \brief Sends a request to update \a object in the database. Returns the reference id of the query.
+  Sends a request to update \a object in the database. Returns the reference id of the query.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
   On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
@@ -568,9 +641,7 @@ int JsonDbClient::update(const QsonObject &object, const QString &partitionName,
 }
 
 /*!
-  \inmodule QtJsonDb
-
-  \brief Sends a request to update \a object in the database. Returns the reference id of the query.
+  Sends a request to update \a object in partition \a partitionName. Returns the reference id of the query.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
   On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
@@ -601,10 +672,10 @@ int JsonDbClient::update(const QVariant &object, const QString &partitionName, Q
 }
 
 /*!
-  \inmodule QtJsonDb
   \deprecated
+  \obsolete
 
-  \brief Sends a request to remove \a object from the database. Returns the reference id of the query.
+  Sends a request to remove \a object from the database. Returns the reference id of the query.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
   On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
@@ -636,9 +707,7 @@ int JsonDbClient::remove(const QsonObject &object, const QString &partitionName,
 }
 
 /*!
-  \inmodule QtJsonDb
-
-  \brief Sends a request to remove \a object from the database. Returns the reference id of the query.
+  Sends a request to remove \a object from partition \a partitionName. Returns the reference id of the query.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
   On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
@@ -670,9 +739,9 @@ int JsonDbClient::remove(const QVariant &object, const QString &partitionName, Q
 }
 
 /*!
-  \inmodule QtJsonDb
-
-  \brief Sends a request to remove from the database objects that match \a queryString. Returns the reference id of the query.
+  \deprecated
+  \obsolete
+  Sends a request to remove from the database objects that match \a queryString. Returns the reference id of the query.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
   On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
@@ -701,6 +770,8 @@ int JsonDbClient::remove(const QString &queryString, QObject *target, const char
 }
 
 /*!
+  \deprecated
+  \obsolete
   Creates a notification for a given \a query and notification \a types.
 
   When an object that is matched a \a query is created/update/removed (depending on the given
@@ -839,14 +910,11 @@ void JsonDbClient::unregisterNotification(const QString &notifyUuid)
     d->send(id, request);
 }
 
-
 /*!
-  \inmodule QtJsonDb
-
-  \brief Sends a request to retrieve a description of changes since
+  Sends a request to retrieve a description of changes since
   database state \a stateNumber. Limits the change descriptions to
-  those for the types in \a types, if not empty. Returns the reference
-  id of the query.
+  those for the types in \a types, if not empty in a given \a partitionName.
+  Returns the reference id of the query.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
   On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
@@ -871,7 +939,7 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
 }
 
 /*!
-  \brief Constructs and returns an object for executing a changesSince query.
+  Constructs and returns an object for executing a changesSince query.
 
   \sa JsonDbChangesSince
 */
@@ -895,6 +963,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
     \fn void JsonDbClient::notified(const QString &notifyUuid, const QVariant &object, const QString &action)
 
     \deprecated
+    \obsolete
 
     Signal that a notification has been received.  The notification
     object must have been created previously, usually with the
@@ -911,6 +980,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
     \fn void JsonDbClient::notified(const QString &notify_uuid, const QsonObject &object, const QString &action)
 
     \deprecated
+    \obsolete
 
     Signal that a notification has been received.  The notification
     object must have been created previously, usually with the
@@ -938,6 +1008,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
     \fn void JsonDbClient::response(int id, const QsonObject &object)
 
     \deprecated
+    \obsolete
 
     Signal that a response to a request has been received from the
     database.  The \a id parameter will match with the return result
@@ -954,15 +1025,61 @@ JsonDbChangesSince *JsonDbClient::changesSince()
     will match the return result of the original request to the
     database.  The \a code and \a message parameters indicate the error.
 
+    \a code is an error code from JsonDbError::ErrorCode
+
     \sa create(), update(), remove(), JsonDbError::ErrorCode
 */
 
 /*!
     \fn void JsonDbClient::disconnected()
+
+    This signal is emitted when the client connection is broken. JsonDbClient
+    automatically will try to reconnect, so this signal is just a convenience.
+
+    \sa status
 */
+
 /*!
     \fn void JsonDbClient::readyWrite()
     \deprecated
+    \obsolete
+*/
+
+/*!
+    \fn int JsonDbClient::changesSince(int stateNumber, QStringList types, QObject *target, const char *successSlot, const char *errorSlot)
+    \deprecated
+    \obsolete
+*/
+/*!
+    \fn int JsonDbClient::create(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0)
+    \deprecated
+    \obsolete
+*/
+/*!
+    \fn int JsonDbClient::notify(NotifyTypes types, const QString &query,
+           QObject *notifyTarget = 0, const char *notifySlot = 0,
+           QObject *responseTarget = 0, const char *responseSuccessSlot = 0, const char *responseErrorSlot = 0)
+    \deprecated
+    \obsolete
+    Registers notification for a \a query on \a types.
+    Callback \a notifySlot is triggered on \a notifyTarget.
+    When notification is created, \a responseSuccessSlot or \a responseErrorSlot is triggered on \a responseTarget.
+    \sa registerNotification()
+*/
+/*!
+    \fn int JsonDbClient::query(const QString &query, int offset, int limit, QObject *target, const char *successSlot, const char *errorSlot)
+    \deprecated
+    \obsolete
+*/
+/*!
+    \fn int JsonDbClient::remove(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0)
+    \deprecated
+    \obsolete
+*/
+/*!
+    \fn int JsonDbClient::update(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0)
+    \deprecated
+    \obsolete
 */
 
 #include "moc_jsondb-client.cpp"

@@ -47,7 +47,9 @@ QT_ADDON_JSONDB_BEGIN_NAMESPACE
 /*!
     \class JsonDbNotification
 
-    A structure describing the notification.
+    \brief The JsonDbNotification class describes the database notification.
+
+    \sa JsonDbClient::registerNotification()
 */
 
 /*!
