@@ -42,7 +42,7 @@
 #include "jsondb-notification.h"
 #include "jsondb-client.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
     \class QtAddOn::JsonDb::JsonDbNotification
@@ -91,4 +91,4 @@ quint32 JsonDbNotification::stateNumber() const
     return mStateNumber;
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

@@ -52,7 +52,7 @@
 
 #include "jsondb-client.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
     \class JsonDbClientPrivate
@@ -120,6 +120,6 @@ public:
     bool send(int requestId, const QVariantMap &request);
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // JSONDBCLIENT_P_H

@@ -44,7 +44,7 @@
 
 #include <QtJsonDbQson/private/qson_p.h>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 static QJSValue qsonListToJSValue(const QsonList &list, QJSEngine *engine)
 {
@@ -95,4 +95,4 @@ QsonObject jsValueToQson(const QJSValue &object)
     return variantToQson(object.toVariant());
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

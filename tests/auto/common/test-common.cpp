@@ -55,7 +55,8 @@
 
 #include <json.h>
 
-using namespace QtAddOn::JsonDb;
+QT_ADDON_JSONDB_USE_NAMESPACE
+QT_BEGIN_NAMESPACE
 
 namespace QTest {
 template<>
@@ -73,6 +74,7 @@ bool qCompare<quint64, unsigned int>(quint64 const &t1, unsigned int const &t2,
     return QTest::qCompare(t1, (quint64)t2, actual, expected, file, line);
 }
 }
+QT_END_NAMESPACE
 
 class TestCommon: public QObject
 {

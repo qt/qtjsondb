@@ -48,7 +48,7 @@
 
 QT_BEGIN_HEADER
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class QsonStream : public QObject
 {
@@ -82,7 +82,7 @@ private:
 
 QsonStream& operator<<( QsonStream&, const QsonObject& );
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 QT_END_HEADER
 

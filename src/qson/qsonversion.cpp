@@ -45,7 +45,7 @@
 #include <stdio.h>
 #include <QStringBuilder>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 QsonVersion::QsonVersion(const char *data)
 {
@@ -139,4 +139,4 @@ uint qHash(const QsonVersion &version)
     return qHash(version.content());
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

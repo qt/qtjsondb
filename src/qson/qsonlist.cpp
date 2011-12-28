@@ -46,7 +46,7 @@
 
 #include <QDebug>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
   \class QtAddOn::JsonDb::QsonList
@@ -469,4 +469,4 @@ QsonObject::CachedIndex *QsonList::index() const
     return &mIndex;
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

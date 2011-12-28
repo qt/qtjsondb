@@ -53,7 +53,7 @@
 
 #include <QPair>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class SchemaManager;
 
@@ -172,6 +172,6 @@ public:
     };
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // QSONOBJECTTYPES_P_H

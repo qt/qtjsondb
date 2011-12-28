@@ -53,7 +53,7 @@
 class JsonDbPartition;
 class JsonDbPartitionPrivate;
 
-Q_USE_JSONDB_NAMESPACE
+QT_ADDON_JSONDB_USE_NAMESPACE
 
 class JsonDbQueryObject : public QObject, public QDeclarativeParserStatus
 {

@@ -49,7 +49,7 @@
 
 QT_BEGIN_HEADER
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class Q_ADDON_JSONDB_EXPORT JsonDbNotification
 {
@@ -68,6 +68,8 @@ protected:
     void *reserved;
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
+
+QT_END_HEADER
 
 #endif // JSONDB_NOTIFICATION_H

@@ -52,7 +52,7 @@
 #include "jsondbindex.h"
 #include "jsondb-strings.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 #ifndef QT_NO_DEBUG_OUTPUT
 extern bool gDebug;
@@ -599,4 +599,6 @@ QsonMap ObjectTable::changesSince(quint32 stateNumber, const QSet<QString> &limi
     return JsonDb::makeResponse(resultmap, errormap);
 }
 
-} } // end namespace QtAddOn::JsonDb
+#include "moc_objecttable.cpp"
+
+QT_ADDON_JSONDB_END_NAMESPACE

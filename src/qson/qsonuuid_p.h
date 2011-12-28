@@ -46,7 +46,7 @@
 
 #include <QCryptographicHash>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 typedef struct {
     quint32 time_low;
@@ -59,6 +59,6 @@ typedef struct {
 
 Q_ADDON_JSONDB_QSON_EXPORT QByteArray QsonUUIDv3(const QString &source);
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // QSON_UUID_H

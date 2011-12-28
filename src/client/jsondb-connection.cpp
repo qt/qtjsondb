@@ -45,7 +45,7 @@
 #include "jsondb-connection_p.h"
 #include "jsondb-connection_p_p.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 Q_GLOBAL_STATIC(JsonDbConnection, qtjsondbConnection)
 
@@ -704,6 +704,7 @@ void JsonDbSyncCall::handleError(int id, int code, const QString& message)
     }
 }
 
-} } // end namespace QtAddOn::JsonDb
-
 #include "moc_jsondb-connection_p.cpp"
+#include "moc_jsondb-connection_p_p.cpp"
+
+QT_ADDON_JSONDB_END_NAMESPACE

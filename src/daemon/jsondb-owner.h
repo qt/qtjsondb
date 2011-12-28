@@ -56,7 +56,7 @@ QT_BEGIN_HEADER
 
 class TestJsonDb;
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 extern bool gEnforceAccessControlPolicies;
 
@@ -93,7 +93,7 @@ private:
     friend class ::TestJsonDb;
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 QT_END_HEADER
 

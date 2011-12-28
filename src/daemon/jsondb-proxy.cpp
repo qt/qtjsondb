@@ -42,7 +42,7 @@
 #include "jsondb-proxy.h"
 #include "jsondb-strings.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 extern bool gDebug;
 
@@ -192,4 +192,6 @@ void Console::debug(const QString &s)
         qDebug() << s;
 }
 
-} } // end namespace QtAddOn::JsonDb
+#include "moc_jsondb-proxy.cpp"
+
+QT_ADDON_JSONDB_END_NAMESPACE

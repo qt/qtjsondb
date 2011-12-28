@@ -50,7 +50,7 @@
 #include <QDeclarativeListProperty>
 #include "jsondb-client.h"
 
-Q_USE_JSONDB_NAMESPACE
+QT_ADDON_JSONDB_USE_NAMESPACE
 
 class JsonDbPartition;
 class JsonDbPartitionPrivate;

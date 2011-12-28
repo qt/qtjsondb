@@ -52,7 +52,7 @@
 #include <QMap>
 #include <QSet>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 typedef QMap<QsonVersion, QsonMap> QsonVersionMap;
 typedef QSet<QsonVersion> QsonVersionSet;
@@ -164,6 +164,6 @@ template <> inline QString QsonMap::value(const QString &key) const
 template <> inline QsonMap QsonMap::value(const QString &key) const
 { return subObject(key); }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // QSONMAP_H

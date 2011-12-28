@@ -45,7 +45,7 @@
 #include "plugin.h"
 #include <qdebug.h>
 
-Q_USE_JSONDB_NAMESPACE
+QT_ADDON_JSONDB_USE_NAMESPACE
 
 /*!
     \qmlclass Notification

@@ -49,7 +49,7 @@
 
 QT_BEGIN_HEADER
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class JsonDbOwner;
 class JsonDbQuery;
@@ -77,9 +77,9 @@ private:
     QString       mPartition;
 };
 
-} } // end namespace QtAddOn::JsonDb
+Q_DECLARE_OPERATORS_FOR_FLAGS(Notification::Actions)
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(QtAddOn::JsonDb::Notification::Actions)
+QT_ADDON_JSONDB_END_NAMESPACE
 
 QT_END_HEADER
 

@@ -52,7 +52,7 @@
 #include <QCoreApplication>
 #endif
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 QsonStream::QsonStream(QIODevice *device, QObject *parent) :
     QObject(parent),
@@ -152,4 +152,6 @@ QsonStream& operator<<(QsonStream& s, const QsonObject& map)
     return s;
 }
 
-} } // end namespace QtAddOn::JsonDb
+#include "moc_qsonstream.cpp"
+
+QT_ADDON_JSONDB_END_NAMESPACE

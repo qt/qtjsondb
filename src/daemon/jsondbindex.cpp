@@ -52,7 +52,7 @@
 #include "jsondbindex.h"
 #include "qsonconversion.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 static bool debugIndexObject = false;
 
@@ -364,4 +364,6 @@ bool JsonDbIndexCursor::prev()
     return mCursor.prev();
 }
 
-} } // end namespace QtAddOn::JsonDb
+#include "moc_jsondbindex.cpp"
+
+QT_ADDON_JSONDB_END_NAMESPACE

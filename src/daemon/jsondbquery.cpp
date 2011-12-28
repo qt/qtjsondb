@@ -49,7 +49,7 @@
 #include "jsondbbtreestorage.h"
 #include "jsondbquery.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 #ifndef QT_NO_DEBUG_OUTPUT
 extern bool gDebug;
@@ -658,4 +658,4 @@ OrderTerm::~OrderTerm()
 {
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

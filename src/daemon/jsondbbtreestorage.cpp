@@ -69,7 +69,7 @@
 #include "jsondbindex.h"
 #include "objecttable.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 //#define QT_NO_DEBUG_OUTPUT
 #ifndef QT_NO_DEBUG_OUTPUT
@@ -1855,4 +1855,6 @@ bool WithTransaction::addObjectTable(ObjectTable *table)
     return true;
 }
 
-} } // end namespace QtAddOn::JsonDb
+#include "moc_jsondbbtreestorage.cpp"
+
+QT_ADDON_JSONDB_END_NAMESPACE

@@ -50,7 +50,7 @@
 #include <QSharedData>
 #include <QUuid>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 typedef unsigned short qson_size;
 
@@ -172,8 +172,10 @@ private:
 typedef QSharedDataPointer<QsonPage> QsonPagePtr;
 typedef QList<QSharedDataPointer<QsonPage> > QsonContent;
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
+QT_BEGIN_NAMESPACE
 template<> Q_DECLARE_TYPEINFO_BODY(QSharedDataPointer<QtAddOn::JsonDb::QsonPage>, Q_MOVABLE_TYPE);
+QT_END_NAMESPACE
 
 #endif // QSONPAGE_H

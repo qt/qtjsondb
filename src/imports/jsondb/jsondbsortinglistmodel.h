@@ -56,10 +56,10 @@
 #include "jsondb-global.h"
 #include "jsondbpartition.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 class QsonObject;
 class QsonMap;
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 class JsonDbSortingListModelPrivate;
 class JsonDbPartition;

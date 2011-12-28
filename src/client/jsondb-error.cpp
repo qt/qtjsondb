@@ -42,7 +42,7 @@
 #include "jsondb-global.h"
 #include "jsondb-error.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
     \class QtAddOn::JsonDb::JsonDbError
@@ -94,6 +94,4 @@ namespace QtAddOn { namespace JsonDb {
          An error when creating an index object
  */
 
-  }
-}
-
+QT_ADDON_JSONDB_END_NAMESPACE

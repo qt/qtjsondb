@@ -54,7 +54,7 @@
 
 #include <QtJsonDbQson/private/qson_p.h>
 
-Q_USE_JSONDB_NAMESPACE
+QT_ADDON_JSONDB_USE_NAMESPACE
 
 struct CallbackInfo {
     int index;

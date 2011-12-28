@@ -51,7 +51,7 @@
 
 #include <QDebug>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 template <> inline QsonList QsonMap::value(const QString &key) const
 { return subList(key); }
@@ -89,6 +89,6 @@ Q_ADDON_JSONDB_QSON_EXPORT QDebug operator<<(QDebug debug, const QsonObject &obj
 Q_ADDON_JSONDB_QSON_EXPORT QVariant qsonToVariant(const QsonObject &object);
 Q_ADDON_JSONDB_QSON_EXPORT QsonObject variantToQson(const QVariant &object);
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // QSON_H

@@ -49,7 +49,7 @@
 
 class JsonDbPartition;
 
-Q_USE_JSONDB_NAMESPACE
+QT_ADDON_JSONDB_USE_NAMESPACE
 
 class JsonDatabase : public QObject
 {

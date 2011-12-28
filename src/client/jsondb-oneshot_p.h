@@ -52,7 +52,7 @@
 
 #include "jsondb-global.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
   \internal
@@ -76,6 +76,6 @@ private:
     int mId;
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // JSONDB_ONESHOT_P_H

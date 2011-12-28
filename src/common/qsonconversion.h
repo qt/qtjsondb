@@ -47,12 +47,12 @@
 
 QT_BEGIN_HEADER
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 QJSValue qsonToJSValue(const QsonObject &object, QJSEngine *engine);
 QsonObject jsValueToQson(const QJSValue &object);
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 QT_END_HEADER
 

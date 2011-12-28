@@ -43,7 +43,7 @@
 #include "jsondb-client.h"
 #include "jsondb-strings_p.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
     \class QtAddOn::JsonDb::JsonDbResultBase
@@ -201,7 +201,7 @@ void JsonDbResultBase::start()
     \code
         #include <jsondb-client.h>
 
-        Q_USE_JSONDB_NAMESPACE
+        QT_ADDON_JSONDB_USE_NAMESPACE
 
         class QueryHandler : public QObject
         {
@@ -709,4 +709,4 @@ void JsonDbChangesSince::start()
 
 #include "moc_jsondb-query.cpp"
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

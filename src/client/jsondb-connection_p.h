@@ -52,7 +52,7 @@
 
 #include "jsondb-global.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class QsonObject;
 class QsonMap;
@@ -154,6 +154,6 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_onReceiveMessage(QsonObject))
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif /* JSONDB_CONNECTION_P_H */

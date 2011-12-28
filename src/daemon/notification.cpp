@@ -50,7 +50,7 @@
 
 #include "jsondb-strings.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 static QMap<QString,Notification*> sNotificationMap;
 
@@ -79,4 +79,4 @@ Notification::~Notification()
     }
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

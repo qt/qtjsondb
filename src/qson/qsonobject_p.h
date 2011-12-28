@@ -50,7 +50,7 @@
 #include <QStringList>
 #include <QPair>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class QsonList;
 class QsonMap;
@@ -271,6 +271,6 @@ protected:
     friend class QsonStream;
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // QSONOBJECT_H

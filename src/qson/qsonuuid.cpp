@@ -45,7 +45,7 @@
 #include <QByteArray>
 #include <QCryptographicHash>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 qson_uuid_t QsonUuidNs = {
     0x6ba7b811,
@@ -72,4 +72,4 @@ QByteArray QsonUUIDv3(const QString &source) {
     return result;
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

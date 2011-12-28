@@ -48,6 +48,8 @@
 
 #include "jsondb-client.h"
 
+QT_ADDON_JSONDB_USE_NAMESPACE
+
 #define waitForResponse(eventloop, result, id_, code, notificationId, count) \
 { \
     int givenid_ = (id_); \
@@ -117,7 +119,7 @@ public:
 
     void connectToServer()
     {
-        mClient = new Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)(this);
+        mClient = new QT_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)(this);
         connect(mClient, SIGNAL(response(int,QVariant)),
                 this, SLOT(response(int,QVariant)));
         connect(mClient, SIGNAL(error(int,int,QString)),
@@ -128,7 +130,7 @@ public:
 
     bool debug_output;
 
-    Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient) *mClient;
+    QT_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient) *mClient;
 
     QEventLoop mEventLoop;
     QString mMessage;
@@ -149,9 +151,9 @@ protected slots:
         mNotificationId = notifyUuid;
         QString action;
         switch (notification.action()) {
-        case Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyCreate: action = QLatin1String("create"); break;
-        case Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyUpdate: action = QLatin1String("update"); break;
-        case Q_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyRemove: action = QLatin1String("remove"); break;
+        case QT_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyCreate: action = QLatin1String("create"); break;
+        case QT_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyUpdate: action = QLatin1String("update"); break;
+        case QT_ADDON_JSONDB_PREPEND_NAMESPACE(JsonDbClient)::NotifyRemove: action = QLatin1String("remove"); break;
         }
 
         mNotifications << Notification(notifyUuid, notification.object(), action);

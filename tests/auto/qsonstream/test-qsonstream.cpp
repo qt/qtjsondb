@@ -47,7 +47,7 @@
 
 #include <QDebug>
 
-using namespace QtAddOn::JsonDb;
+QT_ADDON_JSONDB_USE_NAMESPACE
 
 class TestQsonStream: public QObject
 {

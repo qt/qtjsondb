@@ -43,18 +43,29 @@
 
 #include "qglobal.h"
 
-QT_BEGIN_HEADER
-
 #if defined(QT_ADDON_JSONDB_LIB)
 #  define Q_ADDON_JSONDB_EXPORT Q_DECL_EXPORT
 #else
 #  define Q_ADDON_JSONDB_EXPORT Q_DECL_IMPORT
 #endif
 
-#define Q_ADDON_JSONDB_BEGIN_NAMESPACE namespace QtAddOn { namespace JsonDb {
-#define Q_ADDON_JSONDB_END_NAMESPACE } }
-#define Q_USE_JSONDB_NAMESPACE using namespace QtAddOn::JsonDb;
-#define Q_ADDON_JSONDB_PREPEND_NAMESPACE(name) ::QtAddOn::JsonDb::name
+#if defined(QT_NAMESPACE)
+#  define QT_ADDON_JSONDB_BEGIN_NAMESPACE namespace QT_NAMESPACE { namespace QtAddOn { namespace JsonDb {
+#  define QT_ADDON_JSONDB_END_NAMESPACE } } }
+#  define QT_ADDON_JSONDB_USE_NAMESPACE using namespace QT_NAMESPACE::QtAddOn::JsonDb;
+#  define QT_ADDON_JSONDB_PREPEND_NAMESPACE(name) ::QT_NAMESPACE::QtAddOn::JsonDb::name
+#else
+#  define QT_ADDON_JSONDB_BEGIN_NAMESPACE namespace QtAddOn { namespace JsonDb {
+#  define QT_ADDON_JSONDB_END_NAMESPACE } }
+#  define QT_ADDON_JSONDB_USE_NAMESPACE using namespace QtAddOn::JsonDb;
+#  define QT_ADDON_JSONDB_PREPEND_NAMESPACE(name) ::QtAddOn::JsonDb::name
+#endif
+
+// All the following macros will be deprecated in a future version of this file.
+#define Q_ADDON_JSONDB_BEGIN_NAMESPACE QT_ADDON_JSONDB_BEGIN_NAMESPACE
+#define Q_ADDON_JSONDB_END_NAMESPACE QT_ADDON_JSONDB_END_NAMESPACE
+#define Q_USE_JSONDB_NAMESPACE QT_ADDON_JSONDB_USE_NAMESPACE
+#define Q_ADDON_JSONDB_PREPEND_NAMESPACE(name) QT_ADDON_JSONDB_PREPEND_NAMESPACE(name)
 
 # define Q_ADDON_JSONDB_FORWARD_DECLARE_CLASS(name) \
     Q_ADDON_JSONDB_BEGIN_NAMESPACE class name; Q_ADDON_JSONDB_END_NAMESPACE \
@@ -63,7 +74,5 @@ QT_BEGIN_HEADER
 # define Q_ADDON_JSONDB_FORWARD_DECLARE_STRUCT(name) \
     Q_ADDON_JSONDB_BEGIN_NAMESPACE struct name; Q_ADDON_JSONDB_END_NAMESPACE \
     using Q_ADDON_JSONDB_PREPEND_NAMESPACE(name);
-
-QT_END_HEADER
 
 #endif // JSONDB_GLOBAL_H

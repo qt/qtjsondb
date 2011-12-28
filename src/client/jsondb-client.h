@@ -55,7 +55,7 @@
 
 QT_BEGIN_HEADER
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class QsonObject;
 
@@ -194,9 +194,10 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_timeout())
     Q_PRIVATE_SLOT(d_func(), void _q_processQueue())
 };
-} } // end namespace QtAddOn::JsonDb
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(QtAddOn::JsonDb::JsonDbClient::NotifyTypes)
+Q_DECLARE_OPERATORS_FOR_FLAGS(JsonDbClient::NotifyTypes)
+
+QT_ADDON_JSONDB_END_NAMESPACE
 
 QT_END_HEADER
 

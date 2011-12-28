@@ -42,6 +42,7 @@
 #define QSON_GLOBAL_H
 
 #include "qglobal.h"
+#include <QtAddOnJsonDb/jsondb-global.h>
 
 #if defined(QT_ADDON_JSONDB_QSON_LIB)
 #  define Q_ADDON_JSONDB_QSON_EXPORT Q_DECL_EXPORT

@@ -60,31 +60,31 @@
 
     \brief The QtAddOn::JsonDb namespace contains the C++ client for JsonDb.
 
-    To use namespace QtAddOn::JsonDb from C++, use macro Q_USE_JSONDB_NAMESPACE.
+    To use namespace QtAddOn::JsonDb from C++, use macro QT_ADDON_JSONDB_USE_NAMESPACE.
 
     \code
         #include <jsondb-client.h>
-        Q_USE_JSONDB_NAMESPACE
+        QT_ADDON_JSONDB_USE_NAMESPACE
     \endcode
 
 To declare the class without including the declaration of the class:
     \code
         #include <jsondb-global.h>
-        Q_ADDON_JSONDB_BEGIN_NAMESPACE
+        QT_ADDON_JSONDB_BEGIN_NAMESPACE
         class JsonDbClient;
-        Q_ADDON_JSONDB_END_NAMESPACE
-        Q_USE_JSONDB_NAMESPACE
+        QT_ADDON_JSONDB_END_NAMESPACE
+        QT_ADDON_JSONDB_USE_NAMESPACE
     \endcode
 
 */
 
 /*!
-    \macro Q_USE_JSONDB_NAMESPACE
+    \macro QT_ADDON_JSONDB_USE_NAMESPACE
     \inmodule QtJsonDb
     \brief Makes namespace QtAddOn::JsonDb visible to C++ source code.
 */
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
     \class QtAddOn::JsonDb::JsonDbClient
@@ -967,4 +967,4 @@ JsonDbChangesSince *JsonDbClient::changesSince()
 
 #include "moc_jsondb-client.cpp"
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

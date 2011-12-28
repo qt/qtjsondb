@@ -41,6 +41,8 @@
 
 #include "jsondb-oneshot_p.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
-} } // end namespace QtAddOn::JsonDb
+#include "moc_jsondb-oneshot_p.cpp"
+
+QT_ADDON_JSONDB_END_NAMESPACE

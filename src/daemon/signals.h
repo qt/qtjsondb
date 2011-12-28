@@ -46,7 +46,9 @@
 
 QT_BEGIN_HEADER
 
+QT_BEGIN_NAMESPACE
 class QSocketNotifier;
+QT_END_NAMESPACE
 
 class Signals : public QObject
 {

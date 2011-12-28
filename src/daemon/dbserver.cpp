@@ -55,7 +55,7 @@
 #include <sys/socket.h>
 #endif
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 #ifndef QT_NO_DEBUG_OUTPUT
 extern bool gDebug;
@@ -624,4 +624,6 @@ void DBServer::removeConnection()
     }
 }
 
-} } // end namespace QtAddOn::JsonDb
+#include "moc_dbserver.cpp"
+
+QT_ADDON_JSONDB_END_NAMESPACE

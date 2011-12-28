@@ -48,7 +48,7 @@
 #include <QList>
 #include <QByteArray>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class Q_ADDON_JSONDB_QSON_EXPORT QsonParser
 {
@@ -105,6 +105,6 @@ private:
     qint32 mParseOffset;
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // QSONPARSER_H

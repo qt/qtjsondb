@@ -54,12 +54,12 @@
 
 #include "jsondb-global.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 class QsonObject;
 class QsonMap;
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
-Q_USE_JSONDB_NAMESPACE
+QT_ADDON_JSONDB_USE_NAMESPACE
 
 class JsonDbSortKeyPrivate;
 class JsonDbSortKey {

@@ -45,7 +45,7 @@
 
 #include "json.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 static int qsonobjectid = qRegisterMetaType<QsonObject>("QsonObject");
 static int qsonmapid = qRegisterMetaType<QsonMap>("QsonMap");
@@ -207,4 +207,4 @@ QsonObject variantToQson(const QVariant &object)
     return QsonObject();
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

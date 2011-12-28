@@ -45,7 +45,7 @@
 #include <QtJsonDbQson/qsonglobal.h>
 #include <QtJsonDbQson/private/qsonobject_p.h>
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class Q_ADDON_JSONDB_QSON_EXPORT QsonElement : public QsonObject
 {
@@ -100,6 +100,6 @@ template <> inline double QsonElement::value() const
 template <> inline QString QsonElement::value() const
 { return mBody.at(0)->readString(0); }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 #endif // QSONELEMENT_H

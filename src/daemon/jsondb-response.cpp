@@ -47,7 +47,7 @@
 #include "jsondb-response.h"
 #include "jsondb-strings.h"
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 extern bool gVerbose;
 
@@ -115,4 +115,4 @@ bool JsonDbResponse::responseIsError(QsonMap responseMap)
         && !responseMap.isNull(JsonDbString::kErrorStr);
 }
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE

@@ -49,7 +49,7 @@
 
 QT_BEGIN_HEADER
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class JsonDb;
 class JsonDbOwner;
@@ -135,7 +135,7 @@ private:
     QString        mSourceKeyName;
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 QT_END_HEADER
 

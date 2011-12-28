@@ -57,7 +57,7 @@ QT_BEGIN_HEADER
 class Bdb;
 class AoDb;
 
-namespace QtAddOn { namespace JsonDb {
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 class JsonDbBtreeStorage;
 
@@ -140,7 +140,7 @@ public:
     QPointer<JsonDbIndex> index;
 };
 
-} } // end namespace QtAddOn::JsonDb
+QT_ADDON_JSONDB_END_NAMESPACE
 
 QT_END_HEADER
 
