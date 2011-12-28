@@ -165,7 +165,11 @@ public slots:
     int find(const QVariant &query);
 
 Q_SIGNALS:
+#ifdef qdoc
+    void notified(const QString &notify_uuid, const JsonDbNotification &notification);
+#else
     void notified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &notification);
+#endif
     void response(int id, const QVariant &object);
     void error(int id, int code, const QString &message);
 

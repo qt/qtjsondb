@@ -87,13 +87,13 @@ To declare the class without including the declaration of the class:
 QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
-    \class QtAddOn::JsonDb::JsonDbClient
+    \class JsonDbClient
 
     \brief The JsonDbClient class provides a client interface which connects to the JsonDb server.
 */
 
 /*!
-    \enum QtAddOn::JsonDb::JsonDbClient::NotifyType
+    \enum JsonDbClient::NotifyType
 
     This type is used to subscribe to certain notification actions.
 
@@ -881,7 +881,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
 }
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notifyUuid, const QtAddOn::JsonDb::JsonDbNotification &notification)
+    \fn void JsonDbClient::notified(const QString &notifyUuid, const JsonDbNotification &notification)
 
     Signal that a notification has been received. The notification object must
     have been created previously, usually with the \c registerNotification()
@@ -892,7 +892,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
 */
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notifyUuid, const QVariant &object, const QString &action)
+    \fn void JsonDbClient::notified(const QString &notifyUuid, const QVariant &object, const QString &action)
 
     \deprecated
 
@@ -908,7 +908,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
 */
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbClient::notified(const QString &notify_uuid, const QsonObject &object, const QString &action)
+    \fn void JsonDbClient::notified(const QString &notify_uuid, const QsonObject &object, const QString &action)
 
     \deprecated
 
@@ -924,7 +924,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
 */
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbClient::response(int id, const QVariant &object)
+    \fn void JsonDbClient::response(int id, const QVariant &object)
 
     Signal that a response to a request has been received from the
     database.  The \a id parameter will match with the return result
@@ -935,7 +935,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
 */
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbClient::response(int id, const QsonObject &object)
+    \fn void JsonDbClient::response(int id, const QsonObject &object)
 
     \deprecated
 
@@ -948,7 +948,7 @@ JsonDbChangesSince *JsonDbClient::changesSince()
 */
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbClient::error(int id, int code, const QString &message)
+    \fn void JsonDbClient::error(int id, int code, const QString &message)
 
     Signals an error in the database request.  The \a id parameter
     will match the return result of the original request to the

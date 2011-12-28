@@ -1,6 +1,23 @@
 # Name of the project.
 project = QtJsonDb
 
+# Directories in which to search for files to document.
+# Paths are relative to the location of this file.
+exampledirs += ../examples
+headerdirs += ./src \
+              ../src/client \
+              ../src/imports/jsondb
+imagedirs += images
+sourcedirs += ./src \
+              ../src/client \
+              ../src/imports/jsondb
+
+Cpp.ignoretokens = \
+    QT_BEGIN_HEADER \
+    QT_END_HEADER \
+    QT_ADDON_JSONDB_BEGIN_NAMESPACE \
+    QT_ADDON_JSONDB_END_NAMESPACE \
+    Q_ADDON_JSONDB_EXPORT
 
 
 #Do not change the variables after this line unless you know what you are doing.

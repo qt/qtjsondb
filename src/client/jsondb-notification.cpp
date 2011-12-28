@@ -45,7 +45,7 @@
 QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
-    \class QtAddOn::JsonDb::JsonDbNotification
+    \class JsonDbNotification
 
     A structure describing the notification.
 */

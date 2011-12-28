@@ -15,6 +15,8 @@ sourcedirs += ./src \
 Cpp.ignoretokens = \
     QT_BEGIN_HEADER \
     QT_END_HEADER \
+    QT_ADDON_JSONDB_BEGIN_NAMESPACE \
+    QT_ADDON_JSONDB_END_NAMESPACE \
     Q_ADDON_JSONDB_EXPORT
 
 # The following parameters are for creating a qhp file, the qhelpgenerator

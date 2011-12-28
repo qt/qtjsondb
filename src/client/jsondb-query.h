@@ -89,7 +89,11 @@ Q_SIGNALS:
     void started();
     void resultsReady(int resultsAvailable);
     void finished();
+#ifdef qdoc
+    void error(JsonDbError::ErrorCode code, const QString &message);
+#else
     void error(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString &message);
+#endif
 
 protected:
     JsonDbResultBase(JsonDbResultBasePrivate *d, QObject *parent = 0);

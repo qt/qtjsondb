@@ -53,13 +53,12 @@ QString JsonDbConnectionPrivate::sDefaultToken;
 
 /*!
   \internal
-  \class QtAddOn::JsonDb::JsonDbConnection
+  \class JsonDbConnection
 
   \brief The JsonDbConnection class provides a connection to the
-  database server. Generally used via \c class
-  QtAddOn::JsonDb::JsonDbClient.
+  database server. Generally used via \c class JsonDbClient.
 
-  \sa QtAddOn::JsonDb::JsonDbClient
+  \sa JsonDbClient
 */
 
 /*!

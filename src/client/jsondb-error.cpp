@@ -45,12 +45,12 @@
 QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
-    \class QtAddOn::JsonDb::JsonDbError
+    \class JsonDbError
     \sa JsonDbError::ErrorCode
  */
 
 /*!
-     \enum QtAddOn::JsonDb::JsonDbError::ErrorCode
+     \enum JsonDbError::ErrorCode
      \omitvalue NoError
      \value InvalidMessage
          Unable to parse the query message.

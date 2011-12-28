@@ -46,7 +46,7 @@
 QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
 /*!
-    \class QtAddOn::JsonDb::JsonDbResultBase
+    \class JsonDbResultBase
     \internal
 */
 
@@ -193,7 +193,7 @@ void JsonDbResultBase::start()
 }
 
 /*!
-    \class QtAddOn::JsonDb::JsonDbQuery
+    \class JsonDbQuery
 
     \brief The JsonDbQuery class allows to execute a given database query and
     retrieve results.
@@ -233,23 +233,23 @@ void JsonDbResultBase::start()
         };
     \endcode
 
-    \sa QtAddOn::JsonDb::JsonDbClient
+    \sa JsonDbClient
 */
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbQuery::partition
+    \property JsonDbQuery::partition
 
     Specifies the partition name the query operates on.
 */
 
 /*!
-    \fn int QtAddOn::JsonDb::JsonDbQuery::requestId() const
+    \fn int JsonDbQuery::requestId() const
 
     Returns a request id for the query request.
 */
 
 /*!
-    \fn bool QtAddOn::JsonDb::JsonDbQuery::isFinished() const
+    \fn bool JsonDbQuery::isFinished() const
 
     Returns true if the query is complete and the finished() signal was already
     emitted.
@@ -258,7 +258,7 @@ void JsonDbResultBase::start()
 */
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbQuery::started()
+    \fn void JsonDbQuery::started()
 
     Signal is emitted after the query execution was started and some initial
     data is available.
@@ -266,7 +266,7 @@ void JsonDbResultBase::start()
     \sa start(), stateNumber, sortKey
 */
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbQuery::resultsReady(int resultsAvailable)
+    \fn void JsonDbQuery::resultsReady(int resultsAvailable)
 
     Signal is emitted after you start() a query and there are new results
     available that match it. \a resultsAvailable tells you how many results are
@@ -275,21 +275,21 @@ void JsonDbResultBase::start()
     \sa finished(), takeResults()
 */
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbQuery::finished()
+    \fn void JsonDbQuery::finished()
 
     Signal is emitted after the query is complete.
 
     \sa takeResults(), resultsReady(), isFinished(), started()
 */
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbQuery::error(JsonDbError::ErrorCode code, const QString &message)
+    \fn void JsonDbQuery::error(JsonDbError::ErrorCode code, const QString &message)
 
     Signal is emitted when an error with a given \a code occured while
     executing a query. Extended information about the error can be retrieved
     from \a message.
 */
 /*!
-    \fn QVariantList QtAddOn::JsonDb::JsonDbQuery::takeResults()
+    \fn QVariantList JsonDbQuery::takeResults()
 
     Returns the results of the query that are retrieved so far and clears the
     internal result list.
@@ -301,7 +301,7 @@ void JsonDbResultBase::start()
     \sa resultsReady(), finished()
 */
 /*!
-    \property QtAddOn::JsonDb::JsonDbQuery::resultsAvailable
+    \property JsonDbQuery::resultsAvailable
 
     Returns the amount of results of the query that are accumulated so far.
 
@@ -355,7 +355,7 @@ QString JsonDbQuery::sortKey() const
 }
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbQuery::query
+    \property JsonDbQuery::query
 
     \brief the query string
 
@@ -375,7 +375,7 @@ void JsonDbQuery::setQuery(const QString &query)
 }
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbQuery::queryOffset
+    \property JsonDbQuery::queryOffset
 
     \brief the initial offset of a query
 
@@ -395,7 +395,7 @@ void JsonDbQuery::setQueryOffset(int offset)
 }
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbQuery::queryLimit
+    \property JsonDbQuery::queryLimit
 
     \brief the limit of a query
 
@@ -415,7 +415,7 @@ void JsonDbQuery::setQueryLimit(int limit)
 }
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbQuery::start()
+    \fn void JsonDbQuery::start()
 
     Starts the query.
 
@@ -430,7 +430,7 @@ void JsonDbQuery::start()
 }
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbQuery::bindValue(const QString &placeHolder, const QVariant &val)
+    \fn void JsonDbQuery::bindValue(const QString &placeHolder, const QVariant &val)
 
     Set the placeholder \a placeHolder to be bound to value \a val in the query
     string. Note that the placeholder mark (e.g $) must be included when
@@ -451,7 +451,7 @@ void JsonDbQuery::bindValue(const QString &placeHolder, const QVariant &val)
 }
 
 /*!
-    \fn QVariant QtAddOn::JsonDb::JsonDbQuery::boundValue(const QString &placeHolder) const
+    \fn QVariant JsonDbQuery::boundValue(const QString &placeHolder) const
 
     Returns the value for the \a placeHolder.
 */
@@ -461,7 +461,7 @@ QVariant JsonDbQuery::boundValue(const QString &placeHolder) const
 }
 
 /*!
-    \fn QMap<QString,QVariant> QtAddOn::JsonDb::JsonDbQuery::boundValues() const
+    \fn QMap<QString,QVariant> JsonDbQuery::boundValues() const
 
     Returns a map of the bound values
 */
@@ -471,28 +471,28 @@ QMap<QString,QVariant> JsonDbQuery::boundValues() const
 }
 
 /*!
-    \class QtAddOn::JsonDb::JsonDbChangesSince
+    \class JsonDbChangesSince
 
     \brief The JsonDbChangesSince class allows to retrieve history of changes
     to objects in a database.
 
-    \sa QtAddOn::JsonDb::JsonDbClient
+    \sa JsonDbClient
 */
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbChangesSince::partition
+    \property JsonDbChangesSince::partition
 
     Specifies the partition name the request operates on.
 */
 
 /*!
-    \fn int QtAddOn::JsonDb::JsonDbChangesSince::requestId() const
+    \fn int JsonDbChangesSince::requestId() const
 
     Returns a request id for the "changes since" request.
 */
 
 /*!
-    \fn bool QtAddOn::JsonDb::JsonDbChangesSince::isFinished() const
+    \fn bool JsonDbChangesSince::isFinished() const
 
     Returns true if the request is complete and the finished() signal was
     already emitted.
@@ -501,7 +501,7 @@ QMap<QString,QVariant> JsonDbQuery::boundValues() const
 */
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbChangesSince::started()
+    \fn void JsonDbChangesSince::started()
 
     Signal is emitted after the request execution was started and some initial
     data is available.
@@ -509,7 +509,7 @@ QMap<QString,QVariant> JsonDbQuery::boundValues() const
     \sa start(), startingStateNumber, currentStateNumber
 */
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbChangesSince::resultsReady(int resultsAvailable)
+    \fn void JsonDbChangesSince::resultsReady(int resultsAvailable)
 
     Signal is emitted after you start() a request and there are new results
     available that match it. \a resultsAvailable tells you how many results are
@@ -518,21 +518,21 @@ QMap<QString,QVariant> JsonDbQuery::boundValues() const
     \sa finished(), takeResults()
 */
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbChangesSince::finished()
+    \fn void JsonDbChangesSince::finished()
 
     Signal is emitted after the request is complete.
 
     \sa takeResults(), resultsReady(), isFinished(), started()
 */
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbChangesSince::error(JsonDbError::ErrorCode code, const QString &message)
+    \fn void JsonDbChangesSince::error(JsonDbError::ErrorCode code, const QString &message)
 
     Signal is emitted when an error with a given \a code occured while
     executing a request. Extended information about the error can be retrieved
     from \a message.
 */
 /*!
-    \fn QVariantList QtAddOn::JsonDb::JsonDbChangesSince::takeResults()
+    \fn QVariantList JsonDbChangesSince::takeResults()
 
     Returns the results of the request that are retrieved so far and clears the
     internal result list.
@@ -544,7 +544,7 @@ QMap<QString,QVariant> JsonDbQuery::boundValues() const
     \sa resultsReady(), finished()
 */
 /*!
-    \property QtAddOn::JsonDb::JsonDbChangesSince::resultsAvailable
+    \property JsonDbChangesSince::resultsAvailable
 
     Returns the amount of results of the request that are accumulated so far.
 
@@ -629,7 +629,7 @@ JsonDbChangesSince::~JsonDbChangesSince()
 }
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbChangesSince::startingStateNumber
+    \property JsonDbChangesSince::startingStateNumber
 
     Returns the starting state number for the changesSince request.
 
@@ -643,7 +643,7 @@ quint32 JsonDbChangesSince::startingStateNumber() const
 }
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbChangesSince::currentStateNumber
+    \property JsonDbChangesSince::currentStateNumber
 
     Returns the ending state number for the changesSince request.
 
@@ -657,7 +657,7 @@ quint32 JsonDbChangesSince::currentStateNumber() const
 }
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbChangesSince::types
+    \property JsonDbChangesSince::types
 
     \brief the list of object types for which we return changes
 
@@ -675,7 +675,7 @@ void JsonDbChangesSince::setTypes(const QStringList &types)
 }
 
 /*!
-    \property QtAddOn::JsonDb::JsonDbChangesSince::stateNumber
+    \property JsonDbChangesSince::stateNumber
 
     \brief the initial state number from which changes should be retrieved.
 
@@ -693,7 +693,7 @@ void JsonDbChangesSince::setStateNumber(quint32 stateNumber)
 }
 
 /*!
-    \fn void QtAddOn::JsonDb::JsonDbChangesSince::start()
+    \fn void JsonDbChangesSince::start()
 
     Starts the "changes since" request.
 

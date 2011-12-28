@@ -115,7 +115,7 @@ sets.
 \section2 Notifications
 
 Notifications are created, updated, and removed by using a
-\l{QtAddOn::JsonDb::JsonDbClient::registerNotification()}{dedicated api} which
+\l{JsonDbClient::registerNotification()}{dedicated api} which
 takes a query expression and a list of actions as an argument. There are
 actions available that allow watching for objects being created, updated or
 removed from a database.
@@ -126,7 +126,7 @@ identified by the UUID of the matching notification. The object being acted
 upon and the type of the action are delivered along with the notification UUID
 to the client.
 
-See also \l{QtAddOn::JsonDb::JsonDbNotification}
+See also \l{JsonDbNotification}
 
 \section1 Examples
 
