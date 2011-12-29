@@ -455,7 +455,7 @@ int JsonDbPartition::changesSince(int stateNumber,  const QJSValue &options, con
 
     }
     \endcode
-    See Also \sa QtJsonDb::Notification
+    \sa QtJsonDb::Notification
 
 */
 
@@ -492,7 +492,7 @@ JsonDbNotify* JsonDbPartition::createNotification(const QJSValue &query, const Q
 
     }
     \endcode
-    See Also \sa QtJsonDb::Query
+    \sa QtJsonDb::Query
 
 */
 
@@ -530,7 +530,7 @@ JsonDbQueryObject* JsonDbPartition::createQuery(const QJSValue &query, int offse
 
     }
     \endcode
-    See Also \sa QtJsonDb::ChangesSince
+    \sa QtJsonDb::ChangesSince
 
 */
 
