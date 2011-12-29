@@ -1,5 +1,8 @@
 TARGET = tst_bench_daemon
 
+target.path = $$[QT_INSTALL_PREFIX]/bin
+INSTALLS += target
+
 QT = network declarative testlib jsondbqson-private
 CONFIG -= app_bundle
 

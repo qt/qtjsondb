@@ -103,10 +103,18 @@ private slots:
 
     void benchmarkFind();
     void benchmarkFindByName();
+    void benchmarkFindByUuid();
     void benchmarkFindEQ();
     void benchmarkFindLE();
+    void benchmarkFirst();
+    void benchmarkLast();
+    void benchmarkFirst10();
     void benchmarkFind10();
     void benchmarkFind20();
+    void benchmarkFirstByUuid();
+    void benchmarkLastByUuid();
+    void benchmarkFirst10ByUuid();
+    void benchmarkFind10ByUuid();
     void benchmarkFindUnindexed();
     void benchmarkFindReindexed();
     void benchmarkFindNames();
@@ -128,10 +136,20 @@ private:
 private:
     JsonDb *mJsonDb;
     QsonList  mContactList;
+    QStringList mFirstNames;
+    QStringList mUuids;
     JsonDbOwner *mOwner;
 };
 
 #define verifyGoodResult(result) \
+{ \
+    QsonMap __result = result; \
+    QVERIFY(__result.contains(JsonDbString::kErrorStr)); \
+    QVERIFY2(__result.isNull(JsonDbString::kErrorStr), __result.subObject(JsonDbString::kErrorStr).valueString("message").toLocal8Bit()); \
+    QVERIFY(__result.contains(JsonDbString::kResultStr)); \
+}
+
+#define verifyGoodQueryResult(result) \
 { \
     QsonMap __result = result; \
     QVERIFY(__result.contains(JsonDbString::kErrorStr)); \
@@ -170,7 +188,7 @@ void TestJsonDb::initTestCase()
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId("com.noklab.nrcc.JsonDbTest");
 
-    QFile contactsFile(findFile(SRCDIR, "../../auto/daemon/largeContactsTest.json"));
+    QFile contactsFile(findFile(SRCDIR, "largeContactsTest.json"));
     if (!contactsFile.exists()) {
         qDebug() << "Err: largeContactsTest.json doesn't exist!";
         return;
@@ -183,6 +201,7 @@ void TestJsonDb::initTestCase()
         qDebug() << parser.errorString();
     QVariantList contactList = parser.result().toList();
     QsonList newContactList;
+    QSet<QString> firstNames;
     foreach (QVariant v, contactList) {
         QsonMap contact = QsonMap(variantToQson(v.toMap()));
         QString name = contact.valueString("name");
@@ -193,8 +212,11 @@ void TestJsonDb::initTestCase()
         contact.insert("name", nameObject);
         contact.insert(JsonDbString::kTypeStr, QString("contact"));
         newContactList.append(QsonParser::fromRawData(contact.data()).toMap());
+        firstNames.insert(names[0]);
     }
     mContactList = newContactList;
+    mFirstNames = firstNames.toList();
+    mFirstNames.sort();
 
     addIndex(QLatin1String("name"));
     addIndex(QLatin1String("name.first"));
@@ -206,12 +228,18 @@ void TestJsonDb::initTestCase()
     QElapsedTimer time;
     time.start();
     int count = 0;
-    for (; count < mContactList.size(); count++) {
-        QsonMap contact = mContactList.objectAt(count);
-        mJsonDb->create(mOwner, contact);
+    int chunksize = 100;
+    for (count = 0; count < mContactList.size(); count += chunksize) {
+        QsonList chunk;
+        for (int i = 0; i < chunksize; i++)
+            chunk.append(mContactList.objectAt(count+i));
+        QsonMap result = mJsonDb->createList(mOwner, chunk);
+        QsonList data = result.subObject("result").subList("data");
+        for (int i = 0; i < data.size(); i++)
+            mUuids.append(data.objectAt(i).valueString(JsonDbString::kUuidStr));
     }
-
     long elapsed = time.elapsed();
+    mUuids.sort();
     qDebug() << "done. Time per item (ms):" << (double)elapsed / count << "count" << count << "elapsed" << elapsed << "ms";
 }
 
@@ -672,6 +700,24 @@ void TestJsonDb::benchmarkFindByName()
     }
 }
 
+void TestJsonDb::benchmarkFindByUuid()
+{
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    QString uuid = mUuids[mUuids.size() / 2];
+    QBENCHMARK {
+        QsonMap request;
+        request.insert("query",
+                       QString("[?%1=\"%2\"]")
+                       .arg(JsonDbString::kUuidStr)
+                       .arg(uuid));
+        QsonMap queryResult = mJsonDb->find(mOwner, request);
+        verifyGoodQueryResult(queryResult);
+    }
+}
+
 void TestJsonDb::benchmarkFindEQ()
 {
   int count = mContactList.size();
@@ -715,7 +761,7 @@ void TestJsonDb::benchmarkFindLE()
     }
 }
 
-void TestJsonDb::benchmarkFind10()
+void TestJsonDb::benchmarkFirst()
 {
     int count = mContactList.size();
     if (!count)
@@ -724,14 +770,70 @@ void TestJsonDb::benchmarkFind10()
     QBENCHMARK {
         QsonMap request;
         QsonMap result;
-        int itemNumber = (int)((double)qrand() * count / RAND_MAX);
+        request.insert("limit", 1);
+        request.insert("query",
+                       QString("[?%1=\"%2\"][/name.first][count]")
+                       .arg(JsonDbString::kTypeStr)
+                       .arg("contact"));
+        result = mJsonDb->find(mOwner, request);
+        verifyGoodResult(result);
+    }
+}
+void TestJsonDb::benchmarkLast()
+{
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    QBENCHMARK {
+        QsonMap request;
+        QsonMap result;
+        request.insert("limit", 1);
+        request.insert("query",
+                       QString("[?%1=\"%2\"][\\name.first][count]")
+                       .arg(JsonDbString::kTypeStr)
+                       .arg("contact"));
+        result = mJsonDb->find(mOwner, request);
+        verifyGoodResult(result);
+    }
+}
+
+void TestJsonDb::benchmarkFirst10()
+{
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    QBENCHMARK {
+        QsonMap request;
+        QsonMap result;
+        request.insert("limit", 10);
+        request.insert("query",
+                       QString("[?%1=\"%2\"][/name.first][count]")
+                       .arg(JsonDbString::kTypeStr)
+                       .arg("contact"));
+        result = mJsonDb->find(mOwner, request);
+        verifyGoodResult(result);
+    }
+}
+
+void TestJsonDb::benchmarkFind10()
+{
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    int itemNumber = qMax(0, mFirstNames.size()-10);
+    QBENCHMARK {
+        QsonMap request;
+        QsonMap result;
         QsonMap item = mContactList.objectAt(itemNumber);
         request.insert("limit", 10);
         request.insert("query",
-                       QString("[?name.first<=\"%3\"][?%1=\"%2\"]")
+                       QString("[?%1=\"%2\"][?name.first>=\"%3\"][?name.last exists][/name.first]")
                        .arg(JsonDbString::kTypeStr)
                        .arg("contact")
-                       .arg(JsonDb::propertyLookup(item, "name.first").toString()));
+                       .arg(mFirstNames[itemNumber]));
         result = mJsonDb->find(mOwner, request);
         verifyGoodResult(result);
     }
@@ -754,6 +856,85 @@ void TestJsonDb::benchmarkFind20()
                        .arg(JsonDbString::kTypeStr)
                        .arg("contact")
                        .arg(JsonDb::propertyLookup(item, "name.first").toString()));
+        result = mJsonDb->find(mOwner, request);
+        verifyGoodResult(result);
+    }
+}
+
+void TestJsonDb::benchmarkFirstByUuid()
+{
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    QBENCHMARK {
+        QsonMap request;
+        QsonMap result;
+        request.insert("limit", 1);
+        request.insert("query",
+                       QString("[?%1=\"%2\"][/_uuid][count]")
+                       .arg(JsonDbString::kTypeStr)
+                       .arg("contact"));
+        result = mJsonDb->find(mOwner, request);
+        verifyGoodResult(result);
+    }
+}
+
+void TestJsonDb::benchmarkLastByUuid()
+{
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    QBENCHMARK {
+        QsonMap request;
+        QsonMap result;
+        request.insert("limit", 1);
+        request.insert("query",
+                       QString("[?%1=\"%2\"][\\_uuid][count]")
+                       .arg(JsonDbString::kTypeStr)
+                       .arg("contact"));
+        result = mJsonDb->find(mOwner, request);
+        verifyGoodResult(result);
+    }
+}
+
+void TestJsonDb::benchmarkFirst10ByUuid()
+{
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    QBENCHMARK {
+        QsonMap request;
+        QsonMap result;
+        request.insert("limit", 10);
+        request.insert("query",
+                       QString("[?%1=\"%2\"][/_uuid][count]")
+                       .arg(JsonDbString::kTypeStr)
+                       .arg("contact"));
+        result = mJsonDb->find(mOwner, request);
+        verifyGoodResult(result);
+    }
+}
+
+void TestJsonDb::benchmarkFind10ByUuid()
+{
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    int itemNumber = qMax(0, mFirstNames.size()-10);
+    QBENCHMARK {
+        QsonMap request;
+        QsonMap result;
+        QsonMap item = mContactList.objectAt(itemNumber);
+        request.insert("limit", 10);
+        request.insert("query",
+                       QString("[?%1=\"%2\"][?_uuid<=\"%3\"][/_uuid][count]")
+                       .arg(JsonDbString::kTypeStr)
+                       .arg("contact")
+                       .arg(mUuids[itemNumber]));
         result = mJsonDb->find(mOwner, request);
         verifyGoodResult(result);
     }
