@@ -51,8 +51,6 @@
 #include "jsondb-client.h"
 #include "private/jsondb-connection_p.h"
 
-#include <QtJsonDbQson/private/qson_p.h>
-
 QT_USE_NAMESPACE_JSONDB
 
 struct CallbackInfo {
@@ -63,7 +61,7 @@ struct CallbackInfo {
 
 struct NotifyItem {
     QString  notifyUuid;
-    QsonObject item;
+    QVariantMap item;
     QString action;
 };
 
@@ -131,10 +129,10 @@ public:
     int makeSpaceFor(int count, int insertAt);
     void removeItem(int index);
     int findSortedPosition(const QString& uuid);
-    JsonDbSortKey sortKey(const QsonMap &object);
-    void insertItem(const QsonMap &item, bool emitCountChanged = true);
-    void deleteItem(const QsonMap &item, bool emitCountChanged = true);
-    void updateItem(const QsonMap &item);
+    JsonDbSortKey sortKey(const QVariantMap &object);
+    void insertItem(const QVariantMap &item, bool emitCountChanged = true);
+    void deleteItem(const QVariantMap &item, bool emitCountChanged = true);
+    void updateItem(const QVariantMap &item);
     QVariantMap getItem(int index, bool handleCacheMiss, bool &cacheMiss);
     QVariantMap getItem(const QModelIndex &modelIndex, int role, bool handleCacheMiss, bool &cacheMiss);
     void set(int index, const QJSValue& valuemap, const QJSValue &successCallback,
@@ -143,12 +141,12 @@ public:
                      const QJSValue &errorCallback);
 
     void fetchChunkSynchronous(int offset);
-    void updateCache(const QsonObject &v);
+    void updateCache(const QVariantMap &v);
     void resetModelFinished();
 
     // private slots
-    void _q_jsonDbResponse(int , const QsonObject &);
-    void _q_jsonDbNotified(const QString&, const QsonObject &, const QString &);
+    void _q_jsonDbResponse(int , const QVariant &);
+    void _q_jsonDbNotified(const QString&, const QVariant &v, const QString &);
     void _q_jsonDbErrorResponse(int , int, const QString&);
     void _q_jsonDbErrorResponse(int, const QString&);
 

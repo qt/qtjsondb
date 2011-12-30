@@ -52,8 +52,6 @@
 #include "jsondb-client.h"
 #include "private/jsondb-connection_p.h"
 
-#include <QtJsonDbQson/private/qson_p.h>
-
 QT_USE_NAMESPACE_JSONDB
 
 struct CallbackInfo {
@@ -148,7 +146,7 @@ public:
                      const QJSValue &errorCallback);
 
     void fetchChunkSynchronous(int offset);
-    void updateCache(const QVariant &v);
+    void updateCache(const QVariantMap &v);
     void resetModelFinished();
 
     // private slots

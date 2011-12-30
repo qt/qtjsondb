@@ -53,7 +53,6 @@
 */
 
 QVariant lookupProperty(QVariantMap object, const QStringList &path);
-QVariant lookupProperty(QsonMap object, const QStringList &path);
 QString removeArrayOperator(QString propertyName);
 
 JsonDbSortingListModelPrivate::JsonDbSortingListModelPrivate(JsonDbSortingListModel *q)

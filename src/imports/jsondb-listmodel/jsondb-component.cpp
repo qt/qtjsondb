@@ -42,13 +42,9 @@
 #include <QDebug>
 #include <QJSEngine>
 
-#include <QtJsonDbQson/private/qson_p.h>
-
 #include "jsondb-component.h"
 #include "private/jsondb-strings_p.h"
 #include "jsondb-client.h"
-
-#include "qsonconversion.h"
 
 JsonDbNotificationComponent::JsonDbNotificationComponent(JsonDbComponent *repo)
     : QObject(repo)
@@ -111,14 +107,14 @@ JsonDbComponent::JsonDbComponent(QObject *parent)
     , mDebugOutput(false)
     , mJsonDb(new JsonDbClient(this))
 {
-    connect(mJsonDb, SIGNAL(response(int,QsonObject)),
-            this, SLOT(jsonDbResponse(int,QsonObject)),
+    connect(mJsonDb, SIGNAL(response(int,QVariant)),
+            this, SLOT(jsonDbResponse(int,QVariant)),
             Qt::QueuedConnection);
     connect(mJsonDb, SIGNAL(error(int,int,QString)),
             this, SLOT(jsonDbErrorResponse(int,int,QString)),
             Qt::QueuedConnection);
-    connect(mJsonDb, SIGNAL(notified(QString,QsonObject,QString)),
-            this, SLOT(jsonDbNotified(QString,QsonObject,QString)),
+    connect(mJsonDb, SIGNAL(notified(QString,QVariant,QString)),
+            this, SLOT(jsonDbNotified(QString,QVariant,QString)),
             Qt::QueuedConnection);
 }
 
@@ -153,7 +149,7 @@ int JsonDbComponent::create(const QJSValue &object,
     if (mDebugOutput)
         qDebug() << "[JSONDB] create:"<<object.toString();
 
-    return addRequestInfo(mJsonDb->create(jsValueToQson(object)), JsonDbComponent::Create, object, successCallback, errorCallback);
+    return addRequestInfo(mJsonDb->create(object.toVariant()), JsonDbComponent::Create, object, successCallback, errorCallback);
 }
 
 /*!
@@ -168,7 +164,7 @@ int JsonDbComponent::update(const QJSValue &object,
                              const QJSValue &successCallback,
                              const QJSValue &errorCallback)
 {
-    return addRequestInfo(mJsonDb->update(jsValueToQson(object)), JsonDbComponent::Update, object, successCallback, errorCallback);
+    return addRequestInfo(mJsonDb->update(object.toVariant()), JsonDbComponent::Update, object, successCallback, errorCallback);
 }
 
 /*!
@@ -186,7 +182,7 @@ int JsonDbComponent::remove(const QJSValue &object,
     if (mDebugOutput)
         qDebug() << "[JSONDB] remove:"<<object.toString();
 
-    return addRequestInfo(mJsonDb->remove(jsValueToQson(object)), JsonDbComponent::Remove, object, successCallback, errorCallback);
+    return addRequestInfo(mJsonDb->remove(object.toVariant()), JsonDbComponent::Remove, object, successCallback, errorCallback);
 }
 
 /*!
@@ -202,7 +198,7 @@ int JsonDbComponent::find(const QJSValue &object,
     if (mDebugOutput)
         qDebug() << "[JSONDB] find:"<<object.toString();
 
-    return addRequestInfo(mJsonDb->find(jsValueToQson(object)), JsonDbComponent::Find, object, successCallback, errorCallback);
+    return addRequestInfo(mJsonDb->find(object.toVariant()), JsonDbComponent::Find, object, successCallback, errorCallback);
 }
 
 /*!
@@ -260,10 +256,10 @@ QJSValue JsonDbComponent::notification(const QJSValue &object,
                             JsonDbString::kNotificationTypeStr);
         request.setProperty(JsonDbString::kActionsStr, actions);
 
-        id = addRequestInfo(mJsonDb->create(jsValueToQson(request)), JsonDbComponent::Notification, object, QJSValue(), errorCallback);
+        id = addRequestInfo(mJsonDb->create(request.toVariant()), JsonDbComponent::Notification, object, QJSValue(), errorCallback);
 
     } else {
-        id = addRequestInfo(mJsonDb->create(jsValueToQson(object)), JsonDbComponent::Notification, object, QJSValue(), errorCallback);
+        id = addRequestInfo(mJsonDb->create(object.toVariant()), JsonDbComponent::Notification, object, QJSValue(), errorCallback);
     }
 
     if (id <= 0)
@@ -287,13 +283,13 @@ QJSValue JsonDbComponent::notification(const QJSValue &object,
 }
 
 
-void JsonDbComponent::jsonDbResponse(int id, const QsonObject &result)
+void JsonDbComponent::jsonDbResponse(int id, const QVariant &result)
 {
     if (mRequests.contains(id)) {
         JsonDbComponent::RequestInfo &info = mRequests[id];
 
         QJSEngine *engine = info.object.engine();
-        QJSValue scriptResult = qsonToJSValue(result, engine);
+        QJSValue scriptResult = engine->toScriptValue(result);
         if (scriptResult.property(JsonDbString::kUuidStr).isValid())
             info.object.setProperty(JsonDbString::kUuidStr, scriptResult.property(JsonDbString::kUuidStr));
         if (scriptResult.property(JsonDbString::kVersionStr).isValid())
@@ -379,12 +375,12 @@ void JsonDbComponent::jsonDbErrorResponse(int id, int code, const QString& messa
     }
 }
 
-void JsonDbComponent::jsonDbNotified(const QString& notify_uuid, const QsonObject& object, const QString& action)
+void JsonDbComponent::jsonDbNotified(const QString& notify_uuid, const QVariant& object, const QString& action)
 {
     JsonDbNotificationComponent* notification = mNotifications.value(notify_uuid);
     if (notification) {
         QJSValueList args;
-        args << qsonToJSValue(object, notification->mCallback.engine());
+        args << notification->mCallback.engine()->toScriptValue(object);
         args << notification->mCallback.engine()->toScriptValue(action);
         notification->mCallback.call(QJSValue(), args);
 

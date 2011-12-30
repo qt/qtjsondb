@@ -80,14 +80,14 @@ JsonDbListModelPrivate::JsonDbListModelPrivate(JsonDbListModel *q)
 void JsonDbListModelPrivate::init()
 {
     Q_Q(JsonDbListModel);
-    q->connect(&jsonDb, SIGNAL(response(int,QsonObject)),
-               q, SLOT(_q_jsonDbResponse(int,QsonObject)),
+    q->connect(&jsonDb, SIGNAL(response(int,QVariant)),
+               q, SLOT(_q_jsonDbResponse(int,QVariant)),
                Qt::QueuedConnection);
     q->connect(&jsonDb, SIGNAL(error(int,int,QString)),
                q, SLOT(_q_jsonDbErrorResponse(int,int,QString)),
                Qt::QueuedConnection);
-    q->connect(&jsonDb, SIGNAL(notified(QString,QsonObject,QString)),
-               q, SLOT(_q_jsonDbNotified(QString,QsonObject,QString)),
+    q->connect(&jsonDb, SIGNAL(notified(QString,QVariant,QString)),
+               q, SLOT(_q_jsonDbNotified(QString,QVariant,QString)),
                Qt::QueuedConnection);
     q->connect(q, SIGNAL(needAnotherChunk(int)), q, SLOT(_q_requestAnotherChunk(int)), Qt::QueuedConnection);
 }
@@ -96,7 +96,7 @@ JsonDbListModelPrivate::~JsonDbListModelPrivate()
 {
     // Why do we need to do this while destroying the object
     if (!notifyUuid.isEmpty()) {
-        QsonMap notificationObject;
+        QVariantMap notificationObject;
         notificationObject.insert("_uuid", notifyUuid);
         jsonDb.remove(notificationObject);
     }
@@ -170,7 +170,7 @@ int JsonDbListModelPrivate::makeSpaceFor(int count, int insertAt)
     return itemsToRemove;
 }
 
-JsonDbSortKey JsonDbListModelPrivate::sortKey(const QsonMap &object)
+JsonDbSortKey JsonDbListModelPrivate::sortKey(const QVariantMap &object)
 {
     return JsonDbSortKey(object, orderDirections, orderPaths);
 }
@@ -207,7 +207,7 @@ int JsonDbListModelPrivate::findSortedPosition(const QString& uuid)
 }
 
 // insert item notification handler
-void JsonDbListModelPrivate::insertItem(const QsonMap &item, bool emitSignals)
+void JsonDbListModelPrivate::insertItem(const QVariantMap &item, bool emitSignals)
 {
     Q_Q(JsonDbListModel);
     Q_UNUSED(item);
@@ -232,13 +232,13 @@ void JsonDbListModelPrivate::insertItem(const QsonMap &item, bool emitSignals)
 }
 
 // deleteitem notification handler
-void JsonDbListModelPrivate::deleteItem(const QsonMap &item, bool emitSignals)
+void JsonDbListModelPrivate::deleteItem(const QVariantMap &item, bool emitSignals)
 {
     Q_Q(JsonDbListModel);
 
     lastFetchedItem.clear();
     lastFetchedIndex = -1;
-    const QString &uuid = item.value("_uuid", QString());
+    const QString &uuid = item.value("_uuid", QString()).toString();
     int index = cachedUuids.indexOf(uuid);
     if (index != -1) {
         // When item is in the cache emit signals using the exact position.
@@ -273,12 +273,12 @@ void JsonDbListModelPrivate::deleteItem(const QsonMap &item, bool emitSignals)
 }
 
 // updateitem notification handler
-void JsonDbListModelPrivate::updateItem(const QsonMap &item)
+void JsonDbListModelPrivate::updateItem(const QVariantMap &item)
 {
     Q_Q(JsonDbListModel);
     lastFetchedItem.clear();
     lastFetchedIndex = -1;
-    const QString &uuid = item.value("_uuid", QString());
+    const QString &uuid = item.value("_uuid").toString();
     // if item is currently in cache.
     if (objectSortValues.contains(uuid)) {
         int currentIndex = findSortedPosition(uuid);
@@ -313,7 +313,7 @@ void JsonDbListModelPrivate::_q_requestAnotherChunk(int offset)
     if (newChunkOffset >= cacheStart && newChunkOffset < cacheEnd)
         newChunkOffset = cacheEnd;
     // now fetch more
-    QsonMap request;
+    QVariantMap request;
     request.insert(JsonDbString::kQueryStr, query);
     request.insert("offset", newChunkOffset);
     request.insert("limit", maxItemsToFetch);
@@ -338,13 +338,13 @@ void JsonDbListModelPrivate::fetchChunkSynchronous(int offset)
     if (newChunkOffset >= cacheStart && newChunkOffset < cacheEnd)
         newChunkOffset = cacheEnd;
     // now fetch more
-    QsonMap request;
+    QVariantMap request;
     request.insert(JsonDbString::kQueryStr, query);
     request.insert("offset", newChunkOffset);
     request.insert("limit", maxItemsToFetch);
     resetModel = false;
     requestInProgress = true;
-    QsonObject v = jsonDbConnection->sync(JsonDbConnection::makeFindRequest(request));
+    QVariantMap v = jsonDbConnection->sync(JsonDbConnection::makeFindRequest(request)).toMap();
     requestInProgress = false;
     updateCache(v);
 }
@@ -357,13 +357,13 @@ void JsonDbListModelPrivate::populateModel()
     totalRowCountRecieved = false;
     totalRowCount = 0;
     // Request the total count
-    QsonMap requestCount;
+    QVariantMap requestCount;
     QString countQuery = query+"[count]";
     requestCount.insert(JsonDbString::kQueryStr, countQuery);
 
     totalCountRequestId = jsonDb.find(requestCount);
 
-    QsonMap requestQuery;
+    QVariantMap requestQuery;
     //Request at least 2 chunks of data
     requestQuery.insert(JsonDbString::kQueryStr, query);
     requestQuery.insert("offset", newChunkOffset);
@@ -472,64 +472,6 @@ static QVariant lookupProperty(QVariantMap object, const QStringList &path)
     return object.value(key);
 }
 
-static QVariant lookupProperty(QsonMap object, const QStringList &path)
-{
-    if (!path.size()) {
-        return QVariant();
-    }
-    QsonMap emptyMap;
-    QsonList emptyList;
-    QsonList objectList;
-    for (int i = 0; i < path.size() - 1; i++) {
-        const QString &key = path.at(i);
-        // this part of the property is a list
-        if (!objectList.isEmpty()) {
-            bool ok = false;
-            int index = key.toInt(&ok);
-            if (ok && (index >= 0) && (objectList.count() > index)) {
-                if (objectList.typeAt(index) == QsonObject::ListType) {
-                    objectList = objectList.listAt(index);
-                    object = emptyMap;
-                } else  {
-                    object = objectList.objectAt(index);
-                    objectList = emptyList;
-                }
-                continue;
-            }
-        }
-        // this part is a map
-        if (object.contains(key)) {
-            if (object.valueType(key) == QsonObject::ListType) {
-                objectList = object.subList(key);
-                object = emptyMap;
-            } else  {
-                object = object.subObject(key);
-                objectList = emptyList;
-            }
-        } else {
-            return QVariant();
-        }
-    }
-    const QString &key = path.last();
-    // get the last part from the list
-    if (!objectList.isEmpty()) {
-        bool ok = false;
-        int index = key.toInt(&ok);
-        if (ok && (index >= 0) && (objectList.count() > index)) {
-            if (objectList.typeAt(index) == QsonObject::ListType) {
-                return qsonToVariant(objectList.listAt(index));
-            } else  {
-                return qsonToVariant(objectList.objectAt(index));
-            }
-        }
-    }
-    // if the last part is in a map
-    if (object.valueType(key) == QsonObject::ListType)
-        return qsonToVariant(object.subList(key));
-    else
-        return qsonToVariant(object.value<QsonElement>(key));
-}
-
 static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyChain, QVariant value)
 {
     if (propertyChain.size() < 1) {
@@ -620,7 +562,7 @@ void JsonDbListModel::componentComplete()
 void JsonDbListModelPrivate::createOrUpdateNotification()
 {
     if (!notifyUuid.isEmpty()) {
-        QsonMap notificationObject;
+        QVariantMap notificationObject;
         notificationObject.insert("_uuid", notifyUuid);
         jsonDb.remove(notificationObject);
         notifyUuid.clear();
@@ -641,7 +583,7 @@ int JsonDbListModel::sectionIndex(const QString &section,
     Q_D(JsonDbListModel);
     // Find the count of items "< section"
     QString sectionCountQueryLT = d->queryWithoutSort+"[?"+d->orderProperties[0]+"<\""+section+"\"][count]";
-    QsonMap request;
+    QVariantMap request;
     request.insert(JsonDbString::kQueryStr, sectionCountQueryLT);
     int id = d->jsonDb.find(request);
     // Register any valid callbacks
@@ -1038,12 +980,12 @@ int JsonDbListModel::roleFromString(const QString &roleName) const
     return d->roleNames.key(roleName.toLatin1(), -1);
 }
 
-void JsonDbListModelPrivate::updateCache(const QsonObject &v)
+void JsonDbListModelPrivate::updateCache(const QVariantMap &v)
 {
     Q_Q(JsonDbListModel);
-    QsonMap m = v.toMap();
+    QVariantMap m = v;
     if (m.contains("data")) {
-        QsonList items = m.subList("data");
+        QVariantList items = m.value("data").toList();
         int size = items.size();
         int sizeAdded = 0;
         if (size) {
@@ -1057,15 +999,15 @@ void JsonDbListModelPrivate::updateCache(const QsonObject &v)
             DEBUG()<<"Cache Start"<<cacheStart<<"Cache End:"<<cacheEnd<<"Total Rows = "<<totalRowCount;
             // Add the new result to cache.
             for (int i = 0; i < size; i++) {
-                QsonMap item = items.objectAt(i);
-                const QString &uuid = item.value(JsonDbString::kUuidStr, QString());
+                QVariantMap item = items.value(i).toMap();
+                const QString &uuid = item.value(JsonDbString::kUuidStr).toString();
                 if (objectSortValues.contains(uuid)){
                     break;
                 }
                 JsonDbSortKey key = sortKey(item);
                 objectUuids.insert(key, uuid);
                 objectSortValues.insert(uuid, key);
-                data[uuid] = qsonToVariant(item).toMap();
+                data[uuid] = item;
                 cachedUuids.insert(insertAt++, uuid);
                 sizeAdded++;
             }
@@ -1088,24 +1030,23 @@ void JsonDbListModelPrivate::updateCache(const QsonObject &v)
     }
 }
 
-void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QsonObject &v)
+void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
 {
+    QVariantMap m = v.toMap();
     if (requestIds.contains(id)) {
         requestIds.remove(id);
         requestInProgress = false;
-        updateCache(v);
+        updateCache(m);
     } else if (totalCountRequestId == id) {
-        QsonMap m = v.toMap();
-        QsonList items = m.subList("data");
-        m =  items.objectAt(0);
-        totalRowCount =  m.valueInt("count");
+        QVariantList items = m.value("data").toList();
+        m =  items.value(0).toMap();
+        totalRowCount =  m.value("count").toInt();
         totalRowCountRecieved = true;
         if (updateRecieved)
             resetModelFinished();
     } else if (notificationObjectRequestIds.contains(id)) {
         notificationObjectRequestIds.remove(id);
-        QsonMap o = v.toMap();
-        notifyUuid = o.value(JsonDbString::kUuidStr, QString());
+        notifyUuid = m.value(JsonDbString::kUuidStr).toString();
     } else if (updateRequestIds.constFind(id) != updateRequestIds.constEnd()) {
         CallbackInfo info = updateRequestIds.value(id);
         if (info.successCallback.isFunction()) {
@@ -1120,13 +1061,12 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QsonObject &v)
     } else if (sectionIndexRequestIds.constFind(id) != sectionIndexRequestIds.constEnd()) {
         CallbackInfo info = sectionIndexRequestIds.value(id);
         if (info.successCallback.isFunction()) {
-            QsonMap m = v.toMap();
-            QsonList items = m.subList("data");
-            m =  items.objectAt(0);
+            QVariantList items = m.value("data").toList();
+            m = items.value(0).toMap();
             QJSValueList args;
             QJSValue scriptResult = info.successCallback.engine()->toScriptValue(id);
             args << scriptResult;
-            scriptResult = info.successCallback.engine()->toScriptValue(m.valueInt("count"));
+            scriptResult = info.successCallback.engine()->toScriptValue(m.value("count").toInt());
             args << scriptResult;
             info.successCallback.call(QJSValue(), args);
         }
@@ -1185,8 +1125,9 @@ bool JsonDbListModelPrivate::findSortOrder()
     return true;
 }
 
-void JsonDbListModelPrivate::_q_jsonDbNotified(const QString& currentNotifyUuid, const QsonObject &v, const QString &action)
+void JsonDbListModelPrivate::_q_jsonDbNotified(const QString& currentNotifyUuid, const QVariant &v, const QString &action)
 {
+    QVariantMap item = v.toMap();
     if (currentNotifyUuid != notifyUuid) {
         return;
     }
@@ -1194,12 +1135,11 @@ void JsonDbListModelPrivate::_q_jsonDbNotified(const QString& currentNotifyUuid,
         // we have not received the first chunk, wait for it before processing notifications
         NotifyItem  pending;
         pending.notifyUuid = currentNotifyUuid;
-        pending.item = v;
+        pending.item = item;
         pending.action = action;
         pendingNotifications.append(pending);
         return;
     }
-    const QsonMap &item = v.toMap();
     if (action == JsonDbString::kCreateStr) {
         insertItem(item);
         return ;
@@ -1266,7 +1206,7 @@ JsonDbSortKey::JsonDbSortKey()
 {
 }
 
-JsonDbSortKey::JsonDbSortKey(const QsonMap &object, const QStringList &directions, const QList<QStringList> &paths)
+JsonDbSortKey::JsonDbSortKey(const QVariantMap &object, const QStringList &directions, const QList<QStringList> &paths)
 {
     QVariantList keys;
     for (int i = 0; i < paths.size(); i++)

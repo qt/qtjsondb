@@ -136,9 +136,9 @@ public:
     void error(const QString& message, int id);
 
  protected slots:
-    void jsonDbResponse(int, const QsonObject &);
+    void jsonDbResponse(int, const QVariant &);
     void jsonDbErrorResponse(int id, int code, const QString &message);
-    void jsonDbNotified(const QString& notify_uuid, const QsonObject& object, const QString& action);
+    void jsonDbNotified(const QString& notify_uuid, const QVariant& object, const QString& action);
 
     void notificationRemoved(int id);
     void notificationRemoved(QString uuid);

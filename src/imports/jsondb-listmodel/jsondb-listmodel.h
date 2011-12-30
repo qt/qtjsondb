@@ -54,18 +54,14 @@
 
 #include "jsondb-global.h"
 
-QT_BEGIN_NAMESPACE_JSONDB
-class QsonObject;
-class QsonMap;
-QT_END_NAMESPACE_JSONDB
-
 QT_USE_NAMESPACE_JSONDB
 
 class JsonDbSortKeyPrivate;
+
 class JsonDbSortKey {
 public:
     JsonDbSortKey();
-    JsonDbSortKey(const QsonMap &object, const QStringList &directions, const QList<QStringList> &paths);
+    JsonDbSortKey(const QVariantMap &object, const QStringList &directions, const QList<QStringList> &paths);
     JsonDbSortKey(const JsonDbSortKey&);
 
     const QVariantList &keys() const;
@@ -146,10 +142,10 @@ private:
     Q_DISABLE_COPY(JsonDbListModel)
     Q_DECLARE_PRIVATE(JsonDbListModel)
     QScopedPointer<JsonDbListModelPrivate> d_ptr;
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QsonObject&))
+    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QVariant&))
     Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, int, const QString&))
     Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, const QString&))
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbNotified(const QString&, const QsonObject&, const QString&))
+    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbNotified(const QString&, const QVariant&, const QString&))
     Q_PRIVATE_SLOT(d_func(), void _q_requestAnotherChunk(int))
 
 };

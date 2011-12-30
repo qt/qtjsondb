@@ -342,7 +342,7 @@ void JsonDbListModelPrivate::fetchChunkSynchronous(int offset)
                                                              QMap<QString,QVariant>(), partitionObject->name());
     QVariant v = jsonDbConnection->sync(request);
     requestInProgress = false;
-    updateCache(v);
+    updateCache(v.toMap());
 }
 
 void JsonDbListModelPrivate::populateModel()
@@ -1013,10 +1013,9 @@ int JsonDbListModel::roleFromString(const QString &roleName) const
     return d->roleNames.key(roleName.toLatin1(), -1);
 }
 
-void JsonDbListModelPrivate::updateCache(const QVariant &v)
+void JsonDbListModelPrivate::updateCache(const QVariantMap &m)
 {
     Q_Q(JsonDbListModel);
-    QVariantMap m = v.toMap();
     if (m.contains("data")) {
         QVariantList items = m.value(QLatin1String("data")).toList();
         int size = items.size();
@@ -1068,7 +1067,7 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
     if (requestIds.contains(id)) {
         requestIds.remove(id);
         requestInProgress = false;
-        updateCache(v);
+        updateCache(v.toMap());
     } else if (totalCountRequestId == id) {
         QVariantMap m = v.toMap();
         QVariantList items = m.value(QLatin1String("data")).toList();
