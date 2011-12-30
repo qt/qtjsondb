@@ -85,6 +85,7 @@ public:
     int mId;
     QString mToken;
     JsonDbConnection::Status status;
+    QString errorString;
     int tokenRequestId;
 };
 

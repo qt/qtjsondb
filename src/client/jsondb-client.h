@@ -99,6 +99,8 @@ public:
     void connectToServer();
     void disconnectFromServer();
 
+    QString errorString() const;
+
 public slots:
     QT_DEPRECATED
     int find(const QsonObject &query, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0);

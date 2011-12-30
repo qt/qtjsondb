@@ -280,6 +280,11 @@ JsonDbConnection::Status JsonDbConnection::status() const
     return d_func()->status;
 }
 
+QString JsonDbConnection::errorString() const
+{
+    return d_func()->errorString;
+}
+
 /*!
     Connects to the named local socket \a socketName.
 */
@@ -383,6 +388,7 @@ void JsonDbConnectionPrivate::_q_onDisconnected()
     Q_Q(JsonDbConnection);
     mStream.setDevice(0);
 
+    errorString = socket ? socket->errorString() : tcpSocket->errorString();
     status = JsonDbConnection::Disconnected;
     emit q->statusChanged();
     emit q->disconnected();
@@ -391,6 +397,7 @@ void JsonDbConnectionPrivate::_q_onDisconnected()
 void JsonDbConnectionPrivate::_q_onError(QLocalSocket::LocalSocketError error)
 {
     Q_Q(JsonDbConnection);
+    errorString = socket ? socket->errorString() : tcpSocket->errorString();
     switch (error) {
     case QLocalSocket::ConnectionRefusedError:
     case QLocalSocket::ServerNotFoundError:
@@ -509,6 +516,7 @@ void JsonDbConnectionPrivate::_q_onReceiveMessage(const QsonObject &msg)
         // if token auth failed, socket will be disconnected.
         if (!error) {
             status = JsonDbConnection::Ready;
+            errorString = QLatin1String("Token authentication failed");
             emit q->statusChanged();
         }
     }

@@ -187,7 +187,7 @@ bool JsonDbClient::event(QEvent *event)
 /*!
     \fn void JsonDbClient::statusChanged()
     The signal is emitted when the connection status is changed.
-    \sa status
+    \sa status, connectToServer(), errorString()
 */
 /*!
     \property JsonDbClient::status
@@ -982,7 +982,7 @@ void JsonDbClient::connectToServer()
 
 /*!
   Disconnects to the server if connected.
-  \sa autoReconnect(), connectToServer()
+  \sa autoReconnect(), connectToServer(), errorString()
 */
 void JsonDbClient::disconnectFromServer()
 {
@@ -990,6 +990,14 @@ void JsonDbClient::disconnectFromServer()
     if (d->status != JsonDbClient::Ready)
         return;
     d->connection->disconnectFromServer();
+}
+
+/*!
+  Returns a human readable description of the last database connection error.
+*/
+QString JsonDbClient::errorString() const
+{
+    return d_func()->connection->errorString();
 }
 
 /*!
@@ -1080,7 +1088,7 @@ void JsonDbClient::disconnectFromServer()
     This signal is emitted when the client connection is broken. JsonDbClient
     automatically will try to reconnect, so this signal is just a convenience.
 
-    \sa status
+    \sa status, errorString(), connectToServer()
 */
 
 /*!

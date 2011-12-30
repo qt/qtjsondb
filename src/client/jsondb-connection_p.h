@@ -100,6 +100,7 @@ public:
     ~JsonDbConnection();
 
     Status status() const;
+    QString errorString() const;
 
     // One-shot functions allow you to avoid constructing a JsonDbClient
     QT_DEPRECATED

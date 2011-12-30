@@ -259,7 +259,7 @@ void Client::interactiveMode()
 
 void Client::disconnected()
 {
-    qCritical() << "Lost connection to the server";
+    qCritical() << "Lost connection to the server:" << mConnection->errorString();
 }
 
 void Client::notified(const QString &notify_uuid, const QVariant &object, const QString &action)
@@ -283,7 +283,7 @@ void Client::statusChanged()
         qCritical() << "Connected to the server";
         break;
     case JsonDbClient::Error:
-        qCritical() << "Cannot connect to the server";
+        qCritical() << "Cannot connect to the server:" << mConnection->errorString();
         break;
     default:
         return;
