@@ -65,6 +65,8 @@ QBtreeData::QBtreeData(struct btval *value)
     Q_ASSERT(value);
     mSize = value->size;
     mPage = (void *)value->mp;
+    if (!mSize)
+        return;
     if (mPage) {
         Q_ASSERT(!value->free_data);
         // copy the mpage. Do not increase the ref count of the mpage.
