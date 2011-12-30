@@ -67,10 +67,22 @@ public:
     Q_DECLARE_FLAGS(DbFlags, DbFlag)
 
     QBtree();
+    QBtree(const QString &filename);
     ~QBtree();
 
-    bool open(const QString &filename, DbFlags flags = Default);
+    typedef int (*CmpFunc)(const char *a, size_t asize, const char *b, size_t bsize, void *context);
+    void setCmpFunc(CmpFunc cmp);
+    void setFileName(const QString &filename);
+    void setFlags(DbFlags flags);
+    void setAutoSyncRate(int rate);
+    void setAutoCompactRate(int rate);
+    void setCacheSize(unsigned int cacheSize);
+
+    bool open();
     void close();
+
+    bool open(DbFlags flags)
+    { setFlags(flags); return open(); }
 
     enum TxnFlag { TxnReadWrite, TxnReadOnly };
     QBtreeTxn *begin(TxnFlag flag = TxnReadWrite);
@@ -90,33 +102,20 @@ public:
     quint32 tag() const;
 
     bool compact();
-    void sync();
-
-    int autoSyncRate() const;
-    void setAutoSyncRate(int rate);
-
-    int autoCompactRate() const;
-    void setAutoCompactRate(int rate);
-
-    typedef int (*CmpFunc)(const char *a, size_t asize, const char *b, size_t bsize, void *context);
-    bool setCmpFunc(CmpFunc cmp);
-
-    void setCacheSize(unsigned int cacheSize);
+    bool sync();
     void dump() const;
 
 private:
-    bool reopen();
+    bool commit(QBtreeTxn *txn, quint32 tag);
+    void abort(QBtreeTxn *txn);
 
     friend class QBtreeTxn;
-    inline void addTxn(QBtreeTxn *txn) { mTxns.append(txn); }
-    inline void removeTxn(QBtreeTxn *txn) { mTxns.removeOne(txn); }
 
     QString mFilename;
     btree *mBtree;
     CmpFunc mCmp;
     int mCacheSize;
-
-    QList<QBtreeTxn *> mTxns;
+    int mFlags;
 
     int mCommitCount;
     int mAutoCompactRate;

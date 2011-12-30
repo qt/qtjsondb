@@ -50,7 +50,13 @@
 #include <string.h>
 
 QBtree::QBtree()
-    : mBtree(0), mCmp(0), mCacheSize(0), mCommitCount(0),
+    : mBtree(0), mCmp(0), mCacheSize(0), mFlags(0), mCommitCount(0),
+      mAutoCompactRate(0), mAutoSyncRate(0)
+{
+}
+
+QBtree::QBtree(const QString &filename)
+    : mFilename(filename), mBtree(0), mCmp(0), mCacheSize(0), mFlags(0), mCommitCount(0),
       mAutoCompactRate(0), mAutoSyncRate(0)
 {
 }
@@ -60,43 +66,22 @@ QBtree::~QBtree()
     close();
 }
 
-bool QBtree::open(const QString &filename, QBtree::DbFlags flags)
+bool QBtree::open()
 {
+    Q_ASSERT(!mFilename.isEmpty());
     close();
-
-    mFilename = filename;
-
-    int btflags = 0;
-    if (flags & QBtree::ReverseKeys)
-        btflags |= BT_REVERSEKEY;
-    if (flags & QBtree::NoSync)
-        btflags |= BT_NOSYNC;
-    if (flags & QBtree::ReadOnly)
-        btflags |= BT_RDONLY;
-    if (flags & QBtree::UseSyncMarker)
-        btflags |= BT_USEMARKER;
-    if (flags & QBtree::NoPageChecksums)
-        btflags |= BT_NOPGCHECKSUM;
-
-    mBtree = btree_open(mFilename.toLocal8Bit().constData(), btflags, 0644);
+    mBtree = btree_open(mFilename.toLocal8Bit().constData(), mFlags, 0644);
     if (!mBtree) {
-        qDebug() << "QBtree::open" << "failed" << mFilename << errno;
+        qDebug() << "QBtree::reopen" << "failed" << errno;
         return false;
     }
-    if (mCacheSize)
-        btree_set_cache_size(mBtree, mCacheSize);
-    btree_set_cmp(mBtree, mCmp);
-
+    btree_set_cache_size(mBtree, mCacheSize);
+    btree_set_cmp(mBtree, (bt_cmp_func)mCmp);
     return true;
 }
 
 void QBtree::close()
 {
-    if (!mTxns.isEmpty()) {
-        qCritical() << "QBtree closed with active transactions";
-        mTxns.clear();
-    }
-
     if (mBtree) {
         btree_close(mBtree);
         mBtree = 0;
@@ -134,8 +119,8 @@ QBtreeTxn *QBtree::beginRead(quint32 tag)
 
 bool QBtree::rollback()
 {
-    Q_ASSERT(mTxns.isEmpty());
     Q_ASSERT(mBtree);
+    Q_ASSERT(!btree_get_txn(mBtree));
     return btree_rollback(mBtree) == BT_SUCCESS;
 }
 
@@ -149,24 +134,47 @@ bool QBtree::compact()
     if (btree_compact(mBtree) != BT_SUCCESS)
         return false;
 
-    if (!reopen())
+    if (!open())
         return false;
 
+    mCommitCount = 0;
     return true;
 }
 
-void QBtree::sync()
+bool QBtree::sync()
 {
     if (mBtree)
-        btree_sync(mBtree);
+        return btree_sync(mBtree) == BT_SUCCESS;
+    return false;
 }
 
-bool QBtree::setCmpFunc(QBtree::CmpFunc cmp)
+void QBtree::setCmpFunc(QBtree::CmpFunc cmp)
 {
+    mCmp = cmp;
     if (mBtree)
         btree_set_cmp(mBtree, (bt_cmp_func)cmp);
-    mCmp = cmp;
-    return true;
+}
+
+void QBtree::setFileName(const QString &filename)
+{
+    mFilename = filename;
+}
+
+void QBtree::setFlags(DbFlags flags)
+{
+    int btflags = 0;
+    if (flags & QBtree::ReverseKeys)
+        btflags |= BT_REVERSEKEY;
+    if (flags & QBtree::NoSync)
+        btflags |= BT_NOSYNC;
+    if (flags & QBtree::ReadOnly)
+        btflags |= BT_RDONLY;
+    if (flags & QBtree::UseSyncMarker)
+        btflags |= BT_USEMARKER;
+    if (flags & QBtree::NoPageChecksums)
+        btflags |= BT_NOPGCHECKSUM;
+
+    mFlags = btflags;
 }
 
 quint64 QBtree::count() const
@@ -176,19 +184,9 @@ quint64 QBtree::count() const
     return stat->entries;
 }
 
-int QBtree::autoSyncRate() const
-{
-    return mAutoSyncRate;
-}
-
 void QBtree::setAutoSyncRate(int rate)
 {
     mAutoSyncRate = rate;
-}
-
-int QBtree::autoCompactRate() const
-{
-    return mAutoCompactRate;
 }
 
 void QBtree::setAutoCompactRate(int rate)
@@ -221,19 +219,34 @@ void QBtree::dump() const
     btree_dump(mBtree);
 }
 
-bool QBtree::reopen()
+bool QBtree::commit(QBtreeTxn *txn, quint32 tag)
 {
-    Q_ASSERT(mBtree);
-    unsigned int flags = btree_get_flags(mBtree);
-    btree_close(mBtree);
-    mBtree = btree_open(mFilename.toLocal8Bit().constData(), flags, 0644);
-    if (!mBtree) {
-        qDebug() << "QBtree::reopen" << "failed" << errno;
+    Q_ASSERT(txn);
+    Q_ASSERT(txn->isReadWrite());
+    Q_ASSERT(txn->handle());
+
+    unsigned int flags = (mAutoSyncRate && mCommitCount % mAutoSyncRate == 0)
+            ? BT_FORCE_MARKER
+            : 0;
+    bool needCompact = mAutoCompactRate && mCommitCount > mAutoCompactRate;
+
+    if (!btree_txn_commit(txn->handle(), tag, flags) == BT_SUCCESS)
         return false;
-    }
-    if (mCacheSize)
-        btree_set_cache_size(mBtree, mCacheSize);
-    btree_set_cmp(mBtree, mCmp);
+
+    delete txn;
+
+    mCommitCount++;
+    if (needCompact)
+        compact();
+
     return true;
+}
+
+void QBtree::abort(QBtreeTxn *txn)
+{
+    Q_ASSERT(txn);
+    Q_ASSERT(txn->handle());
+    btree_txn_abort(txn->handle());
+    delete txn;
 }
 

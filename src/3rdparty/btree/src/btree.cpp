@@ -666,6 +666,20 @@ btree_txn_abort(struct btree_txn *txn)
         free(txn);
 }
 
+int
+btree_txn_is_read(struct btree_txn *txn)
+{
+        assert(txn);
+        return txn->flags & BT_TXN_RDONLY ? 1 : 0;
+}
+
+int
+btree_txn_is_error(struct btree_txn *txn)
+{
+        assert(txn);
+        return txn->flags & BT_TXN_ERROR ? 1 : 0;
+}
+
 unsigned int
 btree_txn_get_tag(struct btree_txn *txn)
 {
@@ -1283,6 +1297,13 @@ btree_close(struct btree *bt)
                 free(bt);
         } else
                 DPRINTF("ref is now %d on btree %p", bt->ref, bt);
+}
+
+struct btree_txn *
+btree_get_txn(struct btree *bt)
+{
+        assert(bt);
+        return bt->txn;
 }
 
 /* Search for key within a leaf page, using binary search.
@@ -3533,7 +3554,9 @@ btree_rollback(struct btree *bt)
 void
 btree_set_cache_size(struct btree *bt, unsigned int cache_size)
 {
-        bt->stat.max_cache = cache_size;
+        assert(bt);
+        if (cache_size)
+                bt->stat.max_cache = cache_size;
 }
 
 unsigned int

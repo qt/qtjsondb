@@ -14,7 +14,7 @@ QBtreeCursor::QBtreeCursor(QBtreeTxn *txn)
     : mTxn(txn), mCursor(0)
 {
     if (mTxn)
-        mCursor = btree_txn_cursor_open(mTxn->db()->handle(), mTxn->handle());
+        mCursor = btree_txn_cursor_open(mTxn->btree()->handle(), mTxn->handle());
 }
 
 QBtreeCursor::~QBtreeCursor()
@@ -27,7 +27,7 @@ QBtreeCursor::QBtreeCursor(const QBtreeCursor &other)
     : mTxn(other.mTxn), mCursor(0), mKey(other.mKey), mValue(other.mValue)
 {
     if (mTxn) {
-        mCursor = btree_txn_cursor_open(mTxn->db()->handle(), mTxn->handle());
+        mCursor = btree_txn_cursor_open(mTxn->btree()->handle(), mTxn->handle());
         // go to the same position as the other cursor
         if (!mKey.isNull())
             seek(mKey);
@@ -43,7 +43,7 @@ QBtreeCursor &QBtreeCursor::operator=(const QBtreeCursor &other)
         mKey = other.mKey;
         mValue = other.mValue;
         if (mTxn) {
-            mCursor = btree_txn_cursor_open(mTxn->db()->handle(), mTxn->handle());
+            mCursor = btree_txn_cursor_open(mTxn->btree()->handle(), mTxn->handle());
             // go to the same position as the other cursor
             if (!mKey.isNull())
                 seek(mKey);

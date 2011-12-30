@@ -4,59 +4,30 @@
 #include "qbtree.h"
 #include "qbtreetxn.h"
 
-QBtreeTxn::QBtreeTxn(QBtree *db, btree_txn *txn)
-    : mDb(db), mTxn(txn)
+QBtreeTxn::QBtreeTxn(QBtree *btree, btree_txn *txn)
+    : mBtree(btree), mTxn(txn)
 {
-    Q_ASSERT(mDb);
-    mDb->addTxn(this);
+    Q_ASSERT(mBtree && mTxn);
 }
 
 QBtreeTxn::~QBtreeTxn()
 {
-    mDb->removeTxn(this);
-    if (mTxn) {
-        qCritical() << "QBtreeTxn: transaction in progress aborted.";
-        btree_txn_abort(mTxn);
-        mTxn = 0;
-    }
+    Q_ASSERT(mTxn && mBtree);
 }
 
 bool QBtreeTxn::commit(quint32 tag)
 {
-    bool ret = false;
-    if (mTxn) {
-        unsigned int flags = (mDb->mAutoSyncRate && mDb->mCommitCount % mDb->mAutoSyncRate == 0) ? BT_FORCE_MARKER : 0;
-        ret = btree_txn_commit(mTxn, tag, flags) == BT_SUCCESS;
-        mTxn = 0;
-    } else {
-        qCritical() << "QBtreeTxn::commit()" << "no txn" << mDb->fileName();
+    if (isReadOnly()) {
+        qWarning() << "QBtreeTxn::commit:" << "commiting read only txn doesn't make sense. Aborting instead";
+        mBtree->abort(this);
+        return true;
     }
-    bool needCompact = ret && mDb->mAutoCompactRate && mDb->mCommitCount++ > mDb->mAutoCompactRate;
-    QBtree *db = mDb;
-
-    mDb->mTxns.removeOne(this);
-    delete this;
-
-    if (needCompact) {
-        db->compact();
-        db->mCommitCount = 0;
-    }
-    return ret;
+    return mBtree->commit(this, tag);
 }
 
-bool QBtreeTxn::abort()
+void QBtreeTxn::abort()
 {
-    bool ret = false;
-    if (mTxn) {
-        btree_txn_abort(mTxn);
-        mTxn = 0;
-        ret = true;
-    } else {
-        qCritical() << "QBtree::abort()" << "no txn";
-    }
-    mDb->mTxns.removeOne(this);
-    delete this;
-    return ret;
+    mBtree->abort(this);
 }
 
 quint32 QBtreeTxn::tag() const
@@ -88,7 +59,7 @@ bool QBtreeTxn::get(const char *key, int keySize, QBtreeData *value) const
     btkey.mp = 0;
 
     struct btval btvalue;
-    int ok = btree_txn_get(mDb->handle(), mTxn, &btkey, &btvalue);
+    int ok = btree_txn_get(mBtree->handle(), mTxn, &btkey, &btvalue);
     if (ok != BT_SUCCESS)
         return false;
     *value = QBtreeData(&btvalue);
@@ -118,9 +89,9 @@ bool QBtreeTxn::put(const char *key, int keySize, const char *value, int valueSi
     btvalue.free_data = 0;
     btvalue.mp = 0;
 
-    int ok = btree_txn_put(mDb->mBtree, mTxn, &btkey, &btvalue, 0);
-    if (ok != BT_SUCCESS)
-        qDebug() << "btree_txn_put" << ok << errno << endl << mDb->fileName();
+    int ok = btree_txn_put(mBtree->handle(), mTxn, &btkey, &btvalue, 0);
+    if (btree_txn_is_error(mTxn))
+        qDebug() << "btree_txn_put" << ok << errno << endl << mBtree->fileName();
     return ok == BT_SUCCESS;
 }
 
@@ -141,7 +112,21 @@ bool QBtreeTxn::remove(const char *key, int keySize)
     btkey.size = keySize;
     btkey.free_data = 0;
     btkey.mp = 0;
-    if (btree_txn_del(mDb->mBtree, mTxn, &btkey, 0) != BT_SUCCESS)
-        qDebug() << "db->del" << errno << QByteArray(key, keySize).toHex() << endl << mDb->fileName();
-    return true;
+
+    int ok = btree_txn_del(mBtree->handle(), mTxn, &btkey, 0);
+    if (btree_txn_is_error(mTxn))
+        qDebug() << "btree_txn_del" << ok << errno << endl << mBtree->fileName();
+    return ok == BT_SUCCESS;
+}
+
+bool QBtreeTxn::isReadOnly() const
+{
+    Q_ASSERT(mTxn);
+    return btree_txn_is_read(mTxn) == 1;
+}
+
+bool QBtreeTxn::isReadWrite() const
+{
+    Q_ASSERT(mTxn);
+    return btree_txn_is_read(mTxn) == 0;
 }

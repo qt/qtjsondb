@@ -112,10 +112,10 @@ void TestQBtree::cleanupTestCase()
 void TestQBtree::init()
 {
     QFile::remove(dbname);
-    db = new QBtree;
-    if (!db->open(dbname, QBtree::NoSync))
-        Q_ASSERT(false);
+    db = new QBtree(dbname);
     db->setAutoCompactRate(1000);
+    if (!db->open(QBtree::NoSync))
+        Q_ASSERT(false);
 }
 
 void TestQBtree::cleanup()
@@ -359,7 +359,6 @@ int keyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *)
 {
     QString a((QChar *)aptr, asiz/2);
     QString b((QChar *)bptr, bsiz/2);
-    qDebug() << "keyCmp" << a << b;
     if (a < b)
         return -1;
     else if (a > b)
@@ -435,7 +434,7 @@ void TestQBtree::rollback()
         QVERIFY(txn->put(key2, value2));
 
         // abort the transaction
-        QVERIFY(txn->abort());
+        txn->abort();
     }
 
     txn = db->begin(QBtree::TxnReadOnly);
@@ -477,7 +476,7 @@ void TestQBtree::multipleRollbacks()
         QVERIFY(txn->put(key1, value2));
 
         // abort the transaction
-        QVERIFY(txn->abort());
+        txn->abort();
     }
 
     {
@@ -489,7 +488,7 @@ void TestQBtree::multipleRollbacks()
         QVERIFY(txn->put(key2, value2));
 
         // abort the transaction
-        QVERIFY(txn->abort());
+        txn->abort();
     }
 
     QBtreeTxn *txn = db->begin();
@@ -513,7 +512,9 @@ void TestQBtree::readAndWrite()
     QVERIFY(wdbtxn->commit(1));
 
     QBtree rdb1;
-    QVERIFY(rdb1.open(dbname, QBtree::ReadOnly));
+    rdb1.setFileName(dbname);
+    rdb1.setFlags(QBtree::ReadOnly);
+    QVERIFY(rdb1.open());
 
     QBtreeTxn *rdb1txn = rdb1.begin(QBtree::TxnReadOnly);
     QByteArray value;
@@ -533,7 +534,9 @@ void TestQBtree::readAndWrite()
     QVERIFY(!rdb1txn->get("foo2", &value));
 
     QBtree rdb2;
-    QVERIFY(rdb2.open(dbname, QBtree::ReadOnly));
+    rdb2.setFileName(dbname);
+    rdb2.setFlags(QBtree::ReadOnly);
+    QVERIFY(rdb2.open());
 
     QBtreeTxn *rdb2txn = rdb2.begin(QBtree::TxnReadOnly);
     QVERIFY(rdb2txn);
@@ -629,7 +632,9 @@ void TestQBtree::transactionTag()
     QCOMPARE(db->tag(), quint32(1));
 
     QBtree rdb;
-    QVERIFY(rdb.open(dbname, QBtree::ReadOnly));
+    rdb.setFileName(dbname);
+    rdb.setFlags(QBtree::ReadOnly);
+    QVERIFY(rdb.open());
     QCOMPARE(rdb.tag(), quint32(1));
     QBtreeTxn *rdbtxn = rdb.begin(QBtree::TxnReadOnly);
     QCOMPARE(rdb.tag(), quint32(1));
@@ -705,6 +710,10 @@ void TestQBtree::compareSequenceOfVarLengthKeys()
     const int minKeyLength = 20;
     const int maxKeyLength = 25;
 
+    db->close();
+    db->setCmpFunc(cmpVarLengthKeys);
+    QVERIFY(db->open());
+
     // Create vector of variable length keys of sequenceChar
     QVector<QByteArray> vec;
     for (int i = 0; i < numElements; ++i) {
@@ -717,8 +726,6 @@ void TestQBtree::compareSequenceOfVarLengthKeys()
         }
         vec.append(k);
     }
-
-    QVERIFY(db->setCmpFunc(cmpVarLengthKeys));
 
     for (int i = 0; i < vec.size(); ++i) {
         int count = findLongestSequenceOf(vec[i].constData(), vec[i].size(), sequenceChar);
@@ -750,7 +757,7 @@ void TestQBtree::compareSequenceOfVarLengthKeys()
 void TestQBtree::syncMarker()
 {
     db->close();
-    QVERIFY(db->open(dbname, QBtree::NoSync | QBtree::UseSyncMarker));
+    QVERIFY(db->open(QBtree::NoSync | QBtree::UseSyncMarker));
 
     QBtreeTxn *txn = db->begin();
     QVERIFY(txn);
@@ -764,8 +771,8 @@ void TestQBtree::syncMarker()
     QVERIFY(txn->put(QByteArray("bar"), QByteArray("456")));
     QVERIFY(txn->commit(6));
 
-    QBtree db2;
-    QVERIFY(db2.open(dbname, QBtree::NoSync | QBtree::UseSyncMarker));
+    QBtree db2(dbname);
+    QVERIFY(db2.open(QBtree::NoSync | QBtree::UseSyncMarker));
     QByteArray value;
     txn = db2.begin(QBtree::TxnReadOnly);
     QVERIFY(txn);
@@ -789,7 +796,7 @@ void TestQBtree::corruptedPage()
     file.write(QByteArray(4096, 8)); // write one page of garbage
     file.close();
 
-    QVERIFY(db->open(dbname, QBtree::NoSync));
+    QVERIFY(db->open());
     QCOMPARE(db->tag(), 42u);
     txn = db->begin();
     QVERIFY(txn);
@@ -1004,7 +1011,7 @@ void TestQBtree::pageChecksum()
     QCOMPARE(f2.size(), psize * 8);  // Should have 8 pages in db
     f2.close();
 
-    QVERIFY(db->open(dbname, QBtree::NoSync));
+    QVERIFY(db->open());
     QCOMPARE(db->tag(), 2u); // page with tag 3 corrupted, should get tag 2
 
     txn = db->beginRead();
@@ -1025,7 +1032,7 @@ void TestQBtree::pageChecksum()
     QCOMPARE(f3.size(), psize * 8);  // Should have 9 pages in db
     f3.close();
 
-    QVERIFY(db->open(dbname, QBtree::NoSync));
+    QVERIFY(db->open());
 
     txn = db->beginRead();
     QVERIFY(txn);

@@ -20,18 +20,21 @@ public:
     bool remove(const char *key, int keySize);
 
     bool commit(quint32 tag);
-    bool abort();
+    void abort();
 
     quint32 tag() const;
 
-    inline QBtree *db() const { return mDb; }
+    inline QBtree *btree() const { return mBtree; }
     inline btree_txn *handle() const { return mTxn; }
 
+    bool isReadOnly() const;
+    bool isReadWrite() const;
+
 private:
-    QBtree *mDb;
+    QBtree *mBtree;
     btree_txn *mTxn;
 
-    QBtreeTxn(QBtree *db, btree_txn *txn);
+    QBtreeTxn(QBtree *btree, btree_txn *txn);
     ~QBtreeTxn();
     QBtreeTxn(const QBtreeTxn &); // forbid copy constructor
     friend class QBtree;
