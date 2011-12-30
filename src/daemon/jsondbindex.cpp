@@ -364,6 +364,4 @@ bool JsonDbIndexCursor::prev()
     return mCursor.prev();
 }
 
-#include "moc_jsondbindex.cpp"
-
 QT_ADDON_JSONDB_END_NAMESPACE

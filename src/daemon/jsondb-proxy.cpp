@@ -192,6 +192,4 @@ void Console::debug(const QString &s)
         qDebug() << s;
 }
 
-#include "moc_jsondb-proxy.cpp"
-
 QT_ADDON_JSONDB_END_NAMESPACE

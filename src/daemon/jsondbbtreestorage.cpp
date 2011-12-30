@@ -1859,6 +1859,4 @@ bool WithTransaction::addObjectTable(ObjectTable *table)
     return true;
 }
 
-#include "moc_jsondbbtreestorage.cpp"
-
 QT_ADDON_JSONDB_END_NAMESPACE

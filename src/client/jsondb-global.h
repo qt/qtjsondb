@@ -61,6 +61,12 @@
 #  define QT_ADDON_JSONDB_PREPEND_NAMESPACE(name) ::QtAddOn::JsonDb::name
 #endif
 
+// a workaround for moc - if there is a header file that doesn't use jsondb
+// namespace, we still force moc to do "using namespace" but the namespace have to
+// be defined, so let's define an empty namespace here
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_ADDON_JSONDB_END_NAMESPACE
+
 // All the following macros will be deprecated in a future version of this file.
 #define Q_ADDON_JSONDB_BEGIN_NAMESPACE QT_ADDON_JSONDB_BEGIN_NAMESPACE
 #define Q_ADDON_JSONDB_END_NAMESPACE QT_ADDON_JSONDB_END_NAMESPACE

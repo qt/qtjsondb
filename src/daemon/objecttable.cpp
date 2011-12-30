@@ -599,6 +599,4 @@ QsonMap ObjectTable::changesSince(quint32 stateNumber, const QSet<QString> &limi
     return JsonDb::makeResponse(resultmap, errormap);
 }
 
-#include "moc_objecttable.cpp"
-
 QT_ADDON_JSONDB_END_NAMESPACE

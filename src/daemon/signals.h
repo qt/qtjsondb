@@ -42,6 +42,7 @@
 #ifndef SIGNALS_H
 #define SIGNALS_H
 
+#include "jsondb-global.h"
 #include <QObject>
 
 QT_BEGIN_HEADER

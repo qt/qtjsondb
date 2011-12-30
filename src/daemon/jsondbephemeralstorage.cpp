@@ -148,6 +148,4 @@ QsonMap JsonDbEphemeralStorage::query(const JsonDbQuery &query, int limit, int o
     return JsonDbResponse::makeResponse(map);
 }
 
-#include "moc_jsondbephemeralstorage.cpp"
-
 QT_ADDON_JSONDB_END_NAMESPACE

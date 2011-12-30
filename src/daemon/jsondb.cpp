@@ -1888,6 +1888,4 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
     return result;
 }
 
-#include "moc_jsondb.cpp"
-
 QT_ADDON_JSONDB_END_NAMESPACE

@@ -801,6 +801,5 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
     }
 }
 
-#include "moc_jsondb-map-reduce.cpp"
 
 QT_ADDON_JSONDB_END_NAMESPACE

@@ -120,6 +120,4 @@ bool JsonDbOwner::isAllowed (QsonObject &object, const QString &op) const
     return false;
 }
 
-#include "moc_jsondb-owner.cpp"
-
 QT_ADDON_JSONDB_END_NAMESPACE
