@@ -67,6 +67,7 @@ class Q_ADDON_JSONDB_EXPORT JsonDbClient : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(Status status READ status NOTIFY statusChanged)
+    Q_PROPERTY(bool autoReconnect READ autoReconnect WRITE setAutoReconnect)
 public:
     JsonDbClient(const QString &socketName, QObject *parent = 0);
     JsonDbClient(QObject *parent = 0);
@@ -85,12 +86,18 @@ public:
     Q_DECLARE_FLAGS(NotifyTypes, NotifyType)
 
     enum Status {
-        Null,
-        Connecting,
-        Ready,
-        Error
+        Null         = 0,
+        Connecting   = 1,
+        Ready        = 2,
+        Error        = 3
     };
     Status status() const;
+
+    void setAutoReconnect(bool reconnect);
+    bool autoReconnect() const;
+
+    void connectToServer();
+    void disconnectFromServer();
 
 public slots:
     QT_DEPRECATED

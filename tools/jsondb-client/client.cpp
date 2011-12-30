@@ -321,7 +321,8 @@ void Client::usage()
 {
     std::stringstream out;
     out << "Valid commands:" << std::endl
-              << std::endl
+              << "   connect" << std::endl
+              << "   disconnect" << std::endl
               << "Direct database commands - these take an explict object" << std::endl
               << "   create [partition:<name>] OBJECT" << std::endl
               << "   update [partition:<name>] OBJECT" << std::endl
@@ -490,6 +491,10 @@ bool Client::processCommand(const QString &command)
             qDebug() << "Sending changesSince: " << stateNumber << "types: " << types;
 
         mRequests << mConnection->changesSince(stateNumber, types, partition);
+    } else if (cmd == "connect") {
+        mConnection->connectToServer();
+    } else if (cmd == "disconnect") {
+        mConnection->disconnectFromServer();
     } else if (!cmd.isEmpty()) {
         InputThread::print("Unrecognized command: " % cmd);
         usage();

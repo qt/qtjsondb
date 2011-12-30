@@ -208,8 +208,12 @@ void JsonDbClientPrivate::_q_statusChanged()
         if (status != JsonDbClient::Error) {
             requestQueue.unite(sentRequestQueue);
             sentRequestQueue.clear();
-            newStatus = JsonDbClient::Connecting;
-            QTimer::singleShot(5000, q, SLOT(_q_timeout()));
+            if (autoReconnect) {
+                newStatus = JsonDbClient::Connecting;
+                QTimer::singleShot(5000, q, SLOT(_q_timeout()));
+            } else {
+                newStatus = JsonDbClient::Error;
+            }
         }
         break;
     case JsonDbConnection::Connecting:
@@ -946,6 +950,46 @@ int JsonDbClient::changesSince(int stateNumber, QStringList types,
 JsonDbChangesSince *JsonDbClient::changesSince()
 {
     return new JsonDbChangesSince(this, this);
+}
+
+/*!
+  \property JsonDbClient::autoReconnect
+
+  \brief Specifies whether to reconnect when server connection is lost.
+*/
+void JsonDbClient::setAutoReconnect(bool reconnect)
+{
+    Q_D(JsonDbClient);
+    d->autoReconnect = reconnect;
+}
+
+bool JsonDbClient::autoReconnect() const
+{
+    return d_func()->autoReconnect;
+}
+
+/*!
+  Connects to the server if not connected.
+  \sa autoReconnect(), disconnectFromServer()
+*/
+void JsonDbClient::connectToServer()
+{
+    Q_D(JsonDbClient);
+    if (d->status == JsonDbClient::Connecting || d->status == JsonDbClient::Ready)
+        return;
+    d->connection->connectToServer();
+}
+
+/*!
+  Disconnects to the server if connected.
+  \sa autoReconnect(), connectToServer()
+*/
+void JsonDbClient::disconnectFromServer()
+{
+    Q_D(JsonDbClient);
+    if (d->status != JsonDbClient::Ready)
+        return;
+    d->connection->disconnectFromServer();
 }
 
 /*!

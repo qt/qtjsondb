@@ -63,7 +63,7 @@ class JsonDbClientPrivate
     Q_DECLARE_PUBLIC(JsonDbClient)
 public:
     JsonDbClientPrivate(JsonDbClient *q)
-        : q_ptr(q), connection(0)
+        : q_ptr(q), connection(0), status(JsonDbClient::Null), autoReconnect(true)
     { }
 
     ~JsonDbClientPrivate()
@@ -80,6 +80,7 @@ public:
     JsonDbConnection *connection;
 
     JsonDbClient::Status status;
+    bool autoReconnect;
 
     QMap<int, QVariantMap> requestQueue;
     QMap<int, QVariantMap> sentRequestQueue;
