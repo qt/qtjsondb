@@ -298,7 +298,6 @@ int main(int argc, char * argv[])
             bool ok = server.load(jsonFile);
             if (!ok) {
                 qCritical() << "Failed to load" << jsonFile;
-                return -1;
             }
         }
     }
