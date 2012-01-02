@@ -42,8 +42,8 @@
 #ifndef JSONDBOBJECT_H
 #define JSONDBOBJECT_H
 
-#include <QVariantMap>
-#include <QUuid>
+#include <QtCore/qvariant.h>
+#include <QtCore/quuid.h>
 
 #include "jsondb-global.h"
 
