@@ -9,7 +9,9 @@ HEADERS += \
     $$PWD/qt/qbtreelocker.h \
     $$PWD/qt/qbtreetxn.h \
     $$PWD/qt/qbtreecursor.h \
-    $$PWD/src/btree_p.h
+    $$PWD/src/btree_p.h \
+    $$PWD/qt/qmanagedbtreetxn.h \
+    $$PWD/qt/qmanagedbtree.h
 
 SOURCES += \
     $$PWD/src/btree.cpp \
@@ -17,7 +19,9 @@ SOURCES += \
     $$PWD/qt/qbtreedata.cpp \
     $$PWD/qt/qbtreelocker.cpp \
     $$PWD/qt/qbtreetxn.cpp \
-    $$PWD/qt/qbtreecursor.cpp
+    $$PWD/qt/qbtreecursor.cpp \
+    $$PWD/qt/qmanagedbtreetxn.cpp \
+    $$PWD/qt/qmanagedbtree.cpp
 
 !mac:LIBS += -lssl -lcrypto
 
