@@ -96,10 +96,9 @@ Rectangle {
                     (function (c) {
                         for (var i in c.phoneNumbers) {
                             var info = c.phoneNumbers[i];
-                            for (var k in info)
-                                jsondb.emit({"phoneNumber": info[k], "firstName": c.firstName, "lastName": c.lastName});
+                            jsondb.emit({"phoneNumber": info, "firstName": c.firstName, "lastName": c.lastName});
                         }
-                        }
+                    }
                     ).toString()
             }
         };
@@ -126,36 +125,15 @@ Rectangle {
     JsonDb.JsonDbListModel {
         id: contacts
         query: '[?_type="PhoneView"][/phoneNumber]'
-        roleNames: ["phoneNumber", "value"]
+        roleNames: ["phoneNumber", "firstName", "lastName"]
         limit: 100
     }
-
-    Rectangle {
-        id: buttonInit
-        anchors.top: parent.top
-        anchors.margins: 2
-        width: parent.width/2
-        height: 50
-        color: 'gray'
-        border.color: "black"
-        border.width: 5
-        radius: 10
-        Text {
-            anchors.centerIn: parent
-            text: "Init"
-            font.pointSize: fontsize
-        }
-        MouseArea {
-            anchors.fill: parent
-            onClicked: { createViewSchema(); }
-        }
-    }
+    Component.onCompleted: { createViewSchema();}
     Rectangle {
         id: buttonAdd
-        anchors.left: buttonInit.right
         anchors.top: parent.top
         anchors.margins: 2
-        width: parent.width/2
+        width: parent.width
         height: 50
         color: 'gray'
         border.color: "black"
@@ -190,7 +168,7 @@ Rectangle {
 
     ListView {
         id: listView
-        anchors.top: buttonInit.bottom
+        anchors.top: buttonAdd.bottom
         anchors.bottom: statusText.top
         anchors.topMargin: 10
         anchors.bottomMargin: 10
@@ -220,7 +198,7 @@ Rectangle {
         color:  "lightgray"
         Text {
             anchors.centerIn: parent
-            font.pointSize: fontsize-2
+            font.pointSize: fontsize-4
             text: "Cache Limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
         }
     }
@@ -233,7 +211,7 @@ Rectangle {
         Text {
             id: messageText
             anchors.centerIn: parent
-            font.pointSize: fontsize
+            font.pointSize: fontsize-4
             color: "red"
             text: ""
         }
