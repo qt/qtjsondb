@@ -323,14 +323,16 @@ void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const Qso
         const QVariant vdata = qsonToVariant(data);
 
         JsonDbClient::NotifyType type;
-        if (action == JsonDbString::kCreateStr)
+        if (action == JsonDbString::kCreateStr) {
             type = JsonDbClient::NotifyCreate;
-        else if (action == JsonDbString::kUpdateStr)
+        } else if (action == JsonDbString::kUpdateStr) {
             type = JsonDbClient::NotifyUpdate;
-        else if (action == JsonDbString::kRemoveStr)
+        } else if (action == JsonDbString::kRemoveStr) {
             type = JsonDbClient::NotifyRemove;
-        else
+        } else {
             Q_ASSERT(false);
+            return;
+        }
 
         quint32 stateNumber = quint32(0); // ### TODO
 
