@@ -370,10 +370,13 @@ void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
     ids.erase(idsit);
     if (QObject *object = c.object.data()) {
         const QMetaObject *mo = object->metaObject();
-        int idx = mo->indexOfMethod(c.successSlot+1);
-        if (idx < 0) {
-            QByteArray norm = QMetaObject::normalizedSignature(c.successSlot);
-            idx = mo->indexOfMethod(norm.constData()+1);
+        int idx = -1;
+        if (c.successSlot) {
+            idx = mo->indexOfMethod(c.successSlot+1);
+            if (idx < 0) {
+                QByteArray norm = QMetaObject::normalizedSignature(c.successSlot);
+                idx = mo->indexOfMethod(norm.constData()+1);
+            }
         }
         if (idx >= 0) {
             QMetaMethod method = mo->method(idx);
@@ -385,7 +388,8 @@ void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
                 method.invoke(object, Q_ARG(int, id), Q_ARG(QVariant, vdata));
             }
         } else {
-            qWarning() << "JsonDbClient: non existent slot" << QLatin1String(c.successSlot+1)
+            qWarning() << "JsonDbClient: non existent slot"
+                       << (c.successSlot ? QLatin1String(c.successSlot+1) : QLatin1String("<null>"))
                        << "on" << object;
         }
     }
