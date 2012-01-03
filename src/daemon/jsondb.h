@@ -111,9 +111,9 @@ public:
     QsonMap updateList(const JsonDbOwner *owner, QsonList&, const QString &partition = QString(), bool replication = false);
     QsonMap removeList(const JsonDbOwner *owner, QsonList, const QString &partition = QString());
 
-    QsonMap createViewObject(const JsonDbOwner *owner, QsonMap&, const QString &partition = QString());
-    QsonMap updateViewObject(const JsonDbOwner *owner, QsonMap&, const QString &partition = QString());
-    QsonMap removeViewObject(const JsonDbOwner *owner, QsonMap, const QString &partition = QString());
+    QsonMap createViewObject(const JsonDbOwner *owner, QsonMap&, const QString &partition);
+    QsonMap updateViewObject(const JsonDbOwner *owner, QsonMap&, const QString &partition);
+    QsonMap removeViewObject(const JsonDbOwner *owner, QsonMap, const QString &partition);
 
     QsonMap changesSince(const JsonDbOwner *owner, QsonMap object, const QString &partition = QString());
 
@@ -163,10 +163,10 @@ protected:
 
     void initMap(const QString &partition);
     void createMapDefinition(QsonMap mapDefinition, bool firstTime, const QString &partition);
-    void removeMapDefinition(QsonMap mapDefinition);
+    void removeMapDefinition(QsonMap mapDefinition, const QString &partition);
 
     void createReduceDefinition(QsonMap reduceDefinition, bool firstTime, const QString &partition);
-    void removeReduceDefinition(QsonMap reduceDefinition);
+    void removeReduceDefinition(QsonMap reduceDefinition, const QString &partition);
     void removeReduceDefinition(JsonDbReduceDefinition *def);
 
     quint32 findUpdatedMapReduceDefinitions(JsonDbBtreeStorage *partition, const QString &definitionType, const QString &viewType, quint32 targetStateNumber,

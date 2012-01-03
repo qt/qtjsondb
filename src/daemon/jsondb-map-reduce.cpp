@@ -126,7 +126,7 @@ void JsonDb::createMapDefinition(QsonMap mapDefinition, bool firstTime, const QS
     }
 }
 
-void JsonDb::removeMapDefinition(QsonMap mapDefinition)
+void JsonDb::removeMapDefinition(QsonMap mapDefinition, const QString &partition)
 {
     QString targetType = mapDefinition.valueString("targetType");
 
@@ -148,7 +148,7 @@ void JsonDb::removeMapDefinition(QsonMap mapDefinition)
                                           mapDefinition.valueString(JsonDbString::kUuidStr), targetType);
     QsonList objects = getObjectResponse.subList("result");
     for (int i = 0; i < objects.size(); i++)
-      removeViewObject(mOwner, objects.objectAt(i));
+      removeViewObject(mOwner, objects.objectAt(i), partition);
 }
 
 void JsonDb::createReduceDefinition(QsonMap reduceDefinition, bool firstTime, const QString &partition)
@@ -179,7 +179,7 @@ void JsonDb::createReduceDefinition(QsonMap reduceDefinition, bool firstTime, co
     }
 }
 
-void JsonDb::removeReduceDefinition(QsonMap reduceDefinition)
+void JsonDb::removeReduceDefinition(QsonMap reduceDefinition,const QString &partition)
 {
     QString targetType = reduceDefinition.valueString("targetType");
     QString sourceType = reduceDefinition.valueString("sourceType");
@@ -200,7 +200,7 @@ void JsonDb::removeReduceDefinition(QsonMap reduceDefinition)
     QsonMap getObjectResponse = getObjects("_reduceUuid", reduceDefinition.valueString(JsonDbString::kUuidStr), targetType);
     QsonList objects = getObjectResponse.subList("result");
     for (int i = 0; i < objects.size(); i++)
-      removeViewObject(mOwner, objects.objectAt(i));
+      removeViewObject(mOwner, objects.objectAt(i), partition);
     //TODO: actually remove the table
 }
 
@@ -281,7 +281,7 @@ void JsonDb::updateMap(const QString &viewType, const QString &partitionName)
          it != removedMapDefinitions.end();
          ++it) {
         QsonMap def = it.value();
-        removeMapDefinition(def);
+        removeMapDefinition(def, partitionName);
     }
     for (QMap<QString,QsonMap>::const_iterator it = addedMapDefinitions.begin();
          it != addedMapDefinitions.end();
@@ -410,7 +410,7 @@ void JsonDb::updateReduce(const QString &viewType, const QString &partitionName)
          it != removedReduceDefinitions.end();
          ++it) {
         QsonMap def = it.value();
-        removeReduceDefinition(def);
+        removeReduceDefinition(def, partitionName);
     }
     for (QMap<QString,QsonMap>::const_iterator it = addedReduceDefinitions.begin();
          it != addedReduceDefinitions.end();
@@ -548,7 +548,7 @@ void JsonDbMapDefinition::unmapObject(const QsonMap &object)
         QsonMap dependentObject = dependentObjects.objectAt(i).toMap();
         if (dependentObject.valueString(JsonDbString::kTypeStr) != mTargetType)
             continue;
-        mJsonDb->removeViewObject(mOwner, dependentObject);
+        mJsonDb->removeViewObject(mOwner, dependentObject, mPartition);
     }
 }
 
@@ -602,7 +602,7 @@ void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
     newItem.insert("_sourceUuids", sourceUuids);
     newItem.insert("_mapUuid", mUuid);
 
-    QsonMap res = mJsonDb->createViewObject(mOwner, newItem);
+    QsonMap res = mJsonDb->createViewObject(mOwner, newItem, mPartition);
     if (JsonDb::responseIsError(res))
         setError("Error executing map function during emitViewObject: " +
                  res.subObject(JsonDbString::kErrorStr).valueString(JsonDbString::kMessageStr));
@@ -711,7 +711,7 @@ void JsonDbReduceDefinition::updateObject(QsonMap before, QsonMap after)
     QsonMap res;
     if (!previousResult.valueString(JsonDbString::kUuidStr).isEmpty()) {
         if (value.isEmpty()) {
-            res = mJsonDb->removeViewObject(mOwner, previousResult);
+            res = mJsonDb->removeViewObject(mOwner, previousResult, mPartition);
         } else {
             value.insert(JsonDbString::kTypeStr, mTargetType);
             value.insert(JsonDbString::kUuidStr,
@@ -720,13 +720,13 @@ void JsonDbReduceDefinition::updateObject(QsonMap before, QsonMap after)
                          previousResult.valueString(JsonDbString::kVersionStr));
             value.insert(mTargetKeyName, keyValue);
             value.insert("_reduceUuid", mUuid);
-            res = mJsonDb->updateViewObject(mOwner, value);
+            res = mJsonDb->updateViewObject(mOwner, value, mPartition);
         }
     } else {
         value.insert(JsonDbString::kTypeStr, mTargetType);
         value.insert(mTargetKeyName, keyValue);
         value.insert("_reduceUuid", mUuid);
-        res = mJsonDb->createViewObject(mOwner, value);
+        res = mJsonDb->createViewObject(mOwner, value, mPartition);
     }
 
     if (JsonDb::responseIsError(res))
