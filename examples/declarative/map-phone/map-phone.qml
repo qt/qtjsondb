@@ -154,7 +154,7 @@ Rectangle {
                 var firstName = firstNames[rand(firstNames.length)]
                 var lastName = lastNames[rand(lastNames.length)]
                 systemPartition.create({ "_type":"Contact", "firstName":firstName,
-                                           "lastName":lastName, "phoneNumbers": [rand(1000), rand(1000)]},
+                                           "lastName":lastName, "phoneNumbers": [rand(1000).toString(), rand(1000).toString()]},
                                        function (error, meta, response) {
                                            if (error) {
                                                console.log("Error " + response.status + " " + response.message);

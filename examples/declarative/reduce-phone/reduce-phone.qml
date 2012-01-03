@@ -140,30 +140,10 @@ Rectangle {
         limit: 100
     }
 
-    Rectangle {
-        id: buttonAdd
-        anchors.top: parent.top
-        anchors.margins: 2
-        width: parent.width
-        height: 50
-        color: 'gray'
-        border.color: "black"
-        border.width: 5
-        radius: 10
-        Text {
-            anchors.centerIn: parent
-            text: "Update"
-            font.pointSize: fontsize
-        }
-        MouseArea {
-            anchors.fill: parent
-            onClicked: { createViewSchema();}
-        }
-    }
-
+    Component.onCompleted: { createViewSchema();}
     ListView {
         id: listView
-        anchors.top: buttonAdd.bottom
+        anchors.top: parent.top
         anchors.bottom: statusText.top
         anchors.topMargin: 10
         anchors.bottomMargin: 10
@@ -193,7 +173,7 @@ Rectangle {
         color:  "lightgray"
         Text {
             anchors.centerIn: parent
-            font.pointSize: fontsize-2
+            font.pointSize: fontsize-4
             text: "Cache limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
         }
     }
@@ -206,7 +186,7 @@ Rectangle {
         Text {
             id: messageText
             anchors.centerIn: parent
-            font.pointSize: fontsize
+            font.pointSize: fontsize-4
             color: "red"
             text: ""
         }
