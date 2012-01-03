@@ -414,7 +414,9 @@ QsonMap ObjectTable::getObjects(const QString &keyName, const QVariant &keyValue
         QsonList objectList;
         QsonMap object;
         bool ok = get(objectKey, object);
-        if (ok)
+        if (ok
+            && (!typeSpecified
+                || (object.valueString(JsonDbString::kTypeStr) == objectType)))
             objectList.append(object);
         resultmap.insert(QByteArray("result"), objectList);
         resultmap.insert(JsonDbString::kCountStr, objectList.size());

@@ -728,7 +728,9 @@ QsonMap JsonDbBtreeStorage::getObjects(const QString &keyName, const QVariant &k
         QsonList objectList;
         QsonMap object;
         bool ok = table->get(objectKey, object);
-        if (ok)
+        if (ok
+            && (!typeSpecified
+                || (object.valueString(JsonDbString::kTypeStr) == objectType)))
             objectList.append(object);
         resultmap.insert(QLatin1String("result"), objectList);
         resultmap.insert(JsonDbString::kCountStr, objectList.size());
