@@ -121,6 +121,29 @@ QT_ADDON_JSONDB_BEGIN_NAMESPACE
     \value Error Disconnected due to an error.
 */
 
+
+/*! \internal
+    Returns the index of a method, even if method is not normalized.
+    Returns -1 if there's no such method.
+
+    \a mo must not be 0
+    \a method can be 0
+*/
+static int indexOfMethod(const QMetaObject *mo, const char *method)
+{
+    Q_ASSERT(mo);
+    if (!method)
+        return -1;
+
+    int idx = mo->indexOfMethod(method + 1);
+    if (idx < 0) {
+        QByteArray norm = QMetaObject::normalizedSignature(method);
+        idx = mo->indexOfMethod(norm.constData() + 1);
+    }
+
+    return idx;
+}
+
 /*!
     \internal
 
@@ -370,14 +393,7 @@ void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
     ids.erase(idsit);
     if (QObject *object = c.object.data()) {
         const QMetaObject *mo = object->metaObject();
-        int idx = -1;
-        if (c.successSlot) {
-            idx = mo->indexOfMethod(c.successSlot+1);
-            if (idx < 0) {
-                QByteArray norm = QMetaObject::normalizedSignature(c.successSlot);
-                idx = mo->indexOfMethod(norm.constData()+1);
-            }
-        }
+        int idx = indexOfMethod(mo, c.successSlot);
         if (idx >= 0) {
             QMetaMethod method = mo->method(idx);
             QList<QByteArray> params = method.parameterTypes();
@@ -411,11 +427,7 @@ void JsonDbClientPrivate::_q_handleError(int id, int code, const QString &messag
     ids.erase(it);
     if (QObject *object = c.object.data()) {
         const QMetaObject *mo = object->metaObject();
-        int idx = mo->indexOfMethod(c.errorSlot+1);
-        if (idx < 0) {
-            QByteArray norm = QMetaObject::normalizedSignature(c.errorSlot);
-            idx = mo->indexOfMethod(norm.constData()+1);
-        }
+        int idx = indexOfMethod(mo, c.errorSlot);
         if (idx >= 0)
             mo->method(idx).invoke(object, Q_ARG(int, id), Q_ARG(int, code), Q_ARG(QString, message));
     }
@@ -815,16 +827,12 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
     int id = d->connection->makeRequestId();
 
     d->ids.insert(id, JsonDbClientPrivate::Callback(responseTarget, responseSuccessSlot, responseErrorSlot));
-    if (notifyTarget && notifySlot) {
+    if (notifyTarget) {
         const QMetaObject *mo = notifyTarget->metaObject();
-        int idx = mo->indexOfMethod(notifySlot+1);
-        if (idx < 0) {
-            QByteArray norm = QMetaObject::normalizedSignature(notifySlot);
-            idx = mo->indexOfMethod(norm.constData()+1);
-        }
+        int idx = indexOfMethod(mo, notifySlot);
         if (idx < 0) {
             qWarning("JsonDbClient::notify: No such method %s::%s",
-                     mo->className(), notifySlot);
+                     mo->className(), notifySlot ? notifySlot + 1 : "<null>");
         } else {
             d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback(notifyTarget, mo->method(idx)));
         }
@@ -879,16 +887,12 @@ QString JsonDbClient::registerNotification(NotifyTypes types, const QString &que
     int id = d->connection->makeRequestId();
 
     d->ids.insert(id, JsonDbClientPrivate::Callback(responseTarget, responseSuccessSlot, responseErrorSlot));
-    if (notifyTarget && notifySlot) {
+    if (notifyTarget) {
         const QMetaObject *mo = notifyTarget->metaObject();
-        int idx = mo->indexOfMethod(notifySlot+1);
-        if (idx < 0) {
-            QByteArray norm = QMetaObject::normalizedSignature(notifySlot);
-            idx = mo->indexOfMethod(norm.constData()+1);
-        }
+        int idx = indexOfMethod(mo, notifySlot);
         if (idx < 0) {
             qWarning("JsonDbClient::notify: No such method %s::%s",
-                     mo->className(), notifySlot);
+                     mo->className(), notifySlot ? notifySlot + 1 : "<null>");
         } else {
             d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback(notifyTarget, mo->method(idx)));
         }
