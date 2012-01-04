@@ -55,7 +55,7 @@
 
 #include <json.h>
 
-QT_ADDON_JSONDB_USE_NAMESPACE
+QT_USE_NAMESPACE_JSONDB
 QT_BEGIN_NAMESPACE
 
 namespace QTest {

@@ -58,7 +58,7 @@ class JsonDbPartitionPrivate;
 class JsonDbQueryObject;
 class JsonDbChangesSinceObject;
 
-QT_ADDON_JSONDB_USE_NAMESPACE
+QT_USE_NAMESPACE_JSONDB
 
 class JsonDbPartition: public QObject
 {

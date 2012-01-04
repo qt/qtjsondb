@@ -46,7 +46,7 @@
 #include "jsondb-response.h"
 #include "jsondb-strings.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 JsonDbEphemeralStorage::JsonDbEphemeralStorage(QObject *parent)
     : QObject(parent)
@@ -148,4 +148,4 @@ QsonMap JsonDbEphemeralStorage::query(const JsonDbQuery &query, int limit, int o
     return JsonDbResponse::makeResponse(map);
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

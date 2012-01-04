@@ -41,7 +41,7 @@
 
 #include "qsonelement_p.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 QsonElement::QsonElement(const QsonContent &body, const QsonEntry &entry)
 {
@@ -108,4 +108,4 @@ void QsonElement::setValue(const QString &value)
     mBody[0]->writeValue(value);
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

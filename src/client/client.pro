@@ -27,6 +27,7 @@ HEADERS += \
     jsondb-connection_p_p.h \
     jsondb-query.h \
     jsondb-oneshot_p.h \
+    jsondb-strings_p.h \
     jsondb-notification.h
 
 SOURCES += \

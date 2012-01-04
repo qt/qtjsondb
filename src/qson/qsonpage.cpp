@@ -48,7 +48,7 @@
 #include <QUuid>
 #include <qendian.h>
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 QsonPage::QsonPage()
     : mMaxSize(0)
@@ -620,4 +620,4 @@ bool QsonPage::writeString(const QString& string)
     return true;
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

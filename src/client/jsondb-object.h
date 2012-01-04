@@ -49,7 +49,7 @@
 
 QT_BEGIN_HEADER
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class Q_ADDON_JSONDB_EXPORT JsonDbObject : public QVariantMap
 {
@@ -63,7 +63,7 @@ public:
     static QUuid uuidFromObject(const QVariantMap &object);
 };
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 

@@ -44,7 +44,7 @@
 #include "jsondb-strings.h"
 #include <qdebug.h>
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 bool gEnforceAccessControlPolicies = false;
 
@@ -120,4 +120,4 @@ bool JsonDbOwner::isAllowed (QsonObject &object, const QString &op) const
     return false;
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

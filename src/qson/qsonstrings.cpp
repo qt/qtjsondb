@@ -41,7 +41,7 @@
 
 #include "qsonstrings_p.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 const QString QsonStrings::kUuidStr =           QString::fromLatin1("_uuid");
 const QString QsonStrings::kLastVersionStr =    QString::fromLatin1("_lastVersion");
@@ -55,4 +55,4 @@ const QString QsonStrings::kDeleted =           QString::fromLatin1("_deleted");
 const QByteArray QsonStrings::kBlankUUID =      QByteArray(16, 0);
 const QByteArray QsonStrings::kQsonMagic =      QByteArray("QSON");
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

@@ -53,7 +53,7 @@
 #include "schema-validation/object.h"
 #include "qsonobjecttypes_p.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 //FIXME This can have better performance
 class SchemaManager
@@ -74,6 +74,6 @@ private:
     QMap<QString, QsonMapSchemaPair> m_schemas;
 };
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif // SCHEMAMANAGER_P_H

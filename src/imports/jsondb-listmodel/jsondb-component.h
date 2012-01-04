@@ -53,7 +53,7 @@
 class JsonDbComponent;
 class JsonDbNotificationHandle;
 
-QT_ADDON_JSONDB_USE_NAMESPACE
+QT_USE_NAMESPACE_JSONDB
 
 class JsonDbNotificationComponent: public QObject
 {

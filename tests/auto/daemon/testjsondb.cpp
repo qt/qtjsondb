@@ -66,11 +66,11 @@
 
 #include "../../shared/util.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 extern bool gValidateSchemas;
 extern bool gDebug;
 extern bool gVerbose;
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #ifndef QT_NO_DEBUG_OUTPUT
 #define DBG() if (gDebug) qDebug()
@@ -78,7 +78,7 @@ QT_ADDON_JSONDB_END_NAMESPACE
 #define DBG() if (0) qDebug()
 #endif
 
-QT_ADDON_JSONDB_USE_NAMESPACE
+QT_USE_NAMESPACE_JSONDB
 
 static QString kContactStr = "com.noklab.nrcc.jsondb.unittest.contact";
 

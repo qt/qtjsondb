@@ -63,7 +63,7 @@
 #include "jsondb-proxy.h"
 #include "objecttable.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 void JsonDb::initMap(const QString &partition)
 {
@@ -802,4 +802,4 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
 }
 
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

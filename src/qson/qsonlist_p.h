@@ -45,7 +45,7 @@
 #include <QtJsonDbQson/qsonglobal.h>
 #include <QtJsonDbQson/private/qsonobject_p.h>
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class Q_ADDON_JSONDB_QSON_EXPORT QsonList : public QsonObject
 {
@@ -117,6 +117,6 @@ template <> inline QString QsonList::at(int pos) const
 template <> inline QsonList QsonList::at(int pos) const
 { return listAt(pos); }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif // QSONLIST_H

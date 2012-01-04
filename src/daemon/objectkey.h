@@ -51,7 +51,7 @@
 
 QT_BEGIN_HEADER
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class ObjectKey
 {
@@ -80,19 +80,19 @@ inline QDebug &operator<<(QDebug &qdb, const ObjectKey &objectKey)
     return qdb;
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 QT_BEGIN_NAMESPACE
 
-template <> inline void qToBigEndian(QT_ADDON_JSONDB_PREPEND_NAMESPACE(ObjectKey) src, uchar *dest)
+template <> inline void qToBigEndian(QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) src, uchar *dest)
 {
     //TODO: improve me
     QByteArray key = src.key.toRfc4122();
     memcpy(dest, key.constData(), key.size());
 }
-template <> inline QT_ADDON_JSONDB_PREPEND_NAMESPACE(ObjectKey) qFromBigEndian(const uchar *src)
+template <> inline QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) qFromBigEndian(const uchar *src)
 {
-    QT_ADDON_JSONDB_PREPEND_NAMESPACE(ObjectKey) key;
+    QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) key;
     key.key = QUuid::fromRfc4122(QByteArray::fromRawData((const char *)src, 16));
     return key;
 }

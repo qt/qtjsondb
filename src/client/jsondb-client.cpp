@@ -48,7 +48,7 @@
 #include <QEvent>
 
 /*!
-    \macro QT_ADDON_JSONDB_USE_NAMESPACE
+    \macro QT_USE_NAMESPACE_JSONDB
     \inmodule QtJsonDb
 
     This macro expands to using jsondb namespace and makes jsondb namespace
@@ -56,41 +56,41 @@
 
     \code
         #include <jsondb-client.h>
-        QT_ADDON_JSONDB_USE_NAMESPACE
+        QT_USE_NAMESPACE_JSONDB
     \endcode
 
     To declare the class without including the declaration of the class:
 
     \code
         #include <jsondb-global.h>
-        QT_ADDON_JSONDB_BEGIN_NAMESPACE
+        QT_BEGIN_NAMESPACE_JSONDB
         class JsonDbClient;
-        QT_ADDON_JSONDB_END_NAMESPACE
-        QT_ADDON_JSONDB_USE_NAMESPACE
+        QT_END_NAMESPACE_JSONDB
+        QT_USE_NAMESPACE_JSONDB
     \endcode
 */
 
 /*!
-    \macro QT_ADDON_JSONDB_BEGIN_NAMESPACE
+    \macro QT_BEGIN_NAMESPACE_JSONDB
     \inmodule QtJsonDb
 
     This macro begins a jsondb namespace. All forward declarations of QtJsonDb classes need to
-    be wrapped in \c QT_ADDON_JSONDB_BEGIN_NAMESPACE and \c QT_ADDON_JSONDB_END_NAMESPACE.
+    be wrapped in \c QT_BEGIN_NAMESPACE_JSONDB and \c QT_END_NAMESPACE_JSONDB.
 
-    \sa QT_ADDON_JSONDB_USE_NAMESPACE, QT_ADDON_JSONDB_END_NAMESPACE
+    \sa QT_USE_NAMESPACE_JSONDB, QT_END_NAMESPACE_JSONDB
 */
 
 /*!
-    \macro QT_ADDON_JSONDB_END_NAMESPACE
+    \macro QT_END_NAMESPACE_JSONDB
     \inmodule QtJsonDb
 
     This macro ends a jsondb namespace. All forward declarations of QtJsonDb classes need to
-    be wrapped in \c QT_ADDON_JSONDB_BEGIN_NAMESPACE and \c QT_ADDON_JSONDB_END_NAMESPACE.
+    be wrapped in \c QT_BEGIN_NAMESPACE_JSONDB and \c QT_END_NAMESPACE_JSONDB.
 
-    \sa QT_ADDON_JSONDB_USE_NAMESPACE, QT_ADDON_JSONDB_BEGIN_NAMESPACE
+    \sa QT_USE_NAMESPACE_JSONDB, QT_BEGIN_NAMESPACE_JSONDB
 */
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
     \class JsonDbClient
@@ -1146,4 +1146,4 @@ QString JsonDbClient::errorString() const
 
 #include "moc_jsondb-client.cpp"
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

@@ -47,7 +47,7 @@
 #include <QMap>
 #include <QByteArray>
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class QsonMap;
 
@@ -82,6 +82,6 @@ private:
 
 Q_ADDON_JSONDB_QSON_EXPORT uint qHash(const QsonVersion &version);
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif // QSON_VERSION_H

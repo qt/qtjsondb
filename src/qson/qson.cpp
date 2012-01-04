@@ -45,7 +45,7 @@
 
 #include "json.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 static int qsonobjectid = qRegisterMetaType<QsonObject>("QsonObject");
 static int qsonmapid = qRegisterMetaType<QsonMap>("QsonMap");
@@ -207,4 +207,4 @@ QsonObject variantToQson(const QVariant &object)
     return QsonObject();
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

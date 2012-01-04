@@ -43,7 +43,7 @@
 
 #include <QDebug>
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 QsonParser::QsonParser(bool streamMode)
     : mObjectReady(false)
@@ -285,4 +285,4 @@ QsonObject QsonParser::fromRawData(const QByteArray &buffer)
     return parser.isObjectReady() ? parser.getObject() : QsonObject();
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

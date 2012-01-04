@@ -52,7 +52,7 @@
 
 #include "jsondb-global.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class QsonObject;
 class QsonMap;
@@ -155,6 +155,6 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_onReceiveMessage(QsonObject))
 };
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif /* JSONDB_CONNECTION_P_H */

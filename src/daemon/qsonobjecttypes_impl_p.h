@@ -46,7 +46,7 @@
 #include "qsonobjecttypes_p.h"
 #include "schemamanager_p.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 inline QsonObjectTypes::ValueList::ValueList(const QsonList list) : QsonList(list)
 {}
@@ -330,6 +330,6 @@ inline SchemaValidation::Schema<QsonObjectTypes> QsonObjectTypes::Service::loadS
     return m_schemas->schema(schemaName, this);
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif // QSONOBJECTTYPES_IMPL_P_H

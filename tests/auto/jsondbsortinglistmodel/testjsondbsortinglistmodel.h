@@ -62,7 +62,7 @@ class QDeclarativeEngine;
 class QDeclarativeComponent;
 QT_END_NAMESPACE
 
-QT_ADDON_JSONDB_USE_NAMESPACE
+QT_USE_NAMESPACE_JSONDB
 
 class JsonDbListModel;
 

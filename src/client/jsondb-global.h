@@ -50,35 +50,40 @@
 #endif
 
 #if defined(QT_NAMESPACE)
-#  define QT_ADDON_JSONDB_BEGIN_NAMESPACE namespace QT_NAMESPACE { namespace QtAddOn { namespace JsonDb {
-#  define QT_ADDON_JSONDB_END_NAMESPACE } } }
-#  define QT_ADDON_JSONDB_USE_NAMESPACE using namespace QT_NAMESPACE::QtAddOn::JsonDb;
-#  define QT_ADDON_JSONDB_PREPEND_NAMESPACE(name) ::QT_NAMESPACE::QtAddOn::JsonDb::name
+#  define QT_BEGIN_NAMESPACE_JSONDB namespace QT_NAMESPACE { namespace QtAddOn { namespace JsonDb {
+#  define QT_END_NAMESPACE_JSONDB } } }
+#  define QT_USE_NAMESPACE_JSONDB using namespace QT_NAMESPACE::QtAddOn::JsonDb;
+#  define QT_PREPEND_NAMESPACE_JSONDB(name) ::QT_NAMESPACE::QtAddOn::JsonDb::name
 #else
-#  define QT_ADDON_JSONDB_BEGIN_NAMESPACE namespace QtAddOn { namespace JsonDb {
-#  define QT_ADDON_JSONDB_END_NAMESPACE } }
-#  define QT_ADDON_JSONDB_USE_NAMESPACE using namespace QtAddOn::JsonDb;
-#  define QT_ADDON_JSONDB_PREPEND_NAMESPACE(name) ::QtAddOn::JsonDb::name
+#  define QT_BEGIN_NAMESPACE_JSONDB namespace QtAddOn { namespace JsonDb {
+#  define QT_END_NAMESPACE_JSONDB } }
+#  define QT_USE_NAMESPACE_JSONDB using namespace QtAddOn::JsonDb;
+#  define QT_PREPEND_NAMESPACE_JSONDB(name) ::QtAddOn::JsonDb::name
 #endif
 
 // a workaround for moc - if there is a header file that doesn't use jsondb
 // namespace, we still force moc to do "using namespace" but the namespace have to
 // be defined, so let's define an empty namespace here
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
+QT_END_NAMESPACE_JSONDB
 
-// All the following macros will be deprecated in a future version of this file.
-#define Q_ADDON_JSONDB_BEGIN_NAMESPACE QT_ADDON_JSONDB_BEGIN_NAMESPACE
-#define Q_ADDON_JSONDB_END_NAMESPACE QT_ADDON_JSONDB_END_NAMESPACE
-#define Q_USE_JSONDB_NAMESPACE QT_ADDON_JSONDB_USE_NAMESPACE
-#define Q_ADDON_JSONDB_PREPEND_NAMESPACE(name) QT_ADDON_JSONDB_PREPEND_NAMESPACE(name)
+// WARNING! All the following macros will be deprecated in a future version of this file.
+#define Q_ADDON_JSONDB_BEGIN_NAMESPACE QT_BEGIN_NAMESPACE_JSONDB
+#define Q_ADDON_JSONDB_END_NAMESPACE QT_END_NAMESPACE_JSONDB
+#define Q_USE_JSONDB_NAMESPACE QT_USE_NAMESPACE_JSONDB
+#define Q_ADDON_JSONDB_PREPEND_NAMESPACE(name) QT_PREPEND_NAMESPACE_JSONDB(name)
 
 # define Q_ADDON_JSONDB_FORWARD_DECLARE_CLASS(name) \
-    Q_ADDON_JSONDB_BEGIN_NAMESPACE class name; Q_ADDON_JSONDB_END_NAMESPACE \
-    using Q_ADDON_JSONDB_PREPEND_NAMESPACE(name);
+    Q_BEGIN_NAMESPACE_JSONDB class name; Q_END_NAMESPACE_JSONDB \
+    using Q_PREPEND_NAMESPACE_JSONDB(name);
 
-# define Q_ADDON_JSONDB_FORWARD_DECLARE_STRUCT(name) \
-    Q_ADDON_JSONDB_BEGIN_NAMESPACE struct name; Q_ADDON_JSONDB_END_NAMESPACE \
-    using Q_ADDON_JSONDB_PREPEND_NAMESPACE(name);
+# define Q_FORWARD_DECLARE_STRUCT_JSONDB(name) \
+    Q_BEGIN_NAMESPACE_JSONDB struct name; Q_END_NAMESPACE_JSONDB \
+    using Q_PREPEND_NAMESPACE_JSONDB(name);
+
+#define QT_ADDON_JSONDB_BEGIN_NAMESPACE QT_BEGIN_NAMESPACE_JSONDB
+#define QT_ADDON_JSONDB_END_NAMESPACE QT_END_NAMESPACE_JSONDB
+#define QT_ADDON_JSONDB_USE_NAMESPACE QT_USE_NAMESPACE_JSONDB
+#define QT_ADDON_JSONDB_PREPEND_NAMESPACE QT_PREPEND_NAMESPACE_JSONDB
 
 #endif // JSONDB_GLOBAL_H

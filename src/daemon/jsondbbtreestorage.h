@@ -60,7 +60,7 @@ class TestJsonDb;
 class AoDb;
 class AoDbCursor;
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbOwner;
 class ObjectTable;
@@ -300,7 +300,7 @@ void forwardValueSplit(const QByteArray &forwardValue, ObjectKey &objectKey);
 
 QDebug &operator<<(QDebug &, const ObjectKey &);
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 

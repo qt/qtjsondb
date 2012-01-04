@@ -47,12 +47,12 @@
 
 QT_BEGIN_HEADER
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 QJSValue qsonToJSValue(const QsonObject &object, QJSEngine *engine);
 QsonObject jsValueToQson(const QJSValue &object);
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 

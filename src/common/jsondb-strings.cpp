@@ -41,7 +41,7 @@
 
 #include "jsondb-strings.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 const QString JsonDbString::kUuidStr    = QString::fromLatin1("_uuid");
 const QString JsonDbString::kVersionStr = QString::fromLatin1("_version");
@@ -100,4 +100,4 @@ const QString JsonDbString::kPartitionStr = QString::fromLatin1("partition");
 const QString JsonDbString::kSystemPartitionName = QString::fromLatin1("com.nokia.qtjsondb.System");
 const QString JsonDbString::kEphemeralPartitionName = QString::fromLatin1("com.nokia.qtjsondb.Ephemeral");
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

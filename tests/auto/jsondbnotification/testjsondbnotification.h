@@ -59,7 +59,7 @@
 #include "clientwrapper.h"
 #include "../../shared/qmltestutil.h"
 
-QT_ADDON_JSONDB_USE_NAMESPACE
+QT_USE_NAMESPACE_JSONDB
 
 struct CallbackData {
     int action;

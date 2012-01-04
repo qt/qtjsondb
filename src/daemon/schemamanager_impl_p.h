@@ -45,7 +45,7 @@
 #include "schemamanager_p.h"
 #include "schema-validation/object.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 bool SchemaManager::contains(const QString &name) const
 {
@@ -103,6 +103,6 @@ inline QsonMap SchemaManager::validate(const QString &schemaName, QsonMap object
     return callbacks.error();
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif // SCHEMAMANAGER_IMPL_P_H

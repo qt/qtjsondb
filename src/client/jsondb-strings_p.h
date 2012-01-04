@@ -45,7 +45,7 @@
 #include <QString>
 #include "jsondb-global.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class Q_ADDON_JSONDB_EXPORT JsonDbString {
 public:
@@ -106,6 +106,6 @@ public:
     static const QString kEphemeralPartitionName;
 };
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif /* JSONDB-STRINGS_H */

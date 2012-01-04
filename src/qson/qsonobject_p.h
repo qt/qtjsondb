@@ -50,7 +50,7 @@
 #include <QStringList>
 #include <QPair>
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class QsonList;
 class QsonMap;
@@ -271,6 +271,6 @@ protected:
     friend class QsonStream;
 };
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif // QSONOBJECT_H

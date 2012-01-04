@@ -49,7 +49,7 @@
 #include "jsondbbtreestorage.h"
 #include "jsondbquery.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 #ifndef QT_NO_DEBUG_OUTPUT
 extern bool gDebug;
@@ -658,4 +658,4 @@ OrderTerm::~OrderTerm()
 {
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

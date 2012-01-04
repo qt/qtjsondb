@@ -58,7 +58,7 @@ class QLocalServer;
 class QTcpServer;
 QT_END_NAMESPACE
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class DBServer : public QObject
 {
@@ -111,7 +111,7 @@ private:
     QString mFileName;
 };
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 

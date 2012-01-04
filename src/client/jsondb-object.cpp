@@ -45,7 +45,7 @@
 
 Q_DECLARE_METATYPE(QUuid)
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 static QUuid generateUUIDv3(const QString &uri)
 {
@@ -175,4 +175,4 @@ QUuid JsonDbObject::uuidFromObject(const QVariantMap &object)
     return generateUUIDv3(idvalue);
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

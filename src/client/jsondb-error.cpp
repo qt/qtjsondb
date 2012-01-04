@@ -42,7 +42,7 @@
 #include "jsondb-global.h"
 #include "jsondb-error.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
     \class JsonDbError
@@ -95,4 +95,4 @@ QT_ADDON_JSONDB_BEGIN_NAMESPACE
          An error when creating an index object
  */
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

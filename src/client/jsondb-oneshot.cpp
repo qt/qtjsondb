@@ -41,8 +41,8 @@
 
 #include "jsondb-oneshot_p.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 #include "moc_jsondb-oneshot_p.cpp"
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB

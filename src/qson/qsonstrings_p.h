@@ -47,7 +47,7 @@
 #include <QString>
 #include <QByteArray>
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 class Q_ADDON_JSONDB_QSON_EXPORT QsonStrings {
     public:
@@ -64,6 +64,6 @@ class Q_ADDON_JSONDB_QSON_EXPORT QsonStrings {
     static const QByteArray kQsonMagic;
 };
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
 
 #endif // QSONSTRINGS_H

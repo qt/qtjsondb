@@ -77,7 +77,7 @@
 
 #include "aodb.h"
 
-QT_ADDON_JSONDB_BEGIN_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 bool gUseQsonInDb = true;
 bool gUseJsonInDb = false;
@@ -1888,4 +1888,4 @@ QsonMap JsonDb::createPartition(const QsonMap &object)
     return result;
 }
 
-QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_NAMESPACE_JSONDB
