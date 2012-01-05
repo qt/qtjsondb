@@ -1,7 +1,7 @@
 include($$PWD/../3rdparty/btree/btree.pri)
 include($$PWD/../common/common.pri)
 
-DEFINES += $$quote(QT_BEGIN_MOC_NAMESPACE=\"QT_USE_NAMESPACE QT_ADDON_JSONDB_USE_NAMESPACE\")
+DEFINES += $$quote(QT_BEGIN_MOC_NAMESPACE=\"QT_USE_NAMESPACE QT_USE_NAMESPACE_JSONDB\")
 
 RESOURCES = $$PWD/jsondb.qrc
 HEADERS += \
