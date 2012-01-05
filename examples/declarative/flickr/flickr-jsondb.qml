@@ -42,19 +42,48 @@
 import QtQuick 2.0
 import QtQuick.Particles 2.0
 import "content"
-import QtAddOn.JsonDb 1.0
+import QtJsonDb 1.0 as JsonDb
 
 Item {
     id: screen; width: 320; height: 480
     property bool inGridView : true
 
-    JsonDb {
-        id: jsondb
+
+    JsonDb.Partition {
+        id: systemPartition
+        name: "com.nokia.qtjsondb.System"
     }
 
-    JsonDbListModel {
+    RssModel {
+        id: rssModel
+        function createCallback(error, meta, response) {
+            if (error) {
+                console.log("Error Creating image "+response.status+" "+response.message);
+                return;
+            }
+            for (var i = 0; i < response.length; i++) {
+                console.log("Created Object : "+JSON.stringify(response[i]));
+            }
+        }
+
+        onStatusChanged: {
+            console.log("onStatusChange status=" + status);
+            if (rssModel.status == 1) {
+                for (var i = 0; i < rssModel.count; i++) {
+                    var obj = rssModel.get(i);
+                    obj['_type'] = "FlickrImage";
+                    //console.log("i=" + i + " " + JSON.stringify(obj));
+                    systemPartition.create(obj, createCallback);
+                }
+            }
+        }
+    }
+
+    JsonDb.JsonDbSortingListModel {
         id: jsondblistmodel
-        query: "[?_type=\"FlickrImage\"][/imageGuid]"
+        partitions: [systemPartition]
+        query: "[?_type=\"FlickrImage\"]"
+        sortOrder: "[/imageGuid]"
         roleNames: ["_uuid", "title", "imagePath", "url", "description", "tags", "photoWidth", "photoHeight", "photoType", "photoAuthor", "photoDate"]
     }
 

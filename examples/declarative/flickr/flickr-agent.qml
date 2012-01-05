@@ -40,7 +40,7 @@
 ****************************************************************************/
 
 import QtQuick 2.0
-import QtAddOn.JsonDb 1.0
+import QtJsonDb 1.0 as JsonDb
 import "content"
 
 Rectangle {
@@ -49,21 +49,32 @@ Rectangle {
     property int fontsize: 20
     color: "black";
 
-    JsonDb {
-        id: jsondb
+    JsonDb.Partition {
+        id: systemPartition
+        name: "com.nokia.qtjsondb.System"
     }
 
     RssModel {
         id: rssModel
+        function createCallback(error, meta, response) {
+            if (error) {
+                console.log("Error Creating image "+response.status+" "+response.message);
+                return;
+            }
+            for (var i = 0; i < response.length; i++) {
+                responses.append(response[i]);
+                console.log("Created Object : "+JSON.stringify(response[i]));
+            }
+        }
+
         onStatusChanged: {
-            console.log("RssModel.onStatusChange status=" + status);
+            console.log("onStatusChange status=" + status);
             if (rssModel.status == 1) {
                 for (var i = 0; i < rssModel.count; i++) {
-                    console.log("i=" + i + " " + JSON.stringify(rssModel.get(i)));
                     var obj = rssModel.get(i);
                     obj['_type'] = "FlickrImage";
-                    jsondb.create(obj, function(info) { responses.append(info); console.log("Created object: " + JSON.stringify(info))},
-                                  function (e) { console.error("Error creating image: " + e)});
+                    //console.log("i=" + i + " " + JSON.stringify(obj));
+                    systemPartition.create(obj, createCallback);
                 }
             }
         }
@@ -97,37 +108,6 @@ Rectangle {
         height: 40; anchors.bottom: parent.bottom; width: parent.width; opacity: 0.9
         button1Label: "Update";
         onButton1Clicked: rssModel.reload()
-    }
-
-    function createSchema(cb)
-    {
-        var schema = {
-            "_type": "_schemaType",
-            "name": "FlickrImage",
-            "schema": {
-                "primaryKeys": ["imageGuid", "_type"],
-                "properties": {
-                    "title": {
-                        "type": "string"
-                    },
-                    "imageGuid": {
-                        "type": "string",
-                    }
-                }
-            }
-        };
-        jsondb.query('[?_type="_schemaType"][?name="FlickrImage"][/_type]', function (r) {
-                         if (r.data.length > 0) {
-                             cb(r.data[0])
-                         } else {
-                             jsondb.create(schema,
-                                           function (d) {
-                                               console.log("created schema" + JSON.stringify(d));
-                                               cb(d);
-                                           },
-                                           function (e) { console.log(e) });
-                         }
-                     });
     }
 
 }
