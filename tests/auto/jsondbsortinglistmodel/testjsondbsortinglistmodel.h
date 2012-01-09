@@ -56,6 +56,7 @@
 
 #include <QAbstractListModel>
 #include "clientwrapper.h"
+#include "../../shared/qmltestutil.h"
 
 QT_BEGIN_NAMESPACE
 class QDeclarativeEngine;

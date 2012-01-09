@@ -42,12 +42,7 @@
 #include <QtTest/QtTest>
 #include <QJSEngine>
 #include "testjsondblistmodel.h"
-
 #include "../../shared/util.h"
-#include <QDeclarativeEngine>
-#include <QDeclarativeComponent>
-#include <QDeclarativeContext>
-#include <QDir>
 #include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-listmodel";
@@ -93,21 +88,6 @@ void listSetProperty(QObject* object, int index, QString propertyName, QVariant 
 TestJsonDbListModel::TestJsonDbListModel()
     : mWaitingForNotification(false), mWaitingForDataChange(false), mWaitingForRowsRemoved(false)
 {
-    QDeclarativeEngine *engine = new QDeclarativeEngine();
-    QStringList pluginPaths = engine->importPathList();
-    for (int i=0; (i<pluginPaths.count() && mPluginPath.isEmpty()); i++) {
-        QDir dir(pluginPaths[i]+"/QtJsonDb");
-        dir.setFilter(QDir::Files | QDir::NoSymLinks);
-        QFileInfoList list = dir.entryInfoList();
-        for (int i = 0; i < list.size(); ++i) {
-            QString error;
-            if (engine->importPlugin(list.at(i).absoluteFilePath(), QString("QtJsonDb"), &error)) {
-                mPluginPath = list.at(i).absoluteFilePath();
-                break;
-            }
-        }
-    }
-    delete engine;
 }
 
 TestJsonDbListModel::~TestJsonDbListModel()
@@ -167,6 +147,8 @@ void TestJsonDbListModel::initTestCase()
              this, SLOT(response(int, const QVariant&)));
     connect( mClient, SIGNAL(error(int, int, const QString&)),
              this, SLOT(error(int, int, const QString&)));
+
+    mPluginPath = findQMLPluginPath("QtJsonDb");
 
     // Create the shared Partitions
     QVariantMap item;

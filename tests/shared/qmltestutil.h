@@ -48,6 +48,7 @@
 #include <QDeclarativeExpression>
 #include <QDeclarativeError>
 #include <QDeclarativeProperty>
+#include <QDir>
 
 #define waitForCallbackGeneric(eventloop) \
 { \
@@ -159,6 +160,28 @@ inline QString objectString(const QString &key, const QVariant &value)
         fullObject += QString("'%1'").arg(value.toString());
     }
     return fullObject;
+}
+
+inline QString findQMLPluginPath(const QString &pluginName)
+{
+    QString pluginPath;
+    qsrand(QTime::currentTime().msec());
+    QDeclarativeEngine *engine = new QDeclarativeEngine();
+    QStringList pluginPaths = engine->importPathList();
+    for (int i=0; (i<pluginPaths.count() && pluginPath.isEmpty()); i++) {
+        QDir dir(pluginPaths[i]+"/"+pluginName);
+        dir.setFilter(QDir::Files | QDir::NoSymLinks);
+        QFileInfoList list = dir.entryInfoList();
+        for (int i = 0; i < list.size(); ++i) {
+            QString error;
+            if (engine->importPlugin(list.at(i).absoluteFilePath(), pluginName, &error)) {
+                pluginPath = list.at(i).absoluteFilePath();
+                break;
+            }
+        }
+    }
+    delete engine;
+    return pluginPath;
 }
 
 class ComponentData {
