@@ -459,10 +459,7 @@ void TestJsonDbClient::notify()
     // Create a notification object
     JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
     const QString query = "[?_type=\"notify-test\"]";
-    id = mClient->notify(actions, query);
-    waitForResponse1(id);
-    QVariantMap notifyObject = mData.toMap();
-    QString notifyUuid = notifyObject.value("_uuid").toString();
+    QString notifyUuid = mClient->registerNotification(actions, query);
 
     // Create a notify-test object
     QVariantMap object;
@@ -500,8 +497,7 @@ void TestJsonDbClient::notify()
     QCOMPARE(n.mAction, QLatin1String("remove"));
 
     // Remove the notification object
-    id = mClient->remove(notifyObject);
-    waitForResponse1(id);
+    mClient->unregisterNotification(notifyUuid);
 }
 
 void TestJsonDbClient::notifyViaCreate()
@@ -619,10 +615,9 @@ void TestJsonDbClient::notifyRemoveBatch()
     // Create a notification object
     JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyRemove;
     const QString nquery = "[?_type=\"notify-test-remove-batch\"]";
-    id = mClient->notify(actions, nquery);
+    QString notifyUuid = mClient->registerNotification(actions, nquery);
+    id = -1;
     waitForResponse1(id);
-    QVariantMap notifyObject = mData.toMap();
-    QString notifyUuid = notifyObject.value("_uuid").toString();
 
     // Create notify-test-remove-batch object
     QVariantList list;
@@ -666,8 +661,7 @@ void TestJsonDbClient::notifyRemoveBatch()
     }
 
     // Remove the notification object
-    id = mClient->remove(notifyObject);
-    waitForResponse1(id);
+    mClient->unregisterNotification(notifyUuid);
 }
 
 void TestJsonDbClient::schemaValidation()
@@ -782,15 +776,13 @@ void TestJsonDbClient::notifyMultiple()
     ClientWrapper w1; w1.connectToServer();
     ClientWrapper w2; w2.connectToServer();
 
-    int id = w1.mClient->notify(actions, query);
-    waitForResponse(w1.mEventLoop, &w1, id, -1, QVariant(), 0);
-    QString notifyUuid = w1.mData.toMap().value("_uuid").toString();
+    QString notifyUuid = w1.mClient->registerNotification(actions, query);
 
     // Create a notify-test object
     QVariantMap object;
     object.insert("_type","notify-test");
     object.insert("identifier","w1-identifier");
-    id = w1.mClient->create(object);
+    int id = w1.mClient->create(object);
     waitForResponse(w1.mEventLoop, &w1, id, -1, notifyUuid, 1);
     QVariant uuid = w1.mData.toMap().value("_uuid");
     QString version = w1.mData.toMap().value("_version").toString();
@@ -816,6 +808,7 @@ void TestJsonDbClient::notifyMultiple()
     waitForResponse(w2.mEventLoop, &w2, id, -1, QVariant(), 0);
     QCOMPARE(w2.mNotifications.size(), 0);
     QCOMPARE(w1.mNotifications.size(), 0);
+    w1.mClient->unregisterNotification(notifyUuid);
 }
 
 void TestJsonDbClient::changesSince()
@@ -1237,20 +1230,17 @@ void TestJsonDbClient::requestWithSlot()
     Handler handler;
 
     // create notification object
-    int id = mClient->notify(JsonDbClient::NotifyCreate, "[?_type=\"requestWithSlot\"]",
-                             &handler, SLOT(notify(QString,QtAddOn::JsonDb::JsonDbNotification)),
-                             &handler, SLOT(success(int,QVariant)), SLOT(error(int,int,QString)));
-    waitForResponse1(id);
-    QVERIFY(mData.toMap().contains("_uuid"));
-    QString notifyUuid = mData.toMap().value("_uuid").toString();
-    QCOMPARE(handler.errorCount, 0);
-    QCOMPARE(handler.successCount, 1);
+    QString notifyUuid = mClient->registerNotification(JsonDbClient::NotifyCreate, "[?_type=\"requestWithSlot\"]", QString(),
+                                                       &handler, SLOT(notify(QString,QtAddOn::JsonDb::JsonDbNotification)),
+                                                       &handler, SLOT(success(int,QVariant)), SLOT(error(int,int,QString)));
+    qDebug() << "notifyUuid" << notifyUuid;
+    int id;
     handler.clear();
 
-    QsonMap item;
+    QVariantMap item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("requestWithSlot"));
     item.insert("create-test", 42);
-    id = mClient->create(item, &handler, SLOT(success(int,QVariant)), SLOT(error(int,int,QString)));
+    id = mClient->create(item, QString(), &handler, SLOT(success(int,QVariant)), SLOT(error(int,int,QString)));
     waitForResponse4(id, -1, notifyUuid, 1);
     QVERIFY(mData.toMap().contains("_uuid"));
     QString uuid = mData.toMap().value("_uuid").toString();
@@ -1260,9 +1250,12 @@ void TestJsonDbClient::requestWithSlot()
     QCOMPARE(handler.data.toMap().value("_uuid").toString(), uuid);
 
     QCOMPARE(handler.errorCount, 0);
-    QCOMPARE(handler.successCount, 1);
+    QCOMPARE(handler.successCount, 2);
     QCOMPARE(handler.notifyCount, 1);
     QCOMPARE(handler.notifyUuid, notifyUuid);
+
+    // Remove the notification object
+    mClient->unregisterNotification(notifyUuid);
 }
 
 void TestJsonDbClient::connection_response(int, const QVariant&)
@@ -1360,13 +1353,13 @@ void TestJsonDbClient::partition()
     item = QVariantMap();
     item.insert(JsonDbString::kTypeStr, "Foobar");
     item.insert("one", "one");
-    id = mClient->create(variantToQson(item), firstPartitionName);
+    id = mClient->create(item, firstPartitionName);
     waitForResponse1(id);
 
     item = QVariantMap();
     item.insert(JsonDbString::kTypeStr, "Foobar");
     item.insert("one", "two");
-    id = mClient->create(variantToQson(item), secondPartitionName);
+    id = mClient->create(item, secondPartitionName);
     waitForResponse1(id);
 
     // now query
