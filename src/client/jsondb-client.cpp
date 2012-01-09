@@ -434,38 +434,20 @@ void JsonDbClientPrivate::_q_handleError(int id, int code, const QString &messag
     emit q->error(id, (JsonDbError::ErrorCode)code, message);
 }
 
-/*!
-  \deprecated
-  \obsolete
 
-  Creates \a object.
-
-  \sa query()
-*/
-int JsonDbClient::find(const QVariant &object)
-{
-    Q_D(JsonDbClient);
-    Q_ASSERT(d->connection);
-
-    int id = d->connection->makeRequestId();
-    d->ids.insert(id, JsonDbClientPrivate::Callback());
-    QVariantMap request = JsonDbConnection::makeFindRequest(object);
-    d->send(id, request);
-    return id;
-}
 
 /*!
   \deprecated
   \obsolete
 */
-int JsonDbClient::find(const QsonObject &object, QObject *target, const char *successSlot, const char *errorSlot)
+int JsonDbClient::find(const QVariant &object, QObject *target, const char *successSlot, const char *errorSlot)
 {
     Q_D(JsonDbClient);
     Q_ASSERT(d->connection);
     int id = d->connection->makeRequestId();
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-    QsonMap request = JsonDbConnection::makeFindRequest(object).toMap();
-    d->send(id, qsonToVariant(request).toMap());
+    QVariantMap request = JsonDbConnection::makeFindRequest(object);
+    d->send(id, request);
     return id;
 }
 
@@ -559,41 +541,6 @@ JsonDbQuery *JsonDbClient::query()
 }
 
 /*!
-  \deprecated
-  \obsolete
-
-  Sends a request to insert \a object into the database. Returns the reference id of the query.
-
-  Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
-  On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
-
-  A successful response will include the following properties:
-
-  \list
-  \o \c _uuid: the unique id of the created object
-  \o \c _version: the version of the created object
-  \endlist
-
-  \sa response()
-  \sa error()
-*/
-int JsonDbClient::create(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
-{
-    Q_D(JsonDbClient);
-    Q_ASSERT(d->connection);
-
-    int id = d->connection->makeRequestId();
-    d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-    if (object.toMap().valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
-        d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
-
-    QsonMap request = JsonDbConnection::makeCreateRequest(object, partitionName).toMap();
-    d->send(id, qsonToVariant(request).toMap());
-
-    return id;
-}
-
-/*!
   Sends a request to insert \a object into the database. Returns the reference id of the query.
 
   Given \a object is created in partition \a partitionName.
@@ -624,40 +571,6 @@ int JsonDbClient::create(const QVariant &object, const QString &partitionName, Q
 
     QVariantMap request = JsonDbConnection::makeCreateRequest(object, partitionName);
     d->send(id, request);
-
-    return id;
-}
-
-/*!
-  \deprecated
-  \obsolete
-
-  Sends a request to update \a object in the database. Returns the reference id of the query.
-
-  Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
-  On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
-
-  A successful response will include the following properties:
-
-  \list
-  \o \c _uuid: the unique id of the updated object
-  \o \c _version: the version of the updated object
-  \endlist
-
-  \sa response()
-  \sa error()
-*/
-int JsonDbClient::update(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
-{
-    Q_D(JsonDbClient);
-    Q_ASSERT(d->connection);
-
-    int id = d->connection->makeRequestId();
-
-    d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-
-    QsonMap request = JsonDbConnection::makeUpdateRequest(object, partitionName).toMap();
-    d->send(id, qsonToVariant(request).toMap());
 
     return id;
 }
@@ -694,41 +607,6 @@ int JsonDbClient::update(const QVariant &object, const QString &partitionName, Q
 }
 
 /*!
-  \deprecated
-  \obsolete
-
-  Sends a request to remove \a object from the database. Returns the reference id of the query.
-
-  Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
-  On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
-
-  A successful response will include the following properties:
-
-  \list
-  \o \c _uuid: the unique id of the removed object
-  \endlist
-
-  \sa response()
-  \sa error()
-*/
-int JsonDbClient::remove(const QsonObject &object, const QString &partitionName, QObject *target, const char *successSlot, const char *errorSlot)
-{
-    Q_D(JsonDbClient);
-    Q_ASSERT(d->connection);
-
-    int id = d->connection->makeRequestId();
-
-    d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-    if (object.toMap().valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
-        d->notifyCallbacks.remove(object.toMap().valueString(JsonDbString::kUuidStr));
-
-    QsonMap request = JsonDbConnection::makeRemoveRequest(object, partitionName).toMap();
-    d->send(id, qsonToVariant(request).toMap());
-
-    return id;
-}
-
-/*!
   Sends a request to remove \a object from partition \a partitionName. Returns the reference id of the query.
 
   Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
@@ -754,38 +632,17 @@ int JsonDbClient::remove(const QVariant &object, const QString &partitionName, Q
     if (object.toMap().value(JsonDbString::kTypeStr).toString() == JsonDbString::kNotificationTypeStr)
         d->notifyCallbacks.remove(object.toMap().value(JsonDbString::kUuidStr).toString());
 
-    QVariantMap request = JsonDbConnection::makeRemoveRequest(object, partitionName);
-    d->send(id, request);
-
-    return id;
-}
-
-/*!
-  \deprecated
-  \obsolete
-  Sends a request to remove from the database objects that match \a queryString. Returns the reference id of the query.
-
-  Upon success, invokes \a successSlot of \a target, if provided, else emits \c response().
-  On error, invokes \a errorSlot of \a target, if provided, else emits \c error().
-
-  A successful response will include the following properties:
-  \list
-  \o \c _uuid: the unique id of the removed object
-  \endlist
-
-  \sa response()
-  \sa error()
-*/
-int JsonDbClient::remove(const QString &queryString, QObject *target, const char *successSlot, const char *errorSlot)
-{
-    Q_D(JsonDbClient);
-    Q_ASSERT(d->connection);
-
-    int id = d->connection->makeRequestId();
-
-    d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-
-    QVariantMap request = JsonDbConnection::makeRemoveRequest(queryString);
+    QVariantMap request;
+    if (object.type() == QVariant::String) {
+        QString queryString = object.toString();
+        QVariantMap query;
+        query.insert(JsonDbString::kQueryStr, queryString);
+        request = JsonDbConnection::makeRemoveRequest(query, partitionName);
+    } else {
+        request = JsonDbConnection::makeRemoveRequest(object, partitionName);
+    }
+    if (object.type() == QVariant::String)
+        qDebug() << request;
     d->send(id, request);
 
     return id;
