@@ -138,7 +138,6 @@ QVariantMap JsonDbConnection::makeFindRequest( const QVariant& object )
 QsonObject JsonDbConnection::makeFindRequest( const QsonObject& object )
 {
     QsonMap request;
-
     request.insert(JsonDbString::kActionStr, JsonDbString::kFindStr);
     request.insert(JsonDbString::kObjectStr, object);
     return request;
@@ -172,15 +171,6 @@ QVariantMap JsonDbConnection::makeCreateRequest(const QVariant &object, const QS
     return request;
 }
 
-QsonObject JsonDbConnection::makeCreateRequest(const QsonObject &object, const QString &partitionName)
-{
-    QsonMap request;
-    request.insert(JsonDbString::kActionStr, JsonDbString::kCreateStr);
-    request.insert(JsonDbString::kObjectStr, object);
-    request.insert(JsonDbString::kPartitionStr, partitionName);
-    return request;
-}
-
 QVariantMap JsonDbConnection::makeUpdateRequest(const QVariant &object, const QString &partitionName)
 {
     QVariantMap request;
@@ -190,27 +180,9 @@ QVariantMap JsonDbConnection::makeUpdateRequest(const QVariant &object, const QS
     return request;
 }
 
-QsonObject JsonDbConnection::makeUpdateRequest(const QsonObject &object, const QString &partitionName)
-{
-    QsonMap request;
-    request.insert(JsonDbString::kActionStr, JsonDbString::kUpdateStr);
-    request.insert(JsonDbString::kObjectStr, object);
-    request.insert(JsonDbString::kPartitionStr, partitionName);
-    return request;
-}
-
 QVariantMap JsonDbConnection::makeRemoveRequest(const QVariant &object, const QString &partitionName)
 {
     QVariantMap request;
-    request.insert(JsonDbString::kActionStr, JsonDbString::kRemoveStr);
-    request.insert(JsonDbString::kObjectStr, object);
-    request.insert(JsonDbString::kPartitionStr, partitionName);
-    return request;
-}
-
-QsonObject JsonDbConnection::makeRemoveRequest(const QsonObject &object, const QString &partitionName)
-{
-    QsonMap request;
     request.insert(JsonDbString::kActionStr, JsonDbString::kRemoveStr);
     request.insert(JsonDbString::kObjectStr, object);
     request.insert(JsonDbString::kPartitionStr, partitionName);
@@ -227,10 +199,10 @@ QVariantMap JsonDbConnection::makeRemoveRequest(const QString &queryString)
     return request;
 }
 
-QsonObject JsonDbConnection::makeNotification(const QString &query, const QsonList &actions,
-                                              const QString &partitionName)
+QVariantMap JsonDbConnection::makeNotification(const QString &query, const QVariantList &actions,
+                                               const QString &partitionName)
 {
-    QsonMap notification;
+    QVariantMap notification;
     notification.insert(JsonDbString::kTypeStr,
                         JsonDbString::kNotificationTypeStr);
     notification.insert(JsonDbString::kQueryStr, query);
@@ -479,24 +451,6 @@ bool JsonDbConnection::request(int requestId, const QVariantMap &request)
 }
 
 /*!
-    Sends \a request with a given \a requestId to the database.
-
-    Returns true if the request was successfully sent.
-*/
-bool JsonDbConnection::request(int requestId, const QsonMap &request)
-{
-    Q_D(JsonDbConnection);
-    if (status() != JsonDbConnection::Ready)
-        return false;
-
-    QsonMap r = request;
-    r.insert(JsonDbString::kIdStr, requestId);
-    if (!d->mStream.send(r))
-        return false;
-    return true;
-}
-
-/*!
     Returns a new request id.
 */
 int JsonDbConnection::makeRequestId()
@@ -588,6 +542,8 @@ QVariant JsonDbConnection::sync(const QVariantMap &dbrequest)
 }
 
 /*!
+  \deprecated
+
   Sends request \a dbrequest to the database, waits synchronously for it to complete, and returns the response.
 
   This operation creates a new thread with a new connection to the

@@ -90,10 +90,7 @@ public:
     static QVariantMap makeQueryRequest(const QString &, int offset = 0, int limit = -1,
                                         const QVariantMap &bindings = QVariantMap(),
                                         const QString &partitionName = QString());
-    static QsonObject makeCreateRequest(const QsonObject &, const QString &partitionName = QString());
-    static QsonObject makeUpdateRequest(const QsonObject &, const QString &partitionName = QString());
-    static QsonObject makeRemoveRequest(const QsonObject &, const QString &partitionName = QString());
-    static QsonObject makeNotification(const QString &, const QsonList &, const QString &partitionName = QString());
+    static QVariantMap makeNotification(const QString &, const QVariantList &, const QString &partitionName = QString());
     static QVariantMap makeChangesSinceRequest(int stateNumber, const QStringList &types = QStringList(), const QString &partitionName = QString());
 
     JsonDbConnection(QObject *parent = 0);
@@ -107,8 +104,8 @@ public:
     void oneShot( const QVariantMap& dbrequest, QObject *receiver=0,
                   const char *responseSlot=0, const char *errorSlot=0);
     // Synchronized calls pause execution until successful
-    QsonObject sync(const QsonMap &dbrequest);
     QVariant sync(const QVariantMap &dbrequest);
+    QT_DEPRECATED QsonObject sync(const QsonMap &dbrequest);
 
     void setToken(const QString &token);
     void connectToServer(const QString &socketName = QString());
@@ -119,7 +116,7 @@ public:
     int  request(const QVariantMap &request);
     int  request(const QsonObject &request);
     bool request(int requestId, const QVariantMap &request);
-    bool request(int requestId, const QsonMap &request);
+    //bool request(int requestId, const QsonMap &request);
 
     bool isConnected() const;
     Q_DECL_DEPRECATED inline bool connected() const
