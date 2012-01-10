@@ -2,19 +2,19 @@
 #define QBTREECURSOR_H
 
 #include "qbtreedata.h"
+#include "qmanagedbtree.h"
 
 class QBtreeTxn;
 struct cursor;
+class QManagedBtree;
 
 class QBtreeCursor
 {
 public:
     QBtreeCursor();
     explicit QBtreeCursor(QBtreeTxn *txn);
+    explicit QBtreeCursor(QManagedBtree *btree, bool commitedOnly = false);
     ~QBtreeCursor();
-
-    QBtreeCursor(const QBtreeCursor &other);
-    QBtreeCursor &operator=(const QBtreeCursor &other);
 
     bool current(QByteArray *baKey, QByteArray *baValue) const;
     bool current(QBtreeData *baKey, QBtreeData *baValue) const;
@@ -35,12 +35,15 @@ public:
     bool seekRange(const QBtreeData &key);
 
 private:
-    QBtreeTxn *mTxn;
+    QManagedBtreeTxn mTxn;
     struct cursor *mCursor;
     QBtreeData mKey;
     QBtreeData mValue;
 
     bool moveHelper(const char *key, int size, int cursorOp);
+
+    QBtreeCursor(const QBtreeCursor &other);
+    QBtreeCursor &operator=(const QBtreeCursor &other);
 };
 
 #endif // QBTREECURSOR_H

@@ -1,55 +1,38 @@
 #include "btree.h"
 #include "qbtree.h"
 #include "qbtreetxn.h"
-
+#include "qmanagedbtree.h"
 #include "qbtreecursor.h"
 
 
 QBtreeCursor::QBtreeCursor()
-    : mTxn(0), mCursor(0)
+    : mCursor(0)
 {
 }
 
 QBtreeCursor::QBtreeCursor(QBtreeTxn *txn)
-    : mTxn(txn), mCursor(0)
+    : mCursor(0)
 {
-    if (mTxn)
-        mCursor = btree_txn_cursor_open(mTxn->btree()->handle(), mTxn->handle());
+    if (txn)
+        mCursor = btree_txn_cursor_open(txn->btree()->handle(), txn->handle());
+}
+
+QBtreeCursor::QBtreeCursor(QManagedBtree *btree, bool commitedOnly)
+    : mCursor(0)
+{
+    // Hack: Old AoDb only starts cursors on write transactions
+    // TODO: This constructor should not be available.
+    Q_ASSERT(btree);
+    if (!commitedOnly && btree->isWriteTxnActive())
+        mTxn = btree->existingWriteTxn();
+
+    mCursor = btree_txn_cursor_open(btree->handle(), mTxn ? mTxn.txn()->handle() : 0);
 }
 
 QBtreeCursor::~QBtreeCursor()
 {
     if (mCursor)
         btree_cursor_close(mCursor);
-}
-
-QBtreeCursor::QBtreeCursor(const QBtreeCursor &other)
-    : mTxn(other.mTxn), mCursor(0), mKey(other.mKey), mValue(other.mValue)
-{
-    if (mTxn) {
-        mCursor = btree_txn_cursor_open(mTxn->btree()->handle(), mTxn->handle());
-        // go to the same position as the other cursor
-        if (!mKey.isNull())
-            seek(mKey);
-    }
-}
-
-QBtreeCursor &QBtreeCursor::operator=(const QBtreeCursor &other)
-{
-    if (this != &other) {
-        if (mCursor)
-            btree_cursor_close(mCursor);
-        mTxn = other.mTxn;
-        mKey = other.mKey;
-        mValue = other.mValue;
-        if (mTxn) {
-            mCursor = btree_txn_cursor_open(mTxn->btree()->handle(), mTxn->handle());
-            // go to the same position as the other cursor
-            if (!mKey.isNull())
-                seek(mKey);
-        }
-    }
-    return *this;
 }
 
 bool QBtreeCursor::current(QBtreeData *key, QBtreeData *value) const
