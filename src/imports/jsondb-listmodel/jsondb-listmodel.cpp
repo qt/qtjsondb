@@ -257,8 +257,10 @@ void JsonDbListModelPrivate::deleteItem(const QVariantMap &item, bool emitSignal
         // We will clear the cache and notify that an item is removed
         // from the end + all data is changed.
         QModelIndex parent;
+        if (!totalRowCount)
+            emitSignals = false;
         if (emitSignals)
-            q->beginRemoveRows(parent, totalRowCount, totalRowCount);
+            q->beginRemoveRows(parent, totalRowCount-1, totalRowCount-1);
         clearCache(cacheStart);
         totalRowCount = qMax(0, totalRowCount -1);
         if (emitSignals) {
