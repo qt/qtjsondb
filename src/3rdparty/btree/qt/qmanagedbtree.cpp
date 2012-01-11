@@ -156,6 +156,9 @@ void QManagedBtree::remove(QManagedBtreeTxn *txn)
         if (mWriter.txn) { // commit/abort not called
             if (mWriter.clients.size() > 1) {
                 mWriter.clients.remove(txn);
+                txn->mTxn = 0;
+                txn->mBtree = 0;
+                return;
             }
             if (mWriter.clients.size() == 1) {
                 qWarning() << "QManagedBtree::remove:" << "single write txn uncommited. Aborting.";
