@@ -2053,6 +2053,20 @@ btree_cursor_get(struct cursor *cursor, struct btval *key, struct btval *data,
         return rc;
 }
 
+struct btree *
+btree_cursor_bt(struct cursor *cursor)
+{
+        assert(cursor);
+        return cursor->bt;
+}
+
+struct btree_txn *
+btree_cursor_txn(struct cursor *cursor)
+{
+        assert(cursor);
+        return cursor->txn;
+}
+
 static struct mpage *
 btree_new_page(struct btree *bt, uint32_t flags)
 {

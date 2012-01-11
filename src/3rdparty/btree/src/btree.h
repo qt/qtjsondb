@@ -127,6 +127,8 @@ void                     btree_cursor_close(struct cursor *cursor);
 int                      btree_cursor_get(struct cursor *cursor,
                             struct btval *key, struct btval *data,
                             enum cursor_op op);
+struct btree            *btree_cursor_bt(struct cursor *cursor);
+struct btree_txn        *btree_cursor_txn(struct cursor *cursor);
 
 int                      btree_sync(struct btree *bt);
 int                      btree_compact(struct btree *bt);

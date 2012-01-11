@@ -35,6 +35,32 @@ QBtreeCursor::~QBtreeCursor()
         btree_cursor_close(mCursor);
 }
 
+QBtreeCursor::QBtreeCursor(const QBtreeCursor &other)
+    : mCursor(0)
+{
+    if (other.mCursor) {
+        mCursor = btree_txn_cursor_open(btree_cursor_bt(other.mCursor), btree_cursor_txn(other.mCursor));
+        if (!other.mKey.isNull())
+            seek(other.mKey);
+    }
+}
+
+QBtreeCursor &QBtreeCursor::operator =(const QBtreeCursor &other)
+{
+    if (this == &other)
+        return *this;
+    if (mCursor)
+        btree_cursor_close(mCursor);
+    if (other.mCursor) {
+        mCursor = btree_txn_cursor_open(btree_cursor_bt(other.mCursor), btree_cursor_txn(other.mCursor));
+        mKey = other.mKey;
+        mValue = other.mValue;
+        if (!mKey.isNull())
+            seek(other.mKey);
+    }
+    return *this;
+}
+
 bool QBtreeCursor::current(QBtreeData *key, QBtreeData *value) const
 {
     if (key)

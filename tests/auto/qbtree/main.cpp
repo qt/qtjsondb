@@ -90,6 +90,7 @@ private slots:
     void prefixSizes();
     void prefixTest();
     void managedBtree();
+    void cursors();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 flag = -1);
@@ -1255,6 +1256,50 @@ void TestQBtree::managedBtree()
     delete mdb;
     mdb = 0;
     QFile::remove(mdbname);
+}
+
+void TestQBtree::cursors()
+{
+    QBtreeTxn *txn = db->beginReadWrite();
+    txn->put(QByteArray("1"), QByteArray("a"));
+    txn->put(QByteArray("2"), QByteArray("b"));
+    txn->put(QByteArray("3"), QByteArray("c"));
+    txn->put(QByteArray("4"), QByteArray("d"));
+    txn->commit(0);
+
+    txn = db->beginRead();
+
+    QByteArray k1, k2;
+    QBtreeCursor c1;
+    QBtreeCursor c2(txn);
+
+    c2.first();
+    c2.current(&k1, 0);
+    QCOMPARE(k1, QByteArray("1"));
+
+    c2.next();
+    c2.current(&k1, 0);
+    QCOMPARE(k1, QByteArray("2"));
+
+    c1 = c2;
+    c1.current(&k1, 0);
+    c2.current(&k2, 0);
+    QCOMPARE(k1, k2);
+
+    c1.next();
+    c1.current(&k1, 0);
+    c2.current(&k2, 0);
+    QCOMPARE(k1, QByteArray("3"));
+    QCOMPARE(k2, QByteArray("2"));
+
+    QBtreeCursor c3(c1);
+    c3.next();
+    c1.current(&k1, 0);
+    c3.current(&k2, 0);
+    QCOMPARE(k1, QByteArray("3"));
+    QCOMPARE(k2, QByteArray("4"));
+
+    txn->abort();
 }
 
 QTEST_MAIN(TestQBtree)

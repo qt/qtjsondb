@@ -16,6 +16,9 @@ public:
     explicit QBtreeCursor(QManagedBtree *btree, bool commitedOnly = false);
     ~QBtreeCursor();
 
+    QBtreeCursor(const QBtreeCursor &other);
+    QBtreeCursor &operator=(const QBtreeCursor &other);
+
     bool current(QByteArray *baKey, QByteArray *baValue) const;
     bool current(QBtreeData *baKey, QBtreeData *baValue) const;
 
@@ -41,9 +44,6 @@ private:
     QBtreeData mValue;
 
     bool moveHelper(const char *key, int size, int cursorOp);
-
-    QBtreeCursor(const QBtreeCursor &other);
-    QBtreeCursor &operator=(const QBtreeCursor &other);
 };
 
 #endif // QBTREECURSOR_H
