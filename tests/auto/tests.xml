@@ -22,6 +22,30 @@
         <description>QML JsonDbListModel tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondb-listmodel;date &amp;&amp; ./tst_jsondb-listmodel -platform minimal&amp;&amp; date</step>
       </case>
+      <case name="tst_jsondblistmodel" requirement="BAT" component="qt5jsondb"  timeout="600">
+        <description>QML JsonDbListModel tests Set2</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondblistmodel;date &amp;&amp; ./tst_jsondblistmodel -platform minimal&amp;&amp; date</step>
+      </case>
+      <case name="tst_jsondbnotification" requirement="BAT" component="qt5jsondb"  timeout="600">
+        <description>QML JsonDB Notification tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbnotification;date &amp;&amp; ./tst_jsondbnotification -platform minimal&amp;&amp; date</step>
+      </case>
+      <case name="tst_jsondbpartition" requirement="BAT" component="qt5jsondb"  timeout="600">
+        <description>QML JsonDB Partition tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbpartition;date &amp;&amp; ./tst_jsondbpartition -platform minimal&amp;&amp; date</step>
+      </case>
+      <case name="tst_jsondbsortinglistmodel" component="qt5jsondb"  timeout="1000">
+        <description>QML JsonDB Sorting ListModel tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbsortinglistmodel;date &amp;&amp; ./tst_jsondbsortinglistmodel -platform minimal&amp;&amp; date</step>
+      </case>
+      <case name="tst_jsondbqueryobject" requirement="BAT" component="qt5jsondb"  timeout="1000">
+        <description>QML JsonDB Query Object tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbqueryobject;date &amp;&amp; ./tst_jsondbqueryobject -platform minimal&amp;&amp; date</step>
+      </case>
+      <case name="tst_jsondbchangessinceobject" requirement="BAT" component="qt5jsondb"  timeout="600">
+        <description>QML JsonDB ChangesSinceObject tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbchangessinceobject;date &amp;&amp; ./tst_jsondbchangesinceobject -platform minimal&amp;&amp; date</step>
+      </case>
       <case name="tst_qbtree" requirement="BAT" component="qt5jsondb"  timeout="2000">
         <description>Btree tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/qbtree;date &amp;&amp; ./tst_qbtree&amp;&amp; date</step>
