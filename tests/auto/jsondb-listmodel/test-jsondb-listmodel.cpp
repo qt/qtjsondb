@@ -220,7 +220,7 @@ void TestJsonDbListModel::createItem()
     listModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
 
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     connectListModel(listModel);
 
     // now start it working
@@ -253,7 +253,7 @@ void TestJsonDbListModel::updateItemClient()
     if (!listModel) return;
     listModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     connectListModel(listModel);
 
     // now start it working
@@ -295,7 +295,7 @@ void TestJsonDbListModel::updateItemSet()
     if (!listModel) return;
     listModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "phone");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     connectListModel(listModel);
 
     // now start it working
@@ -338,7 +338,7 @@ void TestJsonDbListModel::updateItemSetProperty()
     if (!listModel) return;
     listModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "phone");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     connectListModel(listModel);
 
     // now start it working
@@ -374,7 +374,7 @@ void TestJsonDbListModel::deleteItem()
     if (!listModel) return;
     listModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     connectListModel(listModel);
 
     // now start it working
@@ -419,7 +419,7 @@ void TestJsonDbListModel::sortedQuery()
 
     QStringList rolenames;
     rolenames << "_uuid" << "_type" << "number";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
 
     listModel->setQuery("[?_type=\"RandNumber\"][/number]");
 
@@ -452,7 +452,7 @@ void TestJsonDbListModel::ordering()
     if (!listModel) return;
     listModel->setQuery(QString("[?_type=\"%1\"][/order]").arg(__FUNCTION__));
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "order");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     connectListModel(listModel);
 
     // now start it working
@@ -547,7 +547,7 @@ void TestJsonDbListModel::itemNotInCache()
     listModel->setLimit(80);
     listModel->setQuery(QString("[?_type=\"%1\"][/order]").arg(__FUNCTION__));
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "order");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     listModel->componentComplete();
     waitForExitOrTimeout();
 
@@ -578,7 +578,7 @@ void TestJsonDbListModel::roles()
     listModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
 
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "phone");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     connectListModel(listModel);
 
     // now start it working
@@ -586,7 +586,7 @@ void TestJsonDbListModel::roles()
     waitForExitOrTimeout();
     QCOMPARE(listModel->count(), 1);
 
-    QVariantMap roles = listModel->roleNames().toMap();
+    QVariantMap roles = listModel->scriptableRoleNames().toMap();
     QCOMPARE(roles.size(), 4);
     QVERIFY(roles.contains("name")) ;
     QVERIFY(roles.contains("phone"));
@@ -623,7 +623,7 @@ void TestJsonDbListModel::totalRowCount()
     listModel->setLimit(10);
     listModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "order");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     listModel->componentComplete();
     waitForExitOrTimeout();
 
@@ -676,7 +676,7 @@ void TestJsonDbListModel::listProperty()
     listModel->setLimit(10);
     listModel->setQuery(QString("[?_type=\"%1\"][/features.0.properties.0.description]").arg(type));
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "features.0.properties.0.description"<< "features.0.feature");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     listModel->componentComplete();
     waitForExitOrTimeout();
 
@@ -700,7 +700,7 @@ void TestJsonDbListModel::listProperty()
     listModel->setQuery(QString("[?_type=\"%1\"][/features.0.properties.0.description]").arg(type));
     roleNames.clear();
     roleNames = (QStringList() << "_type" << "_uuid" << "features[0].properties[0].description"<< "features[0].supported[0]");
-    listModel->setRoleNames(roleNames);
+    listModel->setScriptableRoleNames(roleNames);
     listModel->componentComplete();
     waitForExitOrTimeout();
 

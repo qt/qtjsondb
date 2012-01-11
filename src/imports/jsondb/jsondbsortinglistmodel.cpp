@@ -773,13 +773,13 @@ QVariant JsonDbSortingListModel::data(const QModelIndex &modelIndex, int role) c
     \endcode
 */
 
-QVariant JsonDbSortingListModel::roleNames() const
+QVariant JsonDbSortingListModel::scriptableRoleNames() const
 {
     Q_D(const JsonDbSortingListModel);
     return d->roleMap;
 }
 
-void JsonDbSortingListModel::setRoleNames(const QVariant &vroles)
+void JsonDbSortingListModel::setScriptableRoleNames(const QVariant &vroles)
 {
     Q_D(JsonDbSortingListModel);
     d->properties.clear();

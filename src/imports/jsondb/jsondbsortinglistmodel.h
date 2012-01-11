@@ -79,7 +79,7 @@ public:
     Q_PROPERTY(QString query READ query WRITE setQuery)
     Q_PROPERTY(QString sortOrder READ sortOrder WRITE setSortOrder)
     Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
-    Q_PROPERTY(QVariant roleNames READ roleNames WRITE setRoleNames)
+    Q_PROPERTY(QVariant roleNames READ scriptableRoleNames WRITE setScriptableRoleNames)
     Q_PROPERTY(int queryLimit READ queryLimit WRITE setQueryLimit)
     Q_PROPERTY(bool overflow READ overflow)
 
@@ -91,8 +91,8 @@ public:
     virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
     virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
 
-    QVariant roleNames() const;
-    void setRoleNames(const QVariant &roles);
+    QVariant scriptableRoleNames() const;
+    void setScriptableRoleNames(const QVariant &roles);
 
     QString query() const;
     void setQuery(const QString &newQuery);

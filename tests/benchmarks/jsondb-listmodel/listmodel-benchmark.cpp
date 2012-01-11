@@ -284,7 +284,7 @@ void TestListModel::createListModelHundredItems()
     connectListModel(listModel);
     QStringList rolenames;
     rolenames << "age" << "name" << "_type";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
 
     QBENCHMARK {
         listModel->setQuery("[?_type=\"Troll\"]");
@@ -302,7 +302,7 @@ void TestListModel::createListModelThousandItems()
     connectListModel(listModel);
     QStringList rolenames;
     rolenames << "name" << "phone" << "_uuid" << "_type";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
 
     QBENCHMARK {
         listModel->setQuery("[?_type=\"Friends\"]");
@@ -320,7 +320,7 @@ void TestListModel::createListModelGroupedQuery()
     connectListModel(listModel);
     QStringList rolenames;
     rolenames << "_uuid" << "_type" << "number";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
 
     QBENCHMARK {
         listModel->setQuery("[?_type=\"RandNumber\"][?number=77]");
@@ -340,7 +340,7 @@ void TestListModel::createListModelSortedQuery()
 
     QStringList rolenames;
     rolenames << "_uuid" << "_type" << "number";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
 
     QBENCHMARK {
         listModel->setQuery("[?_type=\"RandNumber\"][/number]");
@@ -371,7 +371,7 @@ void TestListModel::changeOneItemClient()
     if (!listModel) return;
     QStringList rolenames;
     rolenames << "name" << "phone" << "_uuid" << "_type";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
     listModel->setQuery("[?_type=\"Friends\"][/name]");
     connectListModel(listModel);
 
@@ -400,7 +400,7 @@ void TestListModel::changeOneItemSet()
     if (!listModel) return;
     QStringList rolenames;
     rolenames << "name" << "phone" << "_uuid" << "_type";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
     listModel->setQuery("[?_type=\"Friends\"][/name]");
     connectListModel(listModel);
 
@@ -430,7 +430,7 @@ void TestListModel::changeOneItemSetProperty()
     if (!listModel) return;
     QStringList rolenames;
     rolenames << "name" << "phone" << "_uuid" << "_type";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
     listModel->setQuery("[?_type=\"Friends\"]");
     connectListModel(listModel);
 
@@ -457,7 +457,7 @@ void TestListModel::getOneItemInCache()
     connectListModel(listModel);
     QStringList rolenames;
     rolenames << "name" << "phone" << "_uuid" << "_type" ;
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
     listModel->setQuery("[?_type=\"Friends\"]");
     mEventLoop.exec(QEventLoop::AllEvents);
 
@@ -481,7 +481,7 @@ void TestListModel::getOneItemNotInCache()
     listModel->setLimit(80);
     QStringList rolenames;
     rolenames << "name" << "phone" << "_uuid" << "_type";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
     listModel->setQuery("[?_type=\"Friends\"][/name]");
     mEventLoop.exec(QEventLoop::AllEvents);
 
@@ -511,7 +511,7 @@ void TestListModel::getOneItemNotInCacheThousandItems()
     listModel->setLimit(80);
     QStringList rolenames;
     rolenames << "name" << "location" << "_type";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
     listModel->setQuery("[?_type=\"Image\"][/name]");
     mEventLoop.exec(QEventLoop::AllEvents);
 
@@ -542,7 +542,7 @@ void TestListModel::scrollThousandItems()
     if (!listModel) return;
     QStringList rolenames;
     rolenames << "name" << "phone" << "_uuid" << "_type";
-    listModel->setRoleNames(rolenames);
+    listModel->setScriptableRoleNames(rolenames);
     listModel->setQuery("[?_type=\"Friends\"][/name]");
     listModel->setLimit(80);
     connectListModel(listModel);

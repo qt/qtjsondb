@@ -95,7 +95,7 @@ public:
     Q_PROPERTY(int limit READ limit WRITE setLimit)
     Q_PROPERTY(int chunkSize READ chunkSize WRITE setChunkSize)
     Q_PROPERTY(int lowWaterMark READ lowWaterMark WRITE setLowWaterMark)
-    Q_PROPERTY(QVariant roleNames READ roleNames WRITE setRoleNames)
+    Q_PROPERTY(QVariant roleNames READ scriptableRoleNames WRITE setScriptableRoleNames)
     Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
 
     virtual void classBegin();
@@ -109,8 +109,8 @@ public:
     virtual void fetchMore(const QModelIndex &parent);
     virtual bool canFetchMore(const QModelIndex &parent) const;
 
-    QVariant roleNames() const;
-    void setRoleNames(const QVariant &roles);
+    QVariant scriptableRoleNames() const;
+    void setScriptableRoleNames(const QVariant &roles);
 
     QString state() const;
 

@@ -940,7 +940,7 @@ int JsonDbListModel::lowWaterMark() const
   }
   \endcode
 */
-QVariant JsonDbListModel::roleNames() const
+QVariant JsonDbListModel::scriptableRoleNames() const
 {
     Q_D(const JsonDbListModel);
 
@@ -955,7 +955,7 @@ QString removeArrayOperator(QString propertyName)
     return propertyName;
 }
 
-void JsonDbListModel::setRoleNames(const QVariant &vroles)
+void JsonDbListModel::setScriptableRoleNames(const QVariant &vroles)
 {
     Q_D(JsonDbListModel);
     d->properties.clear();
