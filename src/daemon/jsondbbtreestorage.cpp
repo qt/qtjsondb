@@ -64,10 +64,11 @@
 #include "jsondb.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
-#include "aodb.h"
 #include "jsondbbtreestorage.h"
 #include "jsondbindex.h"
 #include "objecttable.h"
+#include "qbtreetxn.h"
+#include "qmanagedbtree.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -136,9 +137,9 @@ bool JsonDbBtreeStorage::open()
     QFileInfo fi(mFilename);
 
     mObjectTable = new ObjectTable(this);
-    mBdbIndexes = new AoDb();
+    mBdbIndexes = new QManagedBtree();
 
-    mObjectTable->open(mFilename, AoDb::NoSync | AoDb::UseSyncMarker);
+    mObjectTable->open(mFilename, QBtree::NoSync | QBtree::UseSyncMarker);
 
 #if 0
     if (!mBdbIndexes->setCmpFunc(objectKeyCmp, 0)) {
@@ -152,7 +153,7 @@ bool JsonDbBtreeStorage::open()
     if (basename.endsWith(".db"))
         basename.chop(3);
     if (!mBdbIndexes->open(QString("%1/%2-Indexes.db").arg(dir).arg(basename),
-                           AoDb::NoSync | AoDb::UseSyncMarker)) {
+                           QBtree::NoSync | QBtree::UseSyncMarker)) {
         qCritical() << "mBdbIndexes->open" << mBdbIndexes->errorMessage();
         mBdbIndexes->close();
         return false;
@@ -168,9 +169,9 @@ bool JsonDbBtreeStorage::open()
     QString partitionId;
     if (mBdbIndexes->count()) {
         QByteArray baKey, baValue;
-        AoDbCursor cursor(mBdbIndexes);
+        QBtreeCursor cursor(mBdbIndexes);
         if (cursor.first()) {
-            cursor.current(baKey, baValue);
+            cursor.current(&baKey, &baValue);
             if (baValue.size() > 4) {
                 QsonMap object = QsonParser::fromRawData(baValue).toMap();
                 if (object.valueString(JsonDbString::kTypeStr) != kDbidTypeStr) {
@@ -203,7 +204,7 @@ bool JsonDbBtreeStorage::open()
         object.insert(QLatin1String("name"), mPartitionName);
         object.insert(kDatabaseSchemaVersionStr, gDatabaseSchemaVersion);
         QByteArray baObject = object.data();
-        bool ok = mBdbIndexes->put(baKey, baObject);
+        bool ok = mBdbIndexes->putOne(baKey, baObject);
         Q_ASSERT(ok);
     }
     if (gVerbose) qDebug() << "partition" << mPartitionName << "id" << partitionId;
@@ -493,7 +494,7 @@ void JsonDbBtreeStorage::addView(const QString &viewType)
                                    .arg(dirName)
                                    .arg(baseName)
                                    .arg(viewType),
-                                   AoDb::NoSync | AoDb::UseSyncMarker)) {
+                                   QBtree::NoSync | QBtree::UseSyncMarker)) {
             qCritical() << "viewDb->open" << viewObjectTable->errorMessage();
             return;
         }
@@ -531,7 +532,9 @@ ObjectTable *JsonDbBtreeStorage::findObjectTable(const QString &objectType) cons
 bool JsonDbBtreeStorage::beginTransaction()
 {
     if (mTransactionDepth++ == 0) {
-        if (!mBdbIndexes->begin()) {
+        Q_ASSERT(!mIndexTxn);
+        mIndexTxn = mBdbIndexes->beginWrite();
+        if (!mIndexTxn) {
             qCritical() << __FILE__ << __LINE__ << mBdbIndexes->errorMessage();
             mTransactionDepth--;
             return false;
@@ -544,13 +547,14 @@ bool JsonDbBtreeStorage::beginTransaction()
 bool JsonDbBtreeStorage::commitTransaction(quint32 stateNumber)
 {
     if (--mTransactionDepth == 0) {
+        Q_ASSERT(mIndexTxn);
         bool ret = true;
         quint32 nextStateNumber = stateNumber ? stateNumber : (mObjectTable->stateNumber() + 1);
         if (gDebug) qDebug() << "commitTransaction" << stateNumber;
         if (!stateNumber && (mTableTransactions.size() == 1))
             nextStateNumber = mTableTransactions.at(0)->stateNumber() + 1;
 
-        if (!mBdbIndexes->commit(nextStateNumber)) {
+        if (!mIndexTxn.commit(nextStateNumber)) {
             qCritical() << __FILE__ << __LINE__ << mBdbIndexes->errorMessage();
             ret = false;
         }
@@ -574,10 +578,7 @@ bool JsonDbBtreeStorage::abortTransaction()
         if (gVerbose) qDebug() << "JsonDbBtreeStorage::abortTransaction()";
         bool ret = true;
 
-        if (!mBdbIndexes->abort()) {
-            qCritical() << __FILE__ << __LINE__ << mBdbIndexes->errorMessage();
-            ret = false;
-        }
+        mIndexTxn.abort();
 
         for (int i = 0; i < mTableTransactions.size(); i++) {
             ObjectTable *table = mTableTransactions.at(i);
@@ -840,9 +841,9 @@ void JsonDbBtreeStorage::initIndexes()
     QByteArray baPropertyName;
     QByteArray baIndexObject;
 
-    AoDbCursor cursor(mBdbIndexes);
+    QBtreeCursor cursor(mBdbIndexes);
     for (bool ok = cursor.first(); ok; ok = cursor.next()) {
-        if (!cursor.current(baPropertyName, baIndexObject))
+        if (!cursor.current(&baPropertyName, &baIndexObject))
             break;
 
         if (baIndexObject.size() == 4)
@@ -906,7 +907,7 @@ void JsonDbBtreeStorage::checkIndexConsistency(ObjectTable *objectTable, JsonDbI
     if (indexStateNumber > objectTable->stateNumber()) {
         qCritical() << "reverting index" << index->propertyName() << indexStateNumber << objectStateNumber;
         while (indexStateNumber > objectTable->stateNumber()) {
-            int rc = index->bdb()->revert();
+            int rc = index->bdb()->rollback();
             quint32 newIndexStateNumber = index->bdb()->tag();
             if (newIndexStateNumber == indexStateNumber) {
                 qDebug() << "failed to revert. clearing" << rc;
@@ -948,9 +949,9 @@ IndexQuery::IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QS
 {
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->indexSpec(propertyName)->index->bdb();
-        mCursor = mBdbIndex->cursor();
+        mCursor = new QBtreeCursor(mBdbIndex);
     } else {
-        mCursor = new AoDbCursor(table->bdb(), true);
+        mCursor = new QBtreeCursor(table->bdb(), true);
     }
 }
 IndexQuery::~IndexQuery()
@@ -1008,7 +1009,7 @@ bool IndexQuery::seekToStart(QVariant &fieldValue)
     }
     if (ok) {
         QByteArray baKey;
-        mCursor->currentKey(baKey);
+        mCursor->current(&baKey, 0);
         forwardKeySplit(baKey, fieldValue);
     }
     //qDebug() << "IndexQuery::seekToStart" << (mAscending ? mMin : mMax) << "ok" << ok << fieldValue;
@@ -1020,7 +1021,7 @@ bool IndexQuery::seekToNext(QVariant &fieldValue)
     bool ok = mAscending ? mCursor->next() : mCursor->prev();
     if (ok) {
         QByteArray baKey;
-        mCursor->currentKey(baKey);
+        mCursor->current(&baKey, 0);
         forwardKeySplit(baKey, fieldValue);
     }
     //qDebug() << "IndexQuery::seekToNext" << "ok" << ok << fieldValue;
@@ -1030,7 +1031,7 @@ bool IndexQuery::seekToNext(QVariant &fieldValue)
 QsonMap IndexQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
 {
     QByteArray baValue;
-    mCursor->currentValue(baValue);
+    mCursor->current(0, &baValue);
     forwardValueSplit(baValue, objectKey);
 
     if (sDebugQuery) qDebug() << __FILE__ << __LINE__ << "objectKey" << objectKey << baValue.toHex();
@@ -1064,7 +1065,7 @@ bool UuidQuery::seekToStart(QVariant &fieldValue)
     }
     QByteArray baKey;
     while (ok) {
-        mCursor->currentKey(baKey);
+        mCursor->current(&baKey, 0);
         if (!isStateKey(baKey))
             break;
         if (mAscending)
@@ -1086,7 +1087,7 @@ bool UuidQuery::seekToNext(QVariant &fieldValue)
     bool ok = mAscending ? mCursor->next() : mCursor->prev();
     QByteArray baKey;
     while (ok) {
-        mCursor->currentKey(baKey);
+        mCursor->current(&baKey, 0);
         if (!isStateKey(baKey))
             break;
         if (mAscending)
@@ -1106,7 +1107,7 @@ bool UuidQuery::seekToNext(QVariant &fieldValue)
 QsonMap UuidQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
 {
     QByteArray baKey;
-    mCursor->currentKey(baKey);
+    mCursor->current(&baKey, 0);
     objectKey = ObjectKey(baKey);
 
     if (sDebugQuery) qDebug() << __FILE__ << __LINE__ << "objectKey" << objectKey << baKey.toHex();
@@ -1655,7 +1656,7 @@ bool JsonDbBtreeStorage::checkQuota(const JsonDbOwner *owner, int size) const
         return false;
     QByteArray baKey = QByteArray::fromRawData((const char *)ownerId.constData(), 2*ownerId.size());
     QByteArray baValue;
-    bool ok = mBdbIndexes->get(baKey, baValue);
+    bool ok = mBdbIndexes->getOne(baKey, &baValue);
     int oldSize = (ok) ? qFromLittleEndian<quint32>((const uchar *)baValue.data()) : 0;
     if ((oldSize + size) <= quota)
         return true;
@@ -1678,12 +1679,12 @@ bool JsonDbBtreeStorage::addToQuota(const JsonDbOwner *owner, int size)
     QByteArray baKey = QByteArray::fromRawData((const char *)ownerId.constData(), 2*ownerId.size());
     QByteArray baValue;
     quint32 value = 0;
-    if (mBdbIndexes->get(baKey, baValue) && baValue.size() == 4)
+    if (mBdbIndexes->getOne(baKey, &baValue) && baValue.size() == 4)
         value = qFromLittleEndian<quint32>((const uchar *)baValue.constData());
     value += size;
     baValue.resize(4);
     qToLittleEndian(value, (uchar *)baValue.data());
-    mBdbIndexes->put(baKey, baValue);
+    mBdbIndexes->putOne(baKey, baValue);
     return true;
 }
 

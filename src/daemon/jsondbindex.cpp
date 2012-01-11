@@ -45,12 +45,12 @@
 #include <QFileInfo>
 #include <QDir>
 
-#include "aodb.h"
 #include "jsondb-strings.h"
 #include "jsondb.h"
 #include "jsondb-proxy.h"
 #include "jsondbindex.h"
 #include "qsonconversion.h"
+#include "qmanagedbtree.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -105,17 +105,14 @@ bool JsonDbIndex::open()
     if (mPropertyName == JsonDbString::kUuidStr)
         return true;
 
-    mBdb.reset(new AoDb());
+    mBdb.reset(new QManagedBtree());
 
-    if (!mBdb->open(mFileName, AoDb::NoSync | AoDb::UseSyncMarker)) {
+    if (!mBdb->open(mFileName, QBtree::NoSync | QBtree::UseSyncMarker)) {
         qCritical() << "mBdb->open" << mBdb->errorMessage();
         return false;
     }
 
-    if (!mBdb->setCmpFunc(forwardKeyCmp)) {
-        qCritical() << "mBdb->setCmpFunc" << mBdb->errorMessage();
-        return false;
-    }
+    mBdb->setCmpFunc(forwardKeyCmp);
 
     mStateNumber = mBdb->tag();
     if (gDebugRecovery) qDebug() << "JsonDbIndex::open" << mStateNumber << mFileName;
@@ -128,7 +125,7 @@ void JsonDbIndex::close()
         mBdb->close();
 }
 
-AoDb *JsonDbIndex::bdb()
+QManagedBtree *JsonDbIndex::bdb()
 {
     if (!mBdb)
         open();
@@ -162,7 +159,7 @@ void JsonDbIndex::propertyValueEmitted(QJSValue value)
         mFieldValues.append(value.toVariant());
 }
 
-void JsonDbIndex::indexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber, bool inTransaction)
+void JsonDbIndex::indexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber)
 {
     if (mPropertyName == JsonDbString::kUuidStr)
         return;
@@ -172,8 +169,8 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, QsonObject &object, qu
         open();
     QVariantList fieldValues = indexValues(object);
     //qDebug() << "JsonDbIndex::indexObject" << mPath << fieldValues;
-    if (!inTransaction)
-        mBdb->begin();
+    bool inTransaction = mBdb->isWriteTxnActive();
+    QManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
     foreach (const QVariant fieldValue, fieldValues) {
         if (!fieldValue.isValid())
             continue;
@@ -185,11 +182,11 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, QsonObject &object, qu
                      << "forwardIndex" << "key" << forwardKey.toHex()
                      << "forwardIndex" << "value" << forwardValue.toHex()
                      << object;
-        ok = mBdb->put(forwardKey, forwardValue);
+        ok = txn.put(forwardKey, forwardValue);
         if (!ok) qCritical() << __FUNCTION__ << "putting fowardIndex" << mBdb->errorMessage();
     }
     if (!inTransaction)
-        mBdb->commit(stateNumber);
+        txn.commit(stateNumber);
     if (gDebugRecovery && (stateNumber < mStateNumber))
         qDebug() << "JsonDbIndex::indexObject" << "stale update" << stateNumber << mStateNumber << mFileName;
     mStateNumber = qMax(stateNumber, mStateNumber);
@@ -199,29 +196,29 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, QsonObject &object, qu
 #endif
 }
 
-void JsonDbIndex::deindexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber, bool inTransaction)
+void JsonDbIndex::deindexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber)
 {
     if (mPropertyName == JsonDbString::kUuidStr)
         return;
     if (!mBdb)
         open();
     QVariantList fieldValues = indexValues(object);
-    if (!inTransaction)
-        mBdb->begin();
+    bool inTransaction = mBdb->isWriteTxnActive();
+    QManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
     foreach (const QVariant fieldValue, fieldValues) {
         if (!fieldValue.isValid())
             continue;
         if (debugIndexObject)
             qDebug() << "deindexing" << objectKey << mPropertyName << fieldValue;
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
-        if (!mBdb->remove(forwardKey)) {
+        if (!txn.remove(forwardKey)) {
             qDebug() << "deindexing failed" << objectKey << mPropertyName << fieldValue << object << forwardKey.toHex();
         }
     }
     if (gDebugRecovery && (stateNumber < mStateNumber))
         qDebug() << "JsonDbIndex::deindexObject" << "stale update" << stateNumber << mStateNumber << mFileName;
     if (!inTransaction)
-        mBdb->commit(stateNumber);
+        txn.commit(stateNumber);
 #ifdef CHECK_INDEX_ORDERING
     checkIndex();
 #endif
@@ -232,19 +229,23 @@ quint32 JsonDbIndex::stateNumber() const
     return mStateNumber;
 }
 
-bool JsonDbIndex::begin()
+QManagedBtreeTxn JsonDbIndex::begin()
 {
     if (!mBdb)
         open();
-    return mBdb->begin();
+    return mWriteTxn = mBdb->beginWrite();
 }
 bool JsonDbIndex::commit(quint32 stateNumber)
 {
-    return mBdb->commit(stateNumber);
+    if (mBdb->isWriteTxnActive())
+        return mWriteTxn.commit(stateNumber);
+    return false;
 }
 bool JsonDbIndex::abort()
 {
-    return mBdb->abort();
+    if (mBdb->isWriteTxnActive())
+        mWriteTxn.abort();
+    return true;
 }
 bool JsonDbIndex::clearData()
 {
@@ -258,16 +259,16 @@ void JsonDbIndex::checkIndex()
 
     qDebug() << "checkIndex" << mPropertyName;
     int countf = 0;
-    AoDbCursor cursorf(mBdb.data());
+    QBtreeCursor cursorf(mBdb.data());
     bool ok = cursorf.first();
     if (ok) {
         countf++;
         QByteArray outkey1;
-        ok = cursorf.currentKey(outkey1);
+        ok = cursorf.current(&outkey1, 0);
         while (cursorf.next()) {
             countf++;
             QByteArray outkey2;
-            cursorf.currentKey(outkey2);
+            cursorf.current(&outkey2, 0);
             //qDebug() << outkey1.toHex() << outkey2.toHex();
             if (memcmp(outkey1.constData(), outkey2.constData(), outkey1.size()) >= 0) {
                 qDebug() << "out of order index" << mPropertyName << endl
@@ -281,16 +282,16 @@ void JsonDbIndex::checkIndex()
     qDebug() << "checkIndex" << mPropertyName << "reversed";
     // now check other direction
     int countr = 0;
-    AoDbCursor cursorr(mBdb.data());
+    QBtreeCursor cursorr(mBdb.data());
     ok = cursorr.last();
     if (ok) {
         countr++;
         QByteArray outkey1;
-        ok = cursorr.currentKey(outkey1);
+        ok = cursorr.current(&outkey1, 0);
         while (cursorr.prev()) {
             countr++;
             QByteArray outkey2;
-            cursorr.currentKey(outkey2);
+            cursorr.current(&outkey2, 0);
             //qDebug() << outkey1.toHex() << outkey2.toHex();
             if (memcmp(outkey1.constData(), outkey2.constData(), outkey1.size()) <= 0) {
                 qDebug() << "reverse walk: out of order index" << mPropertyName << endl
@@ -324,7 +325,7 @@ bool JsonDbIndexCursor::seekRange(const QVariant &value)
 bool JsonDbIndexCursor::current(QVariant &key, ObjectKey &value)
 {
     QByteArray baKey, baValue;
-    if (!mCursor.current(baKey, baValue))
+    if (!mCursor.current(&baKey, &baValue))
         return false;
     forwardKeySplit(baKey, key);
     forwardValueSplit(baValue, value);
@@ -334,7 +335,7 @@ bool JsonDbIndexCursor::current(QVariant &key, ObjectKey &value)
 bool JsonDbIndexCursor::currentKey(QVariant &key)
 {
     QByteArray baKey;
-    if (!mCursor.currentKey(baKey))
+    if (!mCursor.current(&baKey, 0))
         return false;
     forwardKeySplit(baKey, key);
     return true;
@@ -343,7 +344,7 @@ bool JsonDbIndexCursor::currentKey(QVariant &key)
 bool JsonDbIndexCursor::currentValue(ObjectKey &value)
 {
     QByteArray baValue;
-    if (!mCursor.currentValue(baValue))
+    if (!mCursor.current(0, &baValue))
         return false;
     forwardValueSplit(baValue, value);
     return true;

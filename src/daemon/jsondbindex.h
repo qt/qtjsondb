@@ -49,13 +49,13 @@
 #include <QtJsonDbQson/private/qson_p.h>
 
 #include "jsondb-global.h"
-#include "aodb.h"
 #include "objectkey.h"
+#include "qmanagedbtreetxn.h"
+#include "qbtreecursor.h"
 
 QT_BEGIN_HEADER
 
-class Bdb;
-class AoDb;
+class QManagedBtree;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -71,15 +71,15 @@ public:
     QString propertyName() const { return mPropertyName; }
     QStringList fieldPath() const { return mPath; }
 
-    AoDb *bdb();
+    QManagedBtree *bdb();
 
     bool setPropertyFunction(const QString &propertyFunction);
-    void indexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber, bool inTransaction=false);
-    void deindexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber, bool inTransaction=false);
+    void indexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber);
+    void deindexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber);
 
     quint32 stateNumber() const;
 
-    bool begin();
+    QManagedBtreeTxn begin();
     bool commit(quint32);
     bool abort();
     bool clearData();
@@ -103,10 +103,11 @@ private:
     QString mPropertyName;
     QStringList mPath;
     quint32 mStateNumber;
-    QScopedPointer<AoDb> mBdb;
+    QScopedPointer<QManagedBtree> mBdb;
     QJSEngine *mScriptEngine;
     QJSValue   mPropertyFunction;
     QVariantList mFieldValues;
+    QManagedBtreeTxn mWriteTxn;
 };
 
 class JsonDbIndexCursor
@@ -125,7 +126,7 @@ public:
     bool prev();
 
 private:
-    AoDbCursor mCursor;
+    QBtreeCursor mCursor;
 
     JsonDbIndexCursor(const JsonDbIndexCursor&);
 };

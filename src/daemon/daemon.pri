@@ -5,7 +5,6 @@ DEFINES += $$quote(QT_BEGIN_MOC_NAMESPACE=\"QT_USE_NAMESPACE QT_ADDON_JSONDB_USE
 
 RESOURCES = $$PWD/jsondb.qrc
 HEADERS += \
-    $$PWD/aodb.h \
     $$PWD/jsondb-map-reduce.h \
     $$PWD/jsondb-owner.h \
     $$PWD/jsondb-proxy.h \
@@ -30,7 +29,6 @@ HEADERS += \
 HEADERS += $$QSONCONVERSION_HEADERS
 
 SOURCES += \
-    $$PWD/aodb.cpp \
     $$PWD/jsondb-map-reduce.cpp \
     $$PWD/jsondb-owner.cpp \
     $$PWD/jsondb-proxy.cpp \

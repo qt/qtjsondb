@@ -53,12 +53,13 @@
 #include "jsondb-owner.h"
 
 #include "objectkey.h"
+#include "qmanagedbtreetxn.h"
 
 QT_BEGIN_HEADER
 
 class TestJsonDb;
-class AoDb;
-class AoDbCursor;
+class QManagedBtree;
+class QBtreeCursor;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -116,8 +117,8 @@ protected:
 protected:
     JsonDbBtreeStorage *mStorage;
     ObjectTable   *mObjectTable;
-    AoDb          *mBdbIndex;
-    AoDbCursor    *mCursor;
+    QManagedBtree *mBdbIndex;
+    QBtreeCursor  *mCursor;
     const JsonDbOwner *mOwner;
     QVariant      mMin, mMax;
     QSet<QString> mTypeNames;
@@ -214,9 +215,10 @@ protected:
     static void sortValues(const JsonDbQuery *query, QsonList &results, QsonList &joinedResults);
 
 private:
-    JsonDb     *mJsonDb;
-    ObjectTable *mObjectTable;
-    AoDb        *mBdbIndexes;
+    JsonDb          *mJsonDb;
+    ObjectTable     *mObjectTable;
+    QManagedBtree   *mBdbIndexes;
+    QManagedBtreeTxn mIndexTxn;
     QVector<ObjectTable *> mTableTransactions;
 
     QString      mPartitionName;

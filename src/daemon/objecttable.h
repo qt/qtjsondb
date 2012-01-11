@@ -50,13 +50,13 @@
 
 #include <QtJsonDbQson/private/qson_p.h>
 
-#include "aodb.h"
-
 #include "objectkey.h"
+#include "qbtree.h"
+#include "qmanagedbtreetxn.h"
 
 QT_BEGIN_HEADER
 
-class AoDb;
+class QManagedBtree;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -106,9 +106,9 @@ public:
     ~ObjectTable();
 
     QString filename() const { return mFilename; }
-    bool open(const QString &filename, AoDb::DbFlags flags);
+    bool open(const QString &filename, QBtree::DbFlags flags);
     void close();
-    AoDb *bdb() const { return mBdb; }
+    QManagedBtree *bdb() const { return mBdb; }
     bool begin();
     bool commit(quint32);
     bool abort();
@@ -126,7 +126,7 @@ public:
                   const QString &objectType = QString(),
                   const QString &propertyFunction = QString());
     bool removeIndex(const QString &propertyName);
-    void reindexObjects(const QString &propertyName, const QStringList &path, quint32 stateNumber, bool inTransaction = false);
+    void reindexObjects(const QString &propertyName, const QStringList &path, quint32 stateNumber);
     void indexObject(const ObjectKey & objectKey, QsonMap object, quint32 stateNumber);
     void deindexObject(const ObjectKey &objectKey, QsonMap object, quint32 stateNumber);
     void updateIndex(JsonDbIndex *index);    
@@ -143,10 +143,10 @@ public:
 private:
     JsonDbBtreeStorage *mStorage;
     QString             mFilename;
-    AoDb               *mBdb;
+    QManagedBtree      *mBdb;
+    QManagedBtreeTxn    mWriteTxn;
     QHash<QString,IndexSpec> mIndexes; // indexed by full path, e.g., _type or _name.first
-    QVector<AoDb *> mBdbTransactions;
-    bool                mInTransaction;
+    QVector<QManagedBtreeTxn> mBdbTransactions;
 
     quint32 mStateNumber;
 
