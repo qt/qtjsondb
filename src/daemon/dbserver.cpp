@@ -146,10 +146,10 @@ bool DBServer::socket()
     return true;
 }
 
-bool DBServer::start()
+bool DBServer::start(bool compactOnClose)
 {
     mJsonDb = new JsonDb(mFileName, this);
-
+    mJsonDb->setCompactOnClose(compactOnClose);
     if (!connect(mJsonDb, SIGNAL(notified(QString,QsonMap,QString)),
                  this, SLOT(notified(QString,QsonMap,QString)),
                  Qt::QueuedConnection))

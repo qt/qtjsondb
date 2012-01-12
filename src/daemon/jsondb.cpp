@@ -479,6 +479,7 @@ JsonDb::JsonDb(const QString &path, QObject *parent)
     , mOwner(0)
     , mJsonDbProxy(new JsonDbProxy(0, this, this))
     , mOpen(false)
+    , mCompactOnClose(false)
 {
     QFileInfo fi(path);
     if (fi.isDir())
@@ -590,8 +591,11 @@ bool JsonDb::checkValidity()
 void JsonDb::close()
 {
     if (mOpen) {
-        foreach (JsonDbBtreeStorage *storage, mStorages)
+        foreach (JsonDbBtreeStorage *storage, mStorages) {
+            if (mCompactOnClose)
+                storage->compact();
             storage->close();
+        }
     }
     mOpen = false;
 }

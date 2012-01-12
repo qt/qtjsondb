@@ -125,6 +125,9 @@ public:
     QString getTablePrefix();
     void setTablePrefix(const QString &prefix);
 
+    bool compactOnClose() const { return mCompactOnClose; }
+    void setCompactOnClose(bool compact) { mCompactOnClose = compact; }
+
     static QVariant propertyLookup(QsonMap v, const QString &path);
     static QVariant propertyLookup(QVariantMap v, const QStringList &path);
     static QVariant propertyLookup(QsonMap o, const QStringList &path);
@@ -219,6 +222,7 @@ protected:
     QMultiMap<QString,JsonDbReduceDefinition*> mReduceDefinitionsBySource; // maps reduce source type to view definition
     QMultiMap<QString,JsonDbReduceDefinition*> mReduceDefinitionsByTarget; // maps reduce target type to view definition
     QSet<QString>         mViewsUpdating;
+    bool                  mCompactOnClose;
 
     friend class ::TestJsonDb;
     friend class JsonDbBtreeStorage;

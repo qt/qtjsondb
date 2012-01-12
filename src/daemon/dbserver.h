@@ -68,7 +68,7 @@ public:
     void setTcpServerPort(quint16 port) { mTcpServerPort = port; }
     quint16 tcpServerPort() const { return mTcpServerPort; }
 
-    bool start();
+    bool start(bool compactOnClose);
     bool socket();
     bool clear();
     bool load(const QString &jsonFileName);

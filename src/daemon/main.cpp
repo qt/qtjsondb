@@ -128,6 +128,7 @@ static void usage()
          << "     -load file.json     Load objects from a json file" << endl
          << "     -json" << endl
          << "     -terminate          Terminate after loading files" << endl
+         << "     -compact-on-exit    Compact database before exiting" << endl
          << "     -reject-stale-updates" << endl
          << "     -validate-schemas   Validate schemas of objects on create and update" << endl
          << "     -enforce-access-control " << endl
@@ -176,6 +177,7 @@ int main(int argc, char * argv[])
     QCoreApplication app(argc, argv);
     QStringList args = QCoreApplication::arguments();
     bool terminate = false;
+    bool compactOnClose = false;
 
     progname = args.takeFirst();
     while (args.size()) {
@@ -203,6 +205,8 @@ int main(int argc, char * argv[])
             jsonFiles.append(args.takeFirst());
         } else if (arg == "-terminate") {
             terminate = true;
+        } else if (arg == "-compact-on-exit") {
+            compactOnClose = true;
 #ifndef QT_NO_DEBUG_OUTPUT
         } else if (arg == "-debug") {
             gDebug = true;
@@ -290,7 +294,7 @@ int main(int argc, char * argv[])
 
     cout << "Ready" << endl << flush;
 
-    if (!server.start())
+    if (!server.start(compactOnClose))
         return -2;
 
     if (jsonFiles.size()) {
