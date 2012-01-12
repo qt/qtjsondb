@@ -58,6 +58,8 @@ public:
     { Q_ASSERT(mBtree); mBtree->setCmpFunc(cmp); }
     void setCacheSize(int size)
     { Q_ASSERT(mBtree); mBtree->setCacheSize(size); }
+    QBtree *btree() const
+    { return mBtree; }
 
 private:
     friend class QManagedBtreeTxn;

@@ -69,6 +69,7 @@ QBtreeData::QBtreeData(struct btval *value)
         return;
     if (mPage) {
         Q_ASSERT(!value->free_data);
+        Q_ASSERT(mByteArray.isNull());
         // copy the mpage. Do not increase the ref count of the mpage.
         mData = (const char *)value->data;
     } else {

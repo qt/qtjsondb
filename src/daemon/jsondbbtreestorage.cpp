@@ -169,7 +169,7 @@ bool JsonDbBtreeStorage::open()
     QString partitionId;
     if (mBdbIndexes->count()) {
         QByteArray baKey, baValue;
-        QBtreeCursor cursor(mBdbIndexes);
+        QBtreeCursor cursor(mBdbIndexes->btree());
         if (cursor.first()) {
             cursor.current(&baKey, &baValue);
             if (baValue.size() > 4) {
@@ -787,7 +787,7 @@ void JsonDbBtreeStorage::initIndexes()
     QByteArray baPropertyName;
     QByteArray baIndexObject;
 
-    QBtreeCursor cursor(mBdbIndexes);
+    QBtreeCursor cursor(mBdbIndexes->btree());
     for (bool ok = cursor.first(); ok; ok = cursor.next()) {
         if (!cursor.current(&baPropertyName, &baIndexObject))
             break;
@@ -895,9 +895,9 @@ IndexQuery::IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QS
 {
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->indexSpec(propertyName)->index->bdb();
-        mCursor = new QBtreeCursor(mBdbIndex);
+        mCursor = new QBtreeCursor(mBdbIndex->btree());
     } else {
-        mCursor = new QBtreeCursor(table->bdb(), true);
+        mCursor = new QBtreeCursor(table->bdb()->btree(), true);
     }
 }
 IndexQuery::~IndexQuery()

@@ -17,16 +17,17 @@ QBtreeCursor::QBtreeCursor(QBtreeTxn *txn)
         mCursor = btree_txn_cursor_open(txn->btree()->handle(), txn->handle());
 }
 
-QBtreeCursor::QBtreeCursor(QManagedBtree *btree, bool commitedOnly)
+QBtreeCursor::QBtreeCursor(QBtree *btree, bool commitedOnly)
     : mCursor(0)
 {
     // Hack: Old AoDb only starts cursors on write transactions
     // TODO: This constructor should not be available.
     Q_ASSERT(btree);
-    if (!commitedOnly && btree->isWriteTxnActive())
-        mTxn = btree->existingWriteTxn();
+    struct btree_txn *txn = 0;
+    if (!commitedOnly)
+        txn = btree_get_txn(btree->handle());
 
-    mCursor = btree_txn_cursor_open(btree->handle(), mTxn ? mTxn.txn()->handle() : 0);
+    mCursor = btree_txn_cursor_open(btree->handle(), txn);
 }
 
 QBtreeCursor::~QBtreeCursor()

@@ -279,7 +279,7 @@ void ObjectTable::reindexObjects(const QString &propertyName, const QStringList 
     IndexSpec &indexSpec = mIndexes[propertyName];
     JsonDbIndex *index = indexSpec.index;
     bool inTransaction = index->bdb()->isWriteTxnActive();
-    QBtreeCursor cursor(mBdb);
+    QBtreeCursor cursor(mBdb->btree());
     if (!inTransaction)
         index->begin();
     for (bool ok = cursor.first(); ok; ok = cursor.next()) {
@@ -433,7 +433,7 @@ QsonMap ObjectTable::getObjects(const QString &keyName, const QVariant &keyValue
     //fprintf(stderr, "getObject bdb=%p\n", indexSpec->index->bdb());
     if (indexSpec->lazy)
         updateIndex(indexSpec->index);
-    QBtreeCursor cursor(indexSpec->index->bdb());
+    QBtreeCursor cursor(indexSpec->index->bdb()->btree());
     if (cursor.seekRange(forwardKey)) {
         do {
             QByteArray checkKey;
@@ -508,7 +508,7 @@ void ObjectTable::changesSince(quint32 stateNumber, QMap<quint32, QList<ObjectCh
     QElapsedTimer timer;
     if (gPerformanceLog)
         timer.start();
-    QBtreeCursor cursor(mBdb);
+    QBtreeCursor cursor(mBdb->btree());
     QByteArray baStateKey(5, 0);
     makeStateKey(baStateKey, stateNumber);
 

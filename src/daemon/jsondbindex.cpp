@@ -259,7 +259,7 @@ void JsonDbIndex::checkIndex()
 
     qDebug() << "checkIndex" << mPropertyName;
     int countf = 0;
-    QBtreeCursor cursorf(mBdb.data());
+    QBtreeCursor cursorf(mBdb.data()->btree());
     bool ok = cursorf.first();
     if (ok) {
         countf++;
@@ -282,7 +282,7 @@ void JsonDbIndex::checkIndex()
     qDebug() << "checkIndex" << mPropertyName << "reversed";
     // now check other direction
     int countr = 0;
-    QBtreeCursor cursorr(mBdb.data());
+    QBtreeCursor cursorr(mBdb.data()->btree());
     ok = cursorr.last();
     if (ok) {
         countr++;
@@ -306,7 +306,7 @@ void JsonDbIndex::checkIndex()
 }
 
 JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index)
-    : mCursor(index->bdb())
+    : mCursor(index->bdb()->btree())
 {
 }
 
