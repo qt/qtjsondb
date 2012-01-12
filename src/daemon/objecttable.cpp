@@ -174,6 +174,9 @@ bool ObjectTable::compact()
          it != mIndexes.end();
          ++it) {
         const IndexSpec &indexSpec = it.value();
+        // _uuid index does not have bdb() because it is actually the object table itself
+        if (!indexSpec.index->bdb())
+            continue;
         if (!indexSpec.index->bdb()->compact())
             return false;
     }

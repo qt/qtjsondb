@@ -1780,8 +1780,11 @@ bool JsonDbBtreeStorage::compact()
          ++it) {
         it.value()->compact();
     }
-    return mObjectTable->compact()
-        && mBdbIndexes->compact();
+    bool result = true;
+    result &= mObjectTable->compact();
+    if (mBdbIndexes)
+        result &= mBdbIndexes->compact();
+    return result;
 }
 
 QString JsonDbBtreeStorage::name() const
