@@ -715,65 +715,11 @@ bool JsonDbBtreeStorage::getObject(const ObjectKey &objectKey, QsonMap &object, 
 
 QsonMap JsonDbBtreeStorage::getObjects(const QString &keyName, const QVariant &keyValue, const QString &_objectType)
 {
-    QsonMap resultmap;
-    QsonList objectList;
     const QString &objectType = (keyName == JsonDbString::kTypeStr) ? keyValue.toString() : _objectType;
-    bool typeSpecified = !objectType.isEmpty();
-
     ObjectTable *table = findObjectTable(objectType);
 
     updateView(objectType);
-
-    if (keyName == JsonDbString::kUuidStr) {
-        ObjectKey objectKey(keyValue.toString());
-        QsonList objectList;
-        QsonMap object;
-        bool ok = table->get(objectKey, object);
-        if (ok
-            && (!typeSpecified
-                || (object.valueString(JsonDbString::kTypeStr) == objectType)))
-            objectList.append(object);
-        resultmap.insert(QLatin1String("result"), objectList);
-        resultmap.insert(JsonDbString::kCountStr, objectList.size());
-        return resultmap;
-    }
-
-    const IndexSpec *indexSpec = table->indexSpec(keyName);
-    if (!indexSpec) {
-        qDebug() << "JsonDbBtreeStorage::getObject" << "no index for" << objectType << keyName;
-        resultmap.insert(JsonDbString::kCountStr, 0);
-        resultmap.insert("error", QString("no index for key '%1' object type '%2'").arg(keyName).arg(objectType));
-        return resultmap;
-    }
-
-    if (indexSpec->lazy)
-        updateIndex(table, indexSpec->index);
-    JsonDbIndexCursor cursor(indexSpec->index);
-    if (cursor.seekRange(keyValue)) {
-        do {
-            QVariant key;
-            ObjectKey objectKey;
-            if (!cursor.current(key, objectKey))
-                continue;
-            if (key != keyValue)
-                break;
-
-            QsonMap map;
-            if (table->get(objectKey, map)) {
-                if (map.contains(JsonDbString::kDeletedStr) && map.valueBool(JsonDbString::kDeletedStr, false))
-                    continue;
-                if (typeSpecified && (map.valueString(JsonDbString::kTypeStr) != objectType))
-                    continue;
-
-                objectList.append(map);
-            } else {
-              DBG() << "Failed to get object" << objectKey << table->errorMessage();
-            }
-        } while (cursor.next());
-    }
-    resultmap.insert(QLatin1String("result"), objectList);
-    resultmap.insert(JsonDbString::kCountStr, objectList.size());
-    return resultmap;
+    return table->getObjects(keyName, keyValue, objectType);
 }
 
 QsonMap JsonDbBtreeStorage::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
