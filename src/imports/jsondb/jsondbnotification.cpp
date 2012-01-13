@@ -53,36 +53,67 @@ QT_USE_NAMESPACE_JSONDB
     \since 1.x
 
     This allows to register for different notifications that matches a query in a Partition.
-    Users can connect to onNotification signal which is fired for notifcations matiching the
-    actions & query properties. The notifications can be enabled/disabled by setting the
-    enabled property of the object.
+    Users can connect to onNotification signal which is fired for objects matching the query.
+    The notifications can be enabled/disabled by setting the enabled property.
 
-    \code
+    \qml
     JsonDb.Notification {
-        id: allNotifications
         partition:nokiaPartition
         query: '[?_type="Contact"]'
-        actions : [JsonDb.Notification.Create, JsonDb.Notification.Remove]
         onNotification: {
-           if (action === JsonDb.Notification.Create) {
-               console.log("object" + result._uuid + "was created successfully");
-           }
-           if (action === JsonDb.Notification.Remove) {
-               console.log("object" + result._uuid + "was removed successfully");
-           }
+            switch (action) {
+            case JsonDb.Notification.Create :
+                console.log("{_uuid :" + result._uuid + "} created");
+                break;
+            case JsonDb.Notification.Update :
+                console.log("{_uuid :" + result._uuid + "} was updated");
+                break;
+            }
         }
      }
-    \endcode
+    \endqml
+
+    You can also create notification as a child item of JsonDb.Partition.In this case the partiton
+    property of the notification will be set to this parent JsonDb.Partition.
+    \qml
+    JsonDb.Partition {
+        name: "com.nokia.shared"
+        JsonDb.Notification {
+            query: '[?_type="MyContacts"]'
+            onNotification: {
+                switch (action) {
+                case JsonDb.Notification.Create :
+                    console.log("{_uuid :" + result._uuid + "} created");
+                    break;
+                case JsonDb.Notification.Update :
+                    console.log("{_uuid :" + result._uuid + "} was updated");
+                    break;
+                case JsonDb.Notification.Remove :
+                    console.log("{_uuid :" + result._uuid + "} was removed");
+                    break;
+                }
+            }
+            onStatusChanged: {
+                if (status === JsonDb.Notification.Error) {
+                    console.log("Notification Error " + JSON.stringify(error));
+                }
+            }
+        }
+    }
+    \endqml
 
 */
 
 JsonDbNotify::JsonDbNotify(QObject *parent)
     :QObject(parent)
-    ,completed(false)
-    ,partitionObject(0)
-    ,defaultPartitionObject(0)
-    ,active(true)
+    , completed(false)
+    , partitionObject(0)
+    , defaultPartitionObject(0)
+    , errorCode(0)
+    , objectStatus(Null)
+    , active(true)
 {
+    actionsList << JsonDbNotify::Create << JsonDbNotify::Update<< JsonDbNotify::Remove;
 }
 
 JsonDbNotify::~JsonDbNotify()
@@ -94,16 +125,17 @@ JsonDbNotify::~JsonDbNotify()
 
 /*!
     \qmlproperty string QtJsonDb::Notification::query
-     Holds the query object for the notification.
+     Holds the query string for the notification. The query should be
+    specified in JsonQuery format.
 */
-QVariant JsonDbNotify::query()
+QString JsonDbNotify::query() const
 {
-    return queryObject;
+    return queryString;
 }
 
-void JsonDbNotify::setQuery(const QVariant &newQuery)
+void JsonDbNotify::setQuery(const QString &newQuery)
 {
-    queryObject = newQuery;
+    queryString = newQuery;
     init();
 }
 
@@ -116,10 +148,13 @@ void JsonDbNotify::setQuery(const QVariant &newQuery)
     \o Notification.Update  - Subscribe to update notifications
     \o Notification.Remove - Subscribe to remove notifications
     \endlist
+    By default the object subscribes to all types of notifications.
+    If you need to subscribe only to a subset of actions, it can
+    be done by setting a new actions list.
 
-    \code
+    \qml
     JsonDb.Notification {
-        id: allNotifications
+        id: createRemoveNotifications
         partition:nokiaPartition
         query: '[?_type="Contact"]'
         actions : [JsonDb.Notification.Create, JsonDb.Notification.Remove]
@@ -132,7 +167,7 @@ void JsonDbNotify::setQuery(const QVariant &newQuery)
            }
         }
      }
-    \endcode
+    \endqml
 */
 QVariant JsonDbNotify::actions()
 {
@@ -163,6 +198,9 @@ void JsonDbNotify::partitionNameChanged(const QString &partitionName)
 
 JsonDbPartition* JsonDbNotify::partition()
 {
+    if (!partitionObject)
+        partitionObject = qobject_cast<JsonDbPartition*>(parent());
+
     if (!partitionObject) {
         defaultPartitionObject = new JsonDbPartition();
         setPartition(defaultPartitionObject);
@@ -174,7 +212,9 @@ void JsonDbNotify::setPartition(JsonDbPartition *newPartition)
 {
     if (partitionObject == newPartition)
         return;
-    removeNotifications();
+    if (partitionObject) {
+        partitionObject->removeNotification(this);
+    }
     if (partitionObject == defaultPartitionObject)
         delete defaultPartitionObject;
     partitionObject = newPartition;
@@ -184,86 +224,101 @@ void JsonDbNotify::setPartition(JsonDbPartition *newPartition)
 }
 
 /*!
-    \qmlproperty object QtJsonDb::Notification::enabled
+    \qmlproperty bool QtJsonDb::Notification::enabled
      This flags enables handling of notification. if true (default);
-     otherwise no notification handlers will be called.
+     otherwise the onNotification signal handlers won't be called.
 */
 
-bool JsonDbNotify::enabled()
+bool JsonDbNotify::enabled() const
 {
     return active;
 }
 
 void JsonDbNotify::setEnabled(bool enabled)
 {
-    // ### DO we need to unsubscribe from notification?
+    if (active == enabled)
+        return;
+    JsonDbNotify::Status oldStatus = objectStatus;
+    if (active && parametersReady())  {
+        partitionObject->removeNotification(this);
+        objectStatus = Null;
+        if (objectStatus != oldStatus)
+            emit statusChanged(objectStatus);
+    }
     active = enabled;
+    if (active)
+        init();
 }
 
 
 /*!
     \qmlsignal QtJsonDb::Notification::onNotification(result, action, stateNumber)
 
-    This handler is called when the a notification from the server matches one of the actions
-    registered. The \a result is the object that triggered the notication. The action which
-    caused this notification is passed in the \a action. The \a stateNumber of the partition
-    when othe notification was triggerd.
+    This handler is called when the an object matching the query is created, updated or
+    removed. The \a result is the object that triggered the notication. The action which
+    caused this notification is passed in the \a action. \a stateNumber is the state number
+    of the partition when the notification was triggerd.
 
-    \code
-    JsonDb.Partition {
-        id: nokiaPartition
-        name: "com.nokia.shared"
-    }
+    \qml
     JsonDb.Notification {
-        id:allNotifications
         partition:nokiaPartition
         query: '[?_type="Contact"]'
         onNotification: {
-           if (action === JsonDb.Notification.Create) {
-               console.log("object" + result._uuid + "was created");
-               return;
-           }
-           if (action === JsonDb.Notification.Update) {
-               console.log("object" + result._uuid + "was updated");
-               return;
-           }
-           if (action === JsonDb.Notification.Remove) {
-               console.log("object" + result._uuid + "was removed");
-           }
+            switch (action) {
+            case JsonDb.Notification.Create :
+                console.log("{_uuid :" + result._uuid + "} created");
+                break;
+            case JsonDb.Notification.Update :
+                console.log("{_uuid :" + result._uuid + "} was updated");
+                break;
+            case JsonDb.Notification.Remove :
+                console.log("{_uuid :" + result._uuid + "} was removed");
+                break;
+            }
         }
-
-        onError: {
-            console.log("onError object" + code + message);
+        onStatusChanged: {
+            if (status === JsonDb.Notification.Error)
+              console.log("Notification Error " + JSON.stringify(error));
         }
-
-     }
-
-    \endcode
-
-*/
-
-void JsonDbNotify::emitNotification(const QtAddOn::JsonDb::JsonDbNotification &_notification)
-{
-    if (active) {
-        QJSValue obj = g_declEngine->toScriptValue(QVariant(_notification.object()));
-        emit notification(obj, (Actions)_notification.action(), _notification.stateNumber());
     }
-}
-
-
+    \endqml
+*/
 
 /*!
-    \qmlsignal QtJsonDb::Notification::onError(code, message)
+    \qmlproperty object QtJsonDb::Notification::error
+    \readonly
 
-    This handler is called when there was an error creating the notiication. The \a code
-    is the error code and \a message contains details of the error.
+    This property holds the current error information for the notification object. It contains:
+    \list
+    \o error.code -  code for the current error.
+    \o error.message - detailed explanation of the error
+    \endlist
 */
 
-void JsonDbNotify::emitError(int code, const QString &message)
+QVariantMap JsonDbNotify::error() const
 {
-    if (active) {
-        emit error(code, message);
-    }
+    QVariantMap errorMap;
+    errorMap.insert(QLatin1String("code"), errorCode);
+    errorMap.insert(QLatin1String("message"), errorString);
+    return errorMap;
+}
+
+/*!
+    \qmlproperty enumeration QtJsonDb::Notification::status
+    \readonly
+
+    This property holds the status of the notification object.  It can be one of:
+    \list
+    \o Notification.Null - waiting for component to finish loading or for all the pararamters to be set.
+    \o Notification.Registering - notification is being registered with the server
+    \o Notification.Ready - object is ready, will send notifications
+    \o Notification.Error - an error occurred while registering
+    \endlist
+*/
+
+JsonDbNotify::Status JsonDbNotify::status() const
+{
+    return objectStatus;
 }
 
 void JsonDbNotify::componentComplete()
@@ -274,19 +329,84 @@ void JsonDbNotify::componentComplete()
 
 void JsonDbNotify::init()
 {
-
-    if (!completed || !queryObject.isValid() || !actionsList.count() || !partitionObject) {
+    JsonDbNotify::Status oldStatus = objectStatus;
+    // if partition is not set, use the parent element if it
+    // is an object of type JsonDbPartition.
+    if (!partitionObject) {
+        partitionObject = qobject_cast<JsonDbPartition*>(parent());
+        if (partitionObject) {
+            connect(partitionObject, SIGNAL(nameChanged(const QString&)),
+                this, SLOT(partitionNameChanged(const QString&)));
+        }
+    }
+    if (!parametersReady()) {
+        objectStatus = Null;
+        if (objectStatus != oldStatus)
+            emit statusChanged(objectStatus);
         return;
     }
-    // remove the current notification
-    partitionObject->removeNotification(this);
-    partitionObject->updateNotification(this);
+    if (partitionObject && active) {
+        // remove the current notification
+        partitionObject->removeNotification(this);
+        partitionObject->updateNotification(this);
+        objectStatus = Registering;
+        if (objectStatus != oldStatus)
+            emit statusChanged(objectStatus);
+    }
 }
 
-void  JsonDbNotify::removeNotifications()
+void JsonDbNotify::clearError()
 {
-    if (partitionObject) {
-        partitionObject->removeNotification(this);
+    int oldErrorCode = errorCode;
+    errorCode = 0;
+    errorString.clear();
+    if (oldErrorCode != Error) {
+        emit errorChanged(error());
+    }
+}
+
+bool JsonDbNotify::parametersReady()
+{
+    return (completed && !queryString.isEmpty() && actionsList.count() && partitionObject);
+}
+
+void JsonDbNotify::dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification)
+{
+    Q_UNUSED(notify_uuid);
+    if (objectStatus != Ready) {
+        clearError();
+        objectStatus = Ready;
+        emit statusChanged(objectStatus);
+    }
+    if (active) {
+        QJSValue obj = g_declEngine->toScriptValue(QVariant(_notification.object()));
+        emit notification(obj, (Actions)_notification.action(), _notification.stateNumber());
+    }
+}
+
+void JsonDbNotify::dbNotifyReadyResponse(int id, const QVariant &result)
+{
+    Q_UNUSED(id);
+    Q_UNUSED(result);
+    clearError();
+    if (objectStatus != Ready) {
+        objectStatus = Ready;
+        emit statusChanged(objectStatus);
+    }
+}
+
+void JsonDbNotify::dbNotifyErrorResponse(int id, int code, const QString &message)
+{
+    Q_UNUSED(id);
+    int oldErrorCode = errorCode;
+    errorCode = code;
+    errorString = message;
+    if (objectStatus != Error) {
+        objectStatus = Error;
+        emit statusChanged(objectStatus);
+    }
+    if (oldErrorCode != Error) {
+        emit errorChanged(error());
     }
 }
 

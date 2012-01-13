@@ -71,8 +71,6 @@ JsonDbPartition::JsonDbPartition(const QString &partitionName, QObject *parent)
             this, SLOT(dbResponse(int,const QVariant&)));
     connect(&jsonDb, SIGNAL(error(int,int,QString)),
             this, SLOT(dbErrorResponse(int,int,QString)));
-    connect(&jsonDb, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
-            this, SLOT(dbNotified(QString,QtAddOn::JsonDb::JsonDbNotification)));
 }
 
 JsonDbPartition::~JsonDbPartition()
@@ -434,37 +432,34 @@ int JsonDbPartition::changesSince(int stateNumber,  const QJSValue &options, con
 }
 
 /*!
-    \qmlmethod object QtJsonDb::Partition::createNotification(query, actions, parentItem)
+    \qmlmethod object QtJsonDb::Partition::createNotification(query, parentItem)
 
-    Create the Notification object for the specifed \a actions  matching the \a query.
-    The \a parentItem decides the life time of the returned object. If the \a parentItem
-    is null, the script engine will destroy the object during garbage collection.
+    Create the Notification object for the specifed \a query. The \a parentItem
+    decides the life time of the returned object. If the \a parentItem is null,
+    the script engine will destroy the object during garbage collection.
 
     \code
     import QtJsonDb 1.0 as JsonDb
-    function onCreateNotification(result, action)
+    function onCreateNotification(result, action, stateNumber)
     {
         console.log("create Notification : object " + result._uuid );
         console.log(result._type + result.firstName + " " + result.lastName );
     }
 
     Component.onCompleted: {
-        var createNotification = nokiaPartition.createNotification('[?_type="Contact"]',
-                                        JsonDb.Notification.Create, topLevelItem);
+        var createNotification = nokiaPartition.createNotification('[?_type="Contact"]', topLevelItem);
         createNotification.notification.connect(onCreateNotification);
-
     }
     \endcode
     \sa QtJsonDb::Notification
 
 */
 
-JsonDbNotify* JsonDbPartition::createNotification(const QJSValue &query, const QJSValue &actions, QObject *parentItem)
+JsonDbNotify* JsonDbPartition::createNotification(const QJSValue &query, QObject *parentItem)
 {
     JsonDbNotify* notify = new JsonDbNotify(parentItem);
     notify->setPartition(this);
     notify->setQuery(query.toString());
-    notify->setActions(actions.toVariant());
     notify->componentComplete();
     return notify;
 }
@@ -544,17 +539,19 @@ JsonDbChangesSinceObject* JsonDbPartition::createChangesSince(int stateNumber, c
     return changesSinceObject;
 }
 
+QDeclarativeListProperty<QObject> JsonDbPartition::childElements()
+{
+    return QDeclarativeListProperty<QObject>(this, childQMLElements);
+}
+
 void JsonDbPartition::updateNotification(JsonDbNotify *notify)
 {
-    JsonDbClient::NotifyTypes notifyActions;
-    QVariantList actionList = notify->actions().toList();
-    if (actionList.contains(JsonDbNotify::Create))
-        notifyActions |= JsonDbClient::NotifyCreate;
-    if (actionList.contains(JsonDbNotify::Update))
-        notifyActions |= JsonDbClient::NotifyUpdate;
-    if (actionList.contains(JsonDbNotify::Remove))
-        notifyActions |= JsonDbClient::NotifyRemove;
-    notify->uuid= jsonDb.registerNotification(notifyActions, notify->query().toString(), _name);
+    JsonDbClient::NotifyTypes notifyActions = JsonDbClient::NotifyCreate
+            | JsonDbClient::NotifyUpdate| JsonDbClient::NotifyRemove;
+    notify->uuid= jsonDb.registerNotification(notifyActions, notify->query(), _name
+                                              , notify, SLOT(dbNotified(QString,QtAddOn::JsonDb::JsonDbNotification))
+                                              , notify, SLOT(dbNotifyReadyResponse(int,QVariant))
+                                              , SLOT(dbNotifyErrorResponse(int,int,QString)));
     notifications.insert(notify->uuid, notify);
 }
 
@@ -711,15 +708,5 @@ void JsonDbPartition::dbErrorResponse(int id, int code, const QString &message)
         callErrorCallback(findCallbacks, id, code, message);
     } else if (changesCallbacks.contains(id)) {
         callErrorCallback(changesCallbacks, id, code, message);
-    }
-}
-
-void JsonDbPartition::dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &notification)
-{
-    if (notifications.contains(notify_uuid)) {
-        QPointer<JsonDbNotify> notify = notifications[notify_uuid];
-        if (notify) {
-            notify->emitNotification(notification);
-        }
     }
 }

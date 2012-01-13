@@ -146,8 +146,6 @@ ComponentData *TestJsonDbNotification::createComponent()
         qDebug() << componentData->component->errors();
     QObject::connect(componentData->qmlElement, SIGNAL(notificationSignal(QVariant, int, int)),
                      this, SLOT(notificationSlot(QVariant, int, int)));
-    QObject::connect(componentData->qmlElement, SIGNAL(error(int, QString)),
-                     this, SLOT(errorSlot(int, QString)));
     mComponents.append(componentData);
     return componentData;
 }
@@ -332,7 +330,7 @@ void TestJsonDbNotification::multipleObjectNotifications()
 
 void TestJsonDbNotification::createNotification()
 {
-    const QString createString = QString("createNotification('[?_type=\"%1\"]', [1,2,4], null);");
+    const QString createString = QString("createNotification('[?_type=\"%1\"]', null);");
     ComponentData *partition = createPartitionComponent();
     if (!partition || !partition->qmlElement) return;
     QString expression;

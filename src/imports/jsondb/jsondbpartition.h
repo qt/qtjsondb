@@ -49,6 +49,7 @@
 #include <QPointer>
 #include <QJSValue>
 #include <QJSEngine>
+#include <QDeclarativeListProperty>
 
 #include "jsondb-client.h"
 
@@ -67,7 +68,7 @@ public:
     JsonDbPartition(const QString &partitionName=QString(), QObject *parent=0);
     ~JsonDbPartition();
 
-    Q_PROPERTY(QString name READ name WRITE setName)
+    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
 
     Q_INVOKABLE int create(const QJSValue &object,
                            const QJSValue &options = QJSValue(),
@@ -90,7 +91,6 @@ public:
                                  const QJSValue &callback = QJSValue());
 
     Q_INVOKABLE JsonDbNotify* createNotification(const QJSValue &query,
-                                                 const QJSValue &actions,
                                                  QObject *parentItem);
 
     Q_INVOKABLE JsonDbQueryObject* createQuery(const QJSValue &query,
@@ -104,6 +104,10 @@ public:
 
     QString name() const;
     void setName(const QString &partitionName);
+
+    Q_PROPERTY(QDeclarativeListProperty<QObject> childElements READ childElements)
+    Q_CLASSINFO("DefaultProperty", "childElements")
+    QDeclarativeListProperty<QObject> childElements();
 
 Q_SIGNALS:
     void nameChanged(const QString &partitionName);
@@ -120,6 +124,7 @@ private:
     QMap<int, QJSValue> findCallbacks;
     QMap<int, QJSValue> changesCallbacks;
     QMap<QString, QPointer<JsonDbNotify> > notifications;
+    QList<QObject*> childQMLElements;
 
     void updateNotification(JsonDbNotify *notify);
     void removeNotification(JsonDbNotify *notify);
@@ -132,7 +137,6 @@ private:
 private Q_SLOTS:
     void dbResponse(int id, const QVariant &result);
     void dbErrorResponse(int id, int code, const QString &message);
-    void dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &notification);
 
     friend class JsonDatabase;
     friend class JsonDbNotify;

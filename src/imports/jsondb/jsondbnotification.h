@@ -62,18 +62,23 @@ class JsonDbNotify : public QObject, public QDeclarativeParserStatus
 
 public:
     Q_ENUMS(Actions)
-    enum Actions { Create = 1, Update = 2, Remove = 4 };
+    Q_ENUMS(Status)
 
-    Q_PROPERTY(QVariant query READ query WRITE setQuery)
+    enum Actions { Create = 1, Update = 2, Remove = 4 };
+    enum Status { Null, Registering, Ready, Error };
+
+    Q_PROPERTY(QString query READ query WRITE setQuery)
     Q_PROPERTY(QVariant actions READ actions WRITE setActions)
     Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled)
+    Q_PROPERTY(Status status READ status NOTIFY statusChanged)
+    Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
 
     JsonDbNotify(QObject *parent = 0);
     ~JsonDbNotify();
 
-    QVariant query();
-    void setQuery(const QVariant &newQuery);
+    QString query() const;
+    void setQuery(const QString &newQuery);
 
     QVariant actions();
     void setActions(const QVariant &newActions);
@@ -81,36 +86,42 @@ public:
     JsonDbPartition* partition();
     void setPartition(JsonDbPartition* newPartition);
 
-    bool enabled();
+    bool enabled() const;
     void setEnabled(bool enabled);
+
+    JsonDbNotify::Status status() const;
+    QVariantMap error() const;
 
     void classBegin() {}
     void componentComplete();
 
 Q_SIGNALS:
     void notification(const QJSValue &result, Actions action, int stateNumber);
-    void error(int code, const QString &message);
+    void statusChanged(JsonDbNotify::Status newStatus);
+    void errorChanged(QVariantMap newError);
 
 private Q_SLOTS:
     void partitionNameChanged(const QString &partitionName);
+    void dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification);
+    void dbNotifyReadyResponse(int id, const QVariant &result);
+    void dbNotifyErrorResponse(int id, int code, const QString &message);
 
 private:
     bool completed;
-    QVariant queryObject;
+    QString queryString;
     QVariantList actionsList;
     QString uuid;
     QString version;
     QPointer<JsonDbPartition> partitionObject;
     QPointer<JsonDbPartition> defaultPartitionObject;
-
+    int errorCode;
+    QString errorString;
+    Status objectStatus;
     bool active;
 
     void init();
-    void emitNotification(const QtAddOn::JsonDb::JsonDbNotification&);
-    void removeNotifications();
-    void emitError(int code, const QString &message);
-
-
+    void clearError();
+    inline bool parametersReady();
     friend class JsonDbPartition;
     friend class JsonDbPartitionPrivate;
 };

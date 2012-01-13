@@ -49,6 +49,16 @@ Item {
     property var nokiaPartition;
     property var nokiaPartition2;
 
+    function appendLog(message)
+    {
+        logModel.append({"message" :message});
+    }
+
+    function appendLog2(message)
+    {
+        logModel2.append({"message" :message});
+    }
+
     JsonDb.Partition {
         id: systemPartition
         name: "com.nokia.qtjsondb.System"
@@ -61,11 +71,58 @@ Item {
         sortOrder:"[/firstName]"
     }
 
+    // Logs notifications of type "MyContacts" in partition "com.nokia.shared"
+    JsonDb.Partition {
+        name: "com.nokia.shared"
+        JsonDb.Notification {
+            query: '[?_type="MyContacts"]'
+            onNotification: {
+                switch (action) {
+                case JsonDb.Notification.Create :
+                    appendLog("{_uuid :" + result._uuid + "} created");
+                    break;
+                case JsonDb.Notification.Update :
+                    appendLog("{_uuid :" + result._uuid + "} was updated");
+                    break;
+                case JsonDb.Notification.Remove :
+                    appendLog("{_uuid :" + result._uuid + "} was removed");
+                    break;
+                }
+            }
+            onStatusChanged: {
+                if (status === JsonDb.Notification.Error) {
+                    appendLog("Notification Error " + JSON.stringify(error));
+                }
+            }
+        }
+    }
+
+    // Logs notifications of type "MyContacts" in partition "com.nokia.shared2"
+    function onNotification(result, action, stateNumber)
+    {
+        switch (action) {
+        case JsonDb.Notification.Create :
+            appendLog2("{_uuid :" + result._uuid + "} created");
+            break;
+        case JsonDb.Notification.Update :
+            appendLog2("{_uuid :" + result._uuid + "} was updated");
+            break;
+        case JsonDb.Notification.Remove :
+            appendLog2("{_uuid :" + result._uuid + "} was removed");
+            break;
+        }
+    }
+
     function partitionCreateCallback(error, meta, response) {
-        console.log("Partitions Created # "+ response.length);
         nokiaPartition  = JsonDb.partition("com.nokia.shared", topLevelItem);
         nokiaPartition2  = JsonDb.partition("com.nokia.shared2", topLevelItem);
         contacts.partitions = [nokiaPartition, nokiaPartition2];
+        // Watch for MyContact objects in 'com.nokia.shared2'
+        var createNotification = nokiaPartition2.createNotification('[?_type="MyContacts"]', topLevelItem);
+        createNotification.notification.connect(onNotification);
+        // Set log area title
+        logRect.title = "Notifications  from: " + nokiaPartition.name;
+        logRect2.title = "Notifications  from: " + nokiaPartition2.name;
     }
 
     function checkForPartitions(error, result) {
@@ -76,7 +133,6 @@ Item {
             var foundNokiaPartition = false;
             var foundNokiaPartition2 = false;
             for (var i = 0; i < result.length; i++) {
-                console.log("["+i+"] : "+ result[i].name);
                 if (result[i].name === "com.nokia.shared") {
                     foundNokiaPartition = true;
                 } else if (result[i].name === "com.nokia.shared2") {
@@ -94,7 +150,6 @@ Item {
                 idx++;
             }
             if (idx>0) {
-                console.log("Creating partitions");
                 systemPartition.create(partitionList, partitionCreateCallback);
             } else {
                 partitionCreateCallback(false, {count:0}, []);
@@ -111,14 +166,6 @@ Item {
         anchors.top: parent.top
         width: parent.width/4
         text: "Add contact"
-        function createCallback(error, meta, response) {
-            console.log("Response from create");
-            console.log("meta.id = "+meta.id +" count = "+response.length);
-            for (var i = 0; i < response.length; i++) {
-                console.log("response._uuid = "+response[i]._uuid +" ._version = "+response[i]._version);
-            }
-
-        }
         onClicked: {
             var firstNames = ["Malcolm", "Zoe", "Hoban", "Inara", "Jayne", "Kaylee", "Simon", "River", "Shepard"]
             var lastNames = ["Reinolds", "Washburn", "Serra", "Cobb", "Frye", "Tam", "Book"]
@@ -126,8 +173,8 @@ Item {
 
             var firstName = firstNames[rand(firstNames.length)]
             var lastName = lastNames[rand(lastNames.length)]
-            nokiaPartition.create({ "_type":"MyContacts", "firstName":firstName, "lastName":lastName }, createCallback);
-            nokiaPartition2.create({ "_type":"MyContacts", "firstName":lastName, "lastName":firstName }, createCallback);
+            nokiaPartition.create({ "_type":"MyContacts", "firstName":firstName, "lastName":lastName });
+            nokiaPartition2.create({ "_type":"MyContacts", "firstName":lastName, "lastName":firstName });
         }
     }
     Button {
@@ -137,17 +184,11 @@ Item {
         width: parent.width/5
         text: "Delete item"
 
-        function removeCallback(error, meta, response) {
-            console.log("Response from remove");
-            console.log("meta.id = "+meta.id +" count = "+response.length);
-            console.log("response._uuid = "+response[0]._uuid);
-        }
-
         onClicked: {
             var nokiaDb = contacts.getPartition(listView.currentIndex);
             nokiaDb.remove({"_uuid":contacts.get(listView.currentIndex, "_uuid"),
                                "_version":contacts.get(listView.currentIndex, "_version"),
-                           }, removeCallback)
+                           })
         }
     }
 
@@ -158,23 +199,17 @@ Item {
         anchors.left: buttonDelete.right
         width: parent.width/5
         text: "Update firstName"
-        function updateCallback(error, meta, response) {
-            console.log("Response from update");
-            console.log("meta.id = "+meta.id +" count = "+response.length);
-            console.log("response._uuid = "+response[0]._uuid +" ._version = "+response[0]._version);
-        }
-
         onClicked: {
             var item = contacts.get(listView.currentIndex);
             item.object.firstName = item.object.firstName+ "*";
-            item.partition.update(item.object, updateCallback);
+            item.partition.update(item.object);
         }
     }
 
     ListView {
         id: listView
         anchors.top: buttonAdd.bottom
-        anchors.bottom: statusText.top
+        anchors.bottom: logRect.top
         anchors.topMargin: 10
         anchors.bottomMargin: 10
         width: parent.width
@@ -184,7 +219,7 @@ Item {
         delegate: Row {
             spacing: 10
             Text {
-                text: firstName + ", " + lastName
+                text: firstName + ", " + lastName + "  " + _uuid
                 MouseArea {
                     anchors.fill: parent;
                     onPressed: {
@@ -196,14 +231,46 @@ Item {
     }
 
     Rectangle {
-        id: statusText
+        id: logRect
+        property string title
         anchors.bottom: parent.bottom
-        width: parent.width
-        height: 20
+        width: parent.width/2
+        height: parent.height/2
         color:  "lightgray"
-        Text {
-            anchors.centerIn: parent
-            text: "rowCount : " + contacts.rowCount + "  state : " + contacts.state
+        ListModel {
+            id:logModel
+         }
+        ListView {
+            anchors.fill: parent
+            anchors.margins: 5
+            model: logModel
+            header: Text {text:logRect.title}
+            delegate: Text {
+                font.pointSize: 8
+                text: message
+            }
+        }
+    }
+    Rectangle {
+        id: logRect2
+        property string title
+        anchors.bottom: parent.bottom
+        anchors.left: logRect.right
+        anchors.right: parent.right
+        height: parent.height/2
+        color:  "lightyellow"
+        ListModel {
+            id:logModel2
+         }
+        ListView {
+            anchors.fill: parent
+            anchors.margins: 5
+            model: logModel2
+            header: Text {text:logRect2.title}
+            delegate: Text {
+                font.pointSize: 8
+                text: message
+            }
         }
     }
 }
