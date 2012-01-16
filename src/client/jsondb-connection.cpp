@@ -45,6 +45,8 @@
 #include "jsondb-connection_p.h"
 #include "jsondb-connection_p_p.h"
 
+#include "qjsonobject.h"
+
 QT_BEGIN_NAMESPACE_JSONDB
 
 Q_GLOBAL_STATIC(JsonDbConnection, qtjsondbConnection)
@@ -127,20 +129,9 @@ bool JsonDbConnection::waitForBytesWritten(int msecs)
     return false;
 }
 
-QVariantMap JsonDbConnection::makeFindRequest( const QVariant& object )
+QVariantMap JsonDbConnection::makeQueryRequest(const QString &queryString, int offset, int limit, const QString &partitionName)
 {
-    QVariantMap request;
-    request.insert(JsonDbString::kActionStr, JsonDbString::kFindStr);
-    request.insert(JsonDbString::kObjectStr, object);
-    return request;
-}
-
-QsonObject JsonDbConnection::makeFindRequest( const QsonObject& object )
-{
-    QsonMap request;
-    request.insert(JsonDbString::kActionStr, JsonDbString::kFindStr);
-    request.insert(JsonDbString::kObjectStr, object);
-    return request;
+    return makeQueryRequest(queryString, offset, limit, QVariantMap(), partitionName);
 }
 
 QVariantMap JsonDbConnection::makeQueryRequest(const QString &queryString, int offset, int limit,
@@ -189,16 +180,6 @@ QVariantMap JsonDbConnection::makeRemoveRequest(const QVariant &object, const QS
     return request;
 }
 
-QVariantMap JsonDbConnection::makeRemoveRequest(const QString &queryString)
-{
-    QVariantMap request;
-    request.insert(JsonDbString::kActionStr, JsonDbString::kRemoveStr);
-    QVariantMap object;
-    object.insert(JsonDbString::kQueryStr, queryString);
-    request.insert(JsonDbString::kObjectStr, object);
-    return request;
-}
-
 QVariantMap JsonDbConnection::makeNotification(const QString &query, const QVariantList &actions,
                                                const QString &partitionName)
 {
@@ -243,7 +224,7 @@ JsonDbConnection::JsonDbConnection(QObject *parent)
 JsonDbConnection::~JsonDbConnection()
 {
     Q_D(JsonDbConnection);
-    // QsonStreams don't own the socket
+    // JsonStreams don't own the socket
     d->mStream.setDevice(0);
 }
 
@@ -333,16 +314,15 @@ void JsonDbConnectionPrivate::_q_onConnected()
         mStream.setDevice(socket);
     else
         mStream.setDevice(tcpSocket);
-    QObject::connect(&mStream, SIGNAL(receive(QsonObject)), q, SLOT(_q_onReceiveMessage(QsonObject)));
-    QObject::connect(&mStream, SIGNAL(readyWrite()), q, SIGNAL(readyWrite()));
+    QObject::connect(&mStream, SIGNAL(receive(QJsonObject)), q, SLOT(_q_onReceiveMessage(QJsonObject)));
 
     if (!mToken.isEmpty()) {
-        QsonMap request;
+        QJsonObject request;
         tokenRequestId = q->makeRequestId();
         request.insert(JsonDbString::kIdStr, tokenRequestId);
         request.insert(JsonDbString::kActionStr, JsonDbString::kTokenStr);
         request.insert(JsonDbString::kObjectStr, mToken);
-        mStream << request;
+        mStream.send(request);
 
         status = JsonDbConnection::Authenticating;
         emit q->statusChanged();
@@ -408,29 +388,11 @@ int JsonDbConnection::request(const QVariantMap &dbrequest)
     QVariantMap r = dbrequest;
     int newid = makeRequestId();
     r.insert(JsonDbString::kIdStr, newid);
-    if (!d->mStream.send(variantToQson(r)))
+    if (!d->mStream.send(QJsonObject::fromVariantMap(r)))
         return -1;
     d->mId = newid;
     return newid;
 }
-
-/*!
-    Sends request \a dbrequest to the database and returns the request identification number.
-*/
-int JsonDbConnection::request(const QsonObject &dbrequest)
-{
-    if(!isConnected())
-        return -1;
-    Q_D(JsonDbConnection);
-    QsonMap r = dbrequest.toMap();
-    int newid = makeRequestId();
-    r.insert(JsonDbString::kIdStr, newid);
-    if (!d->mStream.send(r))
-        return -1;
-    d->mId = newid;
-    return newid;
-}
-
 
 /*!
     Sends \a request with a given \a requestId to the database.
@@ -440,12 +402,13 @@ int JsonDbConnection::request(const QsonObject &dbrequest)
 bool JsonDbConnection::request(int requestId, const QVariantMap &request)
 {
     Q_D(JsonDbConnection);
-    if (status() != JsonDbConnection::Ready)
+    if (status() != JsonDbConnection::Ready) {
         return false;
+    }
 
     QVariantMap r = request;
     r.insert(JsonDbString::kIdStr, requestId);
-    if (!d->mStream.send(variantToQson(r)))
+    if (!d->mStream.send(QJsonObject::fromVariantMap(r)))
         return false;
     return true;
 }
@@ -459,14 +422,12 @@ int JsonDbConnection::makeRequestId()
 }
 
 
-void JsonDbConnectionPrivate::_q_onReceiveMessage(const QsonObject &msg)
+void JsonDbConnectionPrivate::_q_onReceiveMessage(const QJsonObject &qjsonMsg)
 {
     Q_Q(JsonDbConnection);
-    QsonMap qsonMsg = msg.toMap();
-
-    int id = qsonMsg.valueInt(JsonDbString::kIdStr);
+    int id = qjsonMsg.value(JsonDbString::kIdStr).toDouble();
     if (id == tokenRequestId) {
-        bool error = !qsonMsg.isNull(QLatin1String("error"));
+        bool error = qjsonMsg.value(JsonDbString::kErrorStr).type() != QJsonValue::Null;
         // if token auth failed, socket will be disconnected.
         if (!error) {
             status = JsonDbConnection::Ready;
@@ -475,22 +436,18 @@ void JsonDbConnectionPrivate::_q_onReceiveMessage(const QsonObject &msg)
         }
     }
 
-    if (qsonMsg.contains(JsonDbString::kNotifyStr)) {
-        QsonMap nmap = qsonMsg.subObject(JsonDbString::kNotifyStr).toMap();
-        emit q->notified(qsonMsg.valueString(JsonDbString::kUuidStr),
-                         qsonToVariant(nmap.subObject(JsonDbString::kObjectStr)),
-                         nmap.valueString(JsonDbString::kActionStr));
-        emit q->notified(qsonMsg.valueString(JsonDbString::kUuidStr),
-                         nmap.subObject(JsonDbString::kObjectStr),
-                         nmap.valueString(JsonDbString::kActionStr));
+    if (qjsonMsg.contains(JsonDbString::kNotifyStr)) {
+        QJsonObject nmap = qjsonMsg.value(JsonDbString::kNotifyStr).toObject();
+        emit q->notified(qjsonMsg.value(JsonDbString::kUuidStr).toString(),
+                         nmap.value(JsonDbString::kObjectStr).toVariant(),
+                         nmap.value(JsonDbString::kActionStr).toString());
     } else {
-        QsonObject qsonResult = qsonMsg.subObject(JsonDbString::kResultStr);
-        QVariantMap result = qsonToVariant(qsonResult).toMap();
-        if (result.size()) {
-            emit q->response(id, qsonResult);
+        QJsonValue qjsonResult = qjsonMsg.value(JsonDbString::kResultStr);
+        if (qjsonResult.type() == QJsonValue::Object) {
+            QVariantMap result = qjsonResult.toObject().toVariantMap();
             emit q->response(id, result);
         } else {
-            QVariantMap emap  = qsonToVariant(qsonMsg.subObject(JsonDbString::kErrorStr)).toMap();
+            QVariantMap emap  = qjsonMsg.value(JsonDbString::kErrorStr).toObject().toVariantMap();
             emit q->error(id,
                           emap.value(JsonDbString::kCodeStr).toInt(),
                           emap.value(JsonDbString::kMessageStr).toString());
@@ -542,32 +499,6 @@ QVariant JsonDbConnection::sync(const QVariantMap &dbrequest)
 }
 
 /*!
-  \deprecated
-
-  Sends request \a dbrequest to the database, waits synchronously for it to complete, and returns the response.
-
-  This operation creates a new thread with a new connection to the
-  database and blocks the thread in which it is running. This should
-  only be used from agents and daemons. It should never be called from
-  a user interface thread.
-*/
-QsonObject JsonDbConnection::sync(const QsonMap &dbrequest)
-{
-    QsonObject result;
-    QThread syncThread;
-    JsonDbSyncCall *call = new JsonDbSyncCall(&dbrequest, &result);
-
-    connect(&syncThread, SIGNAL(started()),
-            call, SLOT(createSyncQsonRequest()));
-    connect(&syncThread, SIGNAL(finished()),
-            call, SLOT(deleteLater()));
-    call->moveToThread(&syncThread);
-    syncThread.start();
-    syncThread.wait();
-    return result;
-}
-
-/*!
     Sets the security token for this connection.
 */
 void JsonDbConnection::setToken(const QString &token)
@@ -598,17 +529,12 @@ bool JsonDbConnection::isConnected() const
 */
 
 JsonDbSyncCall::JsonDbSyncCall(const QVariantMap &dbrequest, QVariant &result)
-    : mDbRequest(&dbrequest), mDbQsonRequest(0), mResult(&result), mQsonResult(0), mSyncJsonDbConnection(0)
+    : mDbRequest(&dbrequest), mResult(&result), mSyncJsonDbConnection(0)
 {
 }
 
 JsonDbSyncCall::JsonDbSyncCall(const QVariantMap *dbrequest, QVariant *result)
-    : mDbRequest(dbrequest), mDbQsonRequest(0), mResult(result), mQsonResult(0), mSyncJsonDbConnection(0)
-{
-}
-
-JsonDbSyncCall::JsonDbSyncCall(const QsonMap *dbrequest, QsonObject *result)
-    : mDbRequest(0), mDbQsonRequest(dbrequest), mResult(0), mQsonResult(result), mSyncJsonDbConnection(0)
+    : mDbRequest(dbrequest), mResult(result), mSyncJsonDbConnection(0)
 {
 }
 
@@ -630,31 +556,10 @@ void JsonDbSyncCall::createSyncRequest()
     mId = mSyncJsonDbConnection->request(*mDbRequest);
 }
 
-void JsonDbSyncCall::createSyncQsonRequest()
-{
-    mSyncJsonDbConnection = new JsonDbConnection;
-    mSyncJsonDbConnection->connectToServer();
-
-    connect(mSyncJsonDbConnection, SIGNAL(response(int,QsonObject)),
-            this, SLOT(handleResponse(int,QsonObject)));
-    connect(mSyncJsonDbConnection, SIGNAL(error(int,int,QString)),
-            this, SLOT(handleError(int,int,QString)));
-    mId = mSyncJsonDbConnection->request(*mDbQsonRequest);
-}
-
-
 void JsonDbSyncCall::handleResponse(int id, const QVariant& data)
 {
     if (id == mId) {
         *mResult  = data;
-        QThread::currentThread()->quit();
-    }
-}
-
-void JsonDbSyncCall::handleResponse(int id, const QsonObject& data)
-{
-    if (id == mId) {
-        *mQsonResult  = data;
         QThread::currentThread()->quit();
     }
 }

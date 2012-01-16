@@ -103,8 +103,9 @@ QString JsonDbQueryTokenizer::pop()
 
 QString JsonDbQueryTokenizer::peek()
 {
-    if (mNextToken.isEmpty())
+    if (mNextToken.isEmpty()) {
         mNextToken = getNextToken();
+    }
     return mNextToken;
 }
 
@@ -182,7 +183,7 @@ JsonDbQuery::~JsonDbQuery()
     orderTerms.clear();
 }
 
-QVariant JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, QsonMap &bindings, bool *ok)
+QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, QJsonObject &bindings, bool *ok)
 {
     const ushort trueLiteral[] = {'t','r','u','e', 0};
     const ushort falseLiteral[] = {'f','a','l','s','e', 0};
@@ -214,8 +215,8 @@ QVariant JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, Qso
         break;
     case '%':
     {
-        const QString name = json.mid(1); // TODO use .midRef()?
-        QVariant value = qsonToVariant(bindings.value<QsonElement>(name));
+        const QString name = json.mid(1);
+        QJsonValue value = bindings.value(name);
         term->setValue(value);
         break;
     }
@@ -235,7 +236,7 @@ QVariant JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, Qso
     return term->value();
 }
 
-JsonDbQuery JsonDbQuery::parse(const QString &query, QsonMap &bindings)
+JsonDbQuery JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
 {
     JsonDbQuery parsedQuery;
     parsedQuery.query = query;
@@ -310,7 +311,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QsonMap &bindings)
                     QString value = tokenizer.pop();
                     bool ok = true;;
                     if (value == "[") {
-                        QVariantList values;
+                        QJsonArray values;
                         while (1) {
                             value = tokenizer.pop();
                             if (value == "]")
@@ -391,11 +392,11 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QsonMap &bindings)
             }
             if (gDebug) qDebug() << "isListObject" << isListObject << parsedQuery.mapExpressionList;
             if (isListObject)
-                parsedQuery.resultType = QVariant::List;
+                parsedQuery.resultType = QJsonValue::Array;
             else if (isMapObject)
-                parsedQuery.resultType = QVariant::Map;
+                parsedQuery.resultType = QJsonValue::Object;
             else
-                parsedQuery.resultType = QVariant::String;
+                parsedQuery.resultType = QJsonValue::String;
         } else if ((token == "/") || (token == "\\") || (token == ">") || (token == "<")) {
             QString ordering = token;
             OrderTerm term;
@@ -453,7 +454,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QsonMap &bindings)
     return parsedQuery;
 }
 
-bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCache, JsonDbBtreeStorage *storage) const
+bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbBtreeStorage *storage) const
 {
     for (int i = 0; i < queryTerms.size(); i++) {
         const OrQueryTerm &orQueryTerm = queryTerms[i];
@@ -461,11 +462,11 @@ bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCa
         foreach (const QueryTerm &term, orQueryTerm.terms()) {
             const QString &joinPropertyName = term.joinField();
             const QString &op = term.op();
-            const QVariant &termValue = term.value();
+            const QJsonValue &termValue = term.value();
 
-            QVariant objectFieldValue;
+            QJsonValue objectFieldValue;
             if (!joinPropertyName.isEmpty()) {
-                QsonMap joinedObject = object;
+                JsonDbObject joinedObject = object;
                 const QVector<QStringList> &joinPaths = term.joinPaths();
                 for (int j = 0; j < joinPaths.size(); j++) {
                     if (!joinPaths[j].size()) {
@@ -486,16 +487,8 @@ bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCa
             }
 
             if ((op == "=") || (op == "==")) {
-                if (termValue.type() == QVariant::Int) {
-                    if (objectFieldValue.toInt() == termValue.toInt())
+                if (objectFieldValue == termValue)
                         matches = true;
-                } else if (termValue.type() == QVariant::Double) {
-                    if (objectFieldValue.toDouble() == termValue.toDouble())
-                        matches = true;
-                } else {
-                    if (objectFieldValue == termValue)
-                        matches = true;
-                }
             } else if ((op == "<>") || (op == "!=")) {
                 if (objectFieldValue != termValue)
                     matches = true;
@@ -504,81 +497,34 @@ bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCa
                 if (term.regExpConst().exactMatch(objectFieldValue.toString()))
                     matches = true;
             } else if (op == "<=") {
-                if (objectFieldValue.type() == QVariant::Double) {
-                    if (objectFieldValue.toDouble() <= termValue.toDouble())
-                        matches = true;
-                } else if (objectFieldValue.type() == QVariant::Bool) {
-                    if (objectFieldValue.toBool() <= termValue.toBool())
-                        matches = true;
-                } else if (objectFieldValue.type() == QVariant::Int){
-                    if (objectFieldValue.toInt() <= termValue.toInt())
-                        matches = true;
-                } else {
-                    if (objectFieldValue.toString() <= termValue.toString())
-                        matches = true;
-                }
+                matches = lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
             } else if (op == "<") {
-                if (objectFieldValue.type() == QVariant::Double) {
-                    if (objectFieldValue.toDouble() < termValue.toDouble())
-                        matches = true;
-                } else if (objectFieldValue.type() == QVariant::Bool) {
-                    if (objectFieldValue.toBool() < termValue.toBool())
-                        matches = true;
-                } else if (objectFieldValue.type() == QVariant::Int){
-                    if (objectFieldValue.toInt() < termValue.toInt())
-                        matches = true;
-                } else {
-                    if (objectFieldValue.toString() < termValue.toString())
-                        matches = true;
-                }
+                matches = lessThan(objectFieldValue, termValue);
             } else if (op == ">=") {
-                if (objectFieldValue.type() == QVariant::Double) {
-                    if (objectFieldValue.toDouble() >= termValue.toDouble())
-                        matches = true;
-                } else if (objectFieldValue.type() == QVariant::Bool) {
-                    if (objectFieldValue.toBool() >= termValue.toBool())
-                        matches = true;
-                } else if (objectFieldValue.type() == QVariant::Int){
-                    if (objectFieldValue.toInt() >= termValue.toInt())
-                        matches = true;
-                } else {
-                    if (objectFieldValue.toString() >= termValue.toString())
-                        matches = true;
-                }
+                matches = greaterThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
             } else if (op == ">") {
-                if (objectFieldValue.type() == QVariant::Double) {
-                    if (objectFieldValue.toDouble() > termValue.toDouble())
-                        matches = true;
-                } else if (objectFieldValue.type() == QVariant::Bool) {
-                    if (objectFieldValue.toBool() > termValue.toBool())
-                        matches = true;
-                } else if (objectFieldValue.type() == QVariant::Int){
-                    if (objectFieldValue.toInt() > termValue.toInt())
-                        matches = true;
-                } else {
-                    if (objectFieldValue.toString() > termValue.toString())
-                        matches = true;
-                }
+                matches = greaterThan(objectFieldValue, termValue);
             } else if (op == "exists") {
-                if (objectFieldValue.isValid())
+                if (objectFieldValue.type() != QJsonValue::Undefined)
                     matches = true;
             } else if (op == "in") {
                 if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "in" << termValue
-                                << termValue.toList().contains(objectFieldValue.toString());
-                if (termValue.toList().contains(objectFieldValue.toString()))
+                                << termValue.toArray().contains(objectFieldValue);
+                if (termValue.toArray().contains(objectFieldValue))
                     matches = true;
             } else if (op == "notIn") {
                 if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "notIn" << termValue
-                                << !termValue.toList().contains(objectFieldValue.toString());
-                if (!termValue.toList().contains(objectFieldValue.toString()))
+                                << !termValue.toArray().contains(objectFieldValue);
+                if (!termValue.toArray().contains(objectFieldValue))
                     matches = true;
             } else if (op == "contains") {
                 if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "contains" << termValue
-                                << objectFieldValue.toList().contains(termValue);
-                if (objectFieldValue.toList().contains(termValue))
+                                << objectFieldValue.toArray().contains(termValue);
+                if (objectFieldValue.toArray().contains(termValue))
                     matches = true;
             } else if (op == "startsWith") {
-                if (objectFieldValue.toString().startsWith(termValue.toString()))
+                if ((objectFieldValue.type() == QJsonValue::String)
+                    && objectFieldValue.toString().startsWith(termValue.toString()))
                     matches = true;
             } else {
                 qCritical() << "match" << "unhandled term" << term.propertyName() << term.op() << term.value() << term.joinField();
@@ -594,36 +540,12 @@ bool JsonDbQuery::match(const QsonMap &object, QHash<QString, QsonMap> *objectCa
 
 QueryTerm::QueryTerm()
     : mJoinPaths()
-    , mRegExp()
 {
 }
-#if 0
-QueryTerm::QueryTerm(const QueryTerm &other)
-    : mPropertyName(other.mPropertyName)
-    , mFieldPath(other.mFieldPath)
-    , mOp(other.mOp)
-    , mJoinField(other.mJoinField)
-    , mJoinPaths(other.mJoinPaths)
-    , mValue(other.mValue)
-    , mRegExp()
-{
-}
-
-QueryTerm &QueryTerm::operator=(const QueryTerm &other)
-{
-    mPropertyName = other.mPropertyName;
-    mFieldPath = other.mFieldPath;
-    mOp = other.mOp;
-    mJoinField = other.mJoinField;
-    mJoinPaths = other.mJoinPaths;
-    mValue = other.mValue;
-    return *this;
-}
-#endif
 
 QueryTerm::~QueryTerm()
 {
-    mValue = QVariant();
+    mValue = QJsonValue();
     mJoinPaths.clear();
 }
 
@@ -657,6 +579,35 @@ OrderTerm::OrderTerm()
 
 OrderTerm::~OrderTerm()
 {
+}
+
+QVariantMap JsonDbQueryResult::toVariantMap() const
+{
+    QJsonObject resultmap, errormap;
+    QJsonArray variantList;
+    for (int i = 0; i < data.size(); i++)
+        variantList.append(data.at(i));
+    resultmap.insert(JsonDbString::kDataStr, variantList);
+    resultmap.insert(JsonDbString::kLengthStr, data.size());
+    resultmap.insert(JsonDbString::kOffsetStr, offset);
+    resultmap.insert(JsonDbString::kExplanationStr, explanation);
+    resultmap.insert(QString("sortKeys"), sortKeys);
+    if (error.isObject())
+        errormap = error.toObject();
+    return JsonDb::makeResponse(resultmap, errormap).toVariantMap();
+}
+
+JsonDbQueryResult JsonDbQueryResult::makeErrorResponse(JsonDbError::ErrorCode code, const QString &message, bool silent)
+{
+    JsonDbQueryResult result;
+    QJsonObject errormap;
+    errormap.insert(JsonDbString::kCodeStr, code);
+    errormap.insert(JsonDbString::kMessageStr, message);
+    result.error = errormap;
+    if (gVerbose && !silent && !errormap.isEmpty()) {
+        qCritical() << errormap;
+    }
+    return result;
 }
 
 QT_END_NAMESPACE_JSONDB

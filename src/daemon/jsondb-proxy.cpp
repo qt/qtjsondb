@@ -58,66 +58,66 @@ JsonDbProxy::~JsonDbProxy()
 
 QVariantMap JsonDbProxy::find(QVariantMap object)
 {
-    QsonMap bson = variantToQson(object).toMap();
-    return qsonToVariant(mJsonDb->find(mOwner, bson)).toMap();
+    QJsonObject bson = QJsonObject::fromVariantMap(object);
+    return mJsonDb->find(mOwner, bson).toVariantMap();
 }
 QVariantMap JsonDbProxy::create(QVariantMap object )
 {
-    QsonMap bson = variantToQson(object).toMap();
-    return qsonToVariant(mJsonDb->create(mOwner, bson)).toMap();
+    JsonDbObject bson = QJsonObject::fromVariantMap(object);
+    return mJsonDb->create(mOwner, bson).toVariantMap();
 }
 QVariantMap JsonDbProxy::update(QVariantMap object )
 {
-    QsonMap bson = variantToQson(object).toMap();
-    return qsonToVariant(mJsonDb->update(mOwner, bson)).toMap();
+    JsonDbObject bson = QJsonObject::fromVariantMap(object);
+    return mJsonDb->update(mOwner, bson).toVariantMap();
 }
 QVariantMap JsonDbProxy::remove(QVariantMap object )
 {
-    QsonMap bson = variantToQson(object).toMap();
-    return qsonToVariant(mJsonDb->remove(mOwner, bson)).toMap();
+    JsonDbObject bson = QJsonObject::fromVariantMap(object);
+    return mJsonDb->remove(mOwner, bson).toVariantMap();
 }
 QVariantMap JsonDbProxy::notification(QString query, QStringList actions, QString script)
 {
-    QsonList actionsList;
+    QJsonArray actionsList;
     foreach (const QString &action, actions)
         actionsList.append(action);
 
-    QsonMap notificationObject;
+    JsonDbObject notificationObject;
     notificationObject.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
     notificationObject.insert(JsonDbString::kQueryStr, query);
     notificationObject.insert(JsonDbString::kActionsStr, actionsList);
     notificationObject.insert("script", script);
-    return qsonToVariant(mJsonDb->create(mOwner, notificationObject)).toMap();
+    return mJsonDb->create(mOwner, notificationObject).toVariantMap();
 }
 
 QVariantMap JsonDbProxy::createList(QVariantList list)
 {
-    QsonList blist;
+    JsonDbObjectList blist;
     for (int i = 0; i < list.size(); i++) {
-        QsonObject bson = variantToQson(list[i]);
-        blist.append(bson);
+        QJsonValue bson = QJsonValue::fromVariant(list[i]);
+        blist.append(bson.toObject());
     }
-    return qsonToVariant(mJsonDb->createList(mOwner, blist)).toMap();
+    return mJsonDb->createList(mOwner, blist).toVariantMap();
 }
 
 QVariantMap JsonDbProxy::updateList(QVariantList list)
 {
-    QsonList blist;
+    JsonDbObjectList blist;
     for (int i = 0; i < list.size(); i++) {
-        QsonObject bson = variantToQson(list[i]);
-        blist.append(bson);
+        QJsonValue bson = QJsonValue::fromVariant(list[i]);
+        blist.append(bson.toObject());
     }
-    return qsonToVariant(mJsonDb->removeList(mOwner, blist)).toMap();
+    return mJsonDb->removeList(mOwner, blist).toVariantMap();
 }
 
 QVariantMap JsonDbProxy::removeList(QVariantList list)
 {
-    QsonList blist;
+    JsonDbObjectList blist;
     for (int i = 0; i < list.size(); i++) {
-        QsonObject bson = variantToQson(list[i]);
-        blist.append(bson);
+        QJsonValue bson = QJsonValue::fromVariant(list[i]);
+        blist.append(bson.toObject());
     }
-    return qsonToVariant(mJsonDb->removeList(mOwner, blist)).toMap();
+    return mJsonDb->removeList(mOwner, blist).toVariantMap();
 }
 
 JsonDbMapProxy::JsonDbMapProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
@@ -132,7 +132,6 @@ JsonDbMapProxy::~JsonDbMapProxy()
 
 void JsonDbMapProxy::emitViewObject(const QString &key, const QJSValue &v)
 {
-    qDebug() << "emitViewItem" << key << v.toVariant();
     QJSValue object = v.engine()->newObject();
     object.setProperty("key", key);
     object.setProperty("value", v);

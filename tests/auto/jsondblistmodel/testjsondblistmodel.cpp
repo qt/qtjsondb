@@ -414,6 +414,15 @@ void TestJsonDbListModel::deleteItem()
 void TestJsonDbListModel::sortedQuery()
 {
     int id = 0;
+
+    QVariantMap index;
+    index.insert("_type", "Index");
+    index.insert("name", "number");
+    index.insert("propertyName", "number");
+    index.insert("propertyType", "number");
+    id = mClient->create(index, "com.nokia.shared.1");
+    waitForResponse1(id);
+
     for (int i = 0; i < 1000; i++) {
         QVariantMap item;
         item.insert("_type", "RandNumber");
@@ -539,6 +548,15 @@ void TestJsonDbListModel::ordering()
 
 void TestJsonDbListModel::itemNotInCache()
 {
+    QVariantMap index;
+    index.insert("_type", "Index");
+    index.insert("name", "order");
+    index.insert("propertyName", "order");
+    index.insert("propertyType", "number");
+    //index.insert("partition", "com.nokia.shared.1");
+    int indexId = mClient->create(index, "com.nokia.shared.1");
+    waitForResponse1(indexId);
+
     QVariantList itemList;
     for (int i = 0; i < 1000; i++) {
         QVariantMap item;

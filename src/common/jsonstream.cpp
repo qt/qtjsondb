@@ -39,7 +39,7 @@
 **
 ****************************************************************************/
 
-#include "qsonstream.h"
+#include "jsonstream.h"
 #include <QDebug>
 #include <QDataStream>
 #include <QLocalSocket>
@@ -54,22 +54,22 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-QsonStream::QsonStream(QIODevice *device, QObject *parent) :
+JsonStream::JsonStream(QIODevice *device, QObject *parent) :
     QObject(parent),
     mDevice(0)
 {
     setDevice(device);
 }
 
-QIODevice *QsonStream::device() const
+QIODevice *JsonStream::device() const
 {
     return mDevice;
 }
 
-/** Set the device used by the QsonStream.
+/** Set the device used by the JsonStream.
     The stream does not take ownership of the device.
 */
-void QsonStream::setDevice(QIODevice *device)
+void JsonStream::setDevice(QIODevice *device)
 {
     if (mDevice) {
         disconnect(mDevice, SIGNAL(readyRead()), this, SLOT(deviceReadyRead()));
@@ -84,60 +84,49 @@ void QsonStream::setDevice(QIODevice *device)
     }
 }
 
-bool QsonStream::send(const QsonObject &qson)
+bool JsonStream::send(const QJsonObject &object)
 {
-    sendQsonPage(*qson.mHeader);
-    foreach (const QsonPagePtr body, qson.mBody)
-        sendQsonPage(*body);
-    sendQsonPage(*qson.mFooter);
-    return true;
-}
-
-void QsonStream::sendQsonPage(const QsonPage &page)
-{
-    int shouldWrite = page.dataSize();
+    QByteArray data = QJsonDocument(object).toBinaryData();
+    int shouldWrite = data.size();
     if (mWriteBuffer.isEmpty()) {
-        int didWrite = mDevice->write(page.constData(), shouldWrite);
+        int didWrite = mDevice->write(data);
         if (didWrite < 0) {
             qWarning() << "Error writing to socket" << mDevice->errorString();
         } else if (didWrite < shouldWrite) {
-            mWriteBuffer.append(page.constData() + didWrite, shouldWrite - didWrite);
+            mWriteBuffer = data.mid(didWrite);
         }
         QLocalSocket *s = qobject_cast<QLocalSocket *>(mDevice);
         if (s)
             s->flush();
     } else {
         qWarning() << "Buffering, slow down your writes";
-        mWriteBuffer.append(page.constData(), shouldWrite);
+        mWriteBuffer.append(data);
     }
+    return true;
 }
 
-void QsonStream::deviceReadyRead()
+void JsonStream::deviceReadyRead()
 {
-    mReadBuffer.resize(0xFFFF);
     while (!mDevice->atEnd()) {
-        int bytesRead = mDevice->read(mReadBuffer.data(), mReadBuffer.size());
+        int bytesAvailable = mDevice->bytesAvailable();
+        int offset = mReadBuffer.size();
+        mReadBuffer.resize(offset + bytesAvailable);
+        int bytesRead = mDevice->read(mReadBuffer.data()+offset, bytesAvailable);
         if (bytesRead < 0) {
             qWarning() << "Error reading from socket" << mDevice->errorString();
             continue;
         }
-        mReadBuffer.truncate(bytesRead);
-        mParser.append(mReadBuffer);
-
-        while (mParser.isObjectReady()) {
-            QsonObject qson = mParser.getObject();
-            receive(qson);
-        }
-
-        if (mParser.hasError()) {
-            qWarning() << "Parser error, trying to recover!";
-            // TODO: Improve!
-            mParser = QsonParser();
+        while (mReadBuffer.size()) {
+            QJsonDocument doc(QJsonDocument::fromBinaryData(mReadBuffer, QJsonDocument::Validate));
+            if (doc.isEmpty())
+                break;
+            receive(doc.object());
+            mReadBuffer = mReadBuffer.mid(doc.toBinaryData().size());
         }
     }
 }
 
-void QsonStream::deviceBytesWritten(qint64 bytes)
+void JsonStream::deviceBytesWritten(qint64 bytes)
 {
     Q_UNUSED(bytes);
     if (!mWriteBuffer.isEmpty()) {
@@ -146,12 +135,7 @@ void QsonStream::deviceBytesWritten(qint64 bytes)
     }
 }
 
-QsonStream& operator<<(QsonStream& s, const QsonObject& map)
-{
-    s.send(map);
-    return s;
-}
 
-#include "moc_qsonstream.cpp"
+#include "moc_jsonstream.cpp"
 
 QT_END_NAMESPACE_JSONDB

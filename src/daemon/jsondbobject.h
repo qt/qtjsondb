@@ -39,31 +39,51 @@
 **
 ****************************************************************************/
 
-#ifndef QSONSTRINGS_H
-#define QSONSTRINGS_H
+#ifndef JSONDBOBJECT_H
+#define JSONDBOBJECT_H
 
-#include <QtJsonDbQson/qsonglobal.h>
+#include <QUuid>
+#include <QDebug>
+#include <QVariant>
 
-#include <QString>
-#include <QByteArray>
+#include <qjsonarray.h>
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
 
-QT_BEGIN_NAMESPACE_JSONDB
+#include "jsondb-global.h"
 
-class Q_ADDON_JSONDB_QSON_EXPORT QsonStrings {
-    public:
-    static const QString kUuidStr;
-    static const QString kVersionStr;
-    static const QString kLastVersionStr;
-    static const QString kMetaStr;
-    static const QString kAncestorsStr;
-    static const QString kConflictsStr;
-    static const QString kIdStr;
-    static const QString kDeleted;
+QT_BEGIN_HEADER
 
-    static const QByteArray kBlankUUID;
-    static const QByteArray kQsonMagic;
+QT_ADDON_JSONDB_BEGIN_NAMESPACE
+
+class JsonDbObject : public QJsonObject
+{
+public:
+    JsonDbObject();
+    JsonDbObject(const QJsonObject &object);
+    ~JsonDbObject();
+
+    QByteArray toBinaryData() const;
+
+    QUuid uuid() const;
+    QString version() const;
+    QString type() const;
+
+    void generateUuid();
+    void computeVersion();
 };
 
-QT_END_NAMESPACE_JSONDB
 
-#endif // QSONSTRINGS_H
+typedef QList<JsonDbObject> JsonDbObjectList;
+
+struct GetObjectsResult
+{
+    JsonDbObjectList data;
+    QJsonValue error;
+
+};
+
+QT_ADDON_JSONDB_END_NAMESPACE
+QT_END_HEADER
+
+#endif // QJSONDBOBJECT.H

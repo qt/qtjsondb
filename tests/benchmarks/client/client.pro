@@ -11,7 +11,7 @@ INCLUDEPATH += "../../../src/common"
 INCLUDEPATH += "../../../src/3rdparty/qjson/src"
 SOURCES += ../../../src/3rdparty/qjson/src/json.cpp
 
-CONFIG += qtestlib
+CONFIG += qtestlib testcase
 CONFIG -= app_bundle
 
 include($$PWD/../../shared/shared.pri)

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
 ** All rights reserved.
 ** Contact: http://www.qt-project.org/
 **
@@ -39,37 +39,51 @@
 **
 ****************************************************************************/
 
-#include "qsonuuid_p.h"
+#ifndef JSON_STREAM_H
+#define JSON_STREAM_H
 
-#include <QString>
-#include <QByteArray>
-#include <QCryptographicHash>
+#include <QIODevice>
+#include <qjsondocument.h>
+#include <qjsonarray.h>
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
+
+#include "jsondb-global.h"
+
+QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-qson_uuid_t QsonUuidNs = {
-    0x6ba7b811,
-    0x9dad,
-    0x11d1,
-    0x80,
-    0xb4,
-    {0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8}
+class JsonStream : public QObject
+{
+    Q_OBJECT
+public:
+    explicit JsonStream(QIODevice *device = 0, QObject *parent = 0);
+
+    QIODevice *device() const;
+    void       setDevice(QIODevice *device);
+
+    bool send(const QJsonObject &document);
+
+Q_SIGNALS:
+    void receive(const QJsonObject &data);
+    void aboutToClose();
+    void readyWrite();
+
+protected slots:
+    void deviceReadyRead();
+    void deviceBytesWritten(qint64 bytes);
+
+private:
+
+    QIODevice *mDevice;
+    QByteArray mWriteBuffer;
+    QByteArray mReadBuffer;
+
 };
 
-QByteArray QsonUUIDv3(const QString &source) {
-    QCryptographicHash md5(QCryptographicHash::Md5);
-    md5.addData((char *) &QsonUuidNs, sizeof(QsonUuidNs));
-    md5.addData((char *) source.constData(), source.size() * 2);
-    
-    QByteArray result = md5.result();
-    
-    qson_uuid_t *uuid = (qson_uuid_t*) result.data();
-    uuid->time_hi_and_version &= 0x0FFF;
-    uuid->time_hi_and_version |= (3 << 12);
-    uuid->clock_seq_hi_and_reserved &= 0x3F;
-    uuid->clock_seq_hi_and_reserved |= 0x80;
-        
-    return result;
-}
-
 QT_END_NAMESPACE_JSONDB
+
+QT_END_HEADER
+
+#endif // JSON_STREAM_H

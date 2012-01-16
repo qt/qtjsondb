@@ -47,8 +47,13 @@
 #include <QHash>
 #include <QStringList>
 #include <QVariant>
+#include "jsondb-error.h"
 
-#include <QtJsonDbQson/private/qson_p.h>
+#include <qjsonarray.h>
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
+
+#include "jsondbobject.h"
 
 QT_BEGIN_HEADER
 
@@ -110,9 +115,10 @@ public:
     }
     const QVector<QStringList> &joinPaths() const { return mJoinPaths; }
 
-    QVariant value() const { return mValue; }
-    void setValue(QVariant v) { mValue = v; }
+    QJsonValue value() const { return mValue; }
+    void setValue(const QJsonValue &v) { mValue = v; }
     QRegExp &regExp() { return mRegExp; }
+    void setRegExp(const QRegExp &regExp) { mRegExp = regExp; }
     const QRegExp &regExpConst() const { return mRegExp; }
 
  private:
@@ -121,7 +127,7 @@ public:
     QString mOp;
     QString mJoinField;
     QVector<QStringList> mJoinPaths;
-    QVariant mValue;
+    QJsonValue mValue;
     QRegExp mRegExp;
     //QString valueString;
 };
@@ -155,20 +161,36 @@ public:
     QList<OrQueryTerm> queryTerms;
     QList<OrderTerm> orderTerms;
     QString query;
-    QVariant::Type resultType;
+    QJsonValue::Type resultType;
     QStringList mapExpressionList;
     QStringList mapKeyList;
     QStringList queryExplanation;
     QString mAggregateOperation;
 
     QSet<QString> matchedTypes() const { return mMatchedTypes; }
-    bool match(const QsonMap &object, QHash<QString, QsonMap> *objectCache, JsonDbBtreeStorage *storage = 0) const;
+    bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbBtreeStorage *storage = 0) const;
 
-    static QVariant parseJsonLiteral(const QString &json, QueryTerm *term, QsonMap &bindings, bool *ok);
-    static JsonDbQuery parse(const QString &query, QsonMap &bindings);
+    static QJsonValue parseJsonLiteral(const QString &json, QueryTerm *term, QJsonObject &bindings, bool *ok);
+    static JsonDbQuery parse(const QString &query, QJsonObject &bindings);
 
 private:
     QSet<QString> mMatchedTypes;
+};
+
+typedef QList<QJsonValue> QJsonValueList;
+typedef QList<QJsonObject> QJsonObjectList;
+typedef QList<JsonDbObject> JsonDbObjectList;
+struct JsonDbQueryResult {
+    JsonDbObjectList data;
+    QJsonArray values; // for queries returning single values or arrays of values
+    QJsonValue length;
+    QJsonValue offset;
+    QJsonValue explanation;
+    QJsonValue sortKeys;
+    QJsonValue state;
+    QJsonValue error; // { code: int, message: string }
+    QVariantMap toVariantMap() const;
+    static JsonDbQueryResult makeErrorResponse(JsonDbError::ErrorCode, const QString&, bool silent=false);
 };
 
 QT_END_NAMESPACE_JSONDB

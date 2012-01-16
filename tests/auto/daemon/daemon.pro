@@ -1,6 +1,6 @@
 TARGET = tst_daemon
 
-QT = network declarative testlib jsondbqson-private
+QT = network declarative testlib
 CONFIG -= app_bundle
 CONFIG += testcase
 

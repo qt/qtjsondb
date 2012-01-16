@@ -3,17 +3,12 @@ INCLUDEPATH += $$PWD
 include(../../qtjsondb.pri)
 include(../3rdparty/qjson/qjson.pri)
 
-QSONCONVERSION_HEADERS = \
-    $$PWD/qsonconversion.h
-QSONCONVERSION_SOURCES = \
-    $$PWD/qsonconversion.cpp
-
 HEADERS += \
     $$PWD/jsondb-global.h \
     $$PWD/jsondb-error.h \
     $$PWD/jsondb-strings.h \
-    $$PWD/qsonstream.h
+    $$PWD/jsonstream.h
 
 SOURCES += \
     $$PWD/jsondb-strings.cpp \
-    $$PWD/qsonstream.cpp
+    $$PWD/jsonstream.cpp

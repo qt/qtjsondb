@@ -346,7 +346,7 @@ void JsonDbListModelPrivate::fetchChunkSynchronous(int offset)
     request.insert("limit", maxItemsToFetch);
     resetModel = false;
     requestInProgress = true;
-    QVariantMap v = jsonDbConnection->sync(JsonDbConnection::makeFindRequest(request)).toMap();
+    QVariantMap v = jsonDbConnection->sync(JsonDbConnection::makeQueryRequest(query, newChunkOffset, maxItemsToFetch)).toMap();
     requestInProgress = false;
     updateCache(v);
 }

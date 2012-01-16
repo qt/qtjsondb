@@ -6,7 +6,7 @@ INSTALLS += target
 LIBS += -L$$QT.jsondb.libs
 !mac:LIBS += -lssl -lcrypto
 
-QT = core network declarative jsondbqson-private
+QT = core network declarative
 
 mac:CONFIG -= app_bundle
 

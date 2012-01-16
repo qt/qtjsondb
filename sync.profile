@@ -1,6 +1,5 @@
 %modules = ( # path to module name map
     "QtAddOnJsonDb" => "$basedir/src/client",
-    "QtJsonDbQson" => "$basedir/src/qson",
 );
 %moduleheaders = ( # restrict the module headers to those found in relative path
 );
@@ -13,7 +12,6 @@
 );
 %modulepris = (
     "QtAddOnJsonDb" => "$basedir/modules/qt_jsondb.pri",
-    "QtJsonDbQson" => "$basedir/modules/qt_jsondb_qson.pri",
 );
 $publicclassregexp = "JsonDb.+";
 # Module dependencies.

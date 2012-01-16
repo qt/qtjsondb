@@ -50,15 +50,14 @@
 #include <QTcpSocket>
 #include <QScopedPointer>
 
+#include <qjsonobject.h>
+
 #include "jsondb-global.h"
 #include "jsondb-connection_p.h"
 
-#include "qsonstream.h"
+#include "jsonstream.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-class QsonObject;
-class QsonMap;
 
 class JsonDbConnectionPrivate
 {
@@ -73,7 +72,7 @@ public:
 
     void _q_onConnected();
     void _q_onDisconnected();
-    void _q_onReceiveMessage(const QsonObject &);
+    void _q_onReceiveMessage(const QJsonObject &);
     void _q_onError(QLocalSocket::LocalSocketError error);
 
     static QString sDefaultToken;
@@ -81,7 +80,7 @@ public:
     JsonDbConnection *q_ptr;
     QLocalSocket *socket;
     QTcpSocket *tcpSocket;
-    QsonStream mStream;
+    JsonStream mStream;
     int mId;
     QString mToken;
     JsonDbConnection::Status status;
@@ -101,20 +100,15 @@ public:
     QT_DEPRECATED
     JsonDbSyncCall(const QVariantMap &dbrequest, QVariant &result);
     JsonDbSyncCall(const QVariantMap *dbrequest, QVariant *result);
-    JsonDbSyncCall(const QsonMap *dbrequest, QsonObject *result);
     ~JsonDbSyncCall();
 public slots:
     void createSyncRequest();
-    void createSyncQsonRequest();
     void handleResponse( int id, const QVariant& data );
-    void handleResponse( int id, const QsonObject& data );
     void handleError( int id, int code, const QString& message );
 private:
     int                 mId;
     const QVariantMap   *mDbRequest;
-    const QsonMap       *mDbQsonRequest;
     QVariant            *mResult;
-    QsonObject          *mQsonResult;
     JsonDbConnection    *mSyncJsonDbConnection;
 };
 

@@ -41,10 +41,15 @@
 
 #include "jsondbephemeralstorage.h"
 
+#include "jsondb.h"
 #include "jsondbquery.h"
 #include "jsondb-error.h"
 #include "jsondb-response.h"
 #include "jsondb-strings.h"
+
+#include <qjsonobject.h>
+
+#include "jsondbobject.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -53,7 +58,7 @@ JsonDbEphemeralStorage::JsonDbEphemeralStorage(QObject *parent)
 {
 }
 
-bool JsonDbEphemeralStorage::get(const QUuid &uuid, QsonMap *result) const
+bool JsonDbEphemeralStorage::get(const QUuid &uuid, JsonDbObject *result) const
 {
     ObjectMap::const_iterator it = mObjects.find(uuid);
     if (it == mObjects.end())
@@ -63,14 +68,14 @@ bool JsonDbEphemeralStorage::get(const QUuid &uuid, QsonMap *result) const
     return true;
 }
 
-QsonMap JsonDbEphemeralStorage::create(QsonMap &object)
+QJsonObject JsonDbEphemeralStorage::create(JsonDbObject &object)
 {
-    if (!object.isDocument()) {
+    if (!object.contains(JsonDbString::kUuidStr)) {
         object.generateUuid();
         object.computeVersion();
     }
 
-    QsonMap resultmap;
+    QJsonObject resultmap;
 
     QUuid uuid = object.uuid();
     if (mObjects.contains(uuid)) {
@@ -80,72 +85,72 @@ QsonMap JsonDbEphemeralStorage::create(QsonMap &object)
     mObjects.insert(uuid, object);
 
     resultmap.insert(JsonDbString::kUuidStr, uuid.toString());
-    resultmap.insert(JsonDbString::kVersionStr, object.valueString(JsonDbString::kVersionStr));
+    resultmap.insert(JsonDbString::kVersionStr, object.value(JsonDbString::kVersionStr).toString());
     resultmap.insert(JsonDbString::kCountStr, 1);
 
     return JsonDbResponse::makeResponse(resultmap);
 }
 
-QsonMap JsonDbEphemeralStorage::update(QsonMap &object)
+QJsonObject JsonDbEphemeralStorage::update(JsonDbObject &object)
 {
-    QsonMap resultmap;
+    QJsonObject resultmap;
 
     QUuid uuid = object.uuid();
     mObjects.insert(uuid, object);
 
     resultmap.insert(JsonDbString::kUuidStr, uuid.toString());
-    resultmap.insert(JsonDbString::kVersionStr, object.valueString(JsonDbString::kVersionStr));
+    resultmap.insert(JsonDbString::kVersionStr, object.value(JsonDbString::kVersionStr));
     resultmap.insert(JsonDbString::kCountStr, 1);
 
     return JsonDbResponse::makeResponse(resultmap);
 }
 
-QsonMap JsonDbEphemeralStorage::remove(const QsonMap &object)
+QJsonObject JsonDbEphemeralStorage::remove(const JsonDbObject &object)
 {
     QUuid uuid = object.uuid();
 
     mObjects.remove(uuid);
 
-    QsonMap item;
+    QJsonObject item;
     item.insert(JsonDbString::kUuidStr, uuid.toString());
 
-    QsonList data;
+    QJsonArray data;
     data.append(item);
 
-    QsonMap resultmap;
+    QJsonObject resultmap;
     resultmap.insert(JsonDbString::kCountStr, 1);
     resultmap.insert(JsonDbString::kDataStr, data);
-    resultmap.insert(JsonDbString::kErrorStr, QsonObject::NullValue);
+    resultmap.insert(JsonDbString::kErrorStr, QJsonValue());
 
     return JsonDbResponse::makeResponse(resultmap);
 }
 
-QsonMap JsonDbEphemeralStorage::query(const JsonDbQuery &query, int limit, int offset) const
+JsonDbQueryResult JsonDbEphemeralStorage::query(const JsonDbQuery &query, int limit, int offset) const
 {
     if (!query.orderTerms.isEmpty())
-        return JsonDbResponse::makeErrorResponse(JsonDbError::InvalidMessage,
-                                                 QLatin1String("Cannot query with order term on ephemeral objects"));
+        return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,
+                                                      QLatin1String("Cannot query with order term on ephemeral objects"));
     if (limit != -1 || offset != 0)
-        return JsonDbResponse::makeErrorResponse(JsonDbError::InvalidMessage,
-                                                 QLatin1String("Cannot query with limit or offset on ephemeral objects"));
+        return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,
+                                                    QLatin1String("Cannot query with limit or offset on ephemeral objects"));
 
-    QsonList results;
+    JsonDbObjectList results;
     ObjectMap::const_iterator it, e;
     for (it = mObjects.begin(), e = mObjects.end(); it != e; ++it) {
-        const QsonMap &object = it.value();
+        QJsonObject object = it.value();
         if (query.match(object, 0, 0))
             results.append(object);
     }
 
-    QsonList sortKeys;
+    QJsonArray sortKeys;
     sortKeys.append(QLatin1String("_uuid"));
-    QsonMap map;
-    map.insert(JsonDbString::kLengthStr, results.size());
-    map.insert(JsonDbString::kOffsetStr, offset);
-    map.insert(JsonDbString::kDataStr, results);
-    map.insert(QLatin1String("state"), 0);
-    map.insert(QLatin1String("sortKeys"), sortKeys);
-    return JsonDbResponse::makeResponse(map);
+    JsonDbQueryResult result;
+    result.length = results.size();
+    result.offset = offset;
+    result.data = results;
+    result.state = 0;
+    result.sortKeys = sortKeys;
+    return result;
 }
 
 QT_END_NAMESPACE_JSONDB

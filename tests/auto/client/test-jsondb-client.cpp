@@ -53,8 +53,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <QtJsonDbQson/private/qson_p.h>
-
 #include "private/jsondb-strings_p.h"
 #include "private/jsondb-connection_p.h"
 
@@ -288,7 +286,7 @@ void TestJsonDbClient::create()
     // Attempt to remove it without supplying a _uuid
     item.remove("_uuid");
     id = mClient->remove(item);
-    waitForResponse2(id, JsonDbError::MissingQuery);
+    waitForResponse2(id, JsonDbError::MissingUUID);
 
     // Set the _uuid field and attempt to remove it again
     item.insert("_uuid", uuid);
@@ -1137,7 +1135,7 @@ void TestJsonDbClient::storageQuotas()
     accessTypesAllowed << "allAllowed";
     capability.insert("AllAccess", accessTypesAllowed);
     QVariantMap quotas;
-    quotas.insert("storage", int(1024));
+    quotas.insert("storage", int(512));
     capability.insert("quotas", quotas);
     item.insert("capabilities", capability);
     int id = mClient->create(item);

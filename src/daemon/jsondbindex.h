@@ -45,8 +45,13 @@
 #include <QObject>
 #include <QJSEngine>
 #include <QPointer>
+#include <QStringList>
 
-#include <QtJsonDbQson/private/qson_p.h>
+#include <qjsonarray.h>
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
+
+#include "jsondbobject.h"
 
 #include "jsondb-global.h"
 #include "objectkey.h"
@@ -65,17 +70,19 @@ class JsonDbIndex : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbIndex(const QString &fileName, const QString &propertyName, QObject *parent = 0);
+    JsonDbIndex(const QString &fileName, const QString &propertyName, const QString &type,
+                QObject *parent = 0);
     ~JsonDbIndex();
 
     QString propertyName() const { return mPropertyName; }
     QStringList fieldPath() const { return mPath; }
+    QString propertyType() const { return mPropertyType; }
 
     QManagedBtree *bdb();
 
     bool setPropertyFunction(const QString &propertyFunction);
-    void indexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber);
-    void deindexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber);
+    void indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
+    void deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
 
     quint32 stateNumber() const;
 
@@ -85,7 +92,7 @@ public:
     bool clearData();
 
     void checkIndex();
-//    bool checkValidity(const QMap<QString, QsonObject> &objects,
+//    bool checkValidity(const QMap<QString, QJsonValue> &objects,
 //                       const QMap<quint32, QString> &keyUuids,
 //                       const QMap<QString, quint32> &uuidKeys,
 //                       JsonDbBtreeStorage *storage);
@@ -93,7 +100,7 @@ public:
     void close();
 
 private:
-    QVariantList indexValues(QsonObject &object);
+    QList<QJsonValue> indexValues(JsonDbObject &object);
 
 private slots:
     void propertyValueEmitted(QJSValue);
@@ -102,11 +109,12 @@ private:
     QString mFileName;
     QString mPropertyName;
     QStringList mPath;
+    QString mPropertyType;
     quint32 mStateNumber;
     QScopedPointer<QManagedBtree> mBdb;
     QJSEngine *mScriptEngine;
     QJSValue   mPropertyFunction;
-    QVariantList mFieldValues;
+    QList<QJsonValue> mFieldValues;
     QManagedBtreeTxn mWriteTxn;
 };
 
@@ -115,18 +123,19 @@ class JsonDbIndexCursor
 public:
     JsonDbIndexCursor(JsonDbIndex *index);
 
-    bool seek(const QVariant &value);
-    bool seekRange(const QVariant &value);
+    bool seek(const QJsonValue &value);
+    bool seekRange(const QJsonValue &value);
 
     bool first();
-    bool current(QVariant &key, ObjectKey &value);
-    bool currentKey(QVariant &key);
+    bool current(QJsonValue &key, ObjectKey &value);
+    bool currentKey(QJsonValue &key);
     bool currentValue(ObjectKey &value);
     bool next();
     bool prev();
 
 private:
     QBtreeCursor mCursor;
+    JsonDbIndex *mIndex;
 
     JsonDbIndexCursor(const JsonDbIndexCursor&);
 };

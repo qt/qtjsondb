@@ -207,7 +207,7 @@ private:
                 return IntegerType;
             break;
         case BooleanType:
-            value.toBoolean(&ok);
+            value.toBool(&ok);
             if (ok)
                 return BooleanType;
             break;
@@ -242,7 +242,7 @@ private:
         value.toString(&ok);
         if (ok)
             return StringType;
-        value.toBoolean(&ok);
+        value.toBool(&ok);
         if (ok)
             return BooleanType;
         value.toList(&ok);
@@ -362,7 +362,7 @@ public:
         : Check(schema, "Check required field")  // TODO what to do about Required ?
     {
         bool ok;
-        m_req = required.toBoolean(&ok);
+        m_req = required.toBool(&ok);
         if (!ok) {
             // maybe someone used string instead of bool
             QString value = required.toString(&ok).toLower();
@@ -493,7 +493,7 @@ public:
     virtual bool doCheck(const Value &value)
     {
         bool ok;
-        int count = value.toList(&ok).count();
+        int count = value.toList(&ok).size();
         return count >= m_min && ok;
     }
 private:
@@ -515,7 +515,7 @@ public:
     virtual bool doCheck(const Value &value)
     {
         bool ok;
-        int count = value.toList(&ok).count();
+        int count = value.toList(&ok).size();
         return count <= m_max && ok;
     }
 
@@ -622,7 +622,7 @@ public:
         Object obj = value.toObject(&ok);
         if (!ok) {
             QString schemaName = value.toString(&ok);
-            if (!ok || schemaName.length()) {
+            if (!ok) {
                 ValueList array = value.toList(&ok);
                 Q_ASSERT(ok);
                 typename ValueList::const_iterator i;

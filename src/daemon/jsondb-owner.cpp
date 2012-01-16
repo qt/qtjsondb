@@ -65,34 +65,39 @@ void JsonDbOwner::setAllowedObjects(const QString &op, const QList<QString> &que
 {
     mAllowedObjects[op] = queries;
     mAllowedObjectQueries[op].clear();
-    QsonMap nullBindings;
+    QJsonObject nullBindings;
     foreach (const QString &query, queries) {
         mAllowedObjectQueries[op].append(JsonDbQuery::parse(query, nullBindings));
     }
 }
 
-void JsonDbOwner::setCapabilities(QsonMap &applicationCapabilities, JsonDb *jsondb)
+void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *jsondb)
 {
-    QsonMap request;
-    request.insert(JsonDbString::kQueryStr, (QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("Capability")));
-    QsonMap result = jsondb->find(jsondb->owner(), request);
-    QsonList translations = result.subObject("result").subList("data");
+    QJsonObject request;
+    GetObjectsResult result = jsondb->getObjects(JsonDbString::kTypeStr, QString("Capability"));
+    JsonDbObjectList translations = result.data;
     //qDebug() << "JsonDbOwner::setCapabilities" << "translations" << translations;
 
     QMap<QString, QSet<QString> > allowedObjects;
     const QStringList ops = (QStringList() << "read" << "write" << "setOwner");
 
     for (int i = 0; i < translations.size(); ++i) {
-        QsonMap translation = translations.at<QsonMap>(i);
-        QString name = translation.valueString("name");
+        JsonDbObject translation = translations.at(i);
+        QString name = translation.value("name").toString();
         if (applicationCapabilities.contains(name)) {
-            QsonMap accessRules = translation.subObject("accessRules");
-            QStringList accessTypesAllowed = applicationCapabilities.value<QsonList>(name).toStringList();
-            foreach (QString accessTypeAllowed, accessTypesAllowed) {
-                QsonMap accessTypeTranslation = accessRules.subObject(accessTypeAllowed);
+            QJsonObject accessRules = translation.value("accessRules").toObject();
+            QVariantList accessTypesAllowed =
+                applicationCapabilities.value(name).toArray().toVariantList();
+            foreach (QVariant accessTypeAllowed, accessTypesAllowed) {
+                QJsonObject accessTypeTranslation =
+                    accessRules.value(accessTypeAllowed.toString()).toObject();
                 foreach (const QString op, ops) {
                     if (accessTypeTranslation.contains(op)) {
-                        allowedObjects[op].unite(QSet<QString>::fromList(accessTypeTranslation.value<QsonList>(op).toStringList()));
+                        QStringList rules;
+                        QJsonArray jsonRules = accessTypeTranslation.value(op).toArray();
+                        for (int r = 0; r < jsonRules.size(); r++)
+                            rules.append(jsonRules[r].toString());
+                        allowedObjects[op].unite(QSet<QString>::fromList(rules));
                     }
                 }
             }
@@ -107,7 +112,7 @@ void JsonDbOwner::setCapabilities(QsonMap &applicationCapabilities, JsonDb *json
     }
 }
 
-bool JsonDbOwner::isAllowed (QsonObject &object, const QString &op) const
+bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &op) const
 {
     if (mAllowAll || !gEnforceAccessControlPolicies)
         return true;

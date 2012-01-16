@@ -11,6 +11,5 @@ SUBDIRS = \
     jsondbnotification \
     jsondbqueryobject \
     jsondbchangessinceobject \
-    common \
-    qsonstream \
-    queries
+    queries \
+    jsonstream

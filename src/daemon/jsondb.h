@@ -49,8 +49,12 @@
 #include <QStringList>
 #include <QVariant>
 
-#include <QtJsonDbQson/private/qson_p.h>
+#include <qjsonarray.h>
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
+#include <qjsondocument.h>
 
+#include "jsondbobject.h"
 #include "jsondbquery.h"
 #include "jsondbbtreestorage.h"
 #include "jsondb-map-reduce.h"
@@ -102,25 +106,25 @@ public:
     bool clear();
     bool checkValidity();
 
-    QsonMap find(const JsonDbOwner *owner, QsonMap object, const QString &partition = QString());
-    QsonMap create(const JsonDbOwner *owner, QsonMap&, const QString &partition = QString());
-    QsonMap update(const JsonDbOwner *owner, QsonMap&, const QString &partition = QString(), bool replication = false);
-    QsonMap remove(const JsonDbOwner *owner, const QsonMap&, const QString &partition = QString());
+    JsonDbQueryResult find(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
+    QJsonObject create(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), bool viewObject=false);
+    QJsonObject update(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), bool viewObject=false);
+    QJsonObject remove(const JsonDbOwner *owner, const JsonDbObject&, const QString &partition = QString(), bool viewObject=false);
 
-    QsonMap createList(const JsonDbOwner *owner, QsonList&, const QString &partition = QString());
-    QsonMap updateList(const JsonDbOwner *owner, QsonList&, const QString &partition = QString(), bool replication = false);
-    QsonMap removeList(const JsonDbOwner *owner, QsonList, const QString &partition = QString());
+    QJsonObject createList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partition = QString());
+    QJsonObject updateList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partition = QString());
+    QJsonObject removeList(const JsonDbOwner *owner, JsonDbObjectList, const QString &partition = QString());
 
-    QsonMap createViewObject(const JsonDbOwner *owner, QsonMap&, const QString &partition);
-    QsonMap updateViewObject(const JsonDbOwner *owner, QsonMap&, const QString &partition);
-    QsonMap removeViewObject(const JsonDbOwner *owner, QsonMap, const QString &partition);
+    QJsonObject createViewObject(const JsonDbOwner *owner, JsonDbObject &, const QString &partition = QString());
+    QJsonObject updateViewObject(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString());
+    QJsonObject removeViewObject(const JsonDbOwner *owner, JsonDbObject, const QString &partition = QString());
 
-    QsonMap changesSince(const JsonDbOwner *owner, QsonMap object, const QString &partition = QString());
+    QJsonObject changesSince(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
 
     JsonDbOwner *owner() const { return mOwner; }
     bool load(const QString &jsonFileName);
 
-    QsonMap getObjects(const QString &keyName, const QVariant &key, const QString &type = QString(), const QString &partition = QString()) const;
+    GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(), const QString &partition = QString()) const;
 
     QString getTablePrefix();
     void setTablePrefix(const QString &prefix);
@@ -128,80 +132,82 @@ public:
     bool compactOnClose() const { return mCompactOnClose; }
     void setCompactOnClose(bool compact) { mCompactOnClose = compact; }
 
-    static QVariant propertyLookup(QsonMap v, const QString &path);
-    static QVariant propertyLookup(QVariantMap v, const QStringList &path);
-    static QVariant propertyLookup(QsonMap o, const QStringList &path);
+    static QJsonValue propertyLookup(const JsonDbObject &document, const QString &path);
+    static QJsonValue propertyLookup(QJsonObject v, const QString &path);
+    static QJsonValue propertyLookup(QJsonObject o, const QStringList &path);
+
+    static QJsonValue fromJSValue(const QJSValue &v);
+    static QJSValue toJSValue(const QJsonObject &object, QJSEngine *mScriptEngine);
 
     void updateView(const QString &viewType, const QString &partitionName = JsonDbString::kSystemPartitionName);
 
 protected:
-    bool populateIdBySchema(const JsonDbOwner *owner, QsonMap &object);
+    bool populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object);
 
     void initSchemas();
-    void updateSchemaIndexes(const QString &schemaName, QsonMap object, const QStringList &path=QStringList());
-    void setSchema(const QString &schemaName, QsonMap object);
+    void updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path=QStringList());
+    void setSchema(const QString &schemaName, QJsonObject object);
     void removeSchema(const QString &schemaName);
 
-    QsonMap validateSchema(const QString &schemaName, QsonMap object);
-    QsonMap validateMapObject(QsonMap map);
-    QsonMap validateReduceObject(QsonMap reduce);
-    QsonMap checkPartitionPresent(const QString &partition);
-    QsonMap checkUuidPresent(QsonMap object, QString &uuid);
-    QsonMap checkTypePresent(QsonMap, QString &type);
-    QsonMap checkNaturalObjectType(QsonMap object, QString &type);
-    QsonMap checkAccessControl(const JsonDbOwner *owner, QsonMap object, const QString &op);
-    QsonMap checkQuota(const JsonDbOwner *owner, int size, JsonDbBtreeStorage *partition);
-    QsonMap checkCanAddSchema(QsonMap schema, QsonMap oldSchema = QsonMap());
-    QsonMap checkCanRemoveSchema(QsonMap schema);
-    QsonMap validateAddIndex(const QsonMap &newIndex, const QsonMap &oldIndex) const;
+    QJsonObject validateSchema(const QString &schemaName, JsonDbObject object);
+    QJsonObject validateMapObject(JsonDbObject map);
+    QJsonObject validateReduceObject(JsonDbObject reduce);
+    QJsonObject checkPartitionPresent(const QString &partition);
+    QJsonObject checkUuidPresent(JsonDbObject object, QString &uuid);
+    QJsonObject checkTypePresent(JsonDbObject, QString &type);
+    QJsonObject checkNaturalObjectType(JsonDbObject object, QString &type);
+    QJsonObject checkAccessControl(const JsonDbOwner *owner, JsonDbObject object, const QString &op);
+    QJsonObject checkQuota(const JsonDbOwner *owner, int size, JsonDbBtreeStorage *partition);
+    QJsonObject checkCanAddSchema(JsonDbObject schema, JsonDbObject oldSchema = QJsonObject());
+    QJsonObject checkCanRemoveSchema(JsonDbObject schema);
+    QJsonObject validateAddIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex) const;
 
     enum Action { Create, Remove };
 
-    bool addIndex(QsonMap indexObject, const QString &partition);
-
+    bool addIndex(JsonDbObject indexObject, const QString &partition);
     bool removeIndex(const QString &propertyName,
                      const QString &objectType = QString(),
                      const QString &partition = QString());
-    bool removeIndex(QsonMap indexObject, const QString &partition);
+    bool removeIndex(JsonDbObject indexObject, const QString &partition);
 
     void initMap(const QString &partition);
-    void createMapDefinition(QsonMap mapDefinition, bool firstTime, const QString &partition);
-    void removeMapDefinition(QsonMap mapDefinition, const QString &partition);
+    void createMapDefinition(QJsonObject mapDefinition, bool firstTime, const QString &partition);
+    void removeMapDefinition(QJsonObject mapDefinition, const QString &partition);
 
-    void createReduceDefinition(QsonMap reduceDefinition, bool firstTime, const QString &partition);
-    void removeReduceDefinition(QsonMap reduceDefinition, const QString &partition);
-    void removeReduceDefinition(JsonDbReduceDefinition *def);
+    void createReduceDefinition(QJsonObject reduceDefinition, bool firstTime, const QString &partition);
+    void removeReduceDefinition(QJsonObject reduceDefinition, const QString &partition);
+    void removeReduceDefinition(QJsonObject *def);
 
     quint32 findUpdatedMapReduceDefinitions(JsonDbBtreeStorage *partition, const QString &definitionType, const QString &viewType, quint32 targetStateNumber,
-                                         QMap<QString, QsonMap> &removedDefinitions, QMap<QString, QsonMap> &addedDefinitions) const;
+                                         QMap<QString, QJsonObject> &removedDefinitions, QMap<QString, QJsonObject> &addedDefinitions) const;
 
     void updateMap(const QString &viewType, const QString &partitionName);
     void updateReduce(const QString &viewType, const QString &partitionName);
     void updateEagerViewTypes(const QString &objectType);
 
-    JsonDbQuery parseJsonQuery(const QString &query, QsonObject &bindings) const;
+    JsonDbQuery parseJsonQuery(const QString &query, QJsonValue &bindings) const;
 
-    void checkNotifications(const QString &partition, QsonMap obj, Notification::Action action);
+    void checkNotifications(const QString &partition, JsonDbObject obj, Notification::Action action);
 
-    const Notification *createNotification(const JsonDbOwner *owner, QsonMap object);
+    const Notification *createNotification(const JsonDbOwner *owner, JsonDbObject object);
     void removeNotification(const QString &uuid);
 
     QString filePath() const { return mFilePath; }
 
-    static void setError( QsonMap& map, int code, const QString &message );
-    static QsonMap makeError(int code, const QString &message);
-    static QsonMap makeResponse( QsonMap& resultmap, QsonMap& errormap, bool silent = false );
-    static QsonMap makeErrorResponse(QsonMap &resultmap, int code, const QString &message, bool silent = false );
-    static bool responseIsError( QsonMap responseMap );
-//    static bool responseIsGood( QsonMap responseMap );
+    static void setError( QJsonObject& map, int code, const QString &message );
+    static QJsonObject makeError(int code, const QString &message);
+    static QJsonObject makeResponse( QJsonObject& resultmap, QJsonObject& errormap, bool silent = false );
+    static QJsonObject makeErrorResponse(QJsonObject &resultmap, int code, const QString &message, bool silent = false );
+    static bool responseIsError( QJsonObject responseMap );
+//    static bool responseIsGood( QJsonObject responseMap );
     static QString uuidhex(uint data, int digits);
     static QString createDatabaseId();
 
     JsonDbBtreeStorage *findPartition(const QString &name) const;
-    QsonMap createPartition(const QsonMap &object);
+    QJsonObject createPartition(const JsonDbObject &object);
 
 Q_SIGNALS:
-    void notified(const QString &id, QsonMap, const QString &action);
+    void notified(const QString &id, JsonDbObject, const QString &action);
     void requestViewUpdate(QString viewType, QString partition);
 
 protected:
@@ -231,6 +237,7 @@ protected:
     friend class JsonDbReduceDefinition;
     friend class JsonDbQuery;
     friend class ObjectTable;
+    friend class JsonDbQueryResult;
 };
 
 QT_END_NAMESPACE_JSONDB

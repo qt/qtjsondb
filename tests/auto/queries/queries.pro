@@ -1,6 +1,6 @@
 TARGET = tst_queries
 
-QT = network declarative testlib jsondbqson-private
+QT = network declarative testlib
 CONFIG -= app_bundle
 CONFIG += testcase
 

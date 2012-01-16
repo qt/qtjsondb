@@ -73,9 +73,9 @@
           jsondb.lookup({'index':'friend', 'value': p._uuid, 'objectType': 'Person'}, { friend: p }); \
         } else { \
           if (context.friend) \
-             jsondb.emit({name: p.name, friend: p.friend, foaf: context.friend.friend }); \
+             jsondb.emit({name: p.name, friend: p.friend, foaf: context.friend.friend, foo: null }); \
           else \
-             jsondb.emit({name: context.person.name, friend: context.person.friend, foaf: p.friend }); \
+             jsondb.emit({name: context.person.name, friend: context.person.friend, foaf: p.friend, foo: null }); \
         } \
       }"
     }

@@ -52,53 +52,53 @@ bool SchemaManager::contains(const QString &name) const
     return m_schemas.contains(name);
 }
 
-QsonMap SchemaManager::value(const QString &name) const
+QJsonObject SchemaManager::value(const QString &name) const
 {
     return m_schemas.value(name).first;
 }
 
-SchemaValidation::Schema<QsonObjectTypes> SchemaManager::schema(const QString &schemaName, QsonObjectTypes::Service *service)
+SchemaValidation::Schema<QJsonObjectTypes> SchemaManager::schema(const QString &schemaName, QJsonObjectTypes::Service *service)
 {
-    QsonMapSchemaPair schemaPair = m_schemas.value(schemaName);
+    QJsonObjectSchemaPair schemaPair = m_schemas.value(schemaName);
     ensureCompiled(schemaName, &schemaPair, service);
     return schemaPair.second;
 }
 
-QsonMap SchemaManager::take(const QString &name)
+QJsonObject SchemaManager::take(const QString &name)
 {
     return m_schemas.take(name).first;
 }
 
-QsonMap SchemaManager::insert(const QString &name, QsonMap &schema)
+QJsonObject SchemaManager::insert(const QString &name, QJsonObject &schema)
 {
-    m_schemas.insert(name, qMakePair(schema, SchemaValidation::Schema<QsonObjectTypes>()));
-    return QsonMap();
+    m_schemas.insert(name, qMakePair(schema, SchemaValidation::Schema<QJsonObjectTypes>()));
+    return QJsonObject();
 }
 
-inline QsonMap SchemaManager::ensureCompiled(const QString &schemaName, QsonMapSchemaPair *pair, QsonObjectTypes::Service *callbacks)
+inline QJsonObject SchemaManager::ensureCompiled(const QString &schemaName, QJsonObjectSchemaPair *pair, QJsonObjectTypes::Service *callbacks)
 {
-    SchemaValidation::Schema<QsonObjectTypes> schema(pair->second);
+    SchemaValidation::Schema<QJsonObjectTypes> schema(pair->second);
     if (!schema.isValid()) {
         // Try to compile schema
-        QsonObjectTypes::Object schemaObject(pair->first);
-        SchemaValidation::Schema<QsonObjectTypes> compiledSchema(schemaObject, callbacks);
+        QJsonObjectTypes::Object schemaObject(pair->first);
+        SchemaValidation::Schema<QJsonObjectTypes> compiledSchema(schemaObject, callbacks);
         pair->second = compiledSchema;
         m_schemas.insert(schemaName, *pair);
         return callbacks->error();
     }
-    return QsonMap();
+    return QJsonObject();
 }
 
-inline QsonMap SchemaManager::validate(const QString &schemaName, QsonMap object)
+inline QJsonObject SchemaManager::validate(const QString &schemaName, JsonDbObject object)
 {
     if (!contains(schemaName))
-        return QsonMap();
+        return QJsonObject();
 
-    QsonObjectTypes::Service callbacks(this);
-    QsonMapSchemaPair schemaPair = m_schemas.value(schemaName);
+    QJsonObjectTypes::Service callbacks(this);
+    QJsonObjectSchemaPair schemaPair = m_schemas.value(schemaName);
     ensureCompiled(schemaName, &schemaPair, &callbacks);
-    SchemaValidation::Schema<QsonObjectTypes> schema(schemaPair.second);
-    QsonObjectTypes::Value rootObject(QString(), object);
+    SchemaValidation::Schema<QJsonObjectTypes> schema(schemaPair.second);
+    QJsonObjectTypes::Value rootObject(QString(), object);
     /*bool result = */ schema.check(rootObject, &callbacks);
     return callbacks.error();
 }

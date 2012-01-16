@@ -66,34 +66,23 @@ extern bool gDebug;
 
 /*********************************************/
 
-#if 0
-static void sendResult( QsonStream *stream, const QVariant& result, const QVariant& id )
+static QJsonObject createError( JsonDbError::ErrorCode code, const QString& message )
 {
-    QsonObject map;
-    map.insert( JsonDbString::kResultStr, result);
-    map.insert( JsonDbString::kErrorStr, QVariant());
-    map.insert( JsonDbString::kIdStr, id );
-    stream->send(map);
-}
-#endif
-
-static QsonMap createError( JsonDbError::ErrorCode code, const QString& message )
-{
-    QsonMap map;
-    map.insert(JsonDbString::kResultStr, QsonMap::NullValue);
-    QsonMap errormap;
+    QJsonObject map;
+    map.insert(JsonDbString::kResultStr, QJsonValue());
+    QJsonObject errormap;
     errormap.insert(JsonDbString::kCodeStr, (int)code);
     errormap.insert(JsonDbString::kMessageStr, message);
     map.insert( JsonDbString::kErrorStr, errormap );
     return map;
 }
 
-static void sendError( QsonStream *stream, JsonDbError::ErrorCode code,
+static void sendError( JsonStream *stream, JsonDbError::ErrorCode code,
                        const QString& message, int id )
 {
-    QsonMap map;
-    map.insert( JsonDbString::kResultStr, QsonObject::NullValue);
-    QsonMap errormap;
+    QJsonObject map;
+    map.insert( JsonDbString::kResultStr, QJsonValue());
+    QJsonObject errormap;
     errormap.insert(JsonDbString::kCodeStr, code);
     errormap.insert(JsonDbString::kMessageStr, message);
     map.insert( JsonDbString::kErrorStr, errormap );
@@ -104,6 +93,7 @@ static void sendError( QsonStream *stream, JsonDbError::ErrorCode code,
 }
 
 /*********************************************/
+static int jsondbdocumentid = qRegisterMetaType<JsonDbObject>("JsonDbObject");
 
 DBServer::DBServer(const QString &fileName, QObject *parent)
     : QObject(parent),
@@ -150,8 +140,8 @@ bool DBServer::start(bool compactOnClose)
 {
     mJsonDb = new JsonDb(mFileName, this);
     mJsonDb->setCompactOnClose(compactOnClose);
-    if (!connect(mJsonDb, SIGNAL(notified(QString,QsonMap,QString)),
-                 this, SLOT(notified(QString,QsonMap,QString)),
+    if (!connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
+                 this, SLOT(notified(QString,JsonDbObject,QString)),
                  Qt::QueuedConnection))
         qWarning() << "DBServer::start - failed to connect SIGNAL(notified)";
     if (!connect(mJsonDb, SIGNAL(requestViewUpdate(QString,QString)),
@@ -203,9 +193,9 @@ void DBServer::handleConnection()
         //        this, SLOT(handleConnectionError()));
         DBG() << "client connected to jsondb server" << connection;
         connect(connection, SIGNAL(disconnected()), this, SLOT(removeConnection()));
-        QsonStream *stream = new QsonStream(connection, this);
-        connect(stream, SIGNAL(receive(QsonObject)), this,
-                SLOT(receiveMessage(QsonObject)));
+        JsonStream *stream = new JsonStream(connection, this);
+        connect(stream, SIGNAL(receive(QJsonObject)), this,
+                SLOT(receiveMessage(QJsonObject)));
         mConnections.insert(connection, stream);
     }
 }
@@ -217,14 +207,14 @@ void DBServer::handleTcpConnection()
         //        this, SLOT(handleConnectionError()));
         DBG() << "remote client connected to jsondb server" << connection;
         connect(connection, SIGNAL(disconnected()), this, SLOT(removeConnection()));
-        QsonStream *stream = new QsonStream(connection, this);
-        connect(stream, SIGNAL(receive(QsonObject)), this,
-                SLOT(receiveMessage(QsonObject)));
+        JsonStream *stream = new JsonStream(connection, this);
+        connect(stream, SIGNAL(receive(QJsonObject)), this,
+                SLOT(receiveMessage(QJsonObject)));
         mConnections.insert(connection, stream);
     }
 }
 
-JsonDbOwner *DBServer::getOwner(QsonStream *stream)
+JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 {
     QIODevice *device = stream->device();
     if (!mOwners.contains(device)) {
@@ -238,15 +228,16 @@ JsonDbOwner *DBServer::getOwner(QsonStream *stream)
     return mOwners[device];
 }
 
-void DBServer::notified( const QString &notificationId, QsonMap object, const QString &action )
+void DBServer::notified(const QString &notificationId, JsonDbObject object, const QString &action)
 {
     DBG() << "DBServer::notified" << "notificationId" << notificationId << "object" << object;
-    QsonStream *stream = mNotifications.value(notificationId);
+    JsonStream *stream = mNotifications.value(notificationId);
     // if the notified signal() is delivered after the notification has been deleted,
     // then there is no stream to send to
     if (!stream)
         return;
-    QsonMap map, obj;
+
+    QJsonObject map, obj;
     obj.insert( JsonDbString::kObjectStr, object );
     obj.insert( JsonDbString::kActionStr, action );
     map.insert( JsonDbString::kNotifyStr, obj );
@@ -261,22 +252,30 @@ void DBServer::updateView( const QString &viewType, const QString &partitionName
     mJsonDb->updateView(viewType, partitionName);
 }
 
-void DBServer::processCreate(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName)
+void DBServer::processCreate(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName)
 {
-    QsonMap result;
+    QJsonObject result;
     JsonDbOwner *owner = getOwner(stream);
     switch (object.type()) {
-    case QsonObject::ListType: {
+    case QJsonValue::Array: {
         // TODO:  Properly handle creating notifications from a list
-        QsonList list = object.toList();
-        result = mJsonDb->createList(owner, list, partitionName);
+        QJsonArray list = object.toArray();
+        JsonDbObjectList olist;
+        for (int i = 0; i < list.size(); i++) {
+            QJsonObject o(list.at(i).toObject());
+            olist.append(o);
+        }
+        result = mJsonDb->createList(owner, olist, partitionName);
         break; }
-    case QsonObject::MapType: {
-        QsonMap obj = object.toMap();
-        result = mJsonDb->create(owner, obj, partitionName);
-        QString uuid = result.value<QsonMap>(JsonDbString::kResultStr).valueString(JsonDbString::kUuidStr);
-        if (!uuid.isEmpty() /*&& partitionName == JsonDbString::kEphemeralPartitionName*/ && // ### TODO: uncomment me
-                obj.valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr) {
+    case QJsonValue::Object: {
+        QJsonObject o = object.toObject();
+        JsonDbObject document(o);
+
+        result = mJsonDb->create(owner, document, partitionName);
+        QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+        if (!uuid.isEmpty()
+              // && partitionName == JsonDbString::kEphemeralPartitionName ### TODO: uncomment me
+            && document.value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr) {
             mNotifications.insert(uuid, stream);
         }
         break; }
@@ -288,31 +287,39 @@ void DBServer::processCreate(QsonStream *stream, const QsonObject &object, int i
     stream->send(result);
 }
 
-void DBServer::processUpdate(QsonStream *stream, const QsonObject &object,
-                             int id, const QString &partitionName, bool replication)
+void DBServer::processUpdate(JsonStream *stream, const QJsonValue &object,
+                             int id, const QString &partitionName)
 {
-    QsonMap result;
+    QJsonObject result;
     JsonDbOwner *owner = getOwner(stream);
     switch (object.type()) {
-    case QsonObject::ListType: {
+    case QJsonValue::Array: {
         // TODO:  Properly handle updating notifications from a list
-        QsonList list = object.toList();
-        result = mJsonDb->updateList(owner, list, partitionName, replication);
+        QJsonArray list = object.toArray();
+        JsonDbObjectList olist;
+        for (int i = 0; i < list.size(); i++) {
+            QJsonObject o(list.at(i).toObject());
+            olist.append(o);
+        }
+        result = mJsonDb->updateList(owner, olist, partitionName);
         break; }
-    case QsonObject::MapType: {
-        QsonMap obj = object.toMap();
+    case QJsonValue::Object: {
+        QJsonObject o = object.toObject();
+        JsonDbObject document(o);
 
         // The user could be changing a _type='notification' object to some other type
-        QString uuid = obj.valueString(JsonDbString::kUuidStr);
+        QString uuid = document.value(JsonDbString::kUuidStr).toString();
         if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName)
             mNotifications.remove(uuid);
 
-        result = mJsonDb->update(owner, obj, partitionName, replication);
-        if (result.contains(JsonDbString::kErrorStr) && !result.isNull(JsonDbString::kErrorStr))
-            qCritical() << "UPDATE:" << obj << " Error Message : " << result.subObject(JsonDbString::kErrorStr).valueString(JsonDbString::kMessageStr);
+        result = mJsonDb->update(owner, document, partitionName);
+        if (result.contains(JsonDbString::kErrorStr)
+                && (!result.value(JsonDbString::kErrorStr).isNull())
+                && !result.value(JsonDbString::kErrorStr).toObject().size())
+            qCritical() << "UPDATE:" << document << " Error Message : " << result.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString();
 
         if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName &&
-                obj.valueString(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
+                document.value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
             mNotifications.insert(uuid, stream);
         break; }
     default:
@@ -323,54 +330,97 @@ void DBServer::processUpdate(QsonStream *stream, const QsonObject &object,
     stream->send(result);
 }
 
-void DBServer::processRemove(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName)
+void DBServer::processRemove(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName)
 {
     JsonDbOwner *owner = getOwner(stream);
-    QsonMap result;
+    QJsonObject result;
     switch (object.type()) {
-    case QsonObject::ListType:
+    case QJsonValue::Array: {
         // TODO: Properly handle removing notifications from a list
-        result = mJsonDb->removeList(owner, object.toList(), partitionName);
-        break;
-    case QsonObject::MapType: {
-        QsonMap obj = object.toMap();
-        if (obj.contains(JsonDbString::kUuidStr)) {
-            // removing a single item
-            QString uuid = obj.valueString(JsonDbString::kUuidStr);
-            mNotifications.remove(uuid);
-            result = mJsonDb->remove(owner, obj, partitionName);
-        } else {
-            // treat input as a query and remove the result of it
-            if (obj.valueString(JsonDbString::kQueryStr).isEmpty()) {
-                result = createError(JsonDbError::MissingQuery, "Remove requires a query or an object");
-                break;
-            }
-            QsonMap queryResult = mJsonDb->find(owner, obj, partitionName);
-            if (queryResult.contains(JsonDbString::kErrorStr)
-                && !queryResult.isNull(JsonDbString::kErrorStr)) {
-                result = queryResult;
-                break;
-            }
-            QsonList itemsToRemove = queryResult.subObject(JsonDbString::kResultStr).subList(QLatin1String("data"));
-            // TODO: Properly handle removing notifications from a list
-            result = mJsonDb->removeList(owner, itemsToRemove, partitionName);
+        QJsonArray list = object.toArray();
+        JsonDbObjectList olist;
+        for (int i = 0; i < list.size(); i++) {
+            QJsonObject o(list.at(i).toObject());
+            olist.append(o);
         }
-        break; }
+        result = mJsonDb->removeList(owner, olist, partitionName);
+    } break;
+    case QJsonValue::Object: {
+        QJsonObject o = object.toObject();
+        if (o.contains(JsonDbString::kQueryStr)
+            && !o.contains(JsonDbString::kUuidStr)) {
+            QJsonObject query = o;
+            JsonDbQueryResult queryResult = mJsonDb->find(owner, query, partitionName);
+            if (queryResult.error.type() == QJsonValue::Object) {
+                result = createError((JsonDbError::ErrorCode)queryResult.error.toObject().value("code").toDouble(),
+                                     queryResult.error.toObject().value("message").toString());
+                break;
+            }
+            JsonDbObjectList itemsToRemove = queryResult.data;
+            result = mJsonDb->removeList(owner, itemsToRemove, partitionName);
+        } else {
+            JsonDbObject document(o);        // removing a single item
+            QString uuid = document.value(JsonDbString::kUuidStr).toString();
+            mNotifications.remove(uuid);
+            result = mJsonDb->remove(owner, document, partitionName);
+        }
+    } break;
     default:
-        result = createError(JsonDbError::MissingObject, "Remove requires list or object");
+        result = createError(JsonDbError::MissingObject, "Remove requires object, list of objects, or query string");
         break;
     }
     result.insert( JsonDbString::kIdStr, id );
     stream->send(result);
 }
 
-void DBServer::processFind(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName)
+void DBServer::processFind(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName)
 {
     JsonDbOwner *owner = getOwner(stream);
-    QsonMap result;
+    QJsonObject response;
     switch (object.type()) {
-    case QsonObject::MapType:
-        result = mJsonDb->find(owner, object, partitionName);
+    case QJsonValue::Object: {
+        JsonDbQueryResult findResult = mJsonDb->find(owner, object.toObject(), partitionName);
+        if (findResult.error.type() != QJsonValue::Null) {
+            response.insert(JsonDbString::kErrorStr, findResult.error);
+            response.insert(JsonDbString::kResultStr, QJsonValue());
+        } else {
+            QJsonObject result;
+            if (findResult.values.size()) {
+                result.insert(JsonDbString::kDataStr, findResult.values);
+                result.insert(JsonDbString::kLengthStr, findResult.values.size());
+            } else {
+                QJsonArray values;
+                for (int i = 0; i < findResult.data.size(); i++) {
+                    JsonDbObject d = findResult.data.at(i);
+                    values.append(d);
+                }
+                result.insert(JsonDbString::kDataStr, values);
+                result.insert(JsonDbString::kLengthStr, values.size());
+            }
+            result.insert(JsonDbString::kOffsetStr, findResult.offset);
+            result.insert(JsonDbString::kExplanationStr, findResult.explanation);
+            result.insert("sortKeys", findResult.sortKeys);
+            result.insert("state", findResult.state);
+            response.insert(JsonDbString::kResultStr, result);
+            response.insert(JsonDbString::kErrorStr, QJsonValue());
+        }
+    } break;
+    default:
+        response = createError(JsonDbError::InvalidRequest, "Invalid find object");
+        break;
+    }
+    response.insert( JsonDbString::kIdStr, id );
+    stream->send(response);
+}
+
+void DBServer::processChangesSince(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName)
+{
+    JsonDbOwner *owner = getOwner(stream);
+    QJsonObject request(object.toObject());
+    QJsonObject result;
+    switch (object.type()) {
+    case QJsonValue::Object:
+        result = mJsonDb->changesSince(owner, request, partitionName);
         break;
     default:
         result = createError(JsonDbError::InvalidRequest, "Invalid find object");
@@ -380,27 +430,11 @@ void DBServer::processFind(QsonStream *stream, const QsonObject &object, int id,
     stream->send(result);
 }
 
-void DBServer::processChangesSince(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName)
-{
-    JsonDbOwner *owner = getOwner(stream);
-    QsonMap result;
-    switch (object.type()) {
-    case QsonObject::MapType:
-        result = mJsonDb->changesSince(owner, object, partitionName);
-        break;
-    default:
-        result = createError(JsonDbError::InvalidRequest, "Invalid find object");
-        break;
-    }
-    result.insert( JsonDbString::kIdStr, id );
-    stream->send(result);
-}
-
-bool DBServer::validateToken( QsonStream *stream, const QsonMap &securityObject )
+bool DBServer::validateToken( JsonStream *stream, const JsonDbObject &securityObject )
 {
     bool valid = false;
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-    pid_t pid = securityObject.valueUInt("pid");
+    pid_t pid = securityObject.value("pid").toDouble();
     ucred peercred;
     socklen_t peercredlen = sizeof peercred;
     int s = 0;
@@ -425,7 +459,7 @@ bool DBServer::validateToken( QsonStream *stream, const QsonMap &securityObject 
 
 // This will create a dummy owner. Used only when the policies are not enforced.
 // When policies are not enforced the JsonDbOwner allows access to everybody.
-void DBServer::createDummyOwner( QsonStream *stream, int id )
+void DBServer::createDummyOwner( JsonStream *stream, int id )
 {
     if (gEnforceAccessControlPolicies)
         return;
@@ -433,18 +467,18 @@ void DBServer::createDummyOwner( QsonStream *stream, int id )
     JsonDbOwner *owner = new JsonDbOwner(this);
     owner->setOwnerId(QString("unknown app"));
     owner->setDomain(QString("unknown domain"));
-    QsonMap capabilities;
+    QJsonObject capabilities;
     owner->setCapabilities(capabilities, mJsonDb);
     mOwners[stream->device()] = owner;
 
-    QsonMap result;
+    QJsonObject result;
     result.insert( JsonDbString::kResultStr, QLatin1String("Okay") );
-    result.insert( JsonDbString::kErrorStr, QsonObject::NullValue);
+    result.insert( JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
     result.insert( JsonDbString::kIdStr, id );
     stream->send(result);
 }
 
-void DBServer::processToken(QsonStream *stream, const QVariant &object, int id)
+void DBServer::processToken(JsonStream *stream, const QJsonValue &object, int id)
 {
     if (!gEnforceAccessControlPolicies) {
         // We are not enforcing policies here, allow 'token' requests
@@ -455,9 +489,9 @@ void DBServer::processToken(QsonStream *stream, const QVariant &object, int id)
     }
 
     bool tokenValidated = false;
-    QsonMap result;
+    QJsonObject result;
     QString errorStr(QLatin1String("Invalid token"));
-    if (object.type() == QVariant::String) {
+    if (object.type() == QJsonValue::String) {
         QString token = object.toString();
 
         // grant all access to applications with the master token.
@@ -468,19 +502,19 @@ void DBServer::processToken(QsonStream *stream, const QVariant &object, int id)
             mOwners[stream->device()] = owner;
             tokenValidated = true;
         } else {
-            QsonMap request;
-            request.insert(JsonDbString::kQueryStr, (QString("[?%1=\"com.nokia.mp.core.Security\"][?%2=\"%3\"]")
-                                                     .arg(JsonDbString::kTypeStr)
-                                                     .arg(JsonDbString::kTokenStr).arg(token)));
-
-            QsonMap result = mJsonDb->find(mJsonDb->owner(), request);
-            QsonList securityObjects = result.subObject(JsonDbString::kResultStr).subList(JsonDbString::kDataStr);
+            GetObjectsResult result = mJsonDb->getObjects(JsonDbString::kTypeStr, QString("com.nokia.mp.core.Security"));
+            JsonDbObjectList securityObjects;
+            for (int i = 0; i < result.data.size(); i++) {
+                JsonDbObject doc = result.data.at(i);
+                if (doc.value(JsonDbString::kTokenStr).toString() == token)
+                    securityObjects.append(doc);
+            }
             if (securityObjects.size() == 1) {
-                QsonMap securityObject = securityObjects.at<QsonMap>(0);
+                JsonDbObject securityObject = securityObjects.at(0);
                 if (validateToken(stream, securityObject)) {
-                    QString identifier = securityObject.valueString("identifier");
-                    QString domain = securityObject.valueString("domain");
-                    QsonMap capabilities = securityObject.subObject("capabilities");
+                    QString identifier = securityObject.value("identifier").toString();
+                    QString domain = securityObject.value("domain").toString();
+                    QJsonObject capabilities = securityObject.value("capabilities").toObject();
 
                     JsonDbOwner *owner = new JsonDbOwner(this);
                     owner->setOwnerId(identifier);
@@ -489,8 +523,8 @@ void DBServer::processToken(QsonStream *stream, const QVariant &object, int id)
 
                     QStringList keys = capabilities.keys();
                     if (keys.contains("quotas")) {
-                        QsonMap quotas = capabilities.subObject("quotas");
-                        int storageQuota = quotas.valueInt("storage");
+                        QJsonObject quotas = capabilities.value("quotas").toObject();
+                        int storageQuota = quotas.value("storage").toDouble();
                         owner->setStorageQuota(storageQuota);
                     }
                     mOwners[stream->device()] = owner;
@@ -508,10 +542,10 @@ void DBServer::processToken(QsonStream *stream, const QVariant &object, int id)
         }
     }
     if (tokenValidated) {
-        QsonMap resultObject;
+        QJsonObject resultObject;
         resultObject.insert(JsonDbString::kResultStr, QLatin1String("Okay"));
         result.insert(JsonDbString::kResultStr, resultObject);
-        result.insert(JsonDbString::kErrorStr, QsonObject::NullValue);
+        result.insert(JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
     } else {
         result = createError(JsonDbError::InvalidRequest, errorStr);
     }
@@ -530,15 +564,13 @@ void DBServer::processToken(QsonStream *stream, const QVariant &object, int id)
     }
 }
 
-void DBServer::receiveMessage(const QsonObject &message)
+void DBServer::receiveMessage(const QJsonObject &message)
 {
-    QsonMap map = message.toMap();
-    QsonStream *stream = qobject_cast<QsonStream *>(sender());
-
-    QString  action = map.valueString(JsonDbString::kActionStr);
-    QsonObject object = map.value<QsonElement>(JsonDbString::kObjectStr);
-    int id = map.valueInt(JsonDbString::kIdStr);
-    QString partitionName = map.valueString(JsonDbString::kPartitionStr);
+    JsonStream *stream = qobject_cast<JsonStream *>(sender());
+    QString  action = message.value(JsonDbString::kActionStr).toString();
+    QJsonValue object = message.value(JsonDbString::kObjectStr);
+    int id = message.value(JsonDbString::kIdStr).toDouble();
+    QString partitionName = message.value(JsonDbString::kPartitionStr).toString();
 
     QElapsedTimer timer;
     if (gPerformanceLog)
@@ -547,24 +579,24 @@ void DBServer::receiveMessage(const QsonObject &message)
     if (action == JsonDbString::kCreateStr)
         processCreate(stream, object, id, partitionName);
     else if (action == JsonDbString::kUpdateStr)
-        processUpdate(stream, object, id, partitionName, map.valueBool("replication"));
+        processUpdate(stream, object, id, partitionName);
     else if (action == JsonDbString::kRemoveStr)
         processRemove(stream, object, id, partitionName);
     else if (action == JsonDbString::kFindStr)
         processFind(stream, object, id, partitionName);
     else if (action == JsonDbString::kTokenStr)
-        processToken(stream, qsonToVariant(map.value<QsonElement>(JsonDbString::kObjectStr)), id);
+        processToken(stream, object, id);
     else if (action == JsonDbString::kChangesSinceStr)
         processChangesSince(stream, object, id, partitionName);
     else {
         const QMetaObject *mo = mJsonDb->metaObject();
-        QsonMap result;
+        QJsonObject result;
         // DBG() << QString("using QMetaObject to invoke method %1").arg(action);
         if (mo->invokeMethod(mJsonDb, action.toLatin1().data(),
                              Qt::DirectConnection,
-                             Q_RETURN_ARG(QsonObject, result),
+                             Q_RETURN_ARG(QJsonObject, result),
                              Q_ARG(JsonDbOwner *, getOwner(stream)),
-                             Q_ARG(QsonObject, object.toMap()))) {
+                             Q_ARG(QJsonValue, object.toObject()))) {
             result.insert( JsonDbString::kIdStr, id );
             stream->send(result);
         } else {
@@ -576,11 +608,11 @@ void DBServer::receiveMessage(const QsonObject &message)
     if (gPerformanceLog) {
         QString additionalInfo;
         if ( action == JsonDbString::kFindStr ) {
-            additionalInfo = object.toMap().valueString("query");
-        } else if (object.type() == QsonObject::ListType) {
-            additionalInfo = QString::fromLatin1("%1 objects").arg(object.toList().size());
+            additionalInfo = object.toObject().value("query").toString();
+        } else if (object.type() == QJsonValue::Array) {
+            additionalInfo = QString::fromLatin1("%1 objects").arg(object.toArray().size());
         } else {
-            additionalInfo = object.toMap().valueString(JsonDbString::kTypeStr);
+            additionalInfo = object.toObject().value(JsonDbString::kTypeStr).toString();
         }
         qDebug() << "jsondb" << "processed" << action << "ms" << timer.elapsed() << additionalInfo;
     }
@@ -596,13 +628,13 @@ void DBServer::removeConnection()
 {
     QIODevice *connection = qobject_cast<QIODevice *>(sender());
     JsonDbOwner *owner = mOwners[connection];
-    QMutableMapIterator<QString, QsonStream *> iter(mNotifications);
+    QMutableMapIterator<QString, JsonStream *> iter(mNotifications);
     while (iter.hasNext()) {
         iter.next();
         if (iter.value()
             && (iter.value()->device() == connection)) {
             QString notificationId = iter.key();
-            QsonMap notificationObject;
+            QJsonObject notificationObject;
             notificationObject.insert(JsonDbString::kUuidStr, notificationId);
             mJsonDb->remove(owner, notificationObject, JsonDbString::kEphemeralPartitionName);
             mNotifications.remove(notificationId);
@@ -610,7 +642,7 @@ void DBServer::removeConnection()
     }
 
     if (mConnections.contains(connection)) {
-        QsonStream *stream = mConnections.value(connection);
+        JsonStream *stream = mConnections.value(connection);
         if (stream)
             stream->deleteLater();
 

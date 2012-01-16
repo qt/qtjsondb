@@ -1,4 +1,4 @@
 TEMPLATE = subdirs
 CONFIG += ordered
-SUBDIRS += 3rdparty qson daemon client imports
+SUBDIRS += 3rdparty daemon client imports
 

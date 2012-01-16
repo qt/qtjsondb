@@ -46,6 +46,7 @@
 #include "jsondb-connection_p.h"
 
 #include <QEvent>
+#include <QUuid>
 
 /*!
     \macro QT_USE_NAMESPACE_JSONDB
@@ -266,6 +267,7 @@ void JsonDbClientPrivate::_q_timeout()
 void JsonDbClientPrivate::_q_processQueue()
 {
     Q_Q(JsonDbClient);
+
     if (requestQueue.isEmpty())
         return;
     if (connection->status() != JsonDbConnection::Ready)
@@ -314,36 +316,30 @@ void JsonDbClientPrivate::init(JsonDbConnection *c)
 
     if (connection) {
         q->disconnect(q, SLOT(_q_statusChanged()));
-        q->disconnect(q, SLOT(_q_handleNotified(QString,QsonObject,QString)));
-        q->disconnect(q, SLOT(_q_handleResponse(int,QsonObject)));
+        q->disconnect(q, SLOT(_q_handleNotified(QString,QVariant,QString)));
+        q->disconnect(q, SLOT(_q_handleResponse(int,QVariant)));
         q->disconnect(q, SLOT(_q_handleError(int,int,QString)));
         q->disconnect(q, SIGNAL(disconnected()));
-        // TODO: remove this one
-        q->disconnect(q,  SIGNAL(readyWrite()));
     }
     connection = c;
 
     q->connect(connection, SIGNAL(statusChanged()), q, SLOT(_q_statusChanged()));
-    q->connect(connection, SIGNAL(notified(QString,QsonObject,QString)),
-               SLOT(_q_handleNotified(QString,QsonObject,QString)));
-    q->connect(connection, SIGNAL(response(int,QsonObject)),
-               SLOT(_q_handleResponse(int,QsonObject)));
+    q->connect(connection, SIGNAL(notified(QString,QVariant,QString)),
+               SLOT(_q_handleNotified(QString,QVariant,QString)));
+    q->connect(connection, SIGNAL(response(int,QVariant)),
+               SLOT(_q_handleResponse(int,QVariant)));
     q->connect(connection, SIGNAL(error(int,int,QString)),
                SLOT(_q_handleError(int,int,QString)));
-
     q->connect(connection, SIGNAL(disconnected()),  SIGNAL(disconnected()));
-
-    // TODO: remove this one
-    q->connect(connection, SIGNAL(readyWrite()),  SIGNAL(readyWrite()));
 }
 
-void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const QsonObject &data, const QString &action)
+void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const QVariant &v, const QString &action)
 {
     Q_Q(JsonDbClient);
+    QVariantMap vdata = v.toMap();
     if (notifyCallbacks.contains(notifyUuid)) {
         NotifyCallback c = notifyCallbacks.value(notifyUuid);
         QList<QByteArray> params = c.method.parameterTypes();
-        const QVariant vdata = qsonToVariant(data);
 
         JsonDbClient::NotifyType type;
         if (action == JsonDbString::kCreateStr) {
@@ -359,31 +355,27 @@ void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const Qso
 
         quint32 stateNumber = quint32(0); // ### TODO
 
+        JsonDbNotification notification(vdata, type, stateNumber);
         if (params.size() == 2 && params.at(1) == QByteArray("QtAddOn::JsonDb::JsonDbNotification")) {
-            JsonDbNotification n(vdata.toMap(), type, stateNumber);
-            c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(JsonDbNotification, n));
-        } else if (params.size() >= 2 && params.at(1) == QByteArray("QsonObject")) {
-            c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QsonObject, data), Q_ARG(QString, action));
+            c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(JsonDbNotification, notification));
         } else {
             c.method.invoke(c.object.data(), Q_ARG(QString, notifyUuid), Q_ARG(QVariant, vdata), Q_ARG(QString, action));
         }
-        emit q->notified(notifyUuid, data, action);
         emit q->notified(notifyUuid, vdata, action);
-        emit q->notified(notifyUuid, JsonDbNotification(vdata.toMap(), type, stateNumber));
+        emit q->notified(notifyUuid, notification);
     }
 }
 
-void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
+void JsonDbClientPrivate::_q_handleResponse(int id, const QVariant &data)
 {
     Q_Q(JsonDbClient);
 
     sentRequestQueue.remove(id);
-
     QHash<int, NotifyCallback>::iterator it = unprocessedNotifyCallbacks.find(id);
     if (it != unprocessedNotifyCallbacks.end()) {
         NotifyCallback c = it.value();
         unprocessedNotifyCallbacks.erase(it);
-        QString notifyUuid = data.toMap().valueString(JsonDbString::kUuidStr);
+        QString notifyUuid = data.toMap().value(JsonDbString::kUuidStr).toString();
         notifyCallbacks.insert(notifyUuid, c);
     }
     QHash<int, Callback>::iterator idsit = ids.find(id);
@@ -397,19 +389,14 @@ void JsonDbClientPrivate::_q_handleResponse(int id, const QsonObject &data)
         if (idx >= 0) {
             QMetaMethod method = mo->method(idx);
             QList<QByteArray> params = method.parameterTypes();
-            if (params.size() >= 2 && params.at(1) == QByteArray("QsonObject")) {
-                method.invoke(object, Q_ARG(int, id), Q_ARG(QsonObject, data));
-            } else {
-                const QVariant vdata = qsonToVariant(data);
-                method.invoke(object, Q_ARG(int, id), Q_ARG(QVariant, vdata));
-            }
+            const QVariant vdata = data.toMap();
+            method.invoke(object, Q_ARG(int, id), Q_ARG(QVariant, vdata));
         } else {
             qWarning() << "JsonDbClient: non existent slot"
                        << (c.successSlot ? QLatin1String(c.successSlot+1) : QLatin1String("<null>"))
                        << "on" << object;
         }
     }
-    emit q->response(id, qsonToVariant(data));
     emit q->response(id, data);
 }
 
@@ -434,8 +421,6 @@ void JsonDbClientPrivate::_q_handleError(int id, int code, const QString &messag
     emit q->error(id, (JsonDbError::ErrorCode)code, message);
 }
 
-
-
 /*!
   \deprecated
   \obsolete
@@ -446,7 +431,10 @@ int JsonDbClient::find(const QVariant &object, QObject *target, const char *succ
     Q_ASSERT(d->connection);
     int id = d->connection->makeRequestId();
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-    QVariantMap request = JsonDbConnection::makeFindRequest(object);
+    QVariantMap request;
+    request.insert(JsonDbString::kActionStr, JsonDbString::kFindStr);
+    request.insert(JsonDbString::kObjectStr, object);
+    request.insert(JsonDbString::kPartitionStr, QString());
     d->send(id, request);
     return id;
 }
@@ -566,7 +554,8 @@ int JsonDbClient::create(const QVariant &object, const QString &partitionName, Q
     int id = d->connection->makeRequestId();
 
     d->ids.insert(id, JsonDbClientPrivate::Callback(target, successSlot, errorSlot));
-    if (object.toMap().value(JsonDbString::kTypeStr).toString() == JsonDbString::kNotificationTypeStr)
+    if (object.type() == QVariant::Map
+        && object.toMap().value(JsonDbString::kTypeStr).toString() == JsonDbString::kNotificationTypeStr)
         d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
 
     QVariantMap request = JsonDbConnection::makeCreateRequest(object, partitionName);
@@ -641,8 +630,6 @@ int JsonDbClient::remove(const QVariant &object, const QString &partitionName, Q
     } else {
         request = JsonDbConnection::makeRemoveRequest(object, partitionName);
     }
-    if (object.type() == QVariant::String)
-        qDebug() << request;
     d->send(id, request);
 
     return id;
@@ -879,7 +866,7 @@ QString JsonDbClient::errorString() const
 */
 
 /*!
-    \fn void JsonDbClient::notified(const QString &notifyUuid, const QVariant &object, const QString &action)
+  \fn void JsonDbClient::notified(const QString &notifyUuid, const QVariant &object, const QString &action)
 
     \deprecated
     \obsolete
@@ -959,18 +946,7 @@ QString JsonDbClient::errorString() const
 */
 
 /*!
-    \fn void JsonDbClient::readyWrite()
-    \deprecated
-    \obsolete
-*/
-
-/*!
     \fn int JsonDbClient::changesSince(int stateNumber, QStringList types, QObject *target, const char *successSlot, const char *errorSlot)
-    \deprecated
-    \obsolete
-*/
-/*!
-    \fn int JsonDbClient::create(const QsonObject &object, QObject *target = 0, const char *successSlot = 0, const char *errorSlot = 0)
     \deprecated
     \obsolete
 */

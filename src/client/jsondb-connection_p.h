@@ -54,10 +54,6 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class QsonObject;
-class QsonMap;
-class QsonList;
-
 class JsonDbConnectionPrivate;
 class Q_ADDON_JSONDB_EXPORT JsonDbConnection : public QObject
 {
@@ -80,15 +76,13 @@ public:
     static void              setDefaultToken( const QString& token );
     static QString           defaultToken();
 
-    QT_DEPRECATED static QVariantMap makeFindRequest(const QVariant &);
-    QT_DEPRECATED static QsonObject makeFindRequest(const QsonObject &);
-    QT_DEPRECATED static QVariantMap makeRemoveRequest(const QString &);
 
     static QVariantMap makeCreateRequest(const QVariant &, const QString &partitionName = QString());
     static QVariantMap makeUpdateRequest(const QVariant &, const QString &partitionName = QString());
     static QVariantMap makeRemoveRequest(const QVariant &, const QString &partitionName = QString());
-    static QVariantMap makeQueryRequest(const QString &, int offset = 0, int limit = -1,
-                                        const QVariantMap &bindings = QVariantMap(),
+    static QVariantMap makeQueryRequest(const QString &, int offset = 0, int limit = -1, const QString &partitionName = QString());
+    static QVariantMap makeQueryRequest(const QString &, int offset, int limit,
+                                        const QVariantMap &bindings,
                                         const QString &partitionName = QString());
     static QVariantMap makeNotification(const QString &, const QVariantList &, const QString &partitionName = QString());
     static QVariantMap makeChangesSinceRequest(int stateNumber, const QStringList &types = QStringList(), const QString &partitionName = QString());
@@ -105,7 +99,6 @@ public:
                   const char *responseSlot=0, const char *errorSlot=0);
     // Synchronized calls pause execution until successful
     QVariant sync(const QVariantMap &dbrequest);
-    QT_DEPRECATED QsonObject sync(const QsonMap &dbrequest);
 
     void setToken(const QString &token);
     void connectToServer(const QString &socketName = QString());
@@ -114,9 +107,7 @@ public:
 
     // General purpose request
     int  request(const QVariantMap &request);
-    int  request(const QsonObject &request);
     bool request(int requestId, const QVariantMap &request);
-    //bool request(int requestId, const QsonMap &request);
 
     bool isConnected() const;
     Q_DECL_DEPRECATED inline bool connected() const
@@ -130,11 +121,8 @@ public:
 
 signals:
     void notified(const QString &notify_uuid, const QVariant &object, const QString &action);
-    void notified(const QString &notify_uuid, const QsonObject &object, const QString &action);
     void response(int id, const QVariant &data);
-    void response(int id, const QsonObject &data);
     void error(int id, int code, const QString &message);
-    void readyWrite();
 
     void connected();
     void disconnected();
@@ -149,7 +137,7 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_onConnected())
     Q_PRIVATE_SLOT(d_func(), void _q_onDisconnected())
     Q_PRIVATE_SLOT(d_func(), void _q_onError(QLocalSocket::LocalSocketError))
-    Q_PRIVATE_SLOT(d_func(), void _q_onReceiveMessage(QsonObject))
+    Q_PRIVATE_SLOT(d_func(), void _q_onReceiveMessage(QJsonObject))
 };
 
 QT_END_NAMESPACE_JSONDB

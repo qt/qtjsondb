@@ -43,9 +43,14 @@
 #define JSONDB_MAP_REDUCE_H
 
 #include <QJSEngine>
+#include <QStringList>
 
 #include "jsondb-global.h"
-#include <QtJsonDbQson/private/qson_p.h>
+#include <qjsonarray.h>
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
+
+#include <jsondbobject.h>
 
 QT_BEGIN_HEADER
 
@@ -61,18 +66,18 @@ class JsonDbMapDefinition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbMapDefinition(JsonDb *mJsonDb, JsonDbOwner *mOwner, const QString &partition, QsonMap mapDefinition, QObject *parent = 0);
+    JsonDbMapDefinition(JsonDb *mJsonDb, JsonDbOwner *mOwner, const QString &partition, QJsonObject mapDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     const QStringList &sourceTypes() const { return mSourceTypes; }
     QString partition() const { return mPartition; }
     bool isActive() const;
-    QsonObject definition() const { return mDefinition; }
+    QJsonObject definition() const { return mDefinition; }
     QJSValue mapFunction(const QString &sourceType) const;
     ObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
 
-    void mapObject(QsonMap object);
-    void unmapObject(const QsonMap &object);
+    void mapObject(JsonDbObject object);
+    void unmapObject(const JsonDbObject &object);
     void setError(const QString &errorMsg);
 
 public slots:
@@ -83,7 +88,7 @@ private:
     JsonDb        *mJsonDb;
     QString        mPartition;
     JsonDbOwner   *mOwner;
-    QsonMap        mDefinition;
+    QJsonObject     mDefinition;
     QJSEngine     *mScriptEngine;
     JsonDbMapProxy *mMapProxy; // to be removed when old map/lookup converted to join/lookup
     JsonDbJoinProxy *mJoinProxy;
@@ -100,7 +105,7 @@ class JsonDbReduceDefinition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbReduceDefinition(JsonDb *mJsonDb, JsonDbOwner *mOwner, const QString &partition, QsonMap reduceDefinition, QObject *parent = 0);
+    JsonDbReduceDefinition(JsonDb *mJsonDb, JsonDbOwner *mOwner, const QString &partition, QJsonObject reduceDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     QString sourceType() const { return mSourceType; }
@@ -108,21 +113,24 @@ public:
     QString sourceKeyName() const { return mSourceKeyName; }
     QString targetKeyName() const { return mTargetKeyName; }
     QString targetValueName() const { return mTargetValueName; }
+    // sourceKeyName split on .
+    QStringList sourceKeyNameList() const { return mSourceKeyNameList; }
     bool isActive() const;
-    QsonObject definition() const { return mDefinition; }
+    QJsonObject definition() const { return mDefinition; }
     const QJSValue &addFunction() const { return mAddFunction; }
     const QJSValue &subtractFunction() const { return mSubtractFunction; }
 
-    void updateObject(QsonMap before, QsonMap after);
-    QsonObject addObject(const QString &keyValue, const QsonObject &previousResult, QsonMap object);
-    QsonObject subtractObject(const QString &keyValue, const QsonObject &previousResult, QsonMap object);
+    void updateObject(JsonDbObject before, JsonDbObject after);
+    QJsonValue addObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);
+    QJsonValue subtractObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);
+
     void setError(const QString &errorMsg);
 
 private:
     JsonDb        *mJsonDb;
     JsonDbOwner   *mOwner;
     QString        mPartition;
-    QsonMap        mDefinition;
+    QJsonObject     mDefinition;
     QJSEngine *mScriptEngine;
     QJSValue   mAddFunction;
     QJSValue   mSubtractFunction;
@@ -132,6 +140,8 @@ private:
     QString        mTargetKeyName;
     QString        mTargetValueName;
     QString        mSourceKeyName;
+    // mSourceKeyName split on .
+    QStringList    mSourceKeyNameList;
 };
 
 QT_END_NAMESPACE_JSONDB

@@ -80,39 +80,47 @@ extern const QString gDatabaseSchemaVersion;
 class QueryConstraint {
 public:
     virtual ~QueryConstraint() { }
-    virtual bool matches(const QVariant &value) = 0;
+    virtual bool matches(const QJsonValue &value) = 0;
     virtual bool sparseMatchPossible() const
         { return false; }
 };
 
+bool lessThan(const QJsonValue &a, const QJsonValue &b);
+bool greaterThan(const QJsonValue &a, const QJsonValue &b);
+
 class IndexQuery {
 protected:
-    IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
+    IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table,
+               const QString &propertyName, const QString &propertyType,
+               const JsonDbOwner *owner, bool ascending = true);
 public:
-    static IndexQuery *indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
+    static IndexQuery *indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table,
+                                  const QString &propertyName, const QString &propertyType,
+                                  const JsonDbOwner *owner, bool ascending = true);
     ~IndexQuery();
 
+    ObjectTable *objectTable() const { return mObjectTable; }
     void addConstraint(QueryConstraint *qc) { mQueryConstraints.append(qc); }
     bool ascending() const { return mAscending; }
     QString propertyName() const { return mPropertyName; }
     void setTypeNames(const QSet<QString> typeNames) { mTypeNames = typeNames; }
-    void setMin(const QVariant &minv) { mMin = minv; }
-    void setMax(const QVariant &maxv) { mMax = maxv; }
+    void setMin(const QJsonValue &minv);
+    void setMax(const QJsonValue &maxv);
     QString aggregateOperation() const { return mAggregateOperation; }
     void setAggregateOperation(QString op) { mAggregateOperation = op; }
 
-    QsonMap first(); // returns first matching object
-    QsonMap next(); // returns next matching object
-    bool matches(const QVariant &value);
-    QVariant fieldValue() const { return mFieldValue; }
+    JsonDbObject first(); // returns first matching object
+    JsonDbObject next(); // returns next matching object
+    bool matches(const QJsonValue &value);
+    QJsonValue fieldValue() const { return mFieldValue; }
     JsonDbQuery *residualQuery() const { return mResidualQuery; }
     void setResidualQuery(JsonDbQuery *residualQuery) { mResidualQuery = residualQuery; }
     virtual quint32 stateNumber() const;
 
 protected:
-    virtual bool seekToStart(QVariant &fieldValue);
-    virtual bool seekToNext(QVariant &fieldValue);
-    virtual QsonMap currentObjectAndTypeNumber(ObjectKey &objectKey);
+    virtual bool seekToStart(QJsonValue &fieldValue);
+    virtual bool seekToNext(QJsonValue &fieldValue);
+    virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
 
 protected:
     JsonDbBtreeStorage *mStorage;
@@ -120,25 +128,26 @@ protected:
     QManagedBtree *mBdbIndex;
     QBtreeCursor  *mCursor;
     const JsonDbOwner *mOwner;
-    QVariant      mMin, mMax;
+    QJsonValue      mMin, mMax;
     QSet<QString> mTypeNames;
     bool          mAscending;
     QString       mUuid;
     QVector<QueryConstraint*> mQueryConstraints;
     QString       mAggregateOperation;
     QString       mPropertyName;
-    QVariant      mFieldValue; // value of field for the object the cursor is pointing at
+    QString       mPropertyType;
+    QJsonValue     mFieldValue; // value of field for the object the cursor is pointing at
     bool          mSparseMatchPossible;
-    QHash<QString, QsonMap> mObjectCache;
+    QHash<QString, JsonDbObject> mObjectCache;
     JsonDbQuery  *mResidualQuery;
 };
 
 class UuidQuery : public IndexQuery {
 protected:
     UuidQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
-    virtual bool seekToStart(QVariant &fieldValue);
-    virtual bool seekToNext(QVariant &fieldValue);
-    virtual QsonMap currentObjectAndTypeNumber(ObjectKey &objectKey);
+    virtual bool seekToStart(QJsonValue &fieldValue);
+    virtual bool seekToNext(QJsonValue &fieldValue);
+    virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
     virtual quint32 stateNumber() const;
     friend class IndexQuery;
 };
@@ -168,24 +177,24 @@ public:
     bool checkQuota(const JsonDbOwner *owner, int size) const;
     bool addToQuota(const JsonDbOwner *owner, int size);
 
-    QsonMap queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit=-1, int offset=0);
-    QsonMap queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit, int offset,
-                                   QList<JsonDbBtreeStorage *> partitions);
-    QsonMap createPersistentObject(QsonMap& );
-    QsonMap updatePersistentObject(QsonMap& );
-    QsonMap removePersistentObject(QsonMap object, const QsonMap &tombStone );
+    JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit=-1, int offset=0);
+    JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit, int offset,
+                                             QList<JsonDbBtreeStorage *> partitions);
+    QJsonObject createPersistentObject(JsonDbObject & );
+    QJsonObject updatePersistentObject(const JsonDbObject& oldObject, const JsonDbObject& object);
+    QJsonObject removePersistentObject(const JsonDbObject& oldObject, const JsonDbObject &tombStone );
 
     void addView(const QString &viewType);
     void removeView(const QString &viewType);
     ObjectTable *mainObjectTable() const { return mObjectTable; }
     ObjectTable *findObjectTable(const QString &objectType) const;
 
-    bool getObject(const QString &uuid, QsonMap &object, const QString &objectType = QString()) const;
-    bool getObject(const ObjectKey & objectKey, QsonMap &object, const QString &objectType = QString()) const;
+    bool getObject(const QString &uuid, JsonDbObject &object, const QString &objectType = QString()) const;
+    bool getObject(const ObjectKey & objectKey, JsonDbObject &object, const QString &objectType = QString()) const;
 
-    QsonMap getObjects(const QString &keyName, const QVariant &key, const QString &type = QString());
+    GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString());
 
-    QsonMap changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
+    QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
     void dumpIndexes(QString label);
 
     QString name() const;
@@ -207,12 +216,12 @@ protected:
     IndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery &query);
     void compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm);
 
-    void doIndexQuery(const JsonDbOwner *owner, QsonList &results, int &limit, int &offset,
+    void doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
                       IndexQuery *indexQuery);
-    void doMultiIndexQuery(const JsonDbOwner *owner, QsonList &results, int &limit, int &offset,
+    void doMultiIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
                            const QList<IndexQuery *> &indexQueries);
 
-    static void sortValues(const JsonDbQuery *query, QsonList &results, QsonList &joinedResults);
+    static void sortValues(const JsonDbQuery *query, JsonDbObjectList &results, JsonDbObjectList &joinedResults);
 
 private:
     JsonDb          *mJsonDb;
@@ -237,13 +246,13 @@ private:
 
 class WithTransaction {
 public:
-    WithTransaction(JsonDbBtreeStorage *storage, QString name=QString())
-        : mStorage(storage)
+    WithTransaction(JsonDbBtreeStorage *storage=0, QString name=QString())
+        : mStorage(0)
     {
         Q_UNUSED(name)
         //qDebug() << "WithTransaction" << "depth" << mStorage->mTransactionDepth << name;
-        if (!mStorage->beginTransaction())
-            mStorage = 0;
+        if (storage)
+            setStorage(storage);
     }
 
     ~WithTransaction()
@@ -252,18 +261,27 @@ public:
             mStorage->commitTransaction();
     }
 
+    void setStorage(JsonDbBtreeStorage *storage)
+    {
+        Q_ASSERT(!mStorage);
+        mStorage = storage;
+        if (!mStorage->beginTransaction())
+            mStorage = 0;
+    }
     bool hasBegin() { return mStorage; }
     bool addObjectTable(ObjectTable *table);
 
     void abort()
     {
-        mStorage->abortTransaction();
+        if (mStorage)
+            mStorage->abortTransaction();
         mStorage = 0;
     }
 
     void commit(quint32 stateNumber = 0)
     {
-        mStorage->commitTransaction(stateNumber);
+        if (mStorage)
+            mStorage->commitTransaction(stateNumber);
         mStorage = 0;
     }
 
@@ -273,7 +291,7 @@ private:
 
 #define CHECK_LOCK(lock, context) \
     if (!lock.hasBegin()) { \
-        QsonMap errormap;  \
+        QJsonObject errormap;  \
         errormap.insert(JsonDbString::kCodeStr, (int)JsonDbError::DatabaseError); \
         QString error = QString("Failed to set begin transaction [%1:%2]") \
                                 .arg(context, QString::number(__LINE__)); \
@@ -282,21 +300,22 @@ private:
 
 #define CHECK_LOCK_RETURN(lock, context) \
     if (!lock.hasBegin()) { \
-        QsonMap errormap; \
+        QJsonObject errormap; \
         errormap.insert(JsonDbString::kCodeStr, (int)JsonDbError::DatabaseError); \
         QString error = QString("Failed to set begin transaction [%1:%2]") \
                                 .arg(context, QString::number(__LINE__)); \
         errormap.insert(JsonDbString::kMessageStr, error); \
-        QsonMap result; \
-        result.insert(JsonDbString::kResultStr, QsonObject::NullValue); \
+        QJsonObject result; \
+        result.insert(JsonDbString::kResultStr, QJsonValue()); \
         result.insert(JsonDbString::kErrorStr, errormap); \
         return result; \
     }
 
-QByteArray makeForwardKey(const QVariant &fieldValue, const ObjectKey &objectKey);
+QJsonValue makeFieldValue(const QJsonValue &value, const QString &type);
+QByteArray makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectKey);
 int forwardKeyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *op);
-void forwardKeySplit(const QByteArray &forwardKey, QVariant &fieldValue);
-void forwardKeySplit(const QByteArray &forwardKey, QVariant &fieldValue, ObjectKey &objectKey);
+void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue);
+void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue, ObjectKey &objectKey);
 QByteArray makeForwardValue(const ObjectKey &);
 void forwardValueSplit(const QByteArray &forwardValue, ObjectKey &objectKey);
 

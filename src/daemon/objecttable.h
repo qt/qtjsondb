@@ -48,11 +48,16 @@
 #include <QPair>
 #include <QtEndian>
 
-#include <QtJsonDbQson/private/qson_p.h>
-
 #include "objectkey.h"
 #include "qbtree.h"
 #include "qmanagedbtreetxn.h"
+
+#include <qjsonarray.h>
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
+
+#include <jsondbobject.h>
+#include "jsondbbtreestorage.h"
 
 QT_BEGIN_HEADER
 
@@ -73,9 +78,9 @@ struct ObjectChange
         Deleted,
         LastAction = Deleted
     } action;
-    QsonMap oldObject;
+    QJsonObject oldObject;
 
-    inline ObjectChange(const ObjectKey &obj, Action act, const QsonMap &old = QsonMap())
+    inline ObjectChange(const ObjectKey &obj, Action act, const QJsonObject &old = QJsonObject())
         : objectKey(obj), action(act), oldObject(old)
     {
     }
@@ -115,10 +120,10 @@ public:
     bool compact();
 
     quint32 stateNumber() const { return mStateNumber; }
-    quint32 storeStateChange(const ObjectKey &key1, ObjectChange::Action action, const QsonMap &old = QsonMap());
+    quint32 storeStateChange(const ObjectKey &key1, ObjectChange::Action action, const JsonDbObject &old = JsonDbObject());
     quint32 storeStateChange(const QList<ObjectChange> &stateChange);
     void changesSince(quint32 stateNumber, QMap<quint32, QList<ObjectChange> > *changes);
-    QsonMap changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
+    QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
 
     IndexSpec *indexSpec(const QString &propertyName);
     bool addIndex(const QString &propertyName,
@@ -127,17 +132,17 @@ public:
                   const QString &propertyFunction = QString());
     bool removeIndex(const QString &propertyName);
     void reindexObjects(const QString &propertyName, const QStringList &path, quint32 stateNumber);
-    void indexObject(const ObjectKey & objectKey, QsonMap object, quint32 stateNumber);
-    void deindexObject(const ObjectKey &objectKey, QsonMap object, quint32 stateNumber);
+    void indexObject(const ObjectKey & objectKey, JsonDbObject object, quint32 stateNumber);
+    void deindexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
     void updateIndex(JsonDbIndex *index);    
 
-    bool get(const ObjectKey &objectKey, QsonMap &object, bool includeDeleted=false);
-    bool put(const ObjectKey &objectKey, QsonObject &object);
+    bool get(const ObjectKey &objectKey, QJsonObject *object, bool includeDeleted=false);
+    bool put(const ObjectKey &objectKey, const JsonDbObject &object);
     bool remove(const ObjectKey &objectKey);
 
     QString errorMessage() const;
 
-    QsonMap getObjects(const QString &keyName, const QVariant &keyValue, const QString &objectType);
+    GetObjectsResult getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &objectType);
 
 
 private:
@@ -152,7 +157,7 @@ private:
 
     // intermediate state changes until the commit is called
     QByteArray mStateChanges;
-    QList<QsonMap> mStateObjectChanges;
+    QList<JsonDbObject> mStateObjectChanges;
 };
 
 void makeStateKey(QByteArray &baStateKey, quint32 stateNumber);

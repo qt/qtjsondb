@@ -44,8 +44,6 @@
 
 #include "jsondb-global.h"
 
-#include <QtJsonDbQson/private/qson_p.h>
-
 #include <QMetaMethod>
 #include <QWeakPointer>
 #include <QTimer>
@@ -70,8 +68,8 @@ public:
     { }
 
     void _q_statusChanged();
-    void _q_handleNotified(const QString &, const QsonObject &, const QString &);
-    void _q_handleResponse(int id, const QsonObject &data);
+    void _q_handleNotified(const QString &, const QVariant &, const QString &);
+    void _q_handleResponse(int id, const QVariant &data);
     void _q_handleError(int id, int code, const QString &message);
     void _q_timeout();
     void _q_processQueue();
@@ -91,7 +89,7 @@ public:
         const char *successSlot;
         const char *errorSlot;
 
-        inline Callback(QObject *obj = 0, const char *success = 0, const char *error = 0)
+        inline Callback(QObject *obj, const char *success, const char *error)
             : object(obj), successSlot(success), errorSlot(error)
         {
 #ifdef _DEBUG

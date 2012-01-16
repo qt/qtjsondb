@@ -238,6 +238,13 @@ void TestJsonDbQueryObject::multipleObjects()
     ComponentData *queryObject = createComponent();
     if (!queryObject || !queryObject->qmlElement) return;
 
+    // define index on pos property
+    QVariantMap index;
+    index.insert("_type", "Index");
+    index.insert("propertyName", "pos");
+    index.insert("propertyType", "number");
+    mClient->create(index, "com.nokia.shared");
+
     const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
     queryObject->qmlElement->setProperty("query", queryString);
     currentQmlElement = queryObject->qmlElement;
@@ -358,6 +365,13 @@ void TestJsonDbQueryObject::queryLimit()
 {
     ComponentData *queryObject = createComponent();
     if (!queryObject || !queryObject->qmlElement) return;
+
+    // define index on pos property
+    QVariantMap index;
+    index.insert("_type", "Index");
+    index.insert("propertyName", "pos");
+    index.insert("propertyType", "number");
+    mClient->create(index, "com.nokia.shared");
 
     const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
     queryObject->qmlElement->setProperty("query", queryString);

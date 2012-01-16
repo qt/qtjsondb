@@ -43,21 +43,22 @@
 #define JSONDB_RESPONSE_H
 
 #include <QString>
+#include <qjsonobject.h>
+
+#include "jsondb-global.h"
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class QsonMap;
-
 struct JsonDbResponse {
-    static void setError(QsonMap &map, int code, const QString &message);
-    static QsonMap makeError(int code, const QString &message);
-    static QsonMap makeResponse(QsonMap &resultmap, QsonMap &errormap, bool silent = false);
-    static QsonMap makeResponse(QsonMap &resultmap);
-    static QsonMap makeErrorResponse(QsonMap &resultmap, int code, const QString &message, bool silent = false);
-    static QsonMap makeErrorResponse(int code, const QString &message, bool silent = false);
-    static bool responseIsError(QsonMap responseMap);
+    static void setError(QJsonObject &map, int code, const QString &message);
+    static QJsonObject makeError(int code, const QString &message);
+    static QJsonObject makeResponse(QJsonObject &resultmap, QJsonObject &errormap, bool silent = false);
+    static QJsonObject makeResponse(QJsonObject &resultmap);
+    static QJsonObject makeErrorResponse(QJsonObject &resultmap, int code, const QString &message, bool silent = false);
+    static QJsonObject makeErrorResponse(int code, const QString &message, bool silent = false);
+    static bool responseIsError(QJsonObject responseMap);
 };
 
 QT_END_NAMESPACE_JSONDB

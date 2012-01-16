@@ -54,6 +54,7 @@ public:
     static const QString kActiveStr;
     static const QString kAddIndexStr;
     static const QString kCodeStr;
+    static const QString kConflictsStr;
     static const QString kConnectStr;
     static const QString kCountStr;
     static const QString kCreateStr;
@@ -73,6 +74,7 @@ public:
     static const QString kLimitStr;
     static const QString kMapTypeStr;
     static const QString kMessageStr;
+    static const QString kMetaStr;
     static const QString kNotifyStr;
     static const QString kNotificationTypeStr;
     static const QString kObjectStr;

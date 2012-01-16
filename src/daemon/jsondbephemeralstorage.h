@@ -44,8 +44,10 @@
 
 #include <QUuid>
 #include <QMap>
-
-#include <QtJsonDbQson/private/qson_p.h>
+#include <QObject>
+#include <qjsonobject.h>
+#include "jsondbobject.h"
+#include "jsondbquery.h"
 
 QT_BEGIN_HEADER
 
@@ -59,16 +61,16 @@ class JsonDbEphemeralStorage : public QObject
 public:
     JsonDbEphemeralStorage(QObject *parent = 0);
 
-    bool get(const QUuid &uuid, QsonMap *result) const;
+    bool get(const QUuid &uuid, JsonDbObject *result) const;
 
-    QsonMap create(QsonMap &);
-    QsonMap update(QsonMap &);
-    QsonMap remove(const QsonMap &);
+    QJsonObject create(JsonDbObject &);
+    QJsonObject update(JsonDbObject &);
+    QJsonObject remove(const JsonDbObject &);
 
-    QsonMap query(const JsonDbQuery &query, int limit = -1, int offset = 0) const;
+    JsonDbQueryResult query(const JsonDbQuery &query, int limit = -1, int offset = 0) const;
 
 private:
-    typedef QMap<QUuid, QsonMap> ObjectMap;
+    typedef QMap<QUuid, JsonDbObject> ObjectMap;
     ObjectMap mObjects;
 };
 

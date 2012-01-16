@@ -176,7 +176,7 @@ bool AoDb::get(const QByteArray &baKey, QByteArray &baValue)
     struct btval btvalue;
     int ok = btree_txn_get(mBtree, mTxn, &btkey, &btvalue);
     if (ok == BT_SUCCESS) {
-        baValue.resize(btvalue.size); 
+        baValue.resize(btvalue.size);
         memcpy(baValue.data(), btvalue.data, btvalue.size);
         btval_reset(&btvalue);
     } else {

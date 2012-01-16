@@ -49,17 +49,18 @@
 #include "jsondb.h"
 #include "jsondb-proxy.h"
 #include "jsondbindex.h"
-#include "qsonconversion.h"
 #include "qmanagedbtree.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
 static bool debugIndexObject = false;
 
-JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &propertyName, QObject *parent)
+JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &propertyName,
+                         const QString &propertyType, QObject *parent)
     : QObject(parent)
     , mPropertyName(propertyName)
     , mPath(propertyName.split('.'))
+    , mPropertyType(propertyType)
     , mStateNumber(0)
     , mBdb(0)
     , mScriptEngine(0)
@@ -132,22 +133,26 @@ QManagedBtree *JsonDbIndex::bdb()
     return mBdb.data();
 }
 
-QVariantList JsonDbIndex::indexValues(QsonObject &object)
+QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 {
     mFieldValues.clear();
     if (!mScriptEngine) {
         int size = mPath.size();
         if (mPath[size-1] == QString("*")) {
-            QVariant v = JsonDb::propertyLookup(object, mPath.mid(0, size-1));
-            mFieldValues = v.toList();
+            QJsonValue v = JsonDb::propertyLookup(object, mPath.mid(0, size-1));
+            QJsonArray array = v.toArray();
+            mFieldValues.reserve(array.size());
+            for (int i = 0; i < array.size(); ++i)
+                mFieldValues.append(array.at(i));
         } else {
-            QVariant v = JsonDb::propertyLookup(object, mPath);
-            mFieldValues.append(v);
+            QJsonValue v = JsonDb::propertyLookup(object, mPath);
+            if (!v.isUndefined())
+                mFieldValues.append(v);
         }
     } else {
         QJSValue globalObject = mScriptEngine->globalObject();
         QJSValueList args;
-        args << qsonToJSValue(object, mScriptEngine);
+        args << mScriptEngine->toScriptValue(object.toVariantMap());
         mPropertyFunction.call(globalObject, args);
     }
     return mFieldValues;
@@ -156,23 +161,26 @@ QVariantList JsonDbIndex::indexValues(QsonObject &object)
 void JsonDbIndex::propertyValueEmitted(QJSValue value)
 {
     if (!value.isUndefined())
-        mFieldValues.append(value.toVariant());
+        mFieldValues.append(JsonDb::fromJSValue(value));
 }
 
-void JsonDbIndex::indexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber)
+void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber)
 {
     if (mPropertyName == JsonDbString::kUuidStr)
         return;
 
+    Q_ASSERT(!object.contains(JsonDbString::kDeletedStr)
+             && !object.value(JsonDbString::kDeletedStr).toBool());
     bool ok;
     if (!mBdb)
         open();
-    QVariantList fieldValues = indexValues(object);
-    //qDebug() << "JsonDbIndex::indexObject" << mPath << fieldValues;
+    QList<QJsonValue> fieldValues = indexValues(object);
     bool inTransaction = mBdb->isWriteTxnActive();
     QManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
-    foreach (const QVariant fieldValue, fieldValues) {
-        if (!fieldValue.isValid())
+    for (int i = 0; i < fieldValues.size(); i++) {
+        QJsonValue fieldValue = fieldValues.at(i);
+        fieldValue = makeFieldValue(fieldValue, mPropertyType);
+        if (fieldValue.isUndefined())
             continue;
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
         QByteArray forwardValue(makeForwardValue(objectKey));
@@ -196,17 +204,19 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, QsonObject &object, qu
 #endif
 }
 
-void JsonDbIndex::deindexObject(const ObjectKey &objectKey, QsonObject &object, quint32 stateNumber)
+void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber)
 {
     if (mPropertyName == JsonDbString::kUuidStr)
         return;
     if (!mBdb)
         open();
-    QVariantList fieldValues = indexValues(object);
+    QList<QJsonValue> fieldValues = indexValues(object);
     bool inTransaction = mBdb->isWriteTxnActive();
     QManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
-    foreach (const QVariant fieldValue, fieldValues) {
-        if (!fieldValue.isValid())
+    for (int i = 0; i < fieldValues.size(); i++) {
+        QJsonValue fieldValue = fieldValues.at(i);
+        fieldValue = makeFieldValue(fieldValue, mPropertyType);
+        if (fieldValue.isUndefined())
             continue;
         if (debugIndexObject)
             qDebug() << "deindexing" << objectKey << mPropertyName << fieldValue;
@@ -310,19 +320,19 @@ JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index)
 {
 }
 
-bool JsonDbIndexCursor::seek(const QVariant &value)
+bool JsonDbIndexCursor::seek(const QJsonValue &value)
 {
-    QByteArray forwardKey(makeForwardKey(value, ObjectKey()));
+    QByteArray forwardKey(makeForwardKey(makeFieldValue(value, mIndex->propertyType()), ObjectKey()));
     return mCursor.seek(forwardKey);
 }
 
-bool JsonDbIndexCursor::seekRange(const QVariant &value)
+bool JsonDbIndexCursor::seekRange(const QJsonValue &value)
 {
-    QByteArray forwardKey(makeForwardKey(value, ObjectKey()));
+    QByteArray forwardKey(makeForwardKey(makeFieldValue(value, mIndex->propertyType()), ObjectKey()));
     return mCursor.seekRange(forwardKey);
 }
 
-bool JsonDbIndexCursor::current(QVariant &key, ObjectKey &value)
+bool JsonDbIndexCursor::current(QJsonValue &key, ObjectKey &value)
 {
     QByteArray baKey, baValue;
     if (!mCursor.current(&baKey, &baValue))
@@ -332,7 +342,7 @@ bool JsonDbIndexCursor::current(QVariant &key, ObjectKey &value)
     return true;
 }
 
-bool JsonDbIndexCursor::currentKey(QVariant &key)
+bool JsonDbIndexCursor::currentKey(QJsonValue &key)
 {
     QByteArray baKey;
     if (!mCursor.current(&baKey, 0))

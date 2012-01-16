@@ -49,8 +49,7 @@
 
 #include "jsondb-global.h"
 #include "jsondbquery.h"
-
-#include <QtJsonDbQson/private/qson_p.h>
+#include "jsondbobject.h"
 
 QT_BEGIN_HEADER
 
@@ -76,10 +75,10 @@ public:
     QList<QString> allowedObjects(const QString &op) const;
 
     void setAllowedObjects(const QString &op, const QList<QString> &queries);
-    void setCapabilities(QsonMap &capabilities, JsonDb *jsondb);
+    void setCapabilities(QJsonObject &capabilities, JsonDb *jsondb);
     void setAllowAll(bool allowAll) { mAllowAll = allowAll; }
 
-    bool isAllowed(QsonObject &object, const QString &op) const;
+    bool isAllowed(JsonDbObject &object, const QString &op) const;
     int storageQuota() const { return mStorageQuota; }
     void setStorageQuota(int storageQuota) { mStorageQuota = storageQuota; }
 

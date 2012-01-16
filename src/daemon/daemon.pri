@@ -13,6 +13,7 @@ HEADERS += \
     $$PWD/jsondb.h \
     $$PWD/jsondbbtreestorage.h \
     $$PWD/jsondbephemeralstorage.h \
+    $$PWD/jsondbobject.h \
     $$PWD/jsondbindex.h \
     $$PWD/jsondbquery.h \
     $$PWD/notification.h \
@@ -39,6 +40,7 @@ SOURCES += \
     $$PWD/jsondb.cpp \
     $$PWD/jsondbbtreestorage.cpp \
     $$PWD/jsondbephemeralstorage.cpp \
+    $$PWD/jsondbobject.cpp \
     $$PWD/jsondbindex.cpp \
     $$PWD/jsondbquery.cpp \
     $$PWD/notification.cpp \

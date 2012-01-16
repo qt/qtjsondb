@@ -45,13 +45,14 @@
 #include "jsondb-global.h"
 
 #include "jsondb-strings.h"
-#include <QtJsonDbQson/private/qsonmap_p.h>
-#include <QtJsonDbQson/private/qsonlist_p.h>
-#include <QtJsonDbQson/private/qsonobject_p.h>
 
 #include "schema-validation/object.h"
 
 #include <QPair>
+
+#include <qjsonarray.h>
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -59,26 +60,29 @@ class SchemaManager;
 
 /**
   \internal
-  This is type definition for schema validation framework. It was created because of planed change
-  of data representation in jsondb (Bson -> Qson). Essentially schema validation is independent from
-  data representation. The performance cost of this indirection is about 0. We can consider removing
-  it in future or leave it and check different data representation (think about QJSValue).
+  This is type definition for schema validation framework. It was
+  created because of planed change of data representation in jsondb
+  (Bson -> Qson -> QtJson). Essentially schema validation is
+  independent from data representation. The performance cost of this
+  indirection is about 0. We can consider removing it in future or
+  leave it and check different data representation (think about
+  QJSValue).
 
   These types define the simplest types in JSON.
   */
-class QsonObjectTypes {
+class QJsonObjectTypes {
 public:
     typedef QString Key;
 
     class Value;
-    class ValueList : protected QsonList
+    class ValueList : protected QJsonArray
     {
     public:
-        inline ValueList(const QsonList list);
+        inline ValueList(const QJsonArray &list);
 
         // interface
         class const_iterator;
-        inline uint count() const;
+        inline uint size() const;
         inline const_iterator constBegin() const;
         inline const_iterator constEnd() const;
         class const_iterator
@@ -91,11 +95,11 @@ public:
             inline const_iterator& operator ++();
 
         private:
-            inline const_iterator(int begin, const QsonList *list);
+            inline const_iterator(int begin, const QJsonArray *list);
             inline bool isValid() const;
 
             int m_index;
-            const QsonList *m_list;
+            const QJsonArray *m_list;
         };
     };
 
@@ -117,39 +121,39 @@ public:
         };
 
     public:
-        inline Value(Key propertyName, const QsonMap &map);
-        inline Value(const int index, const QsonList &list);
+        inline Value(Key propertyName, const QJsonObject &map);
+        inline Value(const int index, const QJsonArray &list);
 
         // interface
         inline int toInt(bool *ok) const;
         inline double toDouble(bool *ok) const;
         inline ValueList toList(bool *ok) const;
         inline QString toString(bool *ok) const;
-        inline bool toBoolean(bool *ok) const;
+        inline bool toBool(bool *ok) const;
         inline void toNull(bool *ok) const;
         inline Object toObject(bool *ok) const;
 
     private:
-        inline const QsonMap *map() const;
-        inline const QsonList *list() const;
-        inline QsonObject::Type typeMap() const;
-        inline QsonObject::Type typeList() const;
+        inline const QJsonObject map() const;
+        inline const QJsonArray list() const;
+        inline QJsonValue::Type typeMap() const;
+        inline QJsonValue::Type typeList() const;
 
         const int m_index;
         const Key m_property;
 
-        const QsonObject m_object;
+        const QJsonValue m_value;
         const Type m_type;
 
-        mutable Cache<QsonObject::Type> m_qsonTypeCache;
+        mutable Cache<QJsonValue::Type> m_qsonTypeCache;
         mutable Cache<int> m_intCache;
         mutable Cache<double> m_doubleCache;
     };
 
-    class Object : public QsonMap
+    class Object : public QJsonObject
     {
     public:
-        inline Object(const QsonMap &map);
+        inline Object(const QJsonObject &map);
 
         // interface
         inline Object();
@@ -160,15 +164,15 @@ public:
     class Service {
     public:
         inline Service(SchemaManager *schemas);
-        inline QsonMap error() const;
+        inline QJsonObject error() const;
 
         // interface
         inline void setError(const QString &message);
-        inline SchemaValidation::Schema<QsonObjectTypes> loadSchema(const QString &schemaName);
+        inline SchemaValidation::Schema<QJsonObjectTypes> loadSchema(const QString &schemaName);
 
     private:
         SchemaManager *m_schemas;
-        QsonMap m_errorMap;
+        QJsonObject m_errorMap;
     };
 };
 

@@ -46,7 +46,7 @@
 #include <QVariant>
 #include <QAbstractSocket>
 
-#include "qsonstream.h"
+#include "jsonstream.h"
 #include "notification.h"
 #include "jsondb.h"
 
@@ -81,31 +81,31 @@ public slots:
 protected slots:
     void handleConnection();
     void handleTcpConnection();
-    void receiveMessage(const QsonObject &);
+    void receiveMessage(const QJsonObject &document);
     void handleConnectionError();
     void removeConnection();
 
-    void notified( const QString &id, QsonMap object, const QString &action );
+    void notified( const QString &id, JsonDbObject document, const QString &action );
     void updateView( const QString &viewType, const QString &partitionName );
 
 private:
-    void processFind(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName);
-    void processCreate(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName);
-    void processUpdate(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName, bool replication = false);
-    void processRemove(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName);
-    void processToken(QsonStream *stream, const QVariant &object, int id);
-    void processChangesSince(QsonStream *stream, const QsonObject &object, int id, const QString &partitionName);
+    void processFind(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
+    void processCreate(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
+    void processUpdate(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
+    void processRemove(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
+    void processToken(JsonStream *stream, const QJsonValue &object, int id);
+    void processChangesSince(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
 
-    JsonDbOwner *getOwner( QsonStream *stream );
-    bool validateToken( QsonStream *stream, const QsonMap &securityObject );
-    void createDummyOwner( QsonStream *stream, int id );
+    JsonDbOwner *getOwner( JsonStream *stream );
+    bool validateToken(JsonStream *stream, const JsonDbObject &securityObject );
+    void createDummyOwner( JsonStream *stream, int id );
 
     quint16                          mTcpServerPort;
     QLocalServer                    *mServer;
     QTcpServer                      *mTcpServer;
-    QMap<QIODevice*,QsonStream *>    mConnections;
+    QMap<QIODevice*,JsonStream *>    mConnections;
     QMap<QIODevice*,JsonDbOwner*>    mOwners;
-    QMap<QString,QsonStream *>       mNotifications; // maps notification Id to socket
+    QMap<QString,JsonStream *>       mNotifications; // maps notification Id to socket
     JsonDb                          *mJsonDb;
     QString                          mMasterToken;
     QString mFileName;

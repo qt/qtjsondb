@@ -48,8 +48,6 @@
 #include <QEventLoop>
 #include <QThread>
 
-#include <QtJsonDbQson/private/qson_p.h>
-
 #include "jsondb-global.h"
 
 QT_BEGIN_NAMESPACE_JSONDB

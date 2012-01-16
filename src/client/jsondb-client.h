@@ -143,10 +143,9 @@ Q_SIGNALS:
     void response(int id, const QVariant &object);
     void error(int id, int code, const QString &message);
 
-    // these four are deprecated and will be removed
+    // these three are deprecated and will be removed
     void notified(const QString &notify_uuid, const QVariant &object, const QString &action);
     void notified(const QString &notify_uuid, const QsonObject &object, const QString &action);
-    void response(int id, const QsonObject &object);
     void readyWrite();
 
     void disconnected();
@@ -162,9 +161,9 @@ private:
     Q_DECLARE_PRIVATE(JsonDbClient)
     QScopedPointer<JsonDbClientPrivate> d_ptr;
     Q_PRIVATE_SLOT(d_func(), void _q_statusChanged())
-    Q_PRIVATE_SLOT(d_func(), void _q_handleResponse(int,QsonObject))
+    Q_PRIVATE_SLOT(d_func(), void _q_handleResponse(int,QVariant))
     Q_PRIVATE_SLOT(d_func(), void _q_handleError(int,int,QString))
-    Q_PRIVATE_SLOT(d_func(), void _q_handleNotified(QString,QsonObject,QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_handleNotified(QString,QVariant,QString))
     Q_PRIVATE_SLOT(d_func(), void _q_timeout())
     Q_PRIVATE_SLOT(d_func(), void _q_processQueue())
 };

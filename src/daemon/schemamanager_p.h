@@ -48,10 +48,9 @@
 #include <QtCore/qpair.h>
 #include <QtCore/qmap.h>
 
-#include <QtJsonDbQson/private/qsonmap_p.h>
-
 #include "schema-validation/object.h"
 #include "qsonobjecttypes_p.h"
+#include "jsondbobject.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -60,18 +59,18 @@ class SchemaManager
 {
 public:
     inline bool contains(const QString &name) const;
-    inline QsonMap value(const QString &name) const;
-    inline SchemaValidation::Schema<QsonObjectTypes> schema(const QString &name, QsonObjectTypes::Service *service);
-    inline QsonMap take(const QString &name);
-    inline QsonMap insert(const QString &name, QsonMap &schema);
+    inline QJsonObject value(const QString &name) const;
+    inline SchemaValidation::Schema<QJsonObjectTypes> schema(const QString &name, QJsonObjectTypes::Service *service);
+    inline QJsonObject take(const QString &name);
+    inline QJsonObject insert(const QString &name, QJsonObject &schema);
 
-    inline QsonMap validate(const QString &schemaName, QsonMap object);
+    inline QJsonObject validate(const QString &schemaName, JsonDbObject object);
 
 private:
-    typedef QPair<QsonMap, SchemaValidation::Schema<QsonObjectTypes> > QsonMapSchemaPair;
-    inline QsonMap ensureCompiled(const QString &schemaName, QsonMapSchemaPair *pair, QsonObjectTypes::Service *service);
+    typedef QPair<QJsonObject, SchemaValidation::Schema<QJsonObjectTypes> > QJsonObjectSchemaPair;
+    inline QJsonObject ensureCompiled(const QString &schemaName, QJsonObjectSchemaPair *pair, QJsonObjectTypes::Service *service);
 
-    QMap<QString, QsonMapSchemaPair> m_schemas;
+    QMap<QString, QJsonObjectSchemaPair> m_schemas;
 };
 
 QT_END_NAMESPACE_JSONDB

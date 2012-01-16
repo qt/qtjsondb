@@ -42,77 +42,77 @@
 #include <QMap>
 #include <QDebug>
 
-#include <QtJsonDbQson/private/qson_p.h>
-
 #include "jsondb-response.h"
 #include "jsondb-strings.h"
+#include <qjsonobject.h>
+#include <qjsonvalue.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
 extern bool gVerbose;
 
-void JsonDbResponse::setError(QsonMap &map, int code, const QString &message)
+void JsonDbResponse::setError(QJsonObject &map, int code, const QString &message)
 {
-    map.insert(JsonDbString::kCodeStr, code);
+    map.insert(JsonDbString::kCodeStr, QJsonValue(code));
     map.insert(JsonDbString::kMessageStr, message);
 }
 
-QsonMap JsonDbResponse::makeError(int code, const QString &message)
+QJsonObject JsonDbResponse::makeError(int code, const QString &message)
 {
-    QsonMap map;
+    QJsonObject map;
     setError(map, code, message);
     return map;
 }
 
-QsonMap JsonDbResponse::makeResponse(QsonMap &resultmap, QsonMap &errormap, bool silent)
+QJsonObject JsonDbResponse::makeResponse(QJsonObject &resultmap, QJsonObject &errormap, bool silent)
 {
-    QsonMap map;
+    QJsonObject map;
     if (gVerbose && !silent && !errormap.isEmpty()) {
         qCritical() << errormap;
     }
     if (!resultmap.isEmpty())
         map.insert( JsonDbString::kResultStr, resultmap);
     else
-        map.insert( JsonDbString::kResultStr, QsonObject::NullValue);
+        map.insert( JsonDbString::kResultStr, QJsonValue());
 
     if (!errormap.isEmpty())
         map.insert( JsonDbString::kErrorStr, errormap );
     else
-        map.insert( JsonDbString::kErrorStr, QsonObject::NullValue);
+        map.insert( JsonDbString::kErrorStr, QJsonValue());
     return map;
 }
 
-QsonMap JsonDbResponse::makeResponse(QsonMap &resultmap)
+QJsonObject JsonDbResponse::makeResponse(QJsonObject &resultmap)
 {
-    QsonMap map;
+    QJsonObject map;
     if (!resultmap.isEmpty())
         map.insert( JsonDbString::kResultStr, resultmap);
     else
-        map.insert( JsonDbString::kResultStr, QsonObject::NullValue);
+        map.insert( JsonDbString::kResultStr, QJsonValue());
 
-    map.insert( JsonDbString::kErrorStr, QsonObject::NullValue);
+    map.insert( JsonDbString::kErrorStr, QJsonValue());
     return map;
 }
 
-QsonMap JsonDbResponse::makeErrorResponse(QsonMap &resultmap,
+QJsonObject JsonDbResponse::makeErrorResponse(QJsonObject &resultmap,
                                           int code, const QString &message, bool silent)
 {
-    QsonMap errormap;
+    QJsonObject errormap;
     setError(errormap, code, message);
     return makeResponse(resultmap, errormap, silent);
 }
 
-QsonMap JsonDbResponse::makeErrorResponse(int code, const QString &message, bool silent)
+QJsonObject JsonDbResponse::makeErrorResponse(int code, const QString &message, bool silent)
 {
-    QsonMap resultmap, errormap;
+    QJsonObject resultmap, errormap;
     setError(errormap, code, message);
     return makeResponse(resultmap, errormap, silent);
 }
 
-bool JsonDbResponse::responseIsError(QsonMap responseMap)
+bool JsonDbResponse::responseIsError(QJsonObject responseMap)
 {
     return responseMap.contains(JsonDbString::kErrorStr)
-        && !responseMap.isNull(JsonDbString::kErrorStr);
+            && (responseMap.value(JsonDbString::kErrorStr).type() == QJsonValue::Object);
 }
 
 QT_END_NAMESPACE_JSONDB
