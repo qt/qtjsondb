@@ -41,7 +41,6 @@
 import QtQuick 2.0
 import QtJsonDb 1.0 as JsonDb
 
-
 Rectangle {
     width: 360
     height: 360
@@ -51,75 +50,65 @@ Rectangle {
     JsonDb.Partition {
         id: systemPartition
         name: "com.nokia.qtjsondb.System"
-    }
 
-    function createViewSchema()
-    {
-        var schema = {
-            "_type": "_schemaType",
-            "name": "PhoneView",
-            "schema": {
-                "extends": "View"
+    }
+    JsonDb.Query {
+        id:schemaTypeQuery
+        partition:systemPartition
+        query: '[?_type="_schemaType"][?name="PhoneView"]'
+        onFinished: {
+            var results = schemaTypeQuery.takeResults();
+            if (results.length > 0) {
+                // Schema already exists.
+                createMap(false, {}, results);
+            } else {
+                // Create the schema
+                var schema = {"_type": "_schemaType", "name": "PhoneView", "schema": {"extends": "View"}};
+                systemPartition.create(schema, createMap);
             }
-        };
-        systemPartition.find('[?_type="_schemaType"][?name="PhoneView"][/_type]',
-             function (error, meta, response) {
-                 if (error) {
-                     console.log("Error " + response.status + " " + response.message);
-                     return;
-                 }
-                 if (response.length > 0) {
-                     console.log("Schema exists");
-                     createMap(false, {}, response);
-                 } else {
-                     console.log("Create Schema");
-                     systemPartition.create(schema, createMap);
-                 }
-            });
-    }
+        }
+        onError:console.log("Failed to query schema " + code + message);
+     }
 
+    JsonDb.Query {
+        id:mapTypeQuery
+        partition:systemPartition
+        query: '[?_type="Map"][?targetType="PhoneView"]'
+        onFinished: {
+            var results = mapTypeQuery.takeResults();
+            if (results.length > 0) {
+                // Map object exists, set partition
+                contacts.partition = systemPartition;
+            } else {
 //! [Creating a Map Object]
+                var mapDefinition = { "_type": "Map", "targetType": "PhoneView",
+                    "map": {
+                        "Contact":
+                            (function (c) {
+                                 for (var i in c.phoneNumbers) {
+                                     var info = c.phoneNumbers[i];
+                                     jsondb.emit({"phoneNumber": info, "firstName": c.firstName, "lastName": c.lastName});
+                                 }
+                             }
+                             ).toString()
+                    }
+                };
+//! [Creating a Map Object]
+//! [Installing the Map Object]
+                systemPartition.create(mapDefinition, createMap);
+//! [Installing the Map Object]
+            }
+        }
+        onError: console.log("Failed to query Map " + code + message);
+     }
+
     function createMap(error, meta, response)
     {
-        console.log("Creating map");
-
         if (error) {
             console.log("Error " + response.status + " " + response.message);
             return;
         }
-
-        var mapDefinition = {
-            "_type": "Map",
-            "targetType": "PhoneView",
-            "map": {
-                "Contact":
-                    (function (c) {
-                        for (var i in c.phoneNumbers) {
-                            var info = c.phoneNumbers[i];
-                            jsondb.emit({"phoneNumber": info, "firstName": c.firstName, "lastName": c.lastName});
-                        }
-                    }
-                    ).toString()
-            }
-        };
-//! [Creating a Map Object]
-
-//! [Installing the Map Object]
-        systemPartition.find('[?_type="Map"][?targetType="PhoneView"]',
-             function (error, meta, response) {
-                 if (error) {
-                     console.log("Error " + response.status + " " + response.message);
-                     return;
-                 }
-                 if (response.length > 0) {
-                     console.log("Map Object exists, set partition");
-                     contacts.partition = systemPartition;
-                 } else {
-                     console.log("Create Map Object");
-                     systemPartition.create(mapDefinition, createMap);
-                 }
-            });
-//! [Installing the Map Object]
+        mapTypeQuery.exec();
     }
 
     JsonDb.JsonDbListModel {
@@ -128,7 +117,7 @@ Rectangle {
         roleNames: ["phoneNumber", "firstName", "lastName"]
         limit: 100
     }
-    Component.onCompleted: { createViewSchema();}
+    Component.onCompleted: { schemaTypeQuery.exec(); }
     Rectangle {
         id: buttonAdd
         anchors.top: parent.top

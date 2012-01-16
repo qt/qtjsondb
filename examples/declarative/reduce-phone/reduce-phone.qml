@@ -41,7 +41,6 @@
 import QtQuick 2.0
 import QtJsonDb 1.0 as JsonDb
 
-
 Rectangle {
     width: 360
     height: 360
@@ -52,31 +51,69 @@ Rectangle {
         id: systemPartition
         name: "com.nokia.qtjsondb.System"
     }
-
-    function createViewSchema()
-    {
-        var schema = {
-            "_type": "_schemaType",
-            "name": "ReducedPhoneView",
-            "schema": {
-                "extends": "View"
+    JsonDb.Query {
+        id:schemaTypeQuery
+        partition:systemPartition
+        query: '[?_type="_schemaType"][?name="ReducedPhoneView"]'
+        onFinished: {
+            var results = schemaTypeQuery.takeResults();
+            if (results.length > 0) {
+                // Schema already exists.
+                createReduce(false, {}, results);
+            } else {
+                // Create the schema
+                var schema = {"_type": "_schemaType", "name": "ReducedPhoneView", "schema": {"extends": "View"}};
+                systemPartition.create(schema, createReduce);
             }
-        };
-        systemPartition.find('[?_type="_schemaType"][?name="ReducedPhoneView"][/_type]',
-             function (error, meta, response) {
-                 if (error) {
-                     console.log("Error " + response.status + " " + response.message);
-                     return;
-                 }
-                 if (response.length > 0) {
-                     console.log("Schema exists");
-                     createReduce(false, {}, response);
-                 } else {
-                     console.log("Create Schema");
-                     systemPartition.create(schema, createReduce);
-                 }
-            });
-    }
+        }
+        onError: console.log("Failed to query schema " + code + message);
+     }
+
+    JsonDb.Query {
+        id:reduceTypeQuery
+        partition:systemPartition
+        query: '[?_type="Reduce"][?targetType="ReducedPhoneView"]'
+        onFinished: {
+            var results = reduceTypeQuery.takeResults();
+            if (results.length > 0) {
+                // Reduce object exists, set partition
+                contacts.partition = systemPartition;
+            } else {
+                // Create Map Object
+                var reduceDefinition = {
+                    "_type": "Reduce",
+                    "sourceType": "PhoneView",
+                    "sourceKeyName": "phoneNumber",
+                    "targetType": "ReducedPhoneView",
+                    "add": (function (k, v0, v) {
+                                if (!v0)
+                                    v0 = {
+                                        "phoneNumber": k,
+                                        "names": []
+                                    };
+                                var name = v.firstName + " " + v.lastName;
+                                if (v0.names.indexOf(name) < 0)
+                                    v0.names.push(name);
+                                return v0;
+                            }).toString(),
+                    "subtract": (function (k, v0, v) {
+                                 if (!v0)
+                                     v0 = {
+                                         "phoneNumber": k,
+                                         "names": []
+                                     };
+                                 var name = v.firstName + " " + v.lastName;
+                                 var pos = v0.names.indexOf(name);
+                                 if (pos >= 0)
+                                     v0.names.splice(pos, 1);
+                                 return v0;
+                            }).toString()
+                };
+                systemPartition.create(reduceDefinition, createReduce);
+            }
+        }
+        onError: console.log("Failed to query Reduce " + code + message);
+     }
 
     function createReduce(error, meta, response)
     {
@@ -85,51 +122,7 @@ Rectangle {
             console.log("Error " + response.status + " " + response.message);
             return;
         }
-
-        var reduceDefinition = {
-            "_type": "Reduce",
-            "sourceType": "PhoneView",
-            "sourceKeyName": "phoneNumber",
-            "targetType": "ReducedPhoneView",
-            "add": (function (k, v0, v) {
-                        if (!v0)
-                            v0 = {
-                                "phoneNumber": k,
-                                "names": []
-                            };
-                        var name = v.firstName + " " + v.lastName;
-                        if (v0.names.indexOf(name) < 0)
-                            v0.names.push(name);
-                        return v0;
-                    }).toString(),
-            "subtract": (function (k, v0, v) {
-                         if (!v0)
-                             v0 = {
-                                 "phoneNumber": k,
-                                 "names": []
-                             };
-                         var name = v.firstName + " " + v.lastName;
-                         var pos = v0.names.indexOf(name);
-                         if (pos >= 0)
-                             v0.names.splice(pos, 1);
-                         return v0;
-                    }).toString()
-        };
-        systemPartition.find('[?_type="Reduce"][?targetType="ReducedPhoneView"]',
-             function (error, meta, response) {
-                 if (error) {
-                     console.log("Error " + response.status + " " + response.message);
-                     return;
-                 }
-                 if (response.length > 0) {
-                     console.log("Reduce Object exists, set partition");
-                     contacts.partition = systemPartition;
-                 } else {
-                     console.log("Create Reduce Object");
-                     systemPartition.create(reduceDefinition, createReduce);
-                 }
-            });
-
+        reduceTypeQuery.exec();
     }
 
 
@@ -140,7 +133,7 @@ Rectangle {
         limit: 100
     }
 
-    Component.onCompleted: { createViewSchema();}
+    Component.onCompleted: { schemaTypeQuery.exec(); }
     ListView {
         id: listView
         anchors.top: parent.top

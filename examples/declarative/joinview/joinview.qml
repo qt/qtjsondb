@@ -39,70 +39,91 @@
 ****************************************************************************/
 
 import QtQuick 2.0
-import QtAddOn.JsonDb 1.0
-
+import QtJsonDb 1.0 as JsonDb
 
 Rectangle {
     width: 360
     height: 360
 
-    property int fontsize: 20
-
-    JsonDb {
-        id: jsondb
-    }
-
-    function errorcb(e)
+    property int fontsize: 14
+    function appendLog(message)
     {
-        console.error('Error: ' + e);
-        text.text = 'Error: ' + e;
+        logModel.append({"message" :message});
     }
+    JsonDb.Partition {
+        id: systemPartition
+        name: "com.nokia.qtjsondb.System"
 
-//! [Installing the View Schema]
-    function installSchema(cb)
-    {
-        var schema = {
-            "_type": "_schemaType",
-            "name": "PhoneView",
-            "schema": {
-                "extends": "View"
+    }
+    JsonDb.Query {
+        id:schemaTypeQuery
+        partition:systemPartition
+        query: '[?_type="_schemaType"][?name="ContactLogView"]'
+        onFinished: {
+            var results = schemaTypeQuery.takeResults();
+            if (results.length > 0) {
+                // Schema already exists.
+                installMap(false, {}, results);
+            } else {
+                // Create the schema
+                var schema = {"_type": "_schemaType", "name": "ContactLogView", "schema": {"extends": "View"}};
+                systemPartition.create(schema, installMap);
+                var indexDefinition = {
+                    "_type": "Index",
+                    "name": "number",
+                    "propertyName": "number",
+                    "propertyType": "string"
+                };
+                systemPartition.create(indexDefinition);
             }
-        };
-        jsondb.query('[?_type="_schemaType"][?name="ContactLogView"][/_type]', function (r) {
-                         if (r.data.length > 0) {
-                             cb(r.data[0])
-                         } else {
-                             jsondb.create(schema, cb, function (e) { console.log(e) });
-                         }
-                     });
-    }
-//! [Installing the View Schema]
+        }
+        onError:console.log("Failed to query schema " + code + message);
+     }
 
-//! [Creating a Join Object]
-// joinview.qml
+    JsonDb.Query {
+        id:mapTypeQuery
+        partition:systemPartition
+        query: '[?_type="Map"][?targetType="ContactLogView"]'
+        onFinished: {
+            var results = mapTypeQuery.takeResults();
+            if (results.length > 0) {
+                // Map object exists, set partition
+                console.log("Map Created");
+                contacts.partition = systemPartition;
+            } else {
+                systemPartition.create(createJoinDefinition(), installMap);
+            }
+        }
+        onError: console.log("Failed to query Map " + code + message);
+     }
+
     function createJoinDefinition()
     {
         var joinDefinition = {
             "_type": "Map",
             "targetType": "ContactLogView",
             "join": {
-                "Contact": function(contact, context) {
+                "MyContact": function(contact, context) {
                     if (!context) {
                         // someone has updated contact, let's find matching callLog
                         jsondb.lookup({index: "number", value: contact.number, objectType: "CallLog"},
                                       {name: contact.name});
+                        console.log("Look CallLog for "+  contact.number)
                     } else {
                         // someone has updated callLog and passes us a context
+                        console.log("Found Call log"+contact.name+context.number);
                         jsondb.emit({name: contact.name, date: context.date, number: context.number});
                     }
                 }.toString(),
                 "CallLog": function(callLog, context) {
                     if (!context) {
                         // someone has updated a callLog, let's find matching contacts
-                        jsondb.lookup({index: "number", value: callLog.number, objectType: "Contact"},
+                        jsondb.lookup({index: "number", value: callLog.number, objectType: "MyContact"},
                                       {date: callLog.date, number: callLog.number});
+                        console.log("Look MyContact for "+  callLog.number)
                     } else {
                         // someone has updated contact and passes us a context
+                        console.log("Found MyContact log"+context.name+callLog.number);
                         jsondb.emit({name: context.name, date: callLog.date, number: callLog.number});
                     }
                 }.toString()
@@ -110,37 +131,29 @@ Rectangle {
         };
         return joinDefinition;
     }
-//! [Creating a Join Object]
 
-//! [Installing the Join Object]
-    function installMap(cb)
+    function installMap(error, meta, response)
     {
-        console.log("Creating join");
-
-        var def = createJoinDefinition();
-
-        jsondb.query('[?_type="Map"][?targetType="ContactLogView"]', function (r) {
-            if (r.data.length > 0) {
-                cb(r.data[0])
-            } else {
-                jsondb.create(def, function (v) { cb(v); }, function (e) { console.log(e) });
-            }
-        });
+        console.log("Creating reduce");
+        if (error) {
+            console.log("Error " + response.status + " " + response.message);
+            return;
+        }
+        mapTypeQuery.exec();
     }
-//! [Installing the Join Object]
+    Component.onCompleted: { schemaTypeQuery.exec(); }
 
-    JsonDbListModel {
+    JsonDb.JsonDbListModel {
         id: contacts
-        query: '[?_type="ContactLogView"][/key]'
-        roleNames: ["key", "value"]
-        limit: 40
+        query: '[?_type="ContactLogView"][/date]'
+        roleNames: ["date", "name", "number"]
     }
 
     Rectangle {
-        id: buttonAdd
+        id: buttonAddContact
         anchors.top: parent.top
         anchors.margins: 2
-        width: parent.width/4
+        width: parent.width/2
         height: 50
         color: 'gray'
         border.color: "black"
@@ -148,19 +161,67 @@ Rectangle {
         radius: 10
         Text {
             anchors.centerIn: parent
-            text: "Update"
+            text: "Add Contact"
             font.pointSize: fontsize
         }
         MouseArea {
             anchors.fill: parent
-            onClicked: { installSchema(installJoin); contacts.query = '[?_type="ContactLogView"]'; }
+            onClicked: {
+                var firstNames = ["Malcolm", "Zoe", "Hoban", "Inara", "Jayne", "Kaylee", "Simon", "River", "Shepard" ,
+                                  "Reinolds", "Washburn", "Serra", "Cobb", "Frye", "Tam", "Book"]
+                function rand(n) { return Math.floor(Math.random() * n); }
+
+                var firstName = firstNames[rand(firstNames.length)]
+                var obj = { "_type":"MyContact", "name":firstName, "number":rand(100).toString()};
+                systemPartition.create(obj,
+                                       function (error, meta, response) {
+                                           if (error) {
+                                               console.log("Error " + response.status + " " + response.message);
+                                               return;
+                                           }
+                                           appendLog(JSON.stringify(obj));
+                                      });
+            }
+        }
+    }
+    Rectangle {
+        id: buttonAddCall
+        anchors.top: parent.top
+        anchors.left: buttonAddContact.right
+        anchors.margins: 2
+        width: parent.width/2
+        height: 50
+        color: 'gray'
+        border.color: "black"
+        border.width: 5
+        radius: 10
+        Text {
+            anchors.centerIn: parent
+            text: "New Call"
+            font.pointSize: fontsize
+        }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                var today = new Date();
+                function rand(n) { return Math.floor(Math.random() * n); }
+                var obj = { "_type":"CallLog", "date":today.toString(), "number":rand(100).toString()};
+                systemPartition.create(obj,
+                                       function (error, meta, response) {
+                                           if (error) {
+                                               console.log("Error " + response.status + " " + response.message);
+                                               return;
+                                           }
+                                           appendLog(JSON.stringify(obj));
+                                      });
+            }
         }
     }
 
     ListView {
         id: listView
-        anchors.top: buttonAdd.bottom
-        anchors.bottom: statusText.top
+        anchors.top: buttonAddContact.bottom
+        anchors.bottom: logRect.top
         anchors.topMargin: 10
         anchors.bottomMargin: 10
         width: parent.width
@@ -170,7 +231,7 @@ Rectangle {
         delegate: Row {
             spacing: 10
             Text {
-                text: key + ":   " + value.firstName + ", " + value.lastName
+                text: name + ", " + number + ", " +date
                 font.pointSize: fontsize
                 MouseArea {
                    anchors.fill: parent;
@@ -182,29 +243,23 @@ Rectangle {
         }
     }
     Rectangle {
-        id: statusText
-        anchors.bottom: messageRectangle.top
-        width: parent.width
-        height: 20
-        color:  "lightgray"
-        Text {
-            anchors.centerIn: parent
-            font.pointSize: fontsize
-            text: "limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
-        }
-    }
-    Rectangle {
-        id: messageRectangle
+        id: logRect
         anchors.bottom: parent.bottom
         width: parent.width
-        height: 24
-        color: "white"
-        Text {
-            id: messageText
-            anchors.centerIn: parent
-            font.pointSize: fontsize
-            color: "red"
-            text: ""
+        height: parent.height/2
+        color:  "lightgray"
+        ListModel {
+            id:logModel
+        }
+        ListView {
+            anchors.fill: parent
+            anchors.margins: 5
+            model: logModel
+            header: Text {text:"Log of Created Objects"}
+            delegate: Text {
+                font.pointSize: 8
+                text: message
+            }
         }
     }
 }
