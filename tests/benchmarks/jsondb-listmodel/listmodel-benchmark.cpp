@@ -177,7 +177,7 @@ JsonDbListModel *TestListModel::createModel()
         return 0;
     }
     newModel->component = new QDeclarativeComponent(newModel->engine);
-    newModel->component->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n JsonDb.JsonDbListModel {id: contactsModel}", QUrl());
+    newModel->component->setData("import QtQuick 2.0\nimport QtAddOn.JsonDb 1.0 \n JsonDbListModel {id: contactsModel}", QUrl());
     newModel->model = newModel->component->create();
     mModels.append(newModel);
     return (JsonDbListModel*)(newModel->model);
