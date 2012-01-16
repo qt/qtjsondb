@@ -66,21 +66,6 @@ ModelData::~ModelData()
 TestListModel::TestListModel()
     : mProcess(0)
 {
-    QDeclarativeEngine *engine = new QDeclarativeEngine();
-    QStringList pluginPaths = engine->importPathList();
-    for (int i=0; (i<pluginPaths.count() && mPluginPath.isEmpty()); i++) {
-        QDir dir(pluginPaths[i]+"/QtJsonDb");
-        dir.setFilter(QDir::Files | QDir::NoSymLinks);
-        QFileInfoList list = dir.entryInfoList();
-        for (int i = 0; i < list.size(); ++i) {
-            QString error;
-            if (engine->importPlugin(list.at(i).absoluteFilePath(), QString("QtJsonDb"), &error)) {
-                mPluginPath = list.at(i).absoluteFilePath();
-                break;
-            }
-        }
-    }
-    delete engine;
 }
 
 TestListModel::~TestListModel()
@@ -122,6 +107,22 @@ void TestListModel::initTestCase()
     mClient = new JsonDbClient(this);
     QVERIFY(mClient!= 0);
     connectToServer();
+
+    QDeclarativeEngine *engine = new QDeclarativeEngine();
+    QStringList pluginPaths = engine->importPathList();
+    for (int i=0; (i<pluginPaths.count() && mPluginPath.isEmpty()); i++) {
+        QDir dir(pluginPaths[i]+"/QtJsonDb");
+        dir.setFilter(QDir::Files | QDir::NoSymLinks);
+        QFileInfoList list = dir.entryInfoList();
+        for (int i = 0; i < list.size(); ++i) {
+            QString error;
+            if (engine->importPlugin(list.at(i).absoluteFilePath(), QString("QtJsonDb"), &error)) {
+                mPluginPath = list.at(i).absoluteFilePath();
+                break;
+            }
+        }
+    }
+    delete engine;
 
     // Create alot of items in the database
     QVariantList friendsList;
