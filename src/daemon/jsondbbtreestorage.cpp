@@ -1092,6 +1092,7 @@ QsonMap IndexQuery::first()
 
         if (!mTypeNames.isEmpty() && !mTypeNames.contains(object.valueString(JsonDbString::kTypeStr)))
             continue;
+        if (sDebugQuery) qDebug() << "mTypeName" << mTypeNames << "!contains" << object << "->" << object.valueString(JsonDbString::kTypeStr);
 
         if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mStorage))
             continue;
@@ -1330,7 +1331,6 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
                     indexCandidate = propertyName;
                     if (!queryTerm.joinField().isEmpty())
                         indexCandidate = queryTerm.joinPaths()[0].join("->");
-
                 }
 
                 propertyName = queryTerm.propertyName();
@@ -1339,10 +1339,15 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
                 if (propertyName == JsonDbString::kTypeStr) {
                     if ((op == "=") || (op == "in")) {
                         QSet<QString> types;
-                        if (op == "=")
+                        if (op == "=") {
                             types << fieldValue;
-                        else
+                            for (int i = 1; i < queryTerms.size(); ++i) {
+                                if (queryTerms[i].propertyName() == JsonDbString::kTypeStr && queryTerms[i].op() == "=")
+                                    types << queryTerms[i].value().toString();
+                            }
+                        } else {
                             types = QSet<QString>::fromList(queryTerm.value().toStringList());
+                        }
 
                         if (typeNames.count()) {
                             typeNames.intersect(types);
