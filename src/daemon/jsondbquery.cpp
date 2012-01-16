@@ -74,7 +74,8 @@ static TokenClassInitializer sTokenClasses[] = {
     { '<', JsonDbQueryTokenizer::Operator },
     { '!', JsonDbQueryTokenizer::Operator },
     { '-', JsonDbQueryTokenizer::Operator },
-    { '~', JsonDbQueryTokenizer::Operator }
+    { '~', JsonDbQueryTokenizer::Operator },
+    { '|', JsonDbQueryTokenizer::Singleton }
 };
 
 JsonDbQueryTokenizer::TokenClass JsonDbQueryTokenizer::sTokenClass[128];
