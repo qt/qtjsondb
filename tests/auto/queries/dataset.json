@@ -1,0 +1,139 @@
+[
+  {
+    "_type": "data-stats",
+    "num-objects":20,
+
+    "num-dragons": 10,
+    "num-blue-dragons": 6,
+    "num-red-dragons":4,
+
+    "num-bunnies": 10,
+    "num-fluffy-bunnies":4,
+    "num-demon-bunnies":3,
+    "num-russian-bunnies":2
+  },
+
+
+  {
+    "_type" : "dragon",
+    "name": "marcia d'arcy",
+    "color": "blue",
+    "age": 0
+  },
+  {
+    "_type" : "dragon",
+    "name": "jeffrey samuels",
+    "color": "blue",
+    "age": 0
+  },
+  {
+    "_type" : "dragon",
+    "name": "robert demmon",
+    "color": "blue",
+    "age": 2
+  },
+  {
+    "_type" : "dragon",
+    "name": "heidi motika",
+    "color": "blue",
+    "age": 2
+  },
+  {
+    "_type" : "dragon",
+    "name": "leslie pugh",
+    "color": "blue",
+    "age": 4
+  },
+  {
+    "_type" : "dragon",
+    "name": "ryan houlette",
+    "color": "blue",
+    "age": 4
+  },
+  {
+    "_type" : "dragon",
+    "name": "kenton kossan",
+    "color": "red",
+    "age": 6
+  },
+  {
+    "_type" : "dragon",
+    "name": "connie goddard",
+    "color": "red",
+    "age": 6
+  },
+  {
+    "_type" : "dragon",
+    "name": "andrew keopraseuth",
+    "color": "red",
+    "age": 8
+  },
+  {
+    "_type" : "dragon",
+    "name": "charlie stern",
+    "color": "red",
+    "age": 8
+  },
+
+
+  {
+    "_type" : "bunny",
+    "name": "alex free",
+    "type": "fluffy",
+    "age": 1
+  },
+  {
+    "_type" : "bunny",
+    "name": "glenn legros",
+    "type":"fluffly",
+    "age": 1
+  },
+  {
+    "_type" : "bunny",
+    "name": "sean joyce",
+    "type":"fluffly",
+    "age": 2
+  },
+  {
+    "_type" : "bunny",
+    "name": "bruce toth",
+    "type":"fluffly",
+    "age": 2
+  },
+  {
+    "_type" : "bunny",
+    "name": "amanda vaneffen",
+    "type":"demon",
+    "age": 4
+  },
+  {
+    "_type" : "bunny",
+    "name": "gary huss",
+    "type":"demon",
+    "age": 4
+  },
+  {
+    "_type" : "bunny",
+    "name": "stan young",
+    "type":"demon",
+    "age": 6
+  },
+  {
+    "_type" : "bunny",
+    "name": "jaclyn gregory",
+    "type":"demon",
+    "age": 6
+  },
+  {
+    "_type" : "bunny",
+    "name": "ryan sepulveda",
+    "type":"russian",
+    "age": 8
+  },
+  {
+    "_type" : "bunny",
+    "name": "thomas reim",
+    "type":"russian",
+    "age": 8
+  }
+]

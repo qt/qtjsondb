@@ -12,4 +12,5 @@ SUBDIRS = \
     jsondbqueryobject \
     jsondbchangessinceobject \
     common \
-    qsonstream
+    qsonstream \
+    queries
