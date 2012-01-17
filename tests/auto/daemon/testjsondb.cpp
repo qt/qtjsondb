@@ -3223,7 +3223,7 @@ QStringList sTestQueries = (QStringList()
 void TestJsonDb::parseQuery()
 {
 #if 1
-    QSKIP("This is manual test, skipping", SkipAll);
+    QSKIP("This is manual test, skipping");
 #else
     foreach (QString query, sTestQueries) {
         qDebug() << endl << endl << "query" << query;

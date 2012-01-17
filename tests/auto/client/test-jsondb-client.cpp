@@ -1284,7 +1284,7 @@ void TestJsonDbClient::testToken_data()
     QTest::newRow("valid") << getpid() <<  "testToken_valid" << false;
     QTest::newRow("invalid") << getpid()+1 <<  "testToken_invalid" << true;
 #else
-    QSKIP("Not supported on this platform", SkipAll);
+    QSKIP("Not supported on this platform");
 #endif
 }
 
