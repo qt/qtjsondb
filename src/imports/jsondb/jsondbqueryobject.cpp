@@ -65,7 +65,7 @@ QT_USE_NAMESPACE_JSONDB
         query: '[?_type="Contact"]'
         onFinished: {
             var results = contactsQuery.takeResults();
-            console.log("Results: Count + results.length );
+            console.log('Results: Count' + results.length );
         }
 
         onError: {

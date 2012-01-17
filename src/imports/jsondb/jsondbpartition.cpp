@@ -300,138 +300,6 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
 }
 
 /*!
-    \qmlmethod QtJsonDb::Partition::find(object query, object options, function callback)
-
-    Finds the objects matching the \a query string in the partition. The \a options specifies
-    how query should be handled. The \a query should be specified in JsonQuery format.
-    \a options support the following properties.
-    \list
-    \o options.limit - Maximum number of items to be fetched
-    \o options.offset - fetch results from this offset onwards in the result set.
-    \endlist
-
-    The callback will be called in case of failure or success. It has the following signature
-    \code
-    function findCallback(error, meta, response) {
-        if (error) {
-            // communication error or wrong parameters.
-            // in case of error response will be  {status: Code, message: "plain text" }
-        } else {
-            // response an array of objects matching the query and options.
-            // meta contains the total number of items retrieved
-            console.log("Total items = " + response.length)
-            for (var i = 0; i < response.length; i++) {
-                console.log("response["+i+"] : "+ response[i]._uuid)
-            }
-
-        }
-    }
-    \endcode
-
-    The \a error is a boolean value, which is set in case of error. The error details are part
-    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
-    The \a meta object conatins the following properties :
-    \list
-    \o id -  The id of the request.
-    \o stateNumber - The state label of the partition when the request was issued.
-    \endlist
-    If the request was successful, the response will be an array of objects. Each item in the \a response
-    array will be a complete object (depending on the query).
-*/
-
-
-int JsonDbPartition::find(const QJSValue &query,  const QJSValue &options, const QJSValue &callback)
-{
-    QJSValue actualOptions = options;
-    QJSValue actualCallback = callback;
-    if (options.isFunction()) {
-        if (callback.isValid()) {
-            qWarning() << "Callback should be the last parameter.";
-            return -1;
-        }
-        actualCallback = actualOptions;
-        actualOptions = QJSValue();
-    }
-    //#TODO ADD options
-    int id = jsonDb.query(query.toString(), 0, -1, _name);
-    findCallbacks.insert(id, actualCallback);
-    return id;
-}
-
-/*!
-    \qmlmethod QtJsonDb::Partition::changesSince(int stateNumber, object options, function callback)
-
-    Finds the objects that changed between the \a stateNumber and the current state of the partition.
-    The search can be restricted by specifying a set of \a options.types in the partition. Supported
-    properties for option are:
-    \list
-    \o options.types - Search will be limited to the a list of types.
-    \endlist
-
-
-    The callback will be called in case of failure or success. It has the following signature
-    \code
-    function changesCallback(error, meta, response) {
-        if (error) {
-            // communication error or wrong parameters.
-            // in case of error response will be  {status: Code, message: "plain text" }
-        } else {
-            // response : array of objects of type {"after" : {} , "before" : {}}
-            // meta contains the total number of items retrieved
-            console.log("Total items = " + response.length)
-            for (var i = 0; i < response.length; i++) {
-                console.log("response["+i+"] : After "+ response[i].after._uuid);
-                console.log("response["+i+"] : Before "+ response[i].before._uuid);
-            }
-
-        }
-    }
-    \endcode
-
-    The \a error is a boolean value, which is set in case of error. The error details are part
-    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
-    The \a meta object conatins the following properties :
-    \list
-    \o id -  The id of the request.
-    \o startingStateNumber - The state number from which the changesSince list is creeated.
-    \o currentStateNumber - The state label of the partition when the request was issued.
-    \endlist
-    If the request was successful, the response will be an array of objects. Each item in the \a response
-    array will be an object of type {"after" : {} , "before" : {}}. The \a after sub-object will be undefined
-    for deleted objects. For newly created objects, the \a before sub-object will be undefined. If both
-    sub-objects are valid the change represents an update.
-
-    \code
-    import QtJsonDb 1.0 as JsonDb
-    var nokiaSharedDb = JsonDb.partition("com.nokia.shared", parent);
-    var id = nokiaSharedDb.changesSince(lastStateNumber, {"types" : "Contact" }, changesCallback);
-    \endcode
-
-
-*/
-
-int JsonDbPartition::changesSince(int stateNumber,  const QJSValue &options, const QJSValue &callback)
-{
-    QJSValue actualOptions = options;
-    QJSValue actualCallback = callback;
-    if (options.isFunction()) {
-        if (callback.isValid()) {
-            qWarning() << "Callback should be the last parameter.";
-            return -1;
-        }
-        actualCallback = actualOptions;
-        actualOptions = QJSValue();
-    }
-    QStringList strTypes;
-    if (actualOptions.isValid()) {
-        strTypes = actualOptions.property(QLatin1String("types")).toVariant().toStringList();
-    }
-    int id = jsonDb.changesSince(stateNumber, strTypes, _name);
-    changesCallbacks.insert(id, actualCallback);
-    return id;
-}
-
-/*!
     \qmlmethod object QtJsonDb::Partition::createNotification(query, parentItem)
 
     Create the Notification object for the specifed \a query. The \a parentItem
@@ -689,10 +557,6 @@ void JsonDbPartition::dbResponse(int id, const QVariant &result)
         call(updateCallbacks, id, result);
     } else if (removeCallbacks.contains(id)) {
         call(removeCallbacks, id, result);
-    } else if (changesCallbacks.contains(id)) {
-        callChangesSince(changesCallbacks, id, result);
-    } else if (findCallbacks.contains(id)) {
-        callFindCallback(findCallbacks, id, result);
     }
 }
 
@@ -704,9 +568,5 @@ void JsonDbPartition::dbErrorResponse(int id, int code, const QString &message)
         callErrorCallback(removeCallbacks, id, code, message);
     } else if (updateCallbacks.contains(id)) {
         callErrorCallback(updateCallbacks, id, code, message);
-    } else if (findCallbacks.contains(id)) {
-        callErrorCallback(findCallbacks, id, code, message);
-    } else if (changesCallbacks.contains(id)) {
-        callErrorCallback(changesCallbacks, id, code, message);
     }
 }

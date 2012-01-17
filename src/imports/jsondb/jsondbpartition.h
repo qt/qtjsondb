@@ -82,14 +82,6 @@ public:
                            const QJSValue &options = QJSValue(),
                            const QJSValue &callback = QJSValue());
 
-    Q_INVOKABLE int find(const QJSValue &query,
-                         const QJSValue &options = QJSValue(),
-                         const QJSValue &callback = QJSValue());
-
-    Q_INVOKABLE int changesSince(int stateNumber,
-                                 const QJSValue &types = QJSValue(),
-                                 const QJSValue &callback = QJSValue());
-
     Q_INVOKABLE JsonDbNotify* createNotification(const QJSValue &query,
                                                  QObject *parentItem);
 
@@ -121,8 +113,6 @@ private:
     QMap<int, QJSValue> createCallbacks;
     QMap<int, QJSValue> updateCallbacks;
     QMap<int, QJSValue> removeCallbacks;
-    QMap<int, QJSValue> findCallbacks;
-    QMap<int, QJSValue> changesCallbacks;
     QMap<QString, QPointer<JsonDbNotify> > notifications;
     QList<QObject*> childQMLElements;
 
