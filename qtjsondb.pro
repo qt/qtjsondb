@@ -11,8 +11,7 @@ module_qtjsondb_tests.subdir = tests
 module_qtjsondb_tests.target = module-qtjsondb-tests
 module_qtjsondb_tests.depends = module_qtjsondb_src
 module_qtjsondb_tests.CONFIG = no_default_install
-# that line does not seem to work and tests are always disabled
-#!contains(QT_BUILD_PARTS,tests):module_qtjsondb_tests.CONFIG += no_default_target
+!contains(QT_BUILD_PARTS,tests):module_qtjsondb_tests.CONFIG += no_default_target
 
 win32 {
     message("QtJsonDb is not currently supported on Windows - will not be built")
