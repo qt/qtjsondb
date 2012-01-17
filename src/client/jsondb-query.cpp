@@ -79,7 +79,7 @@ public:
     { }
 
     void _q_response(int reqId, const QVariant &);
-    void _q_error(int code, const QString &message);
+    void _q_error(int reqId, int code, const QString &message);
     void _q_emitMoreData();
 
     // HACK HACK HACK
@@ -133,8 +133,9 @@ void JsonDbQueryPrivate::_q_emitMoreData()
     emit q->finished();
 }
 
-void JsonDbQueryPrivate::_q_error(int code, const QString &message)
+void JsonDbQueryPrivate::_q_error(int reqId, int code, const QString &message)
 {
+    Q_UNUSED(reqId);
     Q_Q(JsonDbQuery);
     emit q->error(JsonDbError::ErrorCode(code), message);
 }
@@ -426,7 +427,7 @@ void JsonDbQuery::start()
     Q_D(JsonDbQuery);
     d->isFinished = false;
     d->requestId = d->client->query(d->query, d->queryOffset, d->queryLimit, d->bindings, d->partition,
-                                    this, SLOT(_q_response(int,QVariant)), SLOT(_q_error(int,QString)));
+                                    this, SLOT(_q_response(int,QVariant)), SLOT(_q_error(int,int,QString)));
 }
 
 /*!
@@ -560,7 +561,7 @@ public:
     { }
 
     void _q_response(int reqId, const QVariant &);
-    void _q_error(int code, const QString &message);
+    void _q_error(int reqId, int code, const QString &message);
     void _q_emitMoreData();
 
     // HACK HACK HACK
@@ -606,8 +607,9 @@ void JsonDbChangesSincePrivate::_q_emitMoreData()
     emit q->finished();
 }
 
-void JsonDbChangesSincePrivate::_q_error(int code, const QString &message)
+void JsonDbChangesSincePrivate::_q_error(int reqId, int code, const QString &message)
 {
+    Q_UNUSED(reqId);
     Q_Q(JsonDbChangesSince);
     emit q->error(JsonDbError::ErrorCode(code), message);
 }
@@ -704,7 +706,7 @@ void JsonDbChangesSince::start()
     Q_D(JsonDbChangesSince);
     d->isFinished = false;
     d->requestId = d->client->changesSince(d->stateNumber, d->types, d->partition,
-                                           this, SLOT(_q_response(int,QVariant)), SLOT(_q_error(int,QString)));
+                                           this, SLOT(_q_response(int,QVariant)), SLOT(_q_error(int,int,QString)));
 }
 
 #include "moc_jsondb-query.cpp"

@@ -154,7 +154,7 @@ private:
 
     Q_DECLARE_PRIVATE(JsonDbQuery)
     Q_PRIVATE_SLOT(d_func(), void _q_response(int,QVariant))
-    Q_PRIVATE_SLOT(d_func(), void _q_error(int,QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_error(int,int,QString))
     Q_PRIVATE_SLOT(d_func(), void _q_emitMoreData())
     friend class JsonDbClient;
 };
@@ -202,7 +202,7 @@ private:
 
     Q_DECLARE_PRIVATE(JsonDbChangesSince)
     Q_PRIVATE_SLOT(d_func(), void _q_response(int,QVariant))
-    Q_PRIVATE_SLOT(d_func(), void _q_error(int,QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_error(int,int,QString))
     Q_PRIVATE_SLOT(d_func(), void _q_emitMoreData())
     friend class JsonDbClient;
 };
