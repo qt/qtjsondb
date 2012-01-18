@@ -43,6 +43,122 @@
 # define EPRINTF(...) do { } while (0)
 #endif
 
+static struct mpage     *mpage_lookup(struct btree *bt, pgno_t pgno);
+static void              mpage_add(struct btree *bt, struct mpage *mp);
+static void              mpage_free(struct mpage *mp);
+static void              mpage_del(struct btree *bt, struct mpage *mp);
+static void              mpage_flush(struct btree *bt);
+static struct mpage     *mpage_copy(struct btree *bt, struct mpage *mp);
+static void              mpage_prune(struct btree *bt);
+static void              mpage_dirty(struct btree *bt, struct mpage *mp);
+static struct mpage     *mpage_touch(struct btree *bt, struct mpage *mp);
+static int               mpage_cmp(struct mpage *a, struct mpage *b);
+
+RB_PROTOTYPE(page_cache, mpage, entry, mpage_cmp);
+RB_GENERATE(page_cache, mpage, entry, mpage_cmp);
+
+static int               btree_read_page(struct btree *bt, pgno_t pgno,
+                            struct page *page);
+static struct mpage     *btree_get_mpage(struct btree *bt, pgno_t pgno);
+enum SearchType {
+        SearchKey=0,
+        SearchFirst=1,
+        SearchLast=2,
+};
+static int               btree_search_page_root(struct btree *bt,
+                            struct mpage *root, struct btval *key,
+                            struct cursor *cursor, enum SearchType searchType, int modify,
+                            struct mpage **mpp);
+static int               btree_search_page(struct btree *bt,
+                            struct btree_txn *txn, struct btval *key,
+                            struct cursor *cursor, enum SearchType searchType, int modify,
+                            struct mpage **mpp);
+
+static int               btree_write_header(struct btree *bt, int fd);
+static int               btree_read_header(struct btree *bt);
+static int               btree_is_meta_page(struct btree *bt, struct page *p);
+static int               btree_read_meta(struct btree *bt, pgno_t *p_next);
+static int               btree_read_meta_with_tag(struct btree *bt, unsigned int tag, pgno_t *p_root);
+static int               btree_write_meta(struct btree *bt, pgno_t root,
+                                          unsigned int flags, uint32_t tag);
+static void              btree_ref(struct btree *bt);
+
+static struct node      *btree_search_node(struct btree *bt, struct mpage *mp,
+                            struct btval *key, int *exactp, unsigned int *kip);
+static int               btree_add_node(struct btree *bt, struct mpage *mp,
+                            indx_t indx, struct btval *key, struct btval *data,
+                            pgno_t pgno, uint8_t flags);
+static void              btree_del_node(struct btree *bt, struct mpage *mp,
+                            indx_t indx);
+static int               btree_read_data(struct btree *bt, struct mpage *mp,
+                            struct node *leaf, struct btval *data);
+
+static int               btree_rebalance(struct btree *bt, struct mpage *mp);
+static int               btree_update_key(struct btree *bt, struct mpage *mp,
+                            indx_t indx, struct btval *key);
+static int               btree_adjust_prefix(struct btree *bt,
+                            struct mpage *src, int delta);
+static int               btree_move_node(struct btree *bt, struct mpage *src,
+                            indx_t srcindx, struct mpage *dst, indx_t dstindx);
+static int               btree_merge(struct btree *bt, struct mpage *src,
+                            struct mpage *dst);
+static int               btree_split(struct btree *bt, struct mpage **mpp,
+                            unsigned int *newindxp, struct btval *newkey,
+                            struct btval *newdata, pgno_t newpgno);
+static struct mpage     *btree_new_page(struct btree *bt, uint32_t flags);
+static int               btree_write_overflow_data(struct btree *bt,
+                            struct page *p, struct btval *data);
+
+static void              cursor_pop_page(struct cursor *cursor);
+static struct ppage     *cursor_push_page(struct cursor *cursor,
+                            struct mpage *mp);
+
+static int               bt_set_key(struct btree *bt, struct mpage *mp,
+                            struct node *node, struct btval *key);
+static int               btree_sibling(struct cursor *cursor, int move_right, int rightmost);
+static int               btree_cursor_next(struct cursor *cursor,
+                            struct btval *key, struct btval *data);
+static int               btree_cursor_prev(struct cursor *cursor,
+                            struct btval *key, struct btval *data);
+static int               btree_cursor_set(struct cursor *cursor,
+                            struct btval *key, struct btval *data, int *exactp);
+static int               btree_cursor_first(struct cursor *cursor,
+                            struct btval *key, struct btval *data);
+
+static void              bt_reduce_separator(struct btree *bt, struct node *min,
+                            struct btval *sep);
+static void              remove_prefix(struct btree *bt, struct btval *key,
+                            size_t pfxlen);
+static void              expand_prefix(struct btree *bt, struct mpage *mp,
+                            indx_t indx, struct btkey *expkey);
+static void              concat_prefix(struct btree *bt, char *pfxstr, size_t pfxlen,
+                            char *keystr, size_t keylen,char *dest, size_t *size);
+static void              common_prefix(struct btree *bt, struct btkey *min,
+                            struct btkey *max, struct btkey *pfx);
+static void              find_common_prefix(struct btree *bt, struct mpage *mp);
+
+static size_t            bt_leaf_size(struct btree *bt, struct mpage *mp, struct btval *key,
+                            struct btval *data);
+static int               bt_is_overflow(struct btree *bt, struct mpage *mp, size_t ksize,
+                            size_t dsize);
+static size_t            bt_branch_size(struct btree *bt, struct btval *key);
+
+static pgno_t            btree_compact_tree(struct btree *bt, pgno_t pgno,
+                            struct btree *btc);
+
+static int               memncmp(const void *s1, size_t n1,
+                            const void *s2, size_t n2, void *);
+static int               memnrcmp(const void *s1, size_t n1,
+                            const void *s2, size_t n2, void *);
+
+static uint32_t          calculate_crc32(const char *begin, const char *end);
+static uint32_t          calculate_checksum(struct btree *bt, const struct page *p);
+static int               verify_checksum(struct btree *bt, const struct page *page);
+
+struct btree            *btree_open_empty_copy(struct btree *bt);
+int                      btree_clear(btree **bt);
+int                      btree_replace(struct btree *bt, struct btree *btw);
+
 static uint32_t
 calculate_crc32(const char *begin, const char *end)
 {
@@ -526,9 +642,13 @@ btree_read_page(struct btree *bt, pgno_t pgno, struct page *page)
 int
 btree_sync(struct btree *bt)
 {
+        unsigned int         flags = BT_MARKER;
         if (!F_ISSET(bt->flags, BT_NOSYNC))
                 return fsync(bt->fd);
         if (F_ISSET(bt->flags, BT_USEMARKER) && !F_ISSET(bt->meta.flags, BT_MARKER)) {
+            /* If we're closing a dead btree then add the tombstone flag */
+            if (F_ISSET(bt->meta.flags, BT_TOMBSTONE))
+                    flags |= BT_TOMBSTONE;
             /* we want to use marker and the last meta page doesn't have it */
             /* put a copy of the last meta page but this time with a marker */
             if (bt->txn) {
@@ -540,7 +660,7 @@ btree_sync(struct btree *bt)
             bt->txn = btree_txn_begin(bt, 0);
             if (bt->txn == 0)
                     return BT_FAIL;
-            if (btree_write_meta(bt, bt->meta.root, BT_MARKER, bt->meta.tag) == BT_FAIL) {
+            if (btree_write_meta(bt, bt->meta.root, flags, bt->meta.tag) == BT_FAIL) {
                     btree_txn_abort(bt->txn);
                     return BT_FAIL;
             }
@@ -580,7 +700,7 @@ btree_txn_begin(struct btree *bt, int rdonly)
 
                 DPRINTF("taking write lock on txn %p, bt %p", txn, bt);
                 if (flock(bt->fd, LOCK_EX | LOCK_NB) != 0) {
-                        DPRINTF("flock: %s", strerror(errno));
+                        EPRINTF("flock: %s", strerror(errno));
                         errno = EBUSY;
                         free(txn->dirty_queue);
                         free(txn);
@@ -870,9 +990,9 @@ btree_read_header(struct btree *bt)
                 errno = ENOENT;
                 goto fail;
         } else if ((size_t)rc != PAGESIZE) {
+                EPRINTF("read: %s", strerror(errno));
                 if (rc > 0)
                         errno = EINVAL;
-                EPRINTF("read: %s", strerror(errno));
                 goto fail;
         }
 
@@ -1029,6 +1149,7 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
         struct bt_meta  *meta;
         pgno_t           meta_pgno, next_pgno;
         off_t            size;
+        off_t            bt_prev_sz = bt->size;
 
         assert(bt != NULL);
 
@@ -1040,8 +1161,7 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
         DPRINTF("btree_read_meta: size = %llu", (long long unsigned)size);
 
         if (size < bt->size) {
-                DPRINTF("file has shrunk!");
-                fprintf(stderr, "file has shrunk\n");
+                EPRINTF("file has shrunk!");
                 errno = EIO;
                 goto fail;
         }
@@ -1104,7 +1224,8 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
         }
 
         errno = EIO;
-        fprintf(stderr, "failed somehow errno=%d\n", errno);
+        if (bt_prev_sz)
+                EPRINTF("failed somehow errno=%d\n", errno);
 fail:
         if (p_next != NULL)
                 *p_next = P_INVALID;
@@ -1213,8 +1334,11 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
         }
 
         if (btree_read_meta(bt, NULL) != 0) {
-                EPRINTF("failed to read meta");
-                goto fail;
+                DPRINTF("valid meta not found. Clearing file");
+                if (F_ISSET(bt->flags, BT_RDONLY) || btree_clear(&bt) != BT_SUCCESS) {
+                        EPRINTF("failed to read meta");
+                        goto fail;
+                }
         }
 
         DPRINTF("opened database version %u, pagesize %u",
@@ -1241,6 +1365,100 @@ fail:
         free(bt);
         return NULL;
 }
+
+int
+btree_clear(btree **bt)
+{
+        struct btree *btc;
+
+        assert(bt && *bt);
+
+        btc = btree_open_empty_copy(*bt);
+
+        if (!btc) {
+                EPRINTF("failed to open new file");
+                return BT_FAIL;
+        }
+
+        if (btree_replace(*bt, btc) != BT_SUCCESS) {
+                EPRINTF("failed to replace");
+                return BT_FAIL;
+        }
+
+        strcpy(btc->path, (*bt)->path);
+        btree_close(*bt);
+        *bt = btc;
+        return BT_SUCCESS;
+}
+
+int
+btree_replace(btree *bt, btree *btw)
+{
+        struct btree_txn *txn;
+
+        assert(bt && btw);
+
+        if ((txn = btree_txn_begin(bt, 0)) == NULL)
+                return BT_FAIL;
+
+        DPRINTF("replacing %s with %s", bt->path, btw->path);
+        if (rename(btw->path, bt->path) != 0)
+                goto fail;
+
+        /* Write a "tombstone" meta page so other processes can pick up
+         * the change and re-open the file.
+         */
+        if (btree_write_meta(bt, P_INVALID, BT_TOMBSTONE, 0) != BT_SUCCESS)
+                goto fail;
+
+        btree_txn_abort(txn);
+        return BT_SUCCESS;
+fail:
+        btree_txn_abort(txn);
+        return BT_FAIL;
+}
+
+struct btree*
+btree_open_empty_copy(struct btree *bt)
+{
+        char                    *copy_path = NULL;
+        const char               copy_ext[] = ".copy.XXXXXX";
+        struct btree            *btc;
+        int                      fd;
+
+        assert(bt != NULL);
+
+        DPRINTF("creating empty copy of btree %p with path %s", bt, bt->path);
+
+        if (bt->path == NULL) {
+                errno = EINVAL;
+                return 0;
+        }
+
+        copy_path = (char*)malloc(strlen(bt->path) + strlen(copy_ext) + 1);
+        strcpy(copy_path, bt->path);
+        strcat(copy_path, copy_ext);
+
+        fd = mkstemp(copy_path);
+        if (fd == -1) {
+                EPRINTF("failed to get fd for empty copy");
+                goto failed;
+        }
+
+        if ((btc = btree_open_fd(copy_path, fd, bt->flags)) == NULL)
+                goto failed;
+        DPRINTF("opened empty btree %p", btc);
+
+        free(copy_path);
+        return btc;
+
+failed:
+        unlink(copy_path);
+        free(copy_path);
+        btree_close(btc);
+        return 0;
+}
+
 
 struct btree *
 btree_open(const char *path, unsigned int flags, mode_t mode)
@@ -1285,6 +1503,24 @@ btree_close(struct btree *bt)
 
         if (bt->ref == 1)
                 btree_sync(bt);
+
+        if (--bt->ref == 0) {
+                DPRINTF("ref is zero, closing btree %p:%s", bt, bt->path);
+                close(bt->fd);
+                mpage_flush(bt);
+                free(bt->page_cache);
+                free(bt->lru_queue);
+                free(bt->path);
+                free(bt);
+        } else
+                DPRINTF("ref is now %d on btree %p", bt->ref, bt);
+}
+
+void
+btree_close_nosync(struct btree *bt)
+{
+        if (bt == NULL)
+                return;
 
         if (--bt->ref == 0) {
                 DPRINTF("ref is zero, closing btree %p:%s", bt, bt->path);

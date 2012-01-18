@@ -190,20 +190,6 @@ RB_HEAD(page_cache, mpage);
 SIMPLEQ_HEAD(dirty_queue, mpage);
 TAILQ_HEAD(lru_queue, mpage);
 
-static int               mpage_cmp(struct mpage *a, struct mpage *b);
-static struct mpage     *mpage_lookup(struct btree *bt, pgno_t pgno);
-static void              mpage_add(struct btree *bt, struct mpage *mp);
-static void              mpage_free(struct mpage *mp);
-static void              mpage_del(struct btree *bt, struct mpage *mp);
-static void              mpage_flush(struct btree *bt);
-static struct mpage     *mpage_copy(struct btree *bt, struct mpage *mp);
-static void              mpage_prune(struct btree *bt);
-static void              mpage_dirty(struct btree *bt, struct mpage *mp);
-static struct mpage     *mpage_touch(struct btree *bt, struct mpage *mp);
-
-RB_PROTOTYPE(page_cache, mpage, entry, mpage_cmp);
-RB_GENERATE(page_cache, mpage, entry, mpage_cmp);
-
 struct ppage {                                  /* ordered list of pages */
         SLIST_ENTRY(ppage)       entry;
         struct mpage            *mpage;
@@ -256,104 +242,6 @@ struct btree {
 
 void                     btree_dump_tree(struct btree *bt, pgno_t pgno, int depth);
 void                     btree_dump_page_from_memory(struct page *p);
-void                     btree_dump(struct btree *bt);
-
-static int               btree_read_page(struct btree *bt, pgno_t pgno,
-                            struct page *page);
-static struct mpage     *btree_get_mpage(struct btree *bt, pgno_t pgno);
-enum SearchType {
-        SearchKey=0,
-        SearchFirst=1,
-        SearchLast=2,
-};
-static int               btree_search_page_root(struct btree *bt,
-                            struct mpage *root, struct btval *key,
-                            struct cursor *cursor, enum SearchType searchType, int modify,
-                            struct mpage **mpp);
-static int               btree_search_page(struct btree *bt,
-                            struct btree_txn *txn, struct btval *key,
-                            struct cursor *cursor, enum SearchType searchType, int modify,
-                            struct mpage **mpp);
-
-static int               btree_write_header(struct btree *bt, int fd);
-static int               btree_read_header(struct btree *bt);
-static int               btree_is_meta_page(struct btree *bt, struct page *p);
-static int               btree_read_meta(struct btree *bt, pgno_t *p_next);
-static int               btree_read_meta_with_tag(struct btree *bt, unsigned int tag, pgno_t *p_root);
-static int               btree_write_meta(struct btree *bt, pgno_t root,
-                                          unsigned int flags, uint32_t tag);
-static void              btree_ref(struct btree *bt);
-
-static struct node      *btree_search_node(struct btree *bt, struct mpage *mp,
-                            struct btval *key, int *exactp, unsigned int *kip);
-static int               btree_add_node(struct btree *bt, struct mpage *mp,
-                            indx_t indx, struct btval *key, struct btval *data,
-                            pgno_t pgno, uint8_t flags);
-static void              btree_del_node(struct btree *bt, struct mpage *mp,
-                            indx_t indx);
-static int               btree_read_data(struct btree *bt, struct mpage *mp,
-                            struct node *leaf, struct btval *data);
-
-static int               btree_rebalance(struct btree *bt, struct mpage *mp);
-static int               btree_update_key(struct btree *bt, struct mpage *mp,
-                            indx_t indx, struct btval *key);
-static int               btree_adjust_prefix(struct btree *bt,
-                            struct mpage *src, int delta);
-static int               btree_move_node(struct btree *bt, struct mpage *src,
-                            indx_t srcindx, struct mpage *dst, indx_t dstindx);
-static int               btree_merge(struct btree *bt, struct mpage *src,
-                            struct mpage *dst);
-static int               btree_split(struct btree *bt, struct mpage **mpp,
-                            unsigned int *newindxp, struct btval *newkey,
-                            struct btval *newdata, pgno_t newpgno);
-static struct mpage     *btree_new_page(struct btree *bt, uint32_t flags);
-static int               btree_write_overflow_data(struct btree *bt,
-                            struct page *p, struct btval *data);
-
-static void              cursor_pop_page(struct cursor *cursor);
-static struct ppage     *cursor_push_page(struct cursor *cursor,
-                            struct mpage *mp);
-
-static int               bt_set_key(struct btree *bt, struct mpage *mp,
-                            struct node *node, struct btval *key);
-static int               btree_sibling(struct cursor *cursor, int move_right, int rightmost);
-static int               btree_cursor_next(struct cursor *cursor,
-                            struct btval *key, struct btval *data);
-static int               btree_cursor_prev(struct cursor *cursor,
-                            struct btval *key, struct btval *data);
-static int               btree_cursor_set(struct cursor *cursor,
-                            struct btval *key, struct btval *data, int *exactp);
-static int               btree_cursor_first(struct cursor *cursor,
-                            struct btval *key, struct btval *data);
-
-static void              bt_reduce_separator(struct btree *bt, struct node *min,
-                            struct btval *sep);
-static void              remove_prefix(struct btree *bt, struct btval *key,
-                            size_t pfxlen);
-static void              expand_prefix(struct btree *bt, struct mpage *mp,
-                            indx_t indx, struct btkey *expkey);
-static void              concat_prefix(struct btree *bt, char *pfxstr, size_t pfxlen,
-                            char *keystr, size_t keylen,char *dest, size_t *size);
-static void              common_prefix(struct btree *bt, struct btkey *min,
-                            struct btkey *max, struct btkey *pfx);
-static void              find_common_prefix(struct btree *bt, struct mpage *mp);
-
-static size_t            bt_leaf_size(struct btree *bt, struct mpage *mp, struct btval *key,
-                            struct btval *data);
-static int               bt_is_overflow(struct btree *bt, struct mpage *mp, size_t ksize,
-                            size_t dsize);
-static size_t            bt_branch_size(struct btree *bt, struct btval *key);
-
-static pgno_t            btree_compact_tree(struct btree *bt, pgno_t pgno,
-                            struct btree *btc);
-
-static int               memncmp(const void *s1, size_t n1,
-                            const void *s2, size_t n2, void *);
-static int               memnrcmp(const void *s1, size_t n1,
-                            const void *s2, size_t n2, void *);
-
-static uint32_t          calculate_crc32(const char *begin, const char *end);
-static uint32_t          calculate_checksum(struct btree *bt, const struct page *p);
-static int               verify_checksum(struct btree *bt, const struct page *page);
+void                     btree_close_nosync(struct btree *bt);
 
 #endif // BTREE_P_H

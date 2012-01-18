@@ -52,6 +52,7 @@
 #include "qbtreelocker.h"
 #include "qbtreetxn.h"
 #include "qbtreecursor.h"
+#include "btree_p.h"
 
 class TestQBtree: public QObject
 {
@@ -89,6 +90,7 @@ private slots:
     void prefixSizes();
     void prefixTest();
     void cursors();
+    void markerFileSizeCheck();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 flag = -1);
@@ -1236,6 +1238,62 @@ void TestQBtree::cursors()
     QCOMPARE(k2, QByteArray("4"));
 
     txn->abort();
+}
+
+void TestQBtree::markerFileSizeCheck()
+{
+    const char *filename = "corruptor.db";
+    QFile::remove(filename);
+    QVERIFY(!QFile::remove(filename));
+
+    const char *testKeyData = "hello";
+    const int testKeySize = strlen(testKeyData);
+    struct btval val;
+
+    struct btree *bt = btree_open(filename, BT_NOSYNC | BT_USEMARKER, 0644);
+    QVERIFY(bt);
+    struct btree_txn *txn = btree_txn_begin(bt, 0);
+    QVERIFY(txn);
+
+    val.free_data = 0;
+    val.mp = 0;
+    val.data = (void*)testKeyData;
+    val.size = testKeySize;
+    QVERIFY(btree_txn_put(bt, txn, &val, &val, 0) == 0);
+    QVERIFY(btree_txn_commit(txn, 1, 0) == 0);
+
+    btree_close_nosync(bt);
+
+    struct btree *bt2 = btree_open(filename, BT_NOSYNC | BT_USEMARKER, 0644);
+    QVERIFY(bt2);
+
+    const int count = 1000;
+    QVector<QByteArray> keys;
+    for (int i = 0; i < count; ++i) {
+        QByteArray key = QString::number(rand()).toAscii();
+        val.free_data = 0;
+        val.mp = 0;
+        val.size = key.size();
+        val.data = key.data();
+        QVERIFY(btree_put(bt2, &val, &val, 0) == 0);
+        keys.append(key);
+    }
+
+    qSort(keys);
+
+    txn = btree_txn_begin(bt2, 1);
+    struct cursor *c = btree_txn_cursor_open(bt2, txn);
+    btval key;
+    btree_cursor_get(c, &key, &val, BT_FIRST);
+    for (int i = 0; i < keys.size(); ++i) {
+        QCOMPARE(QByteArray((char *)key.data, key.size), keys[i]);
+        btree_cursor_get(c, &key, &val, BT_NEXT);
+    }
+
+    btree_cursor_close(c);
+    btree_txn_abort(txn);
+
+    btree_close(bt2);
 }
 
 QTEST_MAIN(TestQBtree)
