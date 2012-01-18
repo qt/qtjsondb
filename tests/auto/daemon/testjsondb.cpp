@@ -201,7 +201,6 @@ private slots:
     void removeSchema();
     void removeViewSchema();
     void updateSchema();
-    void parseQuery();
     void orQuery_data();
     void orQuery();
     void unindexedFind();
@@ -3195,69 +3194,6 @@ void TestJsonDb::notified(const QString nid, QsonMap o, const QString action)
     Q_UNUSED(o);
     Q_UNUSED(action);
     mNotificationsReceived.append(nid);
-}
-
-QStringList sTestQueries = (QStringList()
-                            << "[?foo exists]"
-                            << "[?foo->bar exists]"
-                            << "[?foo->bar->baz exists]"
-                            << "[?foo=\"bar\"]"
-                            << "[?foo= %bar ]"
-                            << "[?foo= %bar]"
-                            << "[?foo=%bar]"
-                            << "[?foo=\"bar\" | foo=\"baz\"]"
-                            << "[?foo=\"bar\"][/foo]"
-                            << "[?foo=\"bar\"][= a ]"
-                            << "[?foo =~ \"/a\\//\"]"
-                            << "[?foo=\"bar\"][= a,b,c]"
-                            << "[?foo=\"bar\"][= a->foreign,b,c]"
-                            << "[?foo=\"bar\"][=[ a,b,c]]"
-                            << "[?foo=\"bar\"][={ a:x, b:y, c:z}]"
-                            << "[?foo=\"bar\"][={ a:x->foreign, b:y, c:z}]"
-                            << "[?foo=\"bar\"][= _uuid, name.first, name.last ]"
-                            << "[?_type=\"contact\"][= { uuid: _uuid, first: name.first, last: name.last } ]"
-                            << "[?telephoneNumbers.*.number=\"6175551212\"]"
-                            << "[?_type=\"contact\"][= .telephoneNumbers[*].number]"
-    );
-
-void TestJsonDb::parseQuery()
-{
-#if 1
-    QSKIP("This is manual test, skipping");
-#else
-    foreach (QString query, sTestQueries) {
-        qDebug() << endl << endl << "query" << query;
-        QsonMap bindings;
-        bindings.insert("bar", QString("barValue"));
-        JsonDbQuery result = JsonDbQuery::parse(query, bindings);
-        const QList<OrQueryTerm> &orQueryTerms = result.queryTerms;
-        for (int i = 0; i < orQueryTerms.size(); i++) {
-            const OrQueryTerm orQueryTerm = orQueryTerms[i];
-            const QList<QueryTerm> &terms = orQueryTerm.terms();
-            QString sep = "";
-            if (terms.size() > 1) {
-                qDebug() << "    (";
-                sep = "  ";
-            }
-            foreach (const QueryTerm &queryTerm, terms) {
-                qDebug() << QString("    %6%5%4%1 %2 %3    ").arg(queryTerm.propertyName()).arg(queryTerm.op()).arg(JsonWriter().toString(queryTerm.value()))
-                    .arg(queryTerm.joinField().size() ? " -> " : "").arg(queryTerm.joinField())
-                    .arg(sep);
-                sep = "| ";
-            }
-            if (terms.size() > 1)
-                qDebug() << "    )";
-        }
-        QList<OrderTerm> &orderTerms = result.orderTerms;
-        for (int i = 0; i < orderTerms.size(); i++) {
-            const OrderTerm &orderTerm = orderTerms[i];
-            qDebug() << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending);
-        }
-        qDebug() << "mapKeys" << result.mapKeyList.join(", ");
-        qDebug() << "mapExprs" << result.mapExpressionList.join(", ");
-        qDebug() << "explanation" << result.queryExplanation;
-    }
-#endif
 }
 
 void TestJsonDb::orQuery_data()
