@@ -7,36 +7,40 @@ load(qt_module_config)
 
 DESTDIR = $$QT.jsondb.libs
 VERSION = $$QT.jsondb.VERSION
-DEFINES += QT_ADDON_JSONDB_LIB
+DEFINES += QT_JSONDB_LIB
 
 QT = core network
 
 CONFIG += module create_prl
 MODULE_PRI = ../../modules/qt_jsondb.pri
 
-include(../common/common.pri)
+include(../jsonstream/jsonstream.pri)
 
-HEADERS += qtaddonjsondbversion.h
+HEADERS += qtjsondbversion.h
 
 HEADERS += \
-    jsondb-error.h \
-    jsondb-client.h \
-    jsondb-object.h \
-    jsondb-client_p.h \
-    jsondb-connection_p.h \
-    jsondb-connection_p_p.h \
-    jsondb-query.h \
-    jsondb-oneshot_p.h \
-    jsondb-strings_p.h \
-    jsondb-notification.h
+    qjsondbglobal.h \
+    qjsondbstrings_p.h \
+    qjsondbconnection_p.h \
+    qjsondbconnection.h \
+    qjsondbrequest_p.h \
+    qjsondbrequest.h \
+    qjsondbreadrequest_p.h \
+    qjsondbreadrequest.h \
+    qjsondbwriterequest_p.h \
+    qjsondbwriterequest.h \
+    qjsondbauthrequest_p.h \
+    qjsondbwatcher_p.h \
+    qjsondbwatcher.h \
+    qjsondbobject.h
 
 SOURCES += \
-    jsondb-error.cpp \
-    jsondb-client.cpp \
-    jsondb-object.cpp \
-    jsondb-connection.cpp \
-    jsondb-query.cpp \
-    jsondb-oneshot.cpp \
-    jsondb-notification.cpp
+    qjsondbconnection.cpp \
+    qjsondbrequest.cpp \
+    qjsondbreadrequest.cpp \
+    qjsondbwriterequest.cpp \
+    qjsondbauthrequest.cpp \
+    qjsondbwatcher.cpp \
+    qjsondbobject.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondb.name

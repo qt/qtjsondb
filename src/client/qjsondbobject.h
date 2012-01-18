@@ -39,4 +39,44 @@
 **
 ****************************************************************************/
 
-#include "../clientcompat/jsondb-global.h"
+#ifndef JSONDB_OBJECT_H
+#define JSONDB_OBJECT_H
+
+#include <QtCore/QJsonObject>
+#include <QtCore/QUuid>
+
+#include <QtJsonDb/qjsondbglobal.h>
+
+QT_BEGIN_HEADER
+
+QT_BEGIN_NAMESPACE_JSONDB
+
+class Q_JSONDB_EXPORT QJsonDbObject : public QJsonObject
+{
+public:
+    QJsonDbObject();
+    QJsonDbObject(const QJsonObject &other);
+
+    QJsonDbObject &operator=(const QJsonObject &other);
+
+    QUuid uuid() const;
+    void setUuid(const QUuid &uuid);
+
+    static QUuid createUuid();
+    static QUuid createUuidFromString(const QString &id);
+
+// ### TODO: put me back after QUuid has explicit constructors
+//    QJsonObject::iterator insert(const QString &key, const QUuid &value);
+//#if !defined(Q_NO_USING_KEYWORD)
+//    using QJsonObject::insert;
+//#else
+//    inline QJsonObject::iterator insert(const QString &key, const QJsonValue &value)
+//    { return QJsonObject::insert(key, value); }
+//#endif
+};
+
+QT_END_NAMESPACE_JSONDB
+
+QT_END_HEADER
+
+#endif // JSONDB_OBJECT_H

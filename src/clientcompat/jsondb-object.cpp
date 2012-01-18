@@ -161,7 +161,7 @@ void JsonDbObject::setUuid(const QUuid &uuid)
 }
 
 /*!
-    Returns a new uuid that can be used to identificate given \a object.
+    Returns a new uuid that can be used to identify given \a object.
 
     Note that the returned uuid might be unique on every invocation on the same
     object, if the \a object doesn't have the \c{_id} property and there is no

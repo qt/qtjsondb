@@ -39,4 +39,33 @@
 **
 ****************************************************************************/
 
-#include "../clientcompat/jsondb-global.h"
+#ifndef JSONDB_GLOBAL_H
+#define JSONDB_GLOBAL_H
+
+#include "QtCore/qglobal.h"
+
+#if defined(QT_JSONDB_LIB)
+#  define Q_JSONDB_EXPORT Q_DECL_EXPORT
+#else
+#  define Q_JSONDB_EXPORT Q_DECL_IMPORT
+#endif
+
+#if defined(QT_NAMESPACE)
+#  define QT_BEGIN_NAMESPACE_JSONDB namespace QT_NAMESPACE { namespace QtJsonDb {
+#  define QT_END_NAMESPACE_JSONDB } }
+#  define QT_USE_NAMESPACE_JSONDB using namespace QT_NAMESPACE::QtJsonDb;
+#  define QT_PREPEND_NAMESPACE_JSONDB(name) ::QT_NAMESPACE::QtJsonDb::name
+#else
+#  define QT_BEGIN_NAMESPACE_JSONDB namespace QtJsonDb {
+#  define QT_END_NAMESPACE_JSONDB }
+#  define QT_USE_NAMESPACE_JSONDB using namespace QtJsonDb;
+#  define QT_PREPEND_NAMESPACE_JSONDB(name) ::QtJsonDb::name
+#endif
+
+// a workaround for moc - if there is a header file that doesn't use jsondb
+// namespace, we still force moc to do "using namespace" but the namespace have to
+// be defined, so let's define an empty namespace here
+QT_BEGIN_NAMESPACE_JSONDB
+QT_END_NAMESPACE_JSONDB
+
+#endif // JSONDB_GLOBAL_H

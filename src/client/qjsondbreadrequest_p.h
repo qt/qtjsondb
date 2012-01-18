@@ -39,4 +39,59 @@
 **
 ****************************************************************************/
 
-#include "../clientcompat/jsondb-global.h"
+#ifndef JSONDB_READ_REQUEST_P_H
+#define JSONDB_READ_REQUEST_P_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtJsonDb API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+#include <QObject>
+#include <QMap>
+#include <QUuid>
+
+#include "qjsondbrequest_p.h"
+#include "qjsondbreadrequest.h"
+
+QT_BEGIN_NAMESPACE_JSONDB
+
+class QJsonDbReadRequestPrivate : public QJsonDbRequestPrivate
+{
+    Q_DECLARE_PUBLIC(QJsonDbReadRequest)
+public:
+    QJsonDbReadRequestPrivate(QJsonDbReadRequest *q);
+
+    QJsonObject getRequest() const;
+    void handleResponse(const QJsonObject &);
+    void handleError(int, const QString &);
+
+    QString query;
+    int queryLimit;
+    QMap<QString, QJsonValue> bindings;
+
+    // query results
+    quint32 stateNumber;
+    QString sortKey;
+};
+
+class QJsonDbReadObjectRequestPrivate : public QJsonDbReadRequestPrivate
+{
+    Q_DECLARE_PUBLIC(QJsonDbReadObjectRequest)
+public:
+    QJsonDbReadObjectRequestPrivate(QJsonDbReadObjectRequest *q);
+
+    void _q_onFinished();
+
+    QUuid uuid;
+};
+
+QT_END_NAMESPACE_JSONDB
+
+#endif // JSONDB_READ_REQUEST_P_H

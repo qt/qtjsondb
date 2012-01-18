@@ -4,12 +4,11 @@ DESTDIR = $$QT.jsondb.bins
 target.path = $$[QT_INSTALL_PREFIX]/bin
 INSTALLS += target
 
-QT = core network declarative jsondb
+QT = core jsondb
 
 LIBS += -ledit
 
 include(../../qtjsondb.pri)
-include(../../src/3rdparty/qjson/qjson.pri)
 
 mac:CONFIG -= app_bundle
 

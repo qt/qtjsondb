@@ -42,18 +42,10 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include <QObject>
-#include <QThread>
-#include <QStringList>
-#include <QLocalSocket>
-#include <QSocketNotifier>
-#include <QFile>
+#include <QtCore>
+#include <QtJsonDb>
 
 #include <histedit.h>
-
-#include "jsondb-client.h"
-
-
 
 class InputThread : public QThread {
     Q_OBJECT
@@ -92,14 +84,19 @@ public slots:
     bool loadJsonFile(const QString &fileName);
 
 protected slots:
-    void disconnected();
+    void error(QtJsonDb::QJsonDbConnection::ErrorCode, const QString &message);
+    void statusChanged(QtJsonDb::QJsonDbConnection::Status);
 
-    void response(int, const QVariant &map);
-    void error(int id, int code, const QString &message);
-    void notified(const QString &notify_uuid, const QVariant &object, const QString &action);
-    void statusChanged();
+    void onNotificationsAvailable(int);
+    void onNotificationStatusChanged(QtJsonDb::QJsonDbWatcher::Status);
+    void onNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode, const QString &);
 
-signals:
+    void onRequestFinished();
+
+    void pushRequest(QtJsonDb::QJsonDbRequest *);
+    void popRequest();
+
+Q_SIGNALS:
     void requestsProcessed();
 
 private:
@@ -107,8 +104,8 @@ private:
 
     QSocketNotifier *mNotifier;
     QFile           *mInput;
-    QtAddOn::JsonDb::JsonDbClient *mConnection;
-    QSet<int> mRequests;
+    QtJsonDb::QJsonDbConnection *mConnection;
+    QList<QtJsonDb::QJsonDbRequest *> mRequests;
     InputThread *mInputThread;
 };
 

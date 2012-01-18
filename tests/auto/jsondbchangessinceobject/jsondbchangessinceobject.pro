@@ -3,7 +3,7 @@ TARGET = tst_jsondbchangessinceobject
 DEPENDPATH += .
 INCLUDEPATH += .
 
-QT = core network testlib gui declarative jsondb-private
+QT = core network testlib gui declarative jsondbcompat-private
 CONFIG -= app_bundle
 CONFIG += testcase
 

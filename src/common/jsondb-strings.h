@@ -39,4 +39,4 @@
 **
 ****************************************************************************/
 
-#include "../client/jsondb-strings_p.h"
+#include "../clientcompat/jsondb-strings_p.h"

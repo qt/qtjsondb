@@ -39,28 +39,16 @@
 **
 ****************************************************************************/
 
-#include <QSocketNotifier>
-#include <QCoreApplication>
-#include <QStringBuilder>
-#include <QMetaObject>
-#include <QThread>
-#include <QVariant>
-#include <QDir>
+#include "client.h"
+
 #include <iostream>
 #include <sstream>
 #include <iomanip>
-
-#include "json.h"
-
-#include "client.h"
-
-QT_USE_NAMESPACE_JSONDB
 
 extern bool gDebug;
 
 const char* InputThread::commands[] = { "changesSince",
                                         "create {\"",
-                                        "find",
                                         "help",
                                         "notify create [?",
                                         "notify remove [?",
@@ -228,24 +216,16 @@ Client::~Client()
 bool Client::connectToServer()
 {
     QString socketName = ::getenv("JSONDB_SOCKET");
-    if (socketName.isEmpty()) {
-        mConnection = new QtAddOn::JsonDb::JsonDbClient(this);
-    } else {
-        mConnection = new QtAddOn::JsonDb::JsonDbClient(socketName, this);
-    }
+    mConnection = new QtJsonDb::QJsonDbConnection(this);
+    if (!socketName.isEmpty())
+        mConnection->setSocketName(socketName);
 
-    connect(mConnection, SIGNAL(disconnected()), this, SLOT(disconnected()));
-    connect(mConnection, SIGNAL(response(int,QVariant)),
-            this, SLOT(response(int,QVariant)));
-    connect(mConnection, SIGNAL(error(int,int,QString)),
-            this, SLOT(error(int,int,QString)));
-    connect(mConnection, SIGNAL(notified(QString,QVariant,QString)),
-            this, SLOT(notified(QString,QVariant,QString)));
-    connect(mConnection, SIGNAL(statusChanged()), this, SLOT(statusChanged()));
+    connect(mConnection, SIGNAL(error(QtJsonDb::QJsonDbConnection::ErrorCode,QString)),
+            this, SLOT(error(QtJsonDb::QJsonDbConnection::ErrorCode,QString)));
+    connect(mConnection, SIGNAL(statusChanged(QtJsonDb::QJsonDbConnection::Status)),
+            this, SLOT(statusChanged(QtJsonDb::QJsonDbConnection::Status)));
 
-    if (!mConnection->isConnected())
-        qCritical() << "Not connected to the server yet... retrying";
-
+    mConnection->connectToServer();
     return true;
 }
 
@@ -257,64 +237,111 @@ void Client::interactiveMode()
     mInputThread->start();
 }
 
-void Client::disconnected()
+void Client::onNotificationsAvailable(int)
 {
-    qCritical() << "Lost connection to the server:" << mConnection->errorString();
-}
+    QtJsonDb::QJsonDbWatcher *watcher = qobject_cast<QtJsonDb::QJsonDbWatcher *>(sender());
+    Q_ASSERT(watcher);
+    if (!watcher)
+        return;
+    QList<QtJsonDb::QJsonDbNotification> notifications = watcher->takeNotifications();
+    foreach (const QtJsonDb::QJsonDbNotification &n, notifications) {
+        QString actionString;
+        switch (n.action()) {
+        case QtJsonDb::QJsonDbWatcher::Created:
+            actionString = QStringLiteral("create"); break;
+        case QtJsonDb::QJsonDbWatcher::Updated:
+            actionString = QStringLiteral("update"); break;
+        case QtJsonDb::QJsonDbWatcher::Removed:
+            actionString = QStringLiteral("remove"); break;
+        case QtJsonDb::QJsonDbWatcher::All: break;
+        }
 
-void Client::notified(const QString &notify_uuid, const QVariant &object, const QString &action)
-{
-    JsonWriter writer;
-    writer.setAutoFormatting(true);
-    QString buf = writer.toString(object);
-
-    QString message =  "Received notification: type " % action
-              % " for " % notify_uuid % " object:\n" % buf;
-    InputThread::print(message);
-
+        QString message =  "Received notification: type " % actionString
+                % " for " % watcher->query() % " object:\n" % QJsonDocument(n.object()).toJson();
+        InputThread::print(message);
+    }
     if (!mInputThread)
         QCoreApplication::exit(0);  // Non-interactive mode just stops
 }
 
-void Client::statusChanged()
+void Client::onNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode error, const QString &message)
+{
+    QtJsonDb::QJsonDbWatcher *watcher = qobject_cast<QtJsonDb::QJsonDbWatcher *>(sender());
+    Q_ASSERT(watcher);
+    if (!watcher)
+        return;
+    qDebug() << "Failed to create watcher:" << watcher->query() << error << message;
+}
+
+void Client::onNotificationStatusChanged(QtJsonDb::QJsonDbWatcher::Status)
+{
+    QtJsonDb::QJsonDbWatcher *watcher = qobject_cast<QtJsonDb::QJsonDbWatcher *>(sender());
+    Q_ASSERT(watcher);
+    if (!watcher)
+        return;
+    if (watcher->isActive())
+        qDebug() << "Watcher created:" << watcher->query();
+}
+
+void Client::statusChanged(QtJsonDb::QJsonDbConnection::Status)
 {
     switch (mConnection->status()) {
-    case JsonDbClient::Ready:
-        qCritical() << "Connected to the server";
+    case QtJsonDb::QJsonDbConnection::Unconnected:
+        qCritical() << "Lost connection to the server";
         break;
-    case JsonDbClient::Error:
-        qCritical() << "Cannot connect to the server:" << mConnection->errorString();
+    case QtJsonDb::QJsonDbConnection::Connecting:
+        qCritical() << "Connecting to the server...";
         break;
-    default:
-        return;
+    case QtJsonDb::QJsonDbConnection::Authenticating:
+        qCritical() << "Authenticating...";
+        break;
+    case QtJsonDb::QJsonDbConnection::Connected:
+        qCritical() << "Connected to the server.";
+        break;
     }
 }
 
-void Client::response(int id, const QVariant &msg)
+void Client::error(QtJsonDb::QJsonDbConnection::ErrorCode error, const QString &message)
 {
-    Q_UNUSED(id);
-    JsonWriter writer;
-    writer.setAutoFormatting(true);
-    QString buf = writer.toString(msg);
+    switch (error) {
+    case QtJsonDb::QJsonDbConnection::NoError:
+        Q_ASSERT(false);
+        break;
+    }
+}
 
-    QString message = "Received message: " % buf;
+void Client::onRequestFinished()
+{
+    QtJsonDb::QJsonDbRequest *request = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
+    Q_ASSERT(request != 0);
+    if (!request)
+        return;
+
+    QList<QJsonObject> objects = request->takeResults();
+
+    QString message = QLatin1String("Received ") + QString::number(objects.size()) + QLatin1String(" object(s):\n");
+    if (!objects.isEmpty()) {
+        message += QJsonDocument(objects.front()).toJson().trimmed();
+        for (int i = 1; i < objects.size(); ++i)
+            message += QLatin1String(",\n") + QJsonDocument(objects.at(i)).toJson().trimmed();
+    }
     InputThread::print(message);
-
-    mRequests.remove(id);
-    if (mRequests.isEmpty())
-        emit requestsProcessed();
 
     if (!mInputThread)
         QCoreApplication::exit(0);  // Non-interactive mode just stops
 }
 
-void Client::error(int, int code, const QString &msg)
+void Client::pushRequest(QtJsonDb::QJsonDbRequest *request)
 {
-    QString message = "Received error " % QString().setNum(code) % ":" % msg;
-    InputThread::print(message);
+    mRequests.append(request);
+}
 
-    if (!mInputThread)
-        QCoreApplication::exit(0);  // Non-interactive mode just stops
+void Client::popRequest()
+{
+    QtJsonDb::QJsonDbRequest *request = mRequests.takeFirst();
+    delete request;
+    if (mRequests.isEmpty())
+        emit requestsProcessed();
 }
 
 void Client::usage()
@@ -332,7 +359,7 @@ void Client::usage()
               << "   changesSince [partition:<name>] STATENUMBER [type1 type2 ...]" << std::endl
               << std::endl
               << "Convenience functions" << std::endl
-              << "   query STRING [offset [limit]]" << std::endl
+              << "   query STRING [limit]" << std::endl
               << "                  find {\"query\": STRING}" << std::endl
               << "   notify ACTIONS QUERY" << std::endl
               << "                  create { \"_type\": \"notification\"," << std::endl
@@ -380,18 +407,12 @@ bool Client::processCommand(const QString &command)
     } else if (cmd == "help") {
         usage();
     } else if (cmd == "query") {
-        int offset = 0, limit = -1;
+        int limit = -1;
         int idx = rest.lastIndexOf(']');
         if (idx != -1) {
             QStringList list = rest.mid(idx+1).split(' ');
             int i = 0;
             for (; i < list.size(); ++i) {
-                if (!list.at(i).trimmed().isEmpty()) {
-                    offset = list.at(i).toInt();
-                    break;
-                }
-            }
-            for (++i; i < list.size(); ++i) {
                 if (!list.at(i).trimmed().isEmpty()) {
                     limit = list.at(i).toInt();
                     break;
@@ -400,97 +421,98 @@ bool Client::processCommand(const QString &command)
             rest.truncate(idx+1);
         }
         if (gDebug)
-            qDebug() << "Sending query:" << QVariant(rest);
-        mRequests << mConnection->query(rest, offset, limit, partition);
+            qDebug() << "Sending query:" << rest;
+        QtJsonDb::QJsonDbReadRequest *request = new QtJsonDb::QJsonDbReadRequest(this);
+        request->setPartition(partition);
+        request->setQuery(rest);
+        request->setQueryLimit(limit);
+        connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
+        connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+        pushRequest(request);
+        mConnection->send(request);
     } else if (cmd == "notify") {
         int s = rest.indexOf(' ');
         if (s <= 0)
             return false;
         QStringList alist = rest.left(s).split(QRegExp(","), QString::SkipEmptyParts);
-        QtAddOn::JsonDb::JsonDbClient::NotifyTypes actions;
+        QtJsonDb::QJsonDbWatcher::Actions actions;
         foreach (const QString &s, alist) {
-            JsonDbClient::NotifyType type = JsonDbClient::NotifyType(0);
+            QtJsonDb::QJsonDbWatcher::Action action = QtJsonDb::QJsonDbWatcher::Action(0);
             if (s == QLatin1String("create"))
-                type = JsonDbClient::NotifyCreate;
-            if (s == QLatin1String("remove"))
-                type = JsonDbClient::NotifyRemove;
-            if (s == QLatin1String("update"))
-                type = JsonDbClient::NotifyUpdate;
-            if (type == JsonDbClient::NotifyType(0)) {
+                action = QtJsonDb::QJsonDbWatcher::Created;
+            else if (s == QLatin1String("remove"))
+                action = QtJsonDb::QJsonDbWatcher::Removed;
+            else if (s == QLatin1String("update"))
+                action = QtJsonDb::QJsonDbWatcher::Updated;
+            if (action == QtJsonDb::QJsonDbWatcher::Action(0)) {
                 InputThread::print("uknown notification type" % s);
                 return false;
             }
-            actions |= type;
+            actions |= action;
         }
         QString query = rest.mid(s+1).trimmed();
         if (gDebug)
             qDebug() << "Creating notification:" << alist << ":" << query;
-        mRequests << mConnection->notify(actions, query, partition);
-    } else if (cmd == "remove") {
-        rest = rest.trimmed();
-        bool isquery = false;
-        int i = 0;
-        const int len = rest.length();
-        if (i < len) {
-            if (rest.at(i++) == QLatin1Char('[')) {
-                while (i < len && rest.at(i) == QLatin1Char(' ')) ++i;
-                if (i < len && rest.at(i) == QLatin1Char('?'))
-                    isquery = true;
-            }
-        }
-        if (isquery) {
-            // if not json format, then it is a query
-            if (gDebug)
-                qDebug() << "Sending remove for:" << rest;
-            mRequests << mConnection->remove(rest);
-        } else {
-            JsonReader parser;
-            bool ok = parser.parse(rest);
-            if (!ok) {
-                InputThread::print("Unable to parse: " % rest);
-                usage();
-                return false;
-            }
-            QVariant arg = parser.result();
-            if (gDebug)
-                qDebug() << "Sending remove:" << arg;
-            mRequests << mConnection->remove(arg, partition);
-        }
-    } else if (cmd == "create" || cmd == "update" || cmd == "find" ) {
-        JsonReader parser;
-        bool ok = parser.parse(rest);
-        if (!ok) {
+        QtJsonDb::QJsonDbWatcher *watcher = new QtJsonDb::QJsonDbWatcher(this);
+        watcher->setPartition(partition);
+        watcher->setQuery(query);
+        watcher->setWatchedActions(actions);
+        connect(watcher, SIGNAL(notificationsAvailable(int)), this, SLOT(onNotificationsAvailable(int)));
+        connect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
+                this, SLOT(onNotificationStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+        connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+                this, SLOT(onNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+        mConnection->addWatcher(watcher);
+    } else if (cmd == "create" || cmd == "update" || cmd == "remove") {
+        QJsonDocument doc = QJsonDocument::fromJson(rest.toUtf8());
+        if (doc.isEmpty()) {
             InputThread::print("Unable to parse: " % rest);
             usage();
             return false;
         }
-        QVariant arg = parser.result();
         if (gDebug)
-            qDebug() << "Sending" << cmd << ":" << arg;
-        int id = 0;
-        QMetaObject::invokeMethod(mConnection, cmd.toLatin1(), Q_RETURN_ARG(int, id),
-                                  Q_ARG(QVariant, arg), Q_ARG(QString, partition));
-        mRequests << id;
-    } else if (cmd == "changesSince") {
-        int stateNumber = 0;
-        QStringList types;
-        QStringList args = rest.split(" ");
-
-        if (args.isEmpty()) {
-            InputThread::print("Must specify the state number");
-            usage();
-            return false;
+            qDebug() << "Sending" << cmd << ":" << doc;
+        QList<QJsonObject> objects;
+        if (doc.isObject()) {
+            objects.append(doc.object());
+        } else {
+            foreach (const QJsonValue &value, doc.array())
+                objects.append(value.toObject());
         }
+        QtJsonDb::QJsonDbWriteRequest *request = 0;
+        if (cmd == "create")
+            request = new QtJsonDb::QJsonDbCreateRequest(objects);
+        else if (cmd == "update")
+            request = new QtJsonDb::QJsonDbUpdateRequest(objects);
+        else if (cmd == "remove")
+            request = new QtJsonDb::QJsonDbRemoveRequest(objects);
+        else
+            Q_ASSERT(false);
+        request->setPartition(partition);
+        connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
+        connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+        pushRequest(request);
+        mConnection->send(request);
+    } else if (cmd == "changesSince") {
+//        int stateNumber = 0;
+//        QStringList types;
+//        QStringList args = rest.split(" ");
 
-        stateNumber = args.takeFirst().trimmed().toInt();
+//        if (args.isEmpty()) {
+//            InputThread::print("Must specify the state number");
+//            usage();
+//            return false;
+//        }
 
-        if (!args.isEmpty())
-            types = args;
+//        stateNumber = args.takeFirst().trimmed().toInt();
 
-        if (gDebug)
-            qDebug() << "Sending changesSince: " << stateNumber << "types: " << types;
+//        if (!args.isEmpty())
+//            types = args;
 
-        mRequests << mConnection->changesSince(stateNumber, types, partition);
+//        if (gDebug)
+//            qDebug() << "Sending changesSince: " << stateNumber << "types: " << types;
+
+//        mRequests << mConnection->changesSince(stateNumber, types, partition);
     } else if (cmd == "connect") {
         mConnection->connectToServer();
     } else if (cmd == "disconnect") {
@@ -508,21 +530,21 @@ bool Client::processCommand(const QString &command)
 
 bool Client::loadJsonFile(const QString &fileName)
 {
-    QFile file(fileName);
-    if (!file.open(QFile::ReadOnly)) {
-        if (gDebug)
-            qDebug() << "Couldn't load file" << fileName;
-        return false;
-    }
-    JsonReader parser;
-    bool ok = parser.parse(file.readAll());
-    file.close();
-    if (!ok) {
-        std::cout << "Unable to parse the content of the file" << qPrintable(fileName) << ":"
-                  << qPrintable(parser.errorString()) << std::endl;
-        return false;
-    }
-    QVariant arg = parser.result();
-    mRequests << mConnection->create(arg);
+//    QFile file(fileName);
+//    if (!file.open(QFile::ReadOnly)) {
+//        if (gDebug)
+//            qDebug() << "Couldn't load file" << fileName;
+//        return false;
+//    }
+//    JsonReader parser;
+//    bool ok = parser.parse(file.readAll());
+//    file.close();
+//    if (!ok) {
+//        std::cout << "Unable to parse the content of the file" << qPrintable(fileName) << ":"
+//                  << qPrintable(parser.errorString()) << std::endl;
+//        return false;
+//    }
+//    QVariant arg = parser.result();
+//    mRequests << mConnection->create(arg);
     return true;
 }

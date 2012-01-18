@@ -39,4 +39,44 @@
 **
 ****************************************************************************/
 
-#include "../clientcompat/jsondb-global.h"
+#ifndef JSONDB_WRITE_REQUEST_P_H
+#define JSONDB_WRITE_REQUEST_P_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtJsonDb API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+#include <QObject>
+#include <QMap>
+
+#include "qjsondbrequest_p.h"
+#include "qjsondbwriterequest.h"
+
+QT_BEGIN_NAMESPACE_JSONDB
+
+class QJsonDbWriteRequestPrivate : public QJsonDbRequestPrivate
+{
+    Q_DECLARE_PUBLIC(QJsonDbWriteRequest)
+public:
+    QJsonDbWriteRequestPrivate(QJsonDbWriteRequest *q);
+
+    QJsonObject getRequest() const;
+    void handleResponse(const QJsonObject &);
+    void handleError(int, const QString &);
+
+    QList<QJsonObject> objects;
+
+    // response data
+    quint32 stateNumber;
+};
+
+QT_END_NAMESPACE_JSONDB
+
+#endif // JSONDB_WRITE_REQUEST_P_H

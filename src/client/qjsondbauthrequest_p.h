@@ -39,4 +39,44 @@
 **
 ****************************************************************************/
 
-#include "../clientcompat/jsondb-global.h"
+#ifndef JSONDB_AUTH_REQUEST_H
+#define JSONDB_AUTH_REQUEST_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtJsonDb API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+#include <QObject>
+
+#include "qjsondbrequest_p.h"
+
+QT_BEGIN_NAMESPACE_JSONDB
+
+class QJsonDbAuthRequestPrivate;
+class QJsonDbAuthRequest : public QJsonDbRequest
+{
+    Q_OBJECT
+    Q_PROPERTY(QByteArray token READ token WRITE setToken)
+
+public:
+    QJsonDbAuthRequest(QObject *parent = 0);
+    ~QJsonDbAuthRequest();
+
+    QByteArray token() const;
+    void setToken(const QByteArray &);
+
+private:
+    Q_DISABLE_COPY(QJsonDbAuthRequest)
+    Q_DECLARE_PRIVATE(QJsonDbAuthRequest)
+};
+
+QT_END_NAMESPACE_JSONDB
+
+#endif // JSONDB_AUTH_REQUEST_H

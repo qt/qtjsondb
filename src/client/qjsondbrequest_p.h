@@ -39,4 +39,54 @@
 **
 ****************************************************************************/
 
-#include "../clientcompat/jsondb-global.h"
+#ifndef JSONDB_REQUEST_P_H
+#define JSONDB_REQUEST_P_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtJsonDb API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+#include <QObject>
+#include <QJsonObject>
+
+#include "qjsondbrequest.h"
+
+QT_BEGIN_NAMESPACE_JSONDB
+
+class QJsonDbRequestPrivate
+{
+    Q_DECLARE_PUBLIC(QJsonDbRequest)
+public:
+    QJsonDbRequestPrivate(QJsonDbRequest *q);
+    virtual ~QJsonDbRequestPrivate() { }
+
+    virtual QJsonObject getRequest() const = 0;
+    virtual void handleResponse(const QJsonObject &) = 0;
+    virtual void handleError(int, const QString &) = 0;
+
+    void setStatus(QJsonDbRequest::Status newStatus);
+    void setRequestId(int id);
+
+    QJsonDbRequest *q_ptr;
+    QString partition;
+    QJsonDbRequest::Status status;
+    int requestId;
+    bool internal; // marks internal requests e.g. notification and token auth.
+
+    QList<QJsonObject> results;
+};
+
+#define JSONDB_CHECK_REQUEST_STATUS \
+    if (d->status >= QJsonDbRequest::Queued) \
+        qWarning("QJsonDbRequest: should not change already queued request.");
+
+QT_END_NAMESPACE_JSONDB
+
+#endif // JSONDB_REQUEST_P_H

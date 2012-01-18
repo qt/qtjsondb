@@ -39,4 +39,57 @@
 **
 ****************************************************************************/
 
-#include "../clientcompat/jsondb-global.h"
+#ifndef JSONDB_WATCHER_P_H
+#define JSONDB_WATCHER_P_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtJsonDb API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+#include <QObject>
+#include <QWeakPointer>
+
+#include "qjsondbwatcher.h"
+#include "qjsondbrequest.h"
+
+QT_BEGIN_NAMESPACE_JSONDB
+
+class QJsonDbConnection;
+
+class QJsonDbWatcherPrivate
+{
+    Q_DECLARE_PUBLIC(QJsonDbWatcher)
+public:
+    QJsonDbWatcherPrivate(QJsonDbWatcher *q);
+
+    void _q_onFinished();
+    void _q_onError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
+
+    void handleNotification(QJsonDbWatcher::Action action, const QJsonObject &object);
+    void setStatus(QJsonDbWatcher::Status newStatus);
+
+    QJsonDbWatcher *q_ptr;
+    QWeakPointer<QJsonDbConnection> connection;
+    QJsonDbWatcher::Status status;
+    QJsonDbWatcher::Actions actions;
+    QString query;
+    QString partition;
+    quint32 initialStateNumber;
+    quint32 lastStateNumber;
+
+    QList<QJsonDbNotification> notifications;
+
+    QString uuid; // ### TODO: make me QUuid after QJsonObject can store binary blob efficiently
+    QString version;
+};
+
+QT_END_NAMESPACE_JSONDB
+
+#endif // JSONDB_WATCHER_P_H

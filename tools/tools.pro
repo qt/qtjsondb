@@ -1,3 +1,3 @@
 TEMPLATE = subdirs
-SUBDIRS += jsondb-client adb-dump
+SUBDIRS += jsondb-client
 

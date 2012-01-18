@@ -39,4 +39,45 @@
 **
 ****************************************************************************/
 
-#include "../clientcompat/jsondb-global.h"
+#ifndef JSON_STREAM_H
+#define JSON_STREAM_H
+
+#include <QObject>
+#include <QJsonObject>
+
+QT_BEGIN_NAMESPACE
+
+class QIODevice;
+
+namespace JsonStream {
+
+class JsonStream : public QObject
+{
+    Q_OBJECT
+public:
+    explicit JsonStream(QObject *parent = 0);
+
+    QIODevice *device() const;
+    void setDevice(QIODevice *device);
+
+    bool send(const QJsonObject &document);
+
+Q_SIGNALS:
+    void receive(const QJsonObject &data);
+    void aboutToClose();
+
+protected slots:
+    void deviceReadyRead();
+    void deviceBytesWritten(qint64 bytes);
+
+private:
+    QIODevice *mDevice;
+    QByteArray mWriteBuffer;
+    QByteArray mReadBuffer;
+};
+
+} // namespace JsonStream
+
+QT_END_NAMESPACE
+
+#endif // JSON_STREAM_H

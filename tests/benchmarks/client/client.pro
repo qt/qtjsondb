@@ -3,7 +3,7 @@ TARGET = tst_bench_client
 DEPENDPATH += .
 INCLUDEPATH += .
 
-QT = core network testlib jsondb jsondb-private
+QT = core network testlib jsondb jsondbcompat-private
 
 DEFINES += JSONDB_DAEMON_BASE=\\\"$$QT.jsondb.bins\\\"
 

@@ -115,18 +115,15 @@ sets.
 \section2 Notifications
 
 Notifications are created, updated, and removed by using a
-\l{JsonDbClient::registerNotification()}{dedicated api} which
+\l{QJsonDbConnection::addWatcher()}{dedicated api} which
 takes a query expression and a list of actions as an argument. There are
 actions available that allow watching for objects being created, updated or
 removed from a database.
 
 When a notification matches an action performed on the database, the
-application is notified through one of the client APIs. The notification is
-identified by the UUID of the matching notification. The object being acted
-upon and the type of the action are delivered along with the notification UUID
-to the client.
+QJsonDbWatcher::notificationsAvailable() signal is emitted.
 
-See also \l{JsonDbNotification}
+See also \l{QJsonDbWatcher}
 
 \section1 Examples
 

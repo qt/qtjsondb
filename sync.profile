@@ -1,19 +1,22 @@
 %modules = ( # path to module name map
-    "QtAddOnJsonDb" => "$basedir/src/client",
+    "QtJsonDb" => "$basedir/src/client",
+    "QtJsonDbCompat" => "$basedir/src/clientcompat",
 );
 %moduleheaders = ( # restrict the module headers to those found in relative path
 );
 %classnames = (
-    "qtaddonjsondbversion.h" => "QtAddOnJsonDbVersion",
+    "qtjsondbversion.h" => "QtJsonDbVersion",
+    "qjsondbglobal.h" => "QtJsonDbGlobal",
 );
 %mastercontent = (
     "core" => "#include <QtCore/QtCore>\n",
     "network" => "#include <QtNetwork/QtNetwork>\n",
 );
 %modulepris = (
-    "QtAddOnJsonDb" => "$basedir/modules/qt_jsondb.pri",
+    "QtJsonDb" => "$basedir/modules/qt_jsondb.pri",
+    "QtJsonDbCompat" => "$basedir/modules/qt_jsondbcompat.pri",
 );
-$publicclassregexp = "JsonDb.+";
+$publicclassregexp = "QJsonDb.+";
 # Module dependencies.
 # Every module that is required to build this module should have one entry.
 # Each of the module version specifiers can take one of the following values:

@@ -39,4 +39,4 @@
 **
 ****************************************************************************/
 
-#include "../client/jsondb-error.h"
+#include "../clientcompat/jsondb-error.h"
