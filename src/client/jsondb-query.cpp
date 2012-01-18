@@ -362,7 +362,7 @@ QString JsonDbQuery::sortKey() const
 
     Set this property to the query string that you want to execute.
 
-    \sa queryOffset, queryLimit, start()
+    \sa queryOffset, queryLimit, start(), bindValue()
 */
 QString JsonDbQuery::query() const
 {
@@ -434,13 +434,13 @@ void JsonDbQuery::start()
     \fn void JsonDbQuery::bindValue(const QString &placeHolder, const QVariant &val)
 
     Set the placeholder \a placeHolder to be bound to value \a val in the query
-    string. Note that the placeholder mark (e.g $) must be included when
-    specifying the placeholder name.
+    string. Note that '%' is the only placeholder mark supported by the query.
+    The marker '%' should not be included in the \a placeHolder name.
 
     \code
         JsonDbQuery *query = jsonDbClient->query();
-        query->setQuery(QLatin1String("[?_type=\"Person\"][?firstName = $name]"));
-        query->bindValue(QLatin1String("$name"), QLatin1String("Malcolm"));
+        query->setQuery(QLatin1String("[?_type=\"Person\"][?firstName = %name]"));
+        query->bindValue(QLatin1String("name"), QLatin1String("Malcolm"));
     \endcode
 
     \sa query, boundValue(), boundValues()
