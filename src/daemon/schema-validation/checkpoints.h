@@ -627,7 +627,7 @@ public:
                 Q_ASSERT(ok);
                 typename ValueList::const_iterator i;
                 for (i = array.constBegin(); i != array.constEnd(); ++i) {
-                    obj = (*i).toObject(&ok);
+                    Object obj = (*i).toObject(&ok);
                     Q_ASSERT(ok);
                     m_extendedSchema.append(Schema<T>(obj, schema->m_callbacks));
                 }
