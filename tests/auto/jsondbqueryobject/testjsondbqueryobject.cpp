@@ -142,8 +142,8 @@ ComponentData *TestJsonDbQueryObject::createComponent()
         qDebug() << componentData->component->errors();
     QObject::connect(componentData->qmlElement, SIGNAL(finished()),
                      this, SLOT(finishedSlot()));
-    QObject::connect(componentData->qmlElement, SIGNAL(error(int, QString)),
-                     this, SLOT(errorSlot(int, QString)));
+    QObject::connect(componentData->qmlElement, SIGNAL(errorChanged(QVariantMap)),
+                     this, SLOT(errorSlot(QVariantMap)));
     mComponents.append(componentData);
     return componentData;
 }
@@ -185,8 +185,10 @@ void TestJsonDbQueryObject::cleanupTestCase()
     deleteDbFiles();
 }
 
-void TestJsonDbQueryObject::errorSlot(int code, const QString &message)
+void TestJsonDbQueryObject::errorSlot(QVariantMap newError)
 {
+    int code = newError.value("code").toInt();
+    QString message = newError.value("message").toString();
     callbackError = true;
     callbackErrorCode = code;
     callbackErrorMessage = message;
@@ -220,7 +222,7 @@ void TestJsonDbQueryObject::singleObject()
     //Create an object
     QVariantMap item = createObject(__FUNCTION__).toMap();
     mClient->create(item,  "com.nokia.shared");
-    const QString expression("exec();");
+    const QString expression("start();");
     QDeclarativeExpression *expr;
     expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
@@ -244,7 +246,7 @@ void TestJsonDbQueryObject::multipleObjects()
     QVariantList items = createObjectList(__FUNCTION__, 10).toList();
     mClient->create(QVariant(items),  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
-    const QString expression("exec();");
+    const QString expression("start();");
     QDeclarativeExpression *expr;
     expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
@@ -263,7 +265,7 @@ void TestJsonDbQueryObject::multipleObjects()
 
 void TestJsonDbQueryObject::createQuery()
 {
-    const QString createString = QString("createQuery('[?_type=\"%1\"]', 0, -1, null);");
+    const QString createString = QString("createQuery('[?_type=\"%1\"]', -1, {}, null);");
     ComponentData *partition = createPartitionComponent();
     if (!partition || !partition->qmlElement) return;
     QString expression;
@@ -277,12 +279,12 @@ void TestJsonDbQueryObject::createQuery()
     currentQmlElement = queryObject;
     QObject::connect(currentQmlElement, SIGNAL(finished()),
                      this, SLOT(finishedSlot()));
-    QObject::connect(currentQmlElement, SIGNAL(error(int, QString)),
-                     this, SLOT(errorSlot(int, QString)));
+    QObject::connect(currentQmlElement, SIGNAL(errorChanged(QVariantMap)),
+                     this, SLOT(errorSlot(QVariantMap)));
     //Create an object
     QVariantMap item = createObject(__FUNCTION__).toMap();
     mClient->create(item,  "com.nokia.shared");
-    QMetaObject::invokeMethod(currentQmlElement, "exec", Qt::DirectConnection);
+    QMetaObject::invokeMethod(currentQmlElement, "start", Qt::DirectConnection);
     cbData.clear();
     waitForCallback2();
     QCOMPARE(cbData.size(), 1);
@@ -290,6 +292,99 @@ void TestJsonDbQueryObject::createQuery()
     delete expr;
     deleteComponent(partition);
 }
+
+void TestJsonDbQueryObject::queryBinding()
+{
+    ComponentData *queryObject = createComponent();
+    if (!queryObject || !queryObject->qmlElement) return;
+
+    //Create objects
+    QVariantList items = createObjectList(__FUNCTION__, 1).toList();
+
+    const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][?pos=%posValue]");
+    queryObject->qmlElement->setProperty("query", queryString);
+    QVariantMap bindingMap;
+    bindingMap.insert("posValue", items[0].toMap().value("pos"));
+    queryObject->qmlElement->setProperty("bindings", bindingMap);
+    currentQmlElement = queryObject->qmlElement;
+
+    mClient->create(QVariant(items),  "com.nokia.shared");
+    qSort(items.begin(), items.end(), posLessThan);
+    const QString expression("start();");
+    QDeclarativeExpression *expr;
+    expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    expr->evaluate();
+    waitForCallback2();
+
+    QCOMPARE(callbackError, false);
+    QCOMPARE(cbData.size(), 1);
+
+    QVariantMap item = items[0].toMap();
+    QVariantMap obj = cbData[0].toMap();
+    QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
+    delete expr;
+    deleteComponent(queryObject);
+}
+
+void TestJsonDbQueryObject::queryError()
+{
+    ComponentData *queryObject = createComponent();
+    if (!queryObject || !queryObject->qmlElement) return;
+
+    //Create objects
+    QVariantList items = createObjectList(__FUNCTION__, 1).toList();
+    //Query contains an invalid palaceholder marker
+    const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][?pos=1%posValue]");
+    queryObject->qmlElement->setProperty("query", queryString);
+    QVariantMap bindingMap;
+    bindingMap.insert("posValue", items[0].toMap().value("pos"));
+    queryObject->qmlElement->setProperty("bindings", bindingMap);
+    currentQmlElement = queryObject->qmlElement;
+
+    mClient->create(QVariant(items),  "com.nokia.shared");
+    qSort(items.begin(), items.end(), posLessThan);
+    const QString expression("start();");
+    QDeclarativeExpression *expr;
+    expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    expr->evaluate();
+    waitForCallback2();
+
+    QCOMPARE(callbackError, true);
+    delete expr;
+    deleteComponent(queryObject);
+}
+
+void TestJsonDbQueryObject::queryLimit()
+{
+    ComponentData *queryObject = createComponent();
+    if (!queryObject || !queryObject->qmlElement) return;
+
+    const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
+    queryObject->qmlElement->setProperty("query", queryString);
+    queryObject->qmlElement->setProperty("limit", 5);
+    currentQmlElement = queryObject->qmlElement;
+
+    //Create objects
+    QVariantList items = createObjectList(__FUNCTION__, 10).toList();
+    mClient->create(QVariant(items),  "com.nokia.shared");
+    qSort(items.begin(), items.end(), posLessThan);
+    const QString expression("start();");
+    QDeclarativeExpression *expr;
+    expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    expr->evaluate();
+    waitForCallback2();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(cbData.size(), 5);
+    for (int i = 0; i<5; i++) {
+        QVariantMap item = items[i].toMap();
+        QVariantMap obj = cbData[i].toMap();
+        QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
+    }
+
+    delete expr;
+    deleteComponent(queryObject);
+}
+
 
 QTEST_MAIN(TestJsonDbQueryObject)
 

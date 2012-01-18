@@ -67,7 +67,10 @@ Rectangle {
                 systemPartition.create(schema, createMap);
             }
         }
-        onError:console.log("Failed to query schema " + code + message);
+        onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query Schema " + error.code + " "+ error.message);
+        }
      }
 
     JsonDb.Query {
@@ -99,7 +102,10 @@ Rectangle {
 //! [Installing the Map Object]
             }
         }
-        onError: console.log("Failed to query Map " + code + message);
+        onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query Map " + error.code + " "+ error.message);
+        }
      }
 
     function createMap(error, meta, response)
@@ -108,7 +114,7 @@ Rectangle {
             console.log("Error " + response.status + " " + response.message);
             return;
         }
-        mapTypeQuery.exec();
+        mapTypeQuery.start();
     }
 
     JsonDb.JsonDbListModel {
@@ -117,7 +123,7 @@ Rectangle {
         roleNames: ["phoneNumber", "firstName", "lastName"]
         limit: 100
     }
-    Component.onCompleted: { schemaTypeQuery.exec(); }
+    Component.onCompleted: { schemaTypeQuery.start(); }
     Rectangle {
         id: buttonAdd
         anchors.top: parent.top

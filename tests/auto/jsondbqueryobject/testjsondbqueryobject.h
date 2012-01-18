@@ -76,9 +76,12 @@ private slots:
     void singleObject();
     void multipleObjects();
     void createQuery();
+    void queryBinding();
+    void queryError();
+    void queryLimit();
 
 public slots:
-    void errorSlot(int code, const QString &message);
+    void errorSlot(QVariantMap newError);
     void finishedSlot();
 
 protected slots:

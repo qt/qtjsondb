@@ -340,7 +340,7 @@ void JsonDbNotify::init()
         }
     }
     if (!parametersReady()) {
-        objectStatus = Null;
+        objectStatus = JsonDbNotify::Null;
         if (objectStatus != oldStatus)
             emit statusChanged(objectStatus);
         return;
@@ -349,7 +349,7 @@ void JsonDbNotify::init()
         // remove the current notification
         partitionObject->removeNotification(this);
         partitionObject->updateNotification(this);
-        objectStatus = Registering;
+        objectStatus = JsonDbNotify::Registering;
         if (objectStatus != oldStatus)
             emit statusChanged(objectStatus);
     }
@@ -360,7 +360,7 @@ void JsonDbNotify::clearError()
     int oldErrorCode = errorCode;
     errorCode = 0;
     errorString.clear();
-    if (oldErrorCode != Error) {
+    if (oldErrorCode != JsonDbNotify::Error) {
         emit errorChanged(error());
     }
 }
@@ -373,9 +373,9 @@ bool JsonDbNotify::parametersReady()
 void JsonDbNotify::dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification)
 {
     Q_UNUSED(notify_uuid);
-    if (objectStatus != Ready) {
+    if (objectStatus != JsonDbNotify::Ready) {
         clearError();
-        objectStatus = Ready;
+        objectStatus = JsonDbNotify::Ready;
         emit statusChanged(objectStatus);
     }
     if (active) {
@@ -389,8 +389,8 @@ void JsonDbNotify::dbNotifyReadyResponse(int id, const QVariant &result)
     Q_UNUSED(id);
     Q_UNUSED(result);
     clearError();
-    if (objectStatus != Ready) {
-        objectStatus = Ready;
+    if (objectStatus != JsonDbNotify::Ready) {
+        objectStatus = JsonDbNotify::Ready;
         emit statusChanged(objectStatus);
     }
 }
@@ -401,11 +401,11 @@ void JsonDbNotify::dbNotifyErrorResponse(int id, int code, const QString &messag
     int oldErrorCode = errorCode;
     errorCode = code;
     errorString = message;
-    if (objectStatus != Error) {
-        objectStatus = Error;
+    if (objectStatus != JsonDbNotify::Error) {
+        objectStatus = JsonDbNotify::Error;
         emit statusChanged(objectStatus);
     }
-    if (oldErrorCode != Error) {
+    if (oldErrorCode != JsonDbNotify::Error) {
         emit errorChanged(error());
     }
 }

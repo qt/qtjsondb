@@ -66,18 +66,25 @@ Rectangle {
                 installMap(false, {}, results);
             } else {
                 // Create the schema
+//! [Installing the View Schema]
                 var schema = {"_type": "_schemaType", "name": "ContactLogView", "schema": {"extends": "View"}};
                 systemPartition.create(schema, installMap);
+//! [Installing the View Schema]
                 var indexDefinition = {
                     "_type": "Index",
                     "name": "number",
                     "propertyName": "number",
                     "propertyType": "string"
                 };
+//! [Installing the Join Object]
                 systemPartition.create(indexDefinition);
+//! [Installing the Join Object]
             }
         }
-        onError:console.log("Failed to query schema " + code + message);
+        onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query Schema " + error.code + " "+ error.message);
+        }
      }
 
     JsonDb.Query {
@@ -94,9 +101,13 @@ Rectangle {
                 systemPartition.create(createJoinDefinition(), installMap);
             }
         }
-        onError: console.log("Failed to query Map " + code + message);
+        onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query Map " + error.code + " "+ error.message);
+        }
      }
 
+//! [Creating a Join Object]
     function createJoinDefinition()
     {
         var joinDefinition = {
@@ -131,6 +142,7 @@ Rectangle {
         };
         return joinDefinition;
     }
+//! [Creating a Join Object]
 
     function installMap(error, meta, response)
     {
@@ -139,9 +151,9 @@ Rectangle {
             console.log("Error " + response.status + " " + response.message);
             return;
         }
-        mapTypeQuery.exec();
+        mapTypeQuery.start();
     }
-    Component.onCompleted: { schemaTypeQuery.exec(); }
+    Component.onCompleted: { schemaTypeQuery.start(); }
 
     JsonDb.JsonDbListModel {
         id: contacts

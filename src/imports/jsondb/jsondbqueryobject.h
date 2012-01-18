@@ -61,12 +61,17 @@ class JsonDbQueryObject : public QObject, public QDeclarativeParserStatus
     Q_INTERFACES(QDeclarativeParserStatus)
 
 public:
+    Q_ENUMS(Status)
+    enum Status { Null, Loading, Ready, Error };
+
     Q_PROPERTY(QString query READ query WRITE setQuery)
     Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
     Q_PROPERTY(quint32 stateNumber READ stateNumber)
 
-    Q_PROPERTY(int offset READ offset WRITE setOffset)
     Q_PROPERTY(int limit READ limit WRITE setLimit)
+    Q_PROPERTY(Status status READ status NOTIFY statusChanged)
+    Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
+    Q_PROPERTY(QVariantMap bindings READ bindings WRITE setBindings)
 
     JsonDbQueryObject(QObject *parent = 0);
     ~JsonDbQueryObject();
@@ -79,35 +84,46 @@ public:
 
     quint32 stateNumber() const;
 
-    int offset();
-    void setOffset(int newOffset);
-
     int limit();
     void setLimit(int newLimit);
+
+    JsonDbQueryObject::Status status() const;
+    QVariantMap error() const;
+
+    QVariantMap bindings() const;
+    void setBindings(const QVariantMap &newBindings);
 
     void classBegin() {}
     void componentComplete();
 
-    Q_INVOKABLE int exec();
+    Q_INVOKABLE int start();
     Q_INVOKABLE QVariantList takeResults();
 
 Q_SIGNALS:
     void resultsReady(int resultsAvailable);
     void finished();
-    void error(int code, const QString &message);
+    void statusChanged(JsonDbQueryObject::Status newStatus);
+    void errorChanged(QVariantMap newError);
+
 private Q_SLOTS:
-    void emitError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message);
+    void setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message);
 
 private:
     bool completed;
     int queryLimit;
-    int queryOffset;
     QString queryString;
     QVariantList results;
     QPointer<JsonDbPartition> partitionObject;
     QPointer<JsonDbPartition> defaultPartitionObject;
     QPointer<JsonDbQuery> jsondbQuery;
+    int errorCode;
+    QString errorString;
+    Status objectStatus;
+    QVariantMap queryBindings;
 
+    void clearError();
+    inline bool parametersReady();
+    void checkForReadyStatus();
     friend class JsonDbPartition;
     friend class JsonDbPartitionPrivate;
 };

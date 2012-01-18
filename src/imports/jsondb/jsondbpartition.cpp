@@ -323,20 +323,20 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
 
 */
 
-JsonDbNotify* JsonDbPartition::createNotification(const QJSValue &query, QObject *parentItem)
+JsonDbNotify* JsonDbPartition::createNotification(const QString &query, QObject *parentItem)
 {
     JsonDbNotify* notify = new JsonDbNotify(parentItem);
     notify->setPartition(this);
-    notify->setQuery(query.toString());
+    notify->setQuery(query);
     notify->componentComplete();
     return notify;
 }
 
 /*!
-    \qmlmethod object QtJsonDb::Partition::createQuery(query, offset, limit, parentItem)
+    \qmlmethod object QtJsonDb::Partition::createQuery(query, limit, bindings, parentItem)
 
     Create the Query object with the specified \a query string and other parameters.
-    Users have to call exec() to start the query in this partition. The \a parentItem
+    Users have to call start() to start the query in this partition. The \a parentItem
     decides the life time of the returned object. If the \a parentItem
     is null, the script engine will destroy the object during garbage collection.
 
@@ -349,21 +349,21 @@ JsonDbNotify* JsonDbPartition::createNotification(const QJSValue &query, QObject
     }
 
     Component.onCompleted: {
-        queryObject = nokiaPartition.createQuery('[?_type="Contact"]', 0, -1, topLevelItem);
+        var bindings = {'firstName':'Book'};
+        queryObject = nokiaPartition.createQuery('[?_type="Contact"][?name=%firstName]', -1, bindings, topLevelItem);
         queryObject.finished.connect(onFinished);
         queryObject.exec();
-
     }
     \endcode
     \sa QtJsonDb::Query
 
 */
 
-JsonDbQueryObject* JsonDbPartition::createQuery(const QJSValue &query, int offset, int limit, QObject *parentItem)
+JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit, QVariantMap bindings, QObject *parentItem)
 {
     JsonDbQueryObject* queryObject = new JsonDbQueryObject(parentItem);
-    queryObject->setQuery(query.toString());
-    queryObject->setOffset(offset);
+    queryObject->setQuery(query);
+    queryObject->setBindings(bindings);
     queryObject->setLimit(limit);
     queryObject->setPartition(this);
     queryObject->componentComplete();

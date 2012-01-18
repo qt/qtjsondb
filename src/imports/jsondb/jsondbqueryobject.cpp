@@ -52,7 +52,7 @@ QT_USE_NAMESPACE_JSONDB
     \since 1.x
 
     This allows to query for objects in a Partition. Users can execute the query by
-    calling the exec(). To retrieve the results, connect to onResultsReady and/or onFinished.
+    calling the start(). To retrieve the results, connect to onResultsReady and/or onFinished.
 
     \code
     JsonDb.Partition {
@@ -67,14 +67,13 @@ QT_USE_NAMESPACE_JSONDB
             var results = contactsQuery.takeResults();
             console.log('Results: Count' + results.length );
         }
-
-        onError: {
-            console.log("onError " + code + message);
+       onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Query Failed to query " + error.code + " "+ error.message);
         }
-
      }
 
-     contactsQuery.exec();
+     contactsQuery.start();
     \endcode
 
 */
@@ -83,7 +82,6 @@ JsonDbQueryObject::JsonDbQueryObject(QObject *parent)
     : QObject(parent)
     , completed(false)
     , queryLimit(-1)
-    , queryOffset(0)
     , partitionObject(0)
     , defaultPartitionObject(0)
     , jsondbQuery(0)
@@ -102,6 +100,9 @@ JsonDbQueryObject::~JsonDbQueryObject()
 /*!
     \qmlproperty string QtJsonDb::Query::query
      Holds the query string for the object.
+
+    \sa QtJsonDb::Query::bindings
+
 */
 QString JsonDbQueryObject::query()
 {
@@ -111,6 +112,7 @@ QString JsonDbQueryObject::query()
 void JsonDbQueryObject::setQuery(const QString &newQuery)
 {
     queryString = newQuery;
+    checkForReadyStatus();
 }
 
 /*!
@@ -124,6 +126,7 @@ JsonDbPartition* JsonDbQueryObject::partition()
         defaultPartitionObject = new JsonDbPartition();
         setPartition(defaultPartitionObject);
     }
+    checkForReadyStatus();
     return partitionObject;
 }
 
@@ -134,6 +137,7 @@ void JsonDbQueryObject::setPartition(JsonDbPartition *newPartition)
     if (partitionObject == defaultPartitionObject)
         delete defaultPartitionObject;
     partitionObject = newPartition;
+    checkForReadyStatus();
 }
 
 /*!
@@ -149,20 +153,6 @@ quint32 JsonDbQueryObject::stateNumber() const
 }
 
 /*!
-    \qmlproperty int QtJsonDb::Query::offset
-     Holds the offset used while executing the query.
-*/
-int JsonDbQueryObject::offset()
-{
-    return queryOffset;
-}
-
-void JsonDbQueryObject::setOffset(int newOffset)
-{
-    queryOffset = newOffset;
-}
-
-/*!
     \qmlproperty int QtJsonDb::Query::limit
      Holds the limit used while executing the query.
 */
@@ -174,6 +164,42 @@ int JsonDbQueryObject::limit()
 void JsonDbQueryObject::setLimit(int newLimit)
 {
     queryLimit = newLimit;
+    checkForReadyStatus();
+}
+
+/*!
+    \qmlproperty object QtJsonDb::Query::bindings
+    Holds the bindings for the placeholders used in the query string. Note that
+    the placeholder marker '%' should not be included as part of the keys.
+
+    \qml
+    JsonDb.Query {
+        id:typeQuery
+        partition:queryPartition
+        query:'[?_type="MyContact"][?name=%firstName]'
+        bindings :{'firstName':'Book'}
+        onFinished: {
+            var results = typeQuery.takeResults();
+            for (var i = 0; i < results.length; i++) {
+                console.log("["+i+"] : "+ JSON.stringify(results[i]));
+            }
+        }
+     }
+    \endqml
+
+    \sa QtJsonDb::Query::query
+
+*/
+
+QVariantMap JsonDbQueryObject::bindings() const
+{
+    return queryBindings;
+}
+
+void JsonDbQueryObject::setBindings(const QVariantMap &newBindings)
+{
+    queryBindings = newBindings;
+    checkForReadyStatus();
 }
 
 /*!
@@ -204,11 +230,10 @@ void JsonDbQueryObject::setLimit(int newLimit)
             }
 
         }
-
-        onError: {
-            console.log("onError " + result.code + result.message);
+       onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query " + error.code + " "+ error.message);
         }
-
      }
     \endcode
 
@@ -241,24 +266,51 @@ QVariantList JsonDbQueryObject::takeResults()
 */
 
 /*!
-    \qmlsignal QtJsonDb::Query::onError(code, message)
+    \qmlproperty object QtJsonDb::Query::error
+    \readonly
 
-    This handler is called when there was an error executing the query. \a code gives the
-    error code and the \a message contains details of the error.
+    This property holds the current error information for the Query object. It contains:
+    \list
+    \o error.code -  code for the current error.
+    \o error.message - detailed explanation of the error
+    \endlist
 */
+
+QVariantMap JsonDbQueryObject::error() const
+{
+    QVariantMap errorMap;
+    errorMap.insert(QLatin1String("code"), errorCode);
+    errorMap.insert(QLatin1String("message"), errorString);
+    return errorMap;
+}
+
+/*!
+    \qmlproperty enumeration QtJsonDb::Query::status
+    \readonly
+
+    This property holds the current status of the Query object.  It can be one of:
+    \list
+    \o Query.Null - waiting for component to finish loading or for all the pararamters to be set.
+    \o Query.Loading - Executing the query
+    \o Query.Ready - object is ready, users can call start()
+    \o Query.Error - an error occurred while executing the query
+    \endlist
+
+    \sa QtJsonDb::Query::error
+*/
+
+JsonDbQueryObject::Status JsonDbQueryObject::status() const
+{
+    return objectStatus;
+}
 
 void JsonDbQueryObject::componentComplete()
 {
     completed = true;
 }
 
-void JsonDbQueryObject::emitError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message)
-{
-    emit error(int(code), message);
-}
-
 /*!
-    \qmlmethod object QtJsonDb::Query::exec()
+    \qmlmethod object QtJsonDb::Query::start()
 
     Users should call this method to start the execution of the query. When a set of results are
     ready on the object, the onResultsReady() will be triggered. This will be called whenever a new
@@ -267,7 +319,7 @@ void JsonDbQueryObject::emitError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, 
 
 */
 
-int JsonDbQueryObject::exec()
+int JsonDbQueryObject::start()
 {
     if (!completed) {
         qWarning("Component not ready");
@@ -279,18 +331,74 @@ int JsonDbQueryObject::exec()
     jsondbQuery = partitionObject->jsonDb.query();
     jsondbQuery->setQuery(queryString);
     jsondbQuery->setQueryLimit(queryLimit);
-    jsondbQuery->setQueryOffset(queryOffset);
+    jsondbQuery->setQueryOffset(0);
     jsondbQuery->setPartition(partitionObject->name());
+    QVariantMap::ConstIterator i = queryBindings.constBegin();
+    while (i != queryBindings.constEnd()) {
+        jsondbQuery->bindValue(i.key(), i.value());
+        ++i;
+    }
     connect(jsondbQuery, SIGNAL(resultsReady(int)),
             this, SIGNAL(resultsReady(int)));
     connect(jsondbQuery, SIGNAL(finished()),
             this, SIGNAL(finished()));
     connect(jsondbQuery, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)),
-            this, SLOT(emitError(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
+            this, SLOT(setError(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
 
     jsondbQuery->start();
+    objectStatus = JsonDbQueryObject::Loading;
+    emit statusChanged(objectStatus);
     return jsondbQuery->requestId();
 
 }
 
+void JsonDbQueryObject::clearError()
+{
+    int oldErrorCode = errorCode;
+    errorCode = 0;
+    errorString.clear();
+    if (oldErrorCode != Error) {
+        emit errorChanged(error());
+    }
+}
+
+bool JsonDbQueryObject::parametersReady()
+{
+    return (completed && !queryString.isEmpty() && partitionObject);
+}
+
+void JsonDbQueryObject::checkForReadyStatus()
+{
+    if (objectStatus != JsonDbQueryObject::Null)
+        return;
+
+    JsonDbQueryObject::Status oldStatus = objectStatus;
+
+    if (!partitionObject)
+        partitionObject = qobject_cast<JsonDbPartition*>(parent());
+    if (!parametersReady()) {
+        objectStatus = JsonDbQueryObject::Null;
+        if (objectStatus != oldStatus)
+            emit statusChanged(objectStatus);
+        return;
+    } else {
+        objectStatus = JsonDbQueryObject::Ready;
+        if (objectStatus != oldStatus)
+            emit statusChanged(objectStatus);
+    }
+}
+
+void JsonDbQueryObject::setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message)
+{
+    int oldErrorCode = errorCode;
+    errorCode = code;
+    errorString = message;
+    if (objectStatus != JsonDbQueryObject::Error) {
+        objectStatus = JsonDbQueryObject::Error;
+        emit statusChanged(objectStatus);
+    }
+    if (oldErrorCode != JsonDbQueryObject::Error) {
+        emit errorChanged(error());
+    }
+}
 

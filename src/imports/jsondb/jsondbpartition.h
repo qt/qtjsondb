@@ -82,12 +82,12 @@ public:
                            const QJSValue &options = QJSValue(),
                            const QJSValue &callback = QJSValue());
 
-    Q_INVOKABLE JsonDbNotify* createNotification(const QJSValue &query,
+    Q_INVOKABLE JsonDbNotify* createNotification(const QString &query,
                                                  QObject *parentItem);
 
-    Q_INVOKABLE JsonDbQueryObject* createQuery(const QJSValue &query,
-                                               int offset,
+    Q_INVOKABLE JsonDbQueryObject* createQuery(const QString &query,
                                                int limit,
+                                               QVariantMap bindings,
                                                QObject *parentItem);
 
     Q_INVOKABLE JsonDbChangesSinceObject* createChangesSince(int stateNumber,

@@ -66,7 +66,10 @@ Rectangle {
                 systemPartition.create(schema, createReduce);
             }
         }
-        onError: console.log("Failed to query schema " + code + message);
+        onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query Schema " + error.code + " "+ error.message);
+        }
      }
 
     JsonDb.Query {
@@ -112,7 +115,10 @@ Rectangle {
                 systemPartition.create(reduceDefinition, createReduce);
             }
         }
-        onError: console.log("Failed to query Reduce " + code + message);
+        onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query Reduce " + error.code + " "+ error.message);
+        }
      }
 
     function createReduce(error, meta, response)
@@ -122,7 +128,7 @@ Rectangle {
             console.log("Error " + response.status + " " + response.message);
             return;
         }
-        reduceTypeQuery.exec();
+        reduceTypeQuery.start();
     }
 
 
@@ -133,7 +139,7 @@ Rectangle {
         limit: 100
     }
 
-    Component.onCompleted: { schemaTypeQuery.exec(); }
+    Component.onCompleted: { schemaTypeQuery.start(); }
     ListView {
         id: listView
         anchors.top: parent.top
