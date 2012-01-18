@@ -47,6 +47,17 @@
 #include "qbtreetxn.h"
 #include "qmanagedbtree.h"
 #include "qmanagedbtreetxn.h"
+#include "jsondb-global.h"
+
+QT_BEGIN_NAMESPACE_JSONDB
+
+extern QMap<QString, int> gTouchedFiles;
+extern bool gVerbose;
+#ifndef QT_NO_DEBUG_OUTPUT
+extern bool gPerformanceLog;
+#endif
+
+QT_END_NAMESPACE_JSONDB
 
 // Every gCompactRate commits, compact the btree. Do not compact if zero.
 int gCompactRate = qgetenv("JSONDB_COMPACT_RATE").size() ? ::atoi(qgetenv("JSONDB_COMPACT_RATE")) : 1000;
@@ -172,6 +183,10 @@ bool QManagedBtree::commit(QManagedBtreeTxn *txn, quint32 tag)
     mWriter.txn = 0;
     bool ok = btxn->commit(tag);
     remove(txn);
+
+    if (ok && QT_PREPEND_NAMESPACE_JSONDB(gPerformanceLog) && QT_PREPEND_NAMESPACE_JSONDB(gVerbose))
+        QT_PREPEND_NAMESPACE_JSONDB(gTouchedFiles)[mBtree->fileName()]++;
+
     return ok;
 }
 

@@ -48,6 +48,7 @@
 #include <QJSEngine>
 #include <QStringList>
 #include <QVariant>
+#include <QMap>
 
 #include <qjsonarray.h>
 #include <qjsonobject.h>
@@ -74,6 +75,7 @@ extern bool gUseQsonInDb;
 extern bool gUseJsonInDb;
 extern bool gVerbose;
 extern bool gPrintErrors;
+extern QMap<QString, int> gTouchedFiles;
 #ifndef QT_NO_DEBUG_OUTPUT
 extern bool gDebug;
 extern bool gDebugRecovery;

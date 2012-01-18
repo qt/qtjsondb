@@ -573,8 +573,10 @@ void DBServer::receiveMessage(const QJsonObject &message)
     QString partitionName = message.value(JsonDbString::kPartitionStr).toString();
 
     QElapsedTimer timer;
-    if (gPerformanceLog)
+    if (gPerformanceLog) {
         timer.start();
+        gTouchedFiles.clear();
+    }
 
     if (action == JsonDbString::kCreateStr)
         processCreate(stream, object, id, partitionName);
@@ -614,7 +616,14 @@ void DBServer::receiveMessage(const QJsonObject &message)
         } else {
             additionalInfo = object.toObject().value(JsonDbString::kTypeStr).toString();
         }
-        qDebug() << "jsondb" << "processed" << action << "ms" << timer.elapsed() << additionalInfo;
+        qDebug().nospace() << "+ JsonDB Perf: [id]" << id << "[id]:[action]" << action
+                           << "[action]:[ms]" << timer.elapsed() << "[ms]:[details]" << additionalInfo << "[details]";
+        if (gVerbose && !gTouchedFiles.isEmpty()) {
+            for (QMap<QString, int>::iterator i = gTouchedFiles.begin(); i != gTouchedFiles.end(); ++i) {
+                QFile file(i.key());
+                qDebug().nospace() << "\t [file]" << i.key() << "[file]:[commits]" << i.value() << " [commits]:[size]" << file.size() << "[size]";
+            }
+        }
     }
 }
 
