@@ -61,7 +61,6 @@ QT_BEGIN_HEADER
 
 class TestJsonDb;
 class TestJsonDbQueries;
-class AoDb;
 
 QT_BEGIN_NAMESPACE_JSONDB
 

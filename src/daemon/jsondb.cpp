@@ -75,8 +75,6 @@
 #include "schemamanager_impl_p.h"
 #include "qsonobjecttypes_impl_p.h"
 
-#include "aodb.h"
-
 QT_BEGIN_NAMESPACE_JSONDB
 
 bool gUseQsonInDb = true;

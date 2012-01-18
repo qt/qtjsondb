@@ -1,7 +1,6 @@
 #include "btree.h"
 #include "qbtree.h"
 #include "qbtreetxn.h"
-#include "qmanagedbtree.h"
 #include "qbtreecursor.h"
 
 

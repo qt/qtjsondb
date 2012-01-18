@@ -24,7 +24,9 @@ HEADERS += \
     $$PWD/schemamanager_impl_p.h \
     $$PWD/schemamanager_p.h \
     $$PWD/qsonobjecttypes_p.h \
-    $$PWD/qsonobjecttypes_impl_p.h
+    $$PWD/qsonobjecttypes_impl_p.h \
+    $$PWD/qmanagedbtreetxn.h \
+    $$PWD/qmanagedbtree.h
 
 HEADERS += $$QSONCONVERSION_HEADERS
 
@@ -41,6 +43,8 @@ SOURCES += \
     $$PWD/jsondbquery.cpp \
     $$PWD/notification.cpp \
     $$PWD/objecttable.cpp \
-    $$PWD/signals.cpp
+    $$PWD/signals.cpp \
+    $$PWD/qmanagedbtreetxn.cpp \
+    $$PWD/qmanagedbtree.cpp
 
 SOURCES += $$QSONCONVERSION_SOURCES
