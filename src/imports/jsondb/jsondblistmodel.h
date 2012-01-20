@@ -129,13 +129,13 @@ public:
 
     Q_INVOKABLE QVariant get(int idx, const QString &property) const;
     Q_INVOKABLE void set(int index, const QJSValue &valuemap,
-                         const QJSValue &successCallback = QJSValue(),
-                         const QJSValue &errorCallback = QJSValue());
+                         const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
+                         const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
     Q_INVOKABLE void setProperty(int index, const QString &property, const QVariant &value,
-                                 const QJSValue &successCallback = QJSValue(),
-                                 const QJSValue &errorCallback = QJSValue());
-    Q_INVOKABLE int sectionIndex(const QString &section, const QJSValue &successCallback = QJSValue(),
-                                  const QJSValue &errorCallback = QJSValue());
+                                 const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
+                                 const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
+    Q_INVOKABLE int sectionIndex(const QString &section, const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
+                                  const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
 
 signals:
     void stateChanged() const;

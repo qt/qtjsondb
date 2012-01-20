@@ -110,26 +110,26 @@ public:
     void setDebugOutput(bool value) { mDebugOutput = value; }
 
     Q_INVOKABLE int create(const QJSValue &object,
-                           const QJSValue &successCallback = QJSValue(),
-                           const QJSValue &errorCallback = QJSValue());
+                           const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
+                           const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
     Q_INVOKABLE int update(const QJSValue &object,
-                           const QJSValue &successCallback = QJSValue(),
-                           const QJSValue &errorCallback = QJSValue());
+                           const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
+                           const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
     Q_INVOKABLE int remove(const QJSValue &object,
-                           const QJSValue &successCallback = QJSValue(),
-                           const QJSValue &errorCallback = QJSValue());
+                           const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
+                           const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
     Q_INVOKABLE int find(const QJSValue &object,
-                         const QJSValue &successCallback = QJSValue(),
-                         const QJSValue &errorCallback = QJSValue());
+                         const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
+                         const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
 
     Q_INVOKABLE int query(const QJSValue &object,
-                          const QJSValue &successCallback = QJSValue(),
-                          const QJSValue &errorCallback = QJSValue());
+                          const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
+                          const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
 
     Q_INVOKABLE QJSValue notification(const QJSValue &object,
                                           const QJSValue &actions,
                                           const QJSValue &callback,
-                                          QJSValue errorCallback = QJSValue());
+                                          QJSValue errorCallback = QJSValue(QJSValue::UndefinedValue));
 
  signals:
     void response(QJSValue result, int id);

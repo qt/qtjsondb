@@ -72,15 +72,15 @@ public:
 
     Q_INVOKABLE int create(const QJSValue &object,
                            const QJSValue &options = QJSValue(),
-                           const QJSValue &callback = QJSValue());
+                           const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
 
     Q_INVOKABLE int update(const QJSValue &object,
                            const QJSValue &options = QJSValue(),
-                           const QJSValue &callback = QJSValue());
+                           const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
 
     Q_INVOKABLE int remove(const QJSValue &object,
                            const QJSValue &options = QJSValue(),
-                           const QJSValue &callback = QJSValue());
+                           const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
 
     Q_INVOKABLE JsonDbNotify* createNotification(const QString &query,
                                                  QObject *parentItem);

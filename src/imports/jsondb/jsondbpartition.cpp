@@ -148,7 +148,7 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
     QJSValue actualOptions = options;
     QJSValue actualCallback = callback;
     if (options.isFunction()) {
-        if (callback.isValid()) {
+        if (!callback.isUndefined()) {
             qWarning() << "Callback should be the last parameter.";
             return -1;
         }
@@ -221,7 +221,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
     QJSValue actualOptions = options;
     QJSValue actualCallback = callback;
     if (options.isFunction()) {
-        if (callback.isValid()) {
+        if (!callback.isUndefined()) {
             qWarning() << "Callback should be the last parameter.";
             return -1;
         }
@@ -286,7 +286,7 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
     QJSValue actualOptions = options;
     QJSValue actualCallback = callback;
     if (options.isFunction()) {
-        if (callback.isValid()) {
+        if (!callback.isUndefined()) {
             qWarning() << "Callback should be the last parameter.";
             return -1;
         }

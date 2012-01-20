@@ -623,7 +623,7 @@ bool JsonDb::load(const QString &jsonFileName)
         qCritical() << QString("DbServer::Load load %1: error:\n").arg(jsonFileName) << sv.toVariant();
         delete scriptEngine;
         return false;
-    } else if (sv.isValid()) {
+    } else if (!sv.isUndefined()) {
         if (gDebug)
             qDebug() << QString("DbServer::Load load %1: result:\n").arg(jsonFileName) << sv.toVariant();
     }

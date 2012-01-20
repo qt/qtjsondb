@@ -256,10 +256,10 @@ QJSValue JsonDbComponent::notification(const QJSValue &object,
                             JsonDbString::kNotificationTypeStr);
         request.setProperty(JsonDbString::kActionsStr, actions);
 
-        id = addRequestInfo(mJsonDb->create(request.toVariant()), JsonDbComponent::Notification, object, QJSValue(), errorCallback);
+        id = addRequestInfo(mJsonDb->create(request.toVariant()), JsonDbComponent::Notification, object, QJSValue(QJSValue::UndefinedValue), errorCallback);
 
     } else {
-        id = addRequestInfo(mJsonDb->create(object.toVariant()), JsonDbComponent::Notification, object, QJSValue(), errorCallback);
+        id = addRequestInfo(mJsonDb->create(object.toVariant()), JsonDbComponent::Notification, object, QJSValue(QJSValue::UndefinedValue), errorCallback);
     }
 
     if (id <= 0)
@@ -290,11 +290,11 @@ void JsonDbComponent::jsonDbResponse(int id, const QVariant &result)
 
         QJSEngine *engine = info.object.engine();
         QJSValue scriptResult = engine->toScriptValue(result);
-        if (scriptResult.property(JsonDbString::kUuidStr).isValid())
+        if (!scriptResult.property(JsonDbString::kUuidStr).isUndefined())
             info.object.setProperty(JsonDbString::kUuidStr, scriptResult.property(JsonDbString::kUuidStr));
-        if (scriptResult.property(JsonDbString::kVersionStr).isValid())
+        if (!scriptResult.property(JsonDbString::kVersionStr).isUndefined())
             info.object.setProperty(JsonDbString::kVersionStr, scriptResult.property(JsonDbString::kVersionStr));
-        if (scriptResult.property(JsonDbString::kOwnerStr).isValid())
+        if (!scriptResult.property(JsonDbString::kOwnerStr).isUndefined())
             info.object.setProperty(JsonDbString::kOwnerStr, scriptResult.property(JsonDbString::kOwnerStr));
 
         emit response(scriptResult, id);
@@ -418,9 +418,9 @@ int JsonDbComponent::addRequestInfo(int id, RequestType type, const QJSValue &ob
         qWarning() << "Missing database connection";
         return id;
     }
-    if (successCallback.isValid() && !successCallback.isFunction())
+    if (!successCallback.isUndefined() && !successCallback.isFunction())
         qWarning() << "Success callback parameter "<<successCallback.toString()<<"is not a function.";
-    if (errorCallback.isValid() && !errorCallback.isFunction())
+    if (!errorCallback.isUndefined() && !errorCallback.isFunction())
         qWarning() << "Error callback parameter "<<errorCallback.toString()<<"is not a function.";
 
     JsonDbComponent::RequestInfo &info = mRequests[id];
