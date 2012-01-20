@@ -73,17 +73,17 @@ QJSValue qsonToJSValue(const QsonObject &object, QJSEngine *engine)
     case QsonObject::MapType:
         return qsonMapToJSValue(object.toMap(), engine);
     case QsonObject::StringType:
-        return QJSValue(engine, QsonElement(object).value<QString>());
+        return QJSValue(QsonElement(object).value<QString>());
     case QsonObject::DoubleType:
-        return QJSValue(engine, QsonElement(object).value<double>());
+        return QJSValue(QsonElement(object).value<double>());
     case QsonObject::IntType:
-        return QJSValue(engine, QsonElement(object).value<int>());
+        return QJSValue(QsonElement(object).value<int>());
     case QsonObject::UIntType:
-        return QJSValue(engine, QsonElement(object).value<uint>());
+        return QJSValue(QsonElement(object).value<uint>());
     case QsonObject::BoolType:
-        return QJSValue(engine, QsonElement(object).value<bool>());
+        return QJSValue(QsonElement(object).value<bool>());
     case QsonObject::NullType:
-        return engine->nullValue();
+        return QJSValue(QJSValue::NullValue);
     default:
         break;
     }

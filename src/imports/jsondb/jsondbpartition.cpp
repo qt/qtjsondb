@@ -446,7 +446,7 @@ void JsonDbPartition::call(QMap<int, QJSValue> &callbacks, int id, const QVarian
     // object : id  , statenumber , items
     QJSValue response= engine->newObject();
     response.setProperty(JsonDbString::kStateNumberStr, object.value(JsonDbString::kStateNumberStr).toInt());
-    response.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
+    response.setProperty(JsonDbString::kIdStr,  id);
 
     // response object : object { _version & _uuid } (can be a list)
     if (object.contains(QLatin1String("data"))) {
@@ -483,7 +483,7 @@ void JsonDbPartition::callErrorCallback(QMap<int, QJSValue> &callbacks, int id, 
     // object : id
     QJSValue response = engine->newObject();
     response.setProperty(JsonDbString::kStateNumberStr, -1);
-    response.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
+    response.setProperty(JsonDbString::kIdStr,  id);
     response.setProperty(QLatin1String("items"), engine->newArray());
 
     args << engine->toScriptValue(QVariant(error))<< response;
