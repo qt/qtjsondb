@@ -536,7 +536,6 @@ QJSValue JsonDbMapDefinition::mapFunction(const QString &sourceType) const
 
 void JsonDbMapDefinition::mapObject(JsonDbObject object)
 {
-    QJSValue globalObject = mScriptEngine->globalObject();
     const QString &sourceType = object.value(JsonDbString::kTypeStr).toString();
 
     QJSValue sv = JsonDb::toJSValue(object, mScriptEngine);
@@ -547,7 +546,7 @@ void JsonDbMapDefinition::mapObject(JsonDbObject object)
 
     QJSValueList mapArgs;
     mapArgs << sv;
-    mapped = mapFunction(sourceType).call(globalObject, mapArgs);
+    mapped = mapFunction(sourceType).call(mapArgs);
 
     if (mapped.isError())
         setError("Error executing map function: " + mapped.toString());
@@ -603,8 +602,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
         QJSValue sv = JsonDb::toJSValue(object, mScriptEngine);
 
         mapArgs << sv << context;
-        QJSValue globalObject = mScriptEngine->globalObject();
-        QJSValue mapped = mMapFunctions[objectType].call(globalObject, mapArgs);
+        QJSValue mapped = mMapFunctions[objectType].call(mapArgs);
 
         if (mapped.isError())
             setError("Error executing map function during lookup: " + mapped.toString());
@@ -769,14 +767,13 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
 
 QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const QJsonValue &previousValue, JsonDbObject object)
 {
-    QJSValue globalObject = mScriptEngine->globalObject();
     QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue.toVariant());
     QJSValue svPreviousValue = mScriptEngine->toScriptValue(previousValue.toObject().value(mTargetValueName).toVariant());
     QJSValue svObject = JsonDb::toJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << svObject;
-    QJSValue reduced = mAddFunction.call(globalObject, reduceArgs);
+    QJSValue reduced = mAddFunction.call(reduceArgs);
 
     if (!reduced.isUndefined() && !reduced.isError()) {
         QJsonObject jsonReduced;
@@ -795,15 +792,13 @@ QJsonValue JsonDbReduceDefinition::subtractObject(const QJsonValue &keyValue, co
 {
     Q_ASSERT(mSubtractFunction.isFunction());
 
-    QJSValue globalObject = mScriptEngine->globalObject();
-
     QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue.toVariant());
     QJSValue svPreviousValue = mScriptEngine->toScriptValue(previousValue.toObject().value(mTargetValueName).toVariant());
     QJSValue sv = JsonDb::toJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << sv;
-    QJSValue reduced = mSubtractFunction.call(globalObject, reduceArgs);
+    QJSValue reduced = mSubtractFunction.call(reduceArgs);
 
     if (!reduced.isUndefined() && !reduced.isError()) {
         QJsonObject jsonReduced;

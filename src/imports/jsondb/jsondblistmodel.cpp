@@ -1096,7 +1096,7 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
             args << scriptResult;
             scriptResult = info.successCallback.engine()->toScriptValue(info.index);
             args << scriptResult;
-            info.successCallback.call(QJSValue(), args);
+            info.successCallback.call(args);
         }
         updateRequestIds.remove(id);
     } else if (sectionIndexRequestIds.constFind(id) != sectionIndexRequestIds.constEnd()) {
@@ -1110,7 +1110,7 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
             args << scriptResult;
             scriptResult = info.successCallback.engine()->toScriptValue(m.value(QLatin1String("count")).toInt());
             args << scriptResult;
-            info.successCallback.call(QJSValue(), args);
+            info.successCallback.call(args);
         }
         sectionIndexRequestIds.remove(id);
     }
@@ -1208,7 +1208,7 @@ void JsonDbListModelPrivate::_q_jsonDbErrorResponse(int id, int code, const QStr
             args << info.errorCallback.engine()->toScriptValue(info.index);
             args << info.errorCallback.engine()->toScriptValue(code);
             args << info.errorCallback.engine()->toScriptValue(message);
-            info.errorCallback.call(QJSValue(), args);
+            info.errorCallback.call(args);
         }
         updateRequestIds.remove(id);
     }

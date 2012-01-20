@@ -164,7 +164,7 @@ void JsonDatabase::dbResponse(int id, const QVariant &result)
         } else {
             args << engine->newArray();
         }
-        callback.call(QJSValue(), args);
+        callback.call(args);
         listCallbacks.remove(id);
         parentItems.remove(id);
     }
@@ -183,7 +183,7 @@ void JsonDatabase::dbErrorResponse(int id, int code, const QString &message)
 
         args << engine->toScriptValue(QVariant(error))<< engine->newArray();
 
-        callback.call(QJSValue(), args);
+        callback.call(args);
         listCallbacks.remove(id);
         parentItems.remove(id);
     }

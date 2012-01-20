@@ -150,10 +150,9 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
                 mFieldValues.append(v);
         }
     } else {
-        QJSValue globalObject = mScriptEngine->globalObject();
         QJSValueList args;
         args << mScriptEngine->toScriptValue(object.toVariantMap());
-        mPropertyFunction.call(globalObject, args);
+        mPropertyFunction.call(args);
     }
     return mFieldValues;
 }

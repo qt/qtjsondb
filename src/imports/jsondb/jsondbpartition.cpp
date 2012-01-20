@@ -462,7 +462,7 @@ void JsonDbPartition::call(QMap<int, QJSValue> &callbacks, int id, const QVarian
         response.setProperty(QLatin1String("items"), items);
     }
     args << QJSValue(QJSValue::UndefinedValue) << response;
-    callback.call(QJSValue(), args);
+    callback.call(args);
     callbacks.remove(id);
 }
 
@@ -487,7 +487,7 @@ void JsonDbPartition::callErrorCallback(QMap<int, QJSValue> &callbacks, int id, 
     response.setProperty(QLatin1String("items"), engine->newArray());
 
     args << engine->toScriptValue(QVariant(error))<< response;
-    callback.call(QJSValue(), args);
+    callback.call(args);
     callbacks.remove(id);
 }
 

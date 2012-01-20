@@ -239,7 +239,7 @@ QJSValue JsonDbComponent::notification(const QJSValue &object,
         qWarning() << "Refusing to create notification without callback.";
         if (errorCallback.isFunction()) {
             QJSValueList args;
-            errorCallback.call(QJSValue(), args);
+            errorCallback.call(args);
         }
         return QJSValue();
     }
@@ -338,7 +338,7 @@ void JsonDbComponent::jsonDbResponse(int id, const QVariant &result)
         if (info.successCallback.isFunction()) {
             QJSValueList args;
             args << scriptResult << info.successCallback.engine()->toScriptValue(id);
-            info.successCallback.call(QJSValue(), args);
+            info.successCallback.call(args);
         }
 
         mRequests.remove(id);
@@ -368,7 +368,7 @@ void JsonDbComponent::jsonDbErrorResponse(int id, int code, const QString& messa
             args << info.errorCallback.engine()->toScriptValue(message);
             args << info.errorCallback.engine()->toScriptValue(code);
             args << info.errorCallback.engine()->toScriptValue(id);
-            info.errorCallback.call(QJSValue(), args);
+            info.errorCallback.call(args);
         }
 
         mRequests.remove(id);
@@ -382,7 +382,7 @@ void JsonDbComponent::jsonDbNotified(const QString& notify_uuid, const QVariant&
         QJSValueList args;
         args << notification->mCallback.engine()->toScriptValue(object);
         args << notification->mCallback.engine()->toScriptValue(action);
-        notification->mCallback.call(QJSValue(), args);
+        notification->mCallback.call(args);
 
         if (mDebugOutput)
             qDebug() << "[JSONDB] notification received, Id:" << notify_uuid  << "Action : " << action;
