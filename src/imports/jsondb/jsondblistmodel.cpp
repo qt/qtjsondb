@@ -582,8 +582,8 @@ int JsonDbListModel::sectionIndex(const QString &section,
     int id = d->jsonDb.query(sectionCountQueryLT, 0, -1, d->partitionObject->name());
     // Register any valid callbacks
     CallbackInfo info;
-    if ((successCallback.isValid() && successCallback.isFunction())
-            || (errorCallback.isValid() && errorCallback.isFunction())) {
+    if (successCallback.isFunction()
+            || errorCallback.isFunction()) {
         info.successCallback = successCallback;
         info.errorCallback = errorCallback;
         d->sectionIndexRequestIds.insert(id, info);
@@ -685,8 +685,8 @@ void JsonDbListModelPrivate::set(int index, const QJSValue& valuemap,
     info.index = index;
     int id = jsonDb.update(item, partitionObject->name()); // possibly change to variantToQson(item)..
     // Register any valid callbacks
-    if ((successCallback.isValid() && successCallback.isFunction())
-            || (errorCallback.isValid() && errorCallback.isFunction())) {
+    if (successCallback.isFunction()
+            || errorCallback.isFunction()) {
         info.successCallback = successCallback;
         info.errorCallback = errorCallback;
         updateRequestIds.insert(id, info);
@@ -734,8 +734,8 @@ void JsonDbListModelPrivate::setProperty(int index, const QString& property, con
 
     int id = jsonDb.update(item, partitionObject->name()); // possibly change to variantToQson(item)..
     // Register any valid callbacks
-    if ((successCallback.isValid() && successCallback.isFunction())
-            || (errorCallback.isValid() && errorCallback.isFunction())) {
+    if (successCallback.isFunction()
+            || errorCallback.isFunction()) {
 
         // Item will be updated through the update notification
         CallbackInfo info;
