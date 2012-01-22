@@ -1,3 +1,4 @@
+!win32 {
 QT.jsondb.VERSION = 1.0.0
 QT.jsondb.MAJOR_VERSION = 1
 QT.jsondb.MINOR_VERSION = 0
@@ -14,3 +15,4 @@ QT.jsondb.imports = $$QT_MODULE_IMPORT_BASE
 QT.jsondb.depends = core network declarative jsondbqson
 
 QT_CONFIG += jsondb
+}

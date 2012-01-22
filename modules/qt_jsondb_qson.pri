@@ -1,3 +1,4 @@
+!win32 {
 QT.jsondbqson.VERSION = 1.0.0
 QT.jsondbqson.MAJOR_VERSION = 1
 QT.jsondbqson.MINOR_VERSION = 0
@@ -14,3 +15,4 @@ QT.jsondbqson.imports = $$QT_MODULE_IMPORT_BASE
 QT.jsondbqson.depends = core
 
 QT_CONFIG += jsondbqson
+}
