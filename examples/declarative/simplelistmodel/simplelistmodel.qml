@@ -61,14 +61,14 @@ Item {
         roleNames: ["firstName", "lastName", "_uuid"]
         limit: 40
     }
-    function partitionCreateCallback(error, meta, response) {
+    function partitionCreateCallback(error, response) {
         if (error) {
-            console.log(response.status+ " " +response.message);
-        } else {
-            console.log("Partition Created meta.id = "+meta.id +" count = "+response.length);
-            for (var i = 0; i < response.length; i++) {
-                console.log("response._uuid = "+response[i]._uuid +" ._version = "+response[i]._version);
-            }
+            console.log(JSON.stringify(error));
+            return;
+        }
+        console.log("Partition Created id = "+response.id +" count = "+response.items.length);
+        for (var i = 0; i < response.items.length; i++) {
+            console.log("response._uuid = "+response.items[i]._uuid +" ._version = "+response.items[i]._version);
         }
         contacts.partition = nokiaPartition;
     }

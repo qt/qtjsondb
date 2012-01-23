@@ -52,7 +52,7 @@ const QString qmlProgram = QLatin1String(
             "import QtQuick 2.0 \n"
             "import QtJsonDb 1.0 as JsonDb \n"
             "JsonDb.Partition { "
-                "signal callbackSignal(bool error, variant meta, variant response);"
+                "signal callbackSignal(variant error, variant response);"
                 "id: sharedPartition;"
                 "name: \"com.nokia.shared.1\";"
             "}");
@@ -143,8 +143,8 @@ ComponentData *TestJsonDbPartition::createComponent()
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
         qDebug() << componentData->component->errors();
-    QObject::connect(componentData->qmlElement, SIGNAL(callbackSignal(bool, QVariant, QVariant)),
-                         this, SLOT(callbackSlot(bool, QVariant, QVariant)));
+    QObject::connect(componentData->qmlElement, SIGNAL(callbackSignal(QVariant, QVariant)),
+                         this, SLOT(callbackSlot(QVariant, QVariant)));
 
     mComponents.append(componentData);
     return componentData;
@@ -168,18 +168,18 @@ void TestJsonDbPartition::cleanupTestCase()
     deleteDbFiles();
 }
 
-void TestJsonDbPartition::callbackSlot(bool error, QVariant meta, QVariant response)
+void TestJsonDbPartition::callbackSlot(QVariant error, QVariant response)
 {
-    callbackError = error;
-    callbackMeta = meta;
-    callbackResponse = response;
+    callbackError = error.isValid();
+    callbackMeta = response;
+    callbackResponse = response.toMap().value("items").toList();
     mEventLoop.quit();
 }
 
 // JsonDb.Partition.create()
 void TestJsonDbPartition::create()
 {
-    const QString createString = QString("create(%1, function (error, meta, response) {callbackSignal(error, meta, response);});");
+    const QString createString = QString("create(%1, function (error, response) {callbackSignal(error, response);});");
     ComponentData *partition = createComponent();
     if (!partition || !partition->qmlElement) return;
     QVariant obj;
@@ -222,8 +222,8 @@ void TestJsonDbPartition::create()
 // JsonDb.Partition.update()
 void TestJsonDbPartition::update()
 {
-    const QString createString = QString("create(%1, function (error, meta, response) {callbackSignal(error, meta, response);});");
-    const QString updateString = QString("update(%1, function (error, meta, response) {callbackSignal(error, meta, response);});");
+    const QString createString = QString("create(%1, function (error, response) {callbackSignal(error, response);});");
+    const QString updateString = QString("update(%1, function (error, response) {callbackSignal(error, response);});");
     ComponentData *partition = createComponent();
     if (!partition || !partition->qmlElement) return;
     QVariant obj;
@@ -287,8 +287,8 @@ void TestJsonDbPartition::update()
 // JsonDb.Partition.remove()
 void TestJsonDbPartition::remove()
 {
-    const QString createString = QString("create(%1, function (error, meta, response) {callbackSignal(error, meta, response);});");
-    const QString removeString = QString("remove(%1, function (error, meta, response) {callbackSignal(error, meta, response);});");
+    const QString createString = QString("create(%1, function (error, response) {callbackSignal(error, response);});");
+    const QString removeString = QString("remove(%1, function (error, response) {callbackSignal(error, response);});");
     ComponentData *partition = createComponent();
     if (!partition || !partition->qmlElement) return;
     QVariant obj;

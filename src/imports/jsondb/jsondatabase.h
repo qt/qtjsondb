@@ -58,8 +58,9 @@ public:
     JsonDatabase(QObject *parent = 0);
     ~JsonDatabase();
 
-    Q_INVOKABLE JsonDbPartition* partition(const QJSValue &partitionName, QObject *parentItem);
+    Q_INVOKABLE JsonDbPartition* partition(const QString &partitionName, QObject *parentItem);
     Q_INVOKABLE void listPartitions(const QJSValue &callback, QObject *parentItem);
+    Q_INVOKABLE QString uuidFromObject(const QVariant &object);
 
 private Q_SLOTS:
     void dbResponse(int id, const QVariant &result);

@@ -121,11 +121,11 @@ Rectangle {
         }
      }
 
-    function createReduce(error, meta, response)
+    function createReduce(error, response)
     {
         console.log("Creating reduce");
         if (error) {
-            console.log("Error " + response.status + " " + response.message);
+            console.log("Error " + error.code + " " + error.message);
             return;
         }
         reduceTypeQuery.start();

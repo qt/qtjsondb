@@ -120,8 +120,6 @@ private:
     void removeNotification(JsonDbNotify *notify);
 
     void call(QMap<int, QJSValue> &callbacks, int id, const QVariant &result);
-    void callChangesSince(QMap<int, QJSValue> &callbacks, int id, const QVariant &result);
-    void callFindCallback(QMap<int, QJSValue> &callbacks, int id, const QVariant &result);
     void callErrorCallback(QMap<int, QJSValue> &callbacks, int id, int code, const QString &message);
 
 private Q_SLOTS:

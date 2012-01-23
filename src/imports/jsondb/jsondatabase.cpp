@@ -41,6 +41,7 @@
 
 #include "jsondatabase.h"
 #include "jsondbpartition.h"
+#include "jsondb-object.h"
 #include <QJSEngine>
 #include <qdebug.h>
 
@@ -83,9 +84,9 @@ JsonDatabase::~JsonDatabase()
 */
 
 
-JsonDbPartition* JsonDatabase::partition(const QJSValue &partitionName, QObject *parent)
+JsonDbPartition* JsonDatabase::partition(const QString &partitionName, QObject *parent)
 {
-    JsonDbPartition * newPartition = new JsonDbPartition(partitionName.toString(), parent);
+    JsonDbPartition * newPartition = new JsonDbPartition(partitionName, parent);
     return newPartition;
 }
 
@@ -125,6 +126,22 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback, QObject *parent)
     parentItems.insert(id, parent);
 }
 
+/*!
+    \qmlmethod QtJsonDb::JsonDatabase::uuidFromObject(object)
+
+    Returns a new uuid that can be used to identify a given \a object.
+
+    Note that the returned uuid might be unique on every invocation on the same
+    object, if the \a object doesn't have the \c{_id} property and there is no
+    schema.
+*/
+
+QString JsonDatabase::uuidFromObject(const QVariant &object)
+{
+    QUuid objectid = JsonDbObject::uuidFromObject(object.toMap());
+    return objectid.toString();
+}
+
 void JsonDatabase::dbResponse(int id, const QVariant &result)
 {
     if (listCallbacks.contains(id)) {
@@ -132,7 +149,7 @@ void JsonDatabase::dbResponse(int id, const QVariant &result)
         QJSValue callback = listCallbacks[id];
         QJSEngine *engine = callback.engine();
         QJSValueList args;
-        args << false;
+        args << QJSValue(QJSValue::UndefinedValue);
         QVariantMap objectMap = result.toMap();
         if (objectMap.contains(QLatin1String("data"))) {
             QVariantList items = objectMap.value(QLatin1String("data")).toList();
@@ -145,7 +162,7 @@ void JsonDatabase::dbResponse(int id, const QVariant &result)
             }
             args << response;
         } else {
-            args << engine->newObject();
+            args << engine->newArray();
         }
         callback.call(QJSValue(), args);
         listCallbacks.remove(id);
@@ -158,12 +175,14 @@ void JsonDatabase::dbErrorResponse(int id, int code, const QString &message)
     if (listCallbacks.contains(id)) {
         QJSValue callback = listCallbacks[id];
         QJSEngine *engine = callback.engine();
+
         QJSValueList args;
-        args << true;
-        QVariantMap response;
-        response.insert("status", code);
-        response.insert("message", message);
-        args << engine->toScriptValue(QVariant(response));
+        QVariantMap error;
+        error.insert(QLatin1String("code"), code);
+        error.insert(QLatin1String("message"), message);
+
+        args << engine->toScriptValue(QVariant(error))<< engine->newArray();
+
         callback.call(QJSValue(), args);
         listCallbacks.remove(id);
         parentItems.remove(id);

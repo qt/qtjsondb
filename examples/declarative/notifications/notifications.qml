@@ -113,7 +113,11 @@ Item {
         }
     }
 
-    function partitionCreateCallback(error, meta, response) {
+    function partitionCreateCallback(error, response) {
+        if (error) {
+            console.log("Error " + error.code+ " " + error.message);
+            return;
+        }
         nokiaPartition  = JsonDb.partition("com.nokia.shared", topLevelItem);
         nokiaPartition2  = JsonDb.partition("com.nokia.shared2", topLevelItem);
         contacts.partitions = [nokiaPartition, nokiaPartition2];
@@ -152,7 +156,7 @@ Item {
             if (idx>0) {
                 systemPartition.create(partitionList, partitionCreateCallback);
             } else {
-                partitionCreateCallback(false, {count:0}, []);
+                partitionCreateCallback(undefined, {});
             }
         }
     }

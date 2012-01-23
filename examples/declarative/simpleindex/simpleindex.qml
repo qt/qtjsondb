@@ -39,8 +39,7 @@
 ****************************************************************************/
 
 import QtQuick 2.0
-import QtAddOn.JsonDb 1.0
-
+import QtJsonDb 1.0 as JsonDb
 
 Rectangle {
     width: 360
@@ -48,14 +47,17 @@ Rectangle {
 
     property int fontsize: 20
 
-    JsonDb {
-        id: jsondb
+    JsonDb.Partition {
+        id: systemPartition
+        name: "com.nokia.qtjsondb.System"
     }
 
-    function errorcb(e)
+    function createCallback(error, response)
     {
-        console.error('Error: ' + e);
-        text.text = 'Error: ' + e;
+        if (error) {
+            console.log("Error " + error.code + " " + error.message);
+            return;
+        }
     }
 
 //! [Creating a Simple Index Object]
@@ -68,7 +70,7 @@ Rectangle {
             "propertyName": "identifier",
             "propertyType": "string"
         };
-        jsondb.create(indexDefinition, cb, errorcb);
+        systemPartition.create(indexDefinition, createCallback);
     }
 //! [Creating a Simple Index Object]
 
@@ -87,7 +89,7 @@ Rectangle {
             }).toString(),
             "propertyType": "string"
         };
-        jsondb.create(indexDefinition, cb, errorcb);
+        systemPartition.create(indexDefinition, createCallback);
     }
 //! [Creating an Index Using a Property Function]
 }

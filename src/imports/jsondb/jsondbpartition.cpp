@@ -110,36 +110,36 @@ void JsonDbPartition::setName(const QString &partitionName)
     last parameter specified in the function call. The \a callback has the following signature.
 
     \code
-    function createCallback(error, meta, response) {
+    import QtJsonDb 1.0 as JsonDb
+    function createCallback(error, response) {
         if (error) {
             // communication error or failed to create one or more objects.
-            // in case of error response will be  {status: Code, message: "plain text" }
-        } else {
-            // response is an array of objects, the order of the request is preserved
+            // 'error' object is only defined in case of an error otherwise undefined.
+            console.log("Create Error :"+JSON.stringify(error));
+            return;
         }
+        console.log("response.id = "+response.id +" count = "+response.items.length);
+        // response.items is an array of objects, the order of the request is preserved
+        for (var i = 0; i < response.items.length; i++) {
+            console.log("_uuid = "+response.items[i]._uuid +" ._version = "+response.items[i]._version);
+        }
+
     }
+    nokiaSharedDb.create({"_type":"Contact", "firstName":firstName, "lastName":lastName }, createCallback)
     \endcode
 
-    The \a error is a boolean value, which is set in case of error. The error details are part
-    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
-    The \a meta object conatins the following properties :
+    The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
+    only defined in case of an error. The \a response object conatins the following properties :
     \list
     \o id -  The id of the request.
     \o stateNumber - The state label of the partition this write was committed in.
-    \endlist
-    If the request was successful, the response will be an array of objects (in the same order as the request).
-    Each item in the \a response array has the following properties:
+    \o items - An array of objects (in the same order as the request). Each item in the array has
+    the following properties:
     \list
     \o _uuid - The _uuid of the newly created object
     \o _version - The _version of the newly created object
     \endlist
-
-    \code
-    import QtJsonDb 1.0 as JsonDb
-    var nokiaSharedDb = JsonDb.partition("com.nokia.shared", parent)
-    var id = nokiaSharedDb.create({"_type":"Contact", "firstName":firstName, "lastName":lastName }, createCallback)
-    \endcode
-
+    \endlist
 
 */
 
@@ -182,36 +182,36 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
     function call. The \a callback has the following signature.
 
     \code
-    function updateCallback(error, meta, response) {
+    import QtJsonDb 1.0 as JsonDb
+    function updateCallback(error, response) {
         if (error) {
-            // communication error or failed to update one or more objects.
-            // in case of error response will be  {status: Code, message: "plain text" }
-        } else {
-            // response is an array of objects, the order of the request is preserved
+            // communication error or failed to create one or more objects.
+            // 'error' object is only defined in case of an error otherwise undefined.
+            console.log("Update Error :"+JSON.stringify(error));
+            return;
         }
+        console.log("response.id = "+response.id +" count = "+response.items.length);
+        // response.items is an array of objects, the order of the request is preserved
+        for (var i = 0; i < response.items.length; i++) {
+            console.log("_uuid = "+response.items[i]._uuid +" ._version = "+response.items[i]._version);
+        }
+
     }
+    nokiaSharedDb.update(updatedObject, updateCallback)
     \endcode
 
-    The \a error is a boolean value, which is set in case of error. The error details are part
-    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
-    The \a meta object conatins the following properties :
+    The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
+    only defined in case of an error. The \a response object conatins the following properties :
     \list
     \o id -  The id of the request.
     \o stateNumber - The state label of the partition this write was committed in.
-    \endlist
-    If the request was successful, the response will be an array of objects (in the same order as the request).
-    Each item in the \a response array has the following properties:
+    \o items - An array of objects (in the same order as the request). Each item in the array has
+    the following properties:
     \list
-    \o _uuid - The _uuid of the object
-    \o _version - The _version of the updated object
+    \o _uuid - The _uuid of the newly created object
+    \o _version - The _version of the newly created object
     \endlist
-
-    \code
-    import QtJsonDb 1.0 as JsonDb
-    var nokiaSharedDb = JsonDb.partition("com.nokia.shared", parent)
-    var id = nokiaSharedDb.update(updatedObject, updateCallback)
-    \endcode
-
+    \endlist
 
 */
 
@@ -249,35 +249,35 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
     function call. The \a callback has the following signature.
 
     \code
-    function removeCallback(error, meta, response) {
+    import QtJsonDb 1.0 as JsonDb
+    function removeCallback(error, response) {
         if (error) {
-            // communication error or failed to update one or more objects.
-            // in case of error response will be  {status: Code, message: "plain text" }
-        } else {
-            // response is an array of objects, the order of the request is preserved
+            // communication error or failed to create one or more objects.
+            // 'error' object is only defined in case of an error otherwise undefined.
+            console.log("Update Error :"+JSON.stringify(error));
+            return;
         }
+        console.log("response.id = "+response.id +" count = "+response.items.length);
+        // response.items is an array of objects, the order of the request is preserved
+        for (var i = 0; i < response.items.length; i++) {
+            console.log("_uuid = "+response.items[i]._uuid);
+        }
+
     }
+    nokiaSharedDb.remove({"_uuid":"xxxx-xxxx-xxxx", "_version":"1-xxxx-xxxx-xxxx"}, removeCallback)
     \endcode
 
-    The \a error is a boolean value, which is set in case of error. The error details are part
-    of the \a response object. It will be an object of type  {status: errorCode, message: "plain text" }.
-    The \a meta object conatins the following properties :
+    The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
+    only defined in case of an error. The \a response object conatins the following properties :
     \list
     \o id -  The id of the request.
     \o stateNumber - The state label of the partition this write was committed in.
-    \endlist
-    If the request was successful, the response will be an array of objects (in the same order as the request).
-    Each item in the \a response array has the following properties:
+    \o items - An array of objects (in the same order as the request). Each item in the array has
+    the following properties:
     \list
-    \o _uuid - The _uuid of the object
-    \o _version - The _version of the updated object
+    \o _uuid - The _uuid of the newly created object
     \endlist
-
-    \code
-    import QtJsonDb 1.0 as JsonDb
-    var nokiaSharedDb = JsonDb.partition("com.nokia.shared", parent)
-    var id = nokiaSharedDb.remove({"_uuid":"xxxx-xxxx-xxxx", "_version":"1-xxxx-xxxx-xxxx"}, removeCallback)
-    \endcode
+    \endlist
 
 */
 
@@ -443,82 +443,25 @@ void JsonDbPartition::call(QMap<int, QJSValue> &callbacks, int id, const QVarian
     }
     QJSValueList args;
     QVariantMap object = result.toMap();
-    // meta object : count , id
-    QJSValue meta = engine->newObject();
-    meta.setProperty(JsonDbString::kStateNumberStr, object.value(JsonDbString::kStateNumberStr).toInt());
-    meta.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
-    args << false << meta;
+    // object : id  , statenumber , items
+    QJSValue response= engine->newObject();
+    response.setProperty(JsonDbString::kStateNumberStr, object.value(JsonDbString::kStateNumberStr).toInt());
+    response.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
 
     // response object : object { _version & _uuid } (can be a list)
     if (object.contains(QLatin1String("data"))) {
-        QJSValue response = engine->toScriptValue(object.value(QLatin1String("data")));
-        args << response;
+        QJSValue items = engine->toScriptValue(object.value(QLatin1String("data")));
+        response.setProperty(QLatin1String("items"), items);
     } else {
         // Create an array with a single element
         QJSValue responseObject = engine->newObject();
         responseObject.setProperty(JsonDbString::kUuidStr, object.value(JsonDbString::kUuidStr).toString());
         responseObject.setProperty(JsonDbString::kVersionStr, object.value(JsonDbString::kVersionStr).toString());
-        QJSValue response = engine->newArray(1);
-        response.setProperty(0, responseObject);
-        args << response;
+        QJSValue items = engine->newArray(1);
+        items.setProperty(0, responseObject);
+        response.setProperty(QLatin1String("items"), items);
     }
-    callback.call(QJSValue(), args);
-    callbacks.remove(id);
-}
-
-void JsonDbPartition::callChangesSince(QMap<int, QJSValue> &callbacks, int id, const QVariant &result)
-{
-    // Make sure that id exists in the map.
-    QJSValue callback = callbacks[id];
-    QJSEngine *engine = callback.engine();
-    if (!engine) {
-        callbacks.remove(id);
-        return;
-    }
-    QJSValueList args;
-    QVariantMap object = result.toMap();
-    // meta object : count , id
-    QJSValue meta = engine->newObject();
-    meta.setProperty(JsonDbString::kCurrentStateNumberStr, object.value(JsonDbString::kCurrentStateNumberStr).toInt());
-    meta.setProperty(JsonDbString::kStartingStateNumberStr, object.value(JsonDbString::kStartingStateNumberStr).toInt());
-    meta.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
-    args << false << meta;
-
-    // response object : object { _version & _uuid } (can be a list)
-    QJSValue response = engine->toScriptValue(object.value(QLatin1String("changes")));
-    args << response;
-
-    callback.call(QJSValue(), args);
-    callbacks.remove(id);
-}
-
-void JsonDbPartition::callFindCallback(QMap<int, QJSValue> &callbacks, int id, const QVariant &result)
-{
-    // Make sure that id exists in the map.
-    QJSValue callback = callbacks[id];
-    QJSEngine *engine = callback.engine();
-    if (!engine) {
-        callbacks.remove(id);
-        return;
-    }
-    QJSValueList args;
-    QVariantMap object = result.toMap();
-    // meta object : count , id
-    QJSValue meta = engine->newObject();
-    meta.setProperty(JsonDbString::kCountStr, object.value(JsonDbString::kLengthStr).toInt());
-    meta.setProperty(JsonDbString::kOffsetStr, object.value(JsonDbString::kOffsetStr).toInt());
-    meta.setProperty(QLatin1String("sateNumber"), object.value(JsonDbString::kStateNumberStr).toInt());
-    meta.setProperty(QLatin1String("sortKeys"), object.value(QLatin1String("sortKeys")).toString());
-    meta.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
-    args << false << meta;
-
-    // response object : object { _version & _uuid } (can be a list)
-    if (object.contains(QLatin1String("data"))) {
-        QJSValue response = engine->toScriptValue(object.value(QLatin1String("data")));
-        args << response;
-    } else {
-        args << engine->newObject();
-    }
+    args << QJSValue(QJSValue::UndefinedValue) << response;
     callback.call(QJSValue(), args);
     callbacks.remove(id);
 }
@@ -533,21 +476,21 @@ void JsonDbPartition::callErrorCallback(QMap<int, QJSValue> &callbacks, int id, 
         return;
     }
     QJSValueList args;
-    // meta object : count , id
-    QJSValue meta = engine->newObject();
-    meta.setProperty(JsonDbString::kCountStr, 1);
-    meta.setProperty(JsonDbString::kStateNumberStr, 0);
-    meta.setProperty(JsonDbString::kIdStr, id);
-    args << true << meta;
+    QVariantMap error;
+    error.insert(QLatin1String("code"), code);
+    error.insert(QLatin1String("message"), message);
 
-    QVariantMap response;
-    response.insert("status", code);
-    response.insert("message", message);
+    // object : id
+    QJSValue response = engine->newObject();
+    response.setProperty(JsonDbString::kStateNumberStr, -1);
+    response.setProperty(JsonDbString::kIdStr,  QJSValue(engine , id));
+    response.setProperty(QLatin1String("items"), engine->newArray());
 
-    args << engine->toScriptValue(QVariant(response));
+    args << engine->toScriptValue(QVariant(error))<< response;
     callback.call(QJSValue(), args);
     callbacks.remove(id);
 }
+
 
 void JsonDbPartition::dbResponse(int id, const QVariant &result)
 {

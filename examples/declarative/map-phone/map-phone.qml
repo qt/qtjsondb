@@ -108,10 +108,10 @@ Rectangle {
         }
      }
 
-    function createMap(error, meta, response)
+    function createMap(error, response)
     {
         if (error) {
-            console.log("Error " + response.status + " " + response.message);
+            console.log("Error " + error.code+ " " + error.message);
             return;
         }
         mapTypeQuery.start();
@@ -150,9 +150,9 @@ Rectangle {
                 var lastName = lastNames[rand(lastNames.length)]
                 systemPartition.create({ "_type":"Contact", "firstName":firstName,
                                            "lastName":lastName, "phoneNumbers": [rand(1000).toString(), rand(1000).toString()]},
-                                       function (error, meta, response) {
+                                       function (error, response) {
                                            if (error) {
-                                               console.log("Error " + response.status + " " + response.message);
+                                               console.log("Error " + error.code+ " " + error.message);
                                                return;
                                            }
                                            console.log("Created Contact");

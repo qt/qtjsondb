@@ -57,12 +57,15 @@ Item {
     JsonDb.JsonDbSortingListModel {
         id: contacts
         query: '[?_type="MyContacts"]'
-        roleNames: ["firstName", "lastName", "_uuid", "_version"]
+        roleNames: ["firstName", "lastName", "_uuid", "_version", "_type"]
         sortOrder:"[/firstName]"
     }
 
-    function partitionCreateCallback(error, meta, response) {
-        console.log("Partitions Created # "+ response.length);
+    function partitionCreateCallback(error, response) {
+        if (error) {
+            console.log("Failed to create Partitions");
+            return;
+        }
         nokiaPartition  = JsonDb.partition("com.nokia.shared", topLevelItem);
         nokiaPartition2  = JsonDb.partition("com.nokia.shared2", topLevelItem);
         contacts.partitions = [nokiaPartition, nokiaPartition2];
@@ -94,10 +97,9 @@ Item {
                 idx++;
             }
             if (idx>0) {
-                console.log("Creating partitions");
                 systemPartition.create(partitionList, partitionCreateCallback);
             } else {
-                partitionCreateCallback(false, {count:0}, []);
+                partitionCreateCallback(undefined, {});
             }
         }
     }
@@ -111,13 +113,16 @@ Item {
         anchors.top: parent.top
         width: parent.width/4
         text: "Add contact"
-        function createCallback(error, meta, response) {
-            console.log("Response from create");
-            console.log("meta.id = "+meta.id +" count = "+response.length);
-            for (var i = 0; i < response.length; i++) {
-                console.log("response._uuid = "+response[i]._uuid +" ._version = "+response[i]._version);
+        function createCallback(error, response) {
+            if (error) {
+                console.log("Create Error :"+JSON.stringify(error));
+                return;
             }
-
+            console.log("Response from create");
+            console.log("response.id = "+response.id +" count = "+response.items.length);
+            for (var i = 0; i < response.items.length; i++) {
+                console.log("_uuid = "+response.items[i]._uuid +" ._version = "+response.items[i]._version);
+            }
         }
         onClicked: {
             var firstNames = ["Malcolm", "Zoe", "Hoban", "Inara", "Jayne", "Kaylee", "Simon", "River", "Shepard"]
@@ -137,17 +142,22 @@ Item {
         width: parent.width/5
         text: "Delete item"
 
-        function removeCallback(error, meta, response) {
+        function removeCallback(error, response) {
+            if (error) {
+                console.log("Remove Error :"+JSON.stringify(error));
+                return;
+            }
             console.log("Response from remove");
-            console.log("meta.id = "+meta.id +" count = "+response.length);
-            console.log("response._uuid = "+response[0]._uuid);
+            console.log("response.id = "+response.id +" count = "+response.items.length);
+            for (var i = 0; i < response.items.length; i++) {
+                console.log("_uuid = "+response.items[i]._uuid );
+                console.log(JSON.stringify(response.items[i]));
+            }
         }
-
         onClicked: {
-            var nokiaDb = contacts.getPartition(listView.currentIndex);
-            nokiaDb.remove({"_uuid":contacts.get(listView.currentIndex, "_uuid"),
-                               "_version":contacts.get(listView.currentIndex, "_version"),
-                           }, removeCallback)
+            var item = contacts.get(listView.currentIndex);
+            item.partition.remove(item.object, removeCallback);
+            return;
         }
     }
 
@@ -158,10 +168,15 @@ Item {
         anchors.left: buttonDelete.right
         width: parent.width/5
         text: "Update firstName"
-        function updateCallback(error, meta, response) {
-            console.log("Response from update");
-            console.log("meta.id = "+meta.id +" count = "+response.length);
-            console.log("response._uuid = "+response[0]._uuid +" ._version = "+response[0]._version);
+        function updateCallback(error, response) {
+            if (error) {
+                console.log("Update Error :"+JSON.stringify(error));
+            }
+            console.log("Response from Update");
+            console.log("response.id = "+response.id +" count = "+response.items.length);
+            for (var i = 0; i < response.items.length; i++) {
+                console.log("_uuid = "+response.items[i]._uuid +" ._version = "+response.items[i]._version);
+            }
         }
 
         onClicked: {

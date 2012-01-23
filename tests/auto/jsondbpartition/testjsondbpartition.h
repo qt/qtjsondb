@@ -77,7 +77,7 @@ private slots:
     void remove();
 
 public slots:
-    void callbackSlot(bool error, QVariant meta, QVariant response);
+    void callbackSlot(QVariant error, QVariant response);
 
 protected slots:
     void timeout();

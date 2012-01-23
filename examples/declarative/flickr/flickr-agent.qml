@@ -56,14 +56,14 @@ Rectangle {
 
     RssModel {
         id: rssModel
-        function createCallback(error, meta, response) {
+        function createCallback(error, response) {
             if (error) {
-                console.log("Error Creating image "+response.status+" "+response.message);
+                console.log("Error Creating image "+error.code+" "+error.message);
                 return;
             }
-            for (var i = 0; i < response.length; i++) {
-                responses.append(response[i]);
-                console.log("Created Object : "+JSON.stringify(response[i]));
+            for (var i = 0; i < response.items.length; i++) {
+                responses.append(response.items[i]);
+                console.log("Created Object : "+JSON.stringify(response.items[i]));
             }
         }
 

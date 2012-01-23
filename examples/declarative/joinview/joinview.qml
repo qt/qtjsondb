@@ -144,11 +144,11 @@ Rectangle {
     }
 //! [Creating a Join Object]
 
-    function installMap(error, meta, response)
+    function installMap(error, response)
     {
         console.log("Creating reduce");
         if (error) {
-            console.log("Error " + response.status + " " + response.message);
+            console.log("Error " + error.code + " " + error.message);
             return;
         }
         mapTypeQuery.start();
@@ -186,9 +186,9 @@ Rectangle {
                 var firstName = firstNames[rand(firstNames.length)]
                 var obj = { "_type":"MyContact", "name":firstName, "number":rand(100).toString()};
                 systemPartition.create(obj,
-                                       function (error, meta, response) {
+                                       function (error, response) {
                                            if (error) {
-                                               console.log("Error " + response.status + " " + response.message);
+                                               console.log("Error " + error.code+ " " + error.message);
                                                return;
                                            }
                                            appendLog(JSON.stringify(obj));
@@ -219,9 +219,9 @@ Rectangle {
                 function rand(n) { return Math.floor(Math.random() * n); }
                 var obj = { "_type":"CallLog", "date":today.toString(), "number":rand(100).toString()};
                 systemPartition.create(obj,
-                                       function (error, meta, response) {
+                                       function (error, response) {
                                            if (error) {
-                                               console.log("Error " + response.status + " " + response.message);
+                                               console.log("Error " + error.code+ " " + error.message);
                                                return;
                                            }
                                            appendLog(JSON.stringify(obj));
