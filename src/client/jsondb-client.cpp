@@ -204,6 +204,14 @@ bool JsonDbClient::event(QEvent *event)
             d->init(new JsonDbConnection(this));
             d->connection->connectToServer();
         }
+    } else if (event->type() == QEvent::Timer) {
+        Q_D(JsonDbClient);
+        QTimerEvent *te = static_cast<QTimerEvent *>(event);
+        if (te->timerId() == d->timeoutTimerId) {
+            killTimer(d->timeoutTimerId);
+            d->timeoutTimerId = -1;
+            d->_q_timeout();
+        }
     }
     return QObject::event(event);
 }
@@ -234,7 +242,8 @@ void JsonDbClientPrivate::_q_statusChanged()
             sentRequestQueue.clear();
             if (autoReconnect) {
                 newStatus = JsonDbClient::Connecting;
-                QTimer::singleShot(5000, q, SLOT(_q_timeout()));
+                if (timeoutTimerId == -1)
+                    timeoutTimerId = q->startTimer(5000);
             } else {
                 newStatus = JsonDbClient::Error;
             }

@@ -61,7 +61,8 @@ class JsonDbClientPrivate
     Q_DECLARE_PUBLIC(JsonDbClient)
 public:
     JsonDbClientPrivate(JsonDbClient *q)
-        : q_ptr(q), connection(0), status(JsonDbClient::Null), autoReconnect(true)
+        : q_ptr(q), connection(0), status(JsonDbClient::Null), autoReconnect(true),
+          timeoutTimerId(-1)
     { }
 
     ~JsonDbClientPrivate()
@@ -114,6 +115,8 @@ public:
 
     QHash<int, NotifyCallback> unprocessedNotifyCallbacks;
     QHash<QString, NotifyCallback> notifyCallbacks;
+
+    int timeoutTimerId;
 
     void init(JsonDbConnection *connection);
     bool send(int requestId, const QVariantMap &request);
