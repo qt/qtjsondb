@@ -79,7 +79,7 @@ private slots:
     void createChangesSince();
 
 public slots:
-    void errorSlot(int code, const QString &message);
+    void errorSlot(const QVariantMap &newError);
     void finishedSlot();
 
 protected slots:

@@ -85,6 +85,8 @@ JsonDbQueryObject::JsonDbQueryObject(QObject *parent)
     , partitionObject(0)
     , defaultPartitionObject(0)
     , jsondbQuery(0)
+    , errorCode(0)
+    , objectStatus(JsonDbQueryObject::Null)
 {
 }
 
@@ -314,7 +316,7 @@ void JsonDbQueryObject::componentComplete()
 
     Users should call this method to start the execution of the query. When a set of results are
     ready on the object, the onResultsReady() will be triggered. This will be called whenever a new
-    chunk of results are ready. Users can call takeResults() on this object to retrieve the results
+    chunk of results is ready. Users can call takeResults() on this object to retrieve the results
     at any time. The ChangesSince also emits an onFinished() when the execution is finished.
 
 */
@@ -340,6 +342,8 @@ int JsonDbQueryObject::start()
     }
     connect(jsondbQuery, SIGNAL(resultsReady(int)),
             this, SIGNAL(resultsReady(int)));
+    connect(jsondbQuery, SIGNAL(finished()),
+            this, SLOT(setReadyStatus()));
     connect(jsondbQuery, SIGNAL(finished()),
             this, SIGNAL(finished()));
     connect(jsondbQuery, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)),
@@ -386,6 +390,15 @@ void JsonDbQueryObject::checkForReadyStatus()
         if (objectStatus != oldStatus)
             emit statusChanged(objectStatus);
     }
+}
+
+void JsonDbQueryObject::setReadyStatus()
+{
+    JsonDbQueryObject::Status oldStatus = objectStatus;
+
+    objectStatus = JsonDbQueryObject::Ready;
+    if (objectStatus != oldStatus)
+        emit statusChanged(objectStatus);
 }
 
 void JsonDbQueryObject::setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message)

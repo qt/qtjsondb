@@ -52,7 +52,7 @@ QT_USE_NAMESPACE_JSONDB
     \since 1.x
 
     This allows to query the list of changes that happened between the current state and a specified
-    stateNumber. Users can execute this by calling the exec(). To retrieve the results, connect to
+    stateNumber. Users can execute this by calling the start(). To retrieve the results, connect to
     onResultsReady and/or onFinished.
 
     \code
@@ -70,8 +70,9 @@ QT_USE_NAMESPACE_JSONDB
             console.log("Results: Count + results.length );
         }
 
-        onError: {
-            console.log("onError " + code + message);
+       onStatusChanged: {
+            if (status === JsonDb.ChangesSince.Error)
+                console.log("Failed " + error.code + " "+ error.message);
         }
 
      }
@@ -88,6 +89,8 @@ JsonDbChangesSinceObject::JsonDbChangesSinceObject(QObject *parent)
     , partitionObject(0)
     , defaultPartitionObject(0)
     , jsondbChangesSince(0)
+    , errorCode(0)
+    , objectStatus(JsonDbChangesSinceObject::Null)
 {
 }
 
@@ -113,6 +116,7 @@ QStringList JsonDbChangesSinceObject::types() const
 void JsonDbChangesSinceObject::setTypes(const QStringList &newTypes)
 {
     filterTypes = newTypes;
+    checkForReadyStatus();
 }
 
 /*!
@@ -126,6 +130,7 @@ JsonDbPartition* JsonDbChangesSinceObject::partition()
         defaultPartitionObject = new JsonDbPartition();
         setPartition(defaultPartitionObject);
     }
+    checkForReadyStatus();
     return partitionObject;
 }
 
@@ -136,6 +141,7 @@ void JsonDbChangesSinceObject::setPartition(JsonDbPartition *newPartition)
     if (partitionObject == defaultPartitionObject)
         delete defaultPartitionObject;
     partitionObject = newPartition;
+    checkForReadyStatus();
 }
 
 /*!
@@ -150,6 +156,7 @@ quint32 JsonDbChangesSinceObject::stateNumber() const
 void JsonDbChangesSinceObject::setStateNumber(quint32 newStateNumber)
 {
     startStateNumber = newStateNumber;
+    checkForReadyStatus();
 }
 
 /*!
@@ -188,7 +195,7 @@ quint32 JsonDbChangesSinceObject::currentStateNumber() const
     If the request was successful, the response will be an array of objects. Each item in
     the results array will be an object of type {"after" : {} , "before" : {}}. The \a after
     sub-object will be undefined for deleted objects. For newly created objects, the \a before
-    sub-object will be undefined. If both sub-objects are valid the change represents an update.
+    sub-object will be undefined. If both sub-objects are valid the change, represents an update.
 
 
     \code
@@ -207,8 +214,9 @@ quint32 JsonDbChangesSinceObject::currentStateNumber() const
             console.log("Results: Count + objects.length );
         }
 
-        onError: {
-            console.log("onError " + result.code + result.message);
+       onStatusChanged: {
+            if (status === JsonDb.ChangesSince.Error)
+                console.log("Failed " + error.code + " "+ error.message);
         }
 
      }
@@ -243,34 +251,120 @@ QVariantList JsonDbChangesSinceObject::takeResults()
 */
 
 /*!
-    \qmlsignal QtJsonDb::ChangesSince::onError(code, message)
+    \qmlproperty object QtJsonDb::ChangesSince::error
+    \readonly
 
-    This handler is called when there was an error executing the changesSince. \a code gives the
-    error code and the \a message contains details of the error.
+    This property holds the current error information for the ChangesSince object. It contains:
+    \list
+    \o error.code -  code for the current error.
+    \o error.message - detailed explanation of the error
+    \endlist
 */
+
+QVariantMap JsonDbChangesSinceObject::error() const
+{
+    QVariantMap errorMap;
+    errorMap.insert(QLatin1String("code"), errorCode);
+    errorMap.insert(QLatin1String("message"), errorString);
+    return errorMap;
+}
+
+/*!
+    \qmlproperty enumeration QtJsonDb::ChangesSince::status
+    \readonly
+
+    This property holds the current status of the ChangesSince object.  It can be one of:
+    \list
+    \o Query.Null - waiting for component to finish loading or for all the pararamters to be set.
+    \o Query.Loading - Executing the changes-since query
+    \o Query.Ready - object is ready, users can call start()
+    \o Query.Error - an error occurred while executing the query
+    \endlist
+
+    \sa QtJsonDb::ChangesSince::error
+*/
+
+JsonDbChangesSinceObject::Status JsonDbChangesSinceObject::status() const
+{
+    return objectStatus;
+}
 
 void JsonDbChangesSinceObject::componentComplete()
 {
     completed = true;
 }
 
-void JsonDbChangesSinceObject::emitError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message)
+void JsonDbChangesSinceObject::clearError()
 {
-    emit error(int(code), message);
+    int oldErrorCode = errorCode;
+    errorCode = 0;
+    errorString.clear();
+    if (oldErrorCode != Error) {
+        emit errorChanged(error());
+    }
+}
+
+bool JsonDbChangesSinceObject::parametersReady()
+{
+    return (completed  && partitionObject);
+}
+
+void JsonDbChangesSinceObject::checkForReadyStatus()
+{
+    if (objectStatus != JsonDbChangesSinceObject::Null)
+        return;
+
+    JsonDbChangesSinceObject::Status oldStatus = objectStatus;
+
+    if (!partitionObject)
+        partitionObject = qobject_cast<JsonDbPartition*>(parent());
+    if (!parametersReady()) {
+        objectStatus = JsonDbChangesSinceObject::Null;
+        if (objectStatus != oldStatus)
+            emit statusChanged(objectStatus);
+        return;
+    } else {
+        objectStatus = JsonDbChangesSinceObject::Ready;
+        if (objectStatus != oldStatus)
+            emit statusChanged(objectStatus);
+    }
+}
+
+void JsonDbChangesSinceObject::setReadyStatus()
+{
+    JsonDbChangesSinceObject::Status oldStatus = objectStatus;
+
+    objectStatus = JsonDbChangesSinceObject::Ready;
+    if (objectStatus != oldStatus)
+        emit statusChanged(objectStatus);
+}
+
+void JsonDbChangesSinceObject::setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message)
+{
+    int oldErrorCode = errorCode;
+    errorCode = code;
+    errorString = message;
+    if (objectStatus != JsonDbChangesSinceObject::Error) {
+        objectStatus = JsonDbChangesSinceObject::Error;
+        emit statusChanged(objectStatus);
+    }
+    if (oldErrorCode != JsonDbChangesSinceObject::Error) {
+        emit errorChanged(error());
+    }
 }
 
 
 /*!
-    \qmlmethod object QtJsonDb::ChangesSince::exec()
+    \qmlmethod object QtJsonDb::ChangesSince::start()
 
     Users should call this method to start the execution of changesSince on this partition.
     Once there are some results ready on the object, the onResultsReady will be triggered. This
-    will be called whenever a new chunk of results are ready. Users can call takeResults() on
+    will be called whenever a new chunk of results is ready. Users can call takeResults() on
     this object to retrieve the results at any time. The ChangesSince also emits an onFinished()
     signal when the execution is finished.
 
 */
-int JsonDbChangesSinceObject::exec()
+int JsonDbChangesSinceObject::start()
 {
     if (!completed) {
         qWarning("Component not ready");
@@ -286,11 +380,15 @@ int JsonDbChangesSinceObject::exec()
     connect(jsondbChangesSince, SIGNAL(resultsReady(int)),
             this, SIGNAL(resultsReady(int)));
     connect(jsondbChangesSince, SIGNAL(finished()),
+            this, SLOT(setReadyStatus()));
+    connect(jsondbChangesSince, SIGNAL(finished()),
             this, SIGNAL(finished()));
     connect(jsondbChangesSince, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)),
-            this, SLOT(emitError(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
+            this, SLOT(setError(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
 
     jsondbChangesSince->start();
+    objectStatus = JsonDbChangesSinceObject::Loading;
+    emit statusChanged(objectStatus);
 
     return jsondbChangesSince->requestId();
 

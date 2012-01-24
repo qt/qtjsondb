@@ -185,7 +185,7 @@ void TestJsonDbQueryObject::cleanupTestCase()
     deleteDbFiles();
 }
 
-void TestJsonDbQueryObject::errorSlot(QVariantMap newError)
+void TestJsonDbQueryObject::errorSlot(const QVariantMap &newError)
 {
     int code = newError.value("code").toInt();
     QString message = newError.value("message").toString();

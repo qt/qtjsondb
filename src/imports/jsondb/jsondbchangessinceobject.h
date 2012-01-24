@@ -61,12 +61,17 @@ class JsonDbChangesSinceObject : public QObject, public QDeclarativeParserStatus
     Q_INTERFACES(QDeclarativeParserStatus)
 
 public:
+    Q_ENUMS(Status)
+    enum Status { Null, Loading, Ready, Error };
+
     Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
     Q_PROPERTY(QStringList types READ types WRITE setTypes)
     Q_PROPERTY(quint32 stateNumber READ stateNumber WRITE setStateNumber)
 
     Q_PROPERTY(quint32 startingStateNumber READ startingStateNumber)
     Q_PROPERTY(quint32 currentStateNumber READ currentStateNumber)
+    Q_PROPERTY(Status status READ status NOTIFY statusChanged)
+    Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
 
     JsonDbChangesSinceObject(QObject *parent = 0);
     ~JsonDbChangesSinceObject();
@@ -84,18 +89,24 @@ public:
     quint32 startingStateNumber() const;
     quint32 currentStateNumber() const;
 
+    JsonDbChangesSinceObject::Status status() const;
+    QVariantMap error() const;
+
     void classBegin() {}
     void componentComplete();
 
-    Q_INVOKABLE int exec();
+    Q_INVOKABLE int start();
     Q_INVOKABLE QVariantList takeResults();
 
 Q_SIGNALS:
     void resultsReady(int resultsAvailable);
     void finished();
-    void error(int code, const QString &message);
+    void statusChanged(JsonDbChangesSinceObject::Status newStatus);
+    void errorChanged(const QVariantMap &newError);
+
 private Q_SLOTS:
-    void emitError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message);
+    void setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message);
+    void setReadyStatus();
 
 private:
     bool completed;
@@ -104,7 +115,13 @@ private:
     QPointer<JsonDbPartition> partitionObject;
     QPointer<JsonDbPartition> defaultPartitionObject;
     QPointer<JsonDbChangesSince> jsondbChangesSince;
+    int errorCode;
+    QString errorString;
+    Status objectStatus;
 
+    void clearError();
+    inline bool parametersReady();
+    void checkForReadyStatus();
     friend class JsonDbPartition;
     friend class JsonDbPartitionPrivate;
 };

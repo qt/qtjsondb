@@ -103,10 +103,11 @@ Q_SIGNALS:
     void resultsReady(int resultsAvailable);
     void finished();
     void statusChanged(JsonDbQueryObject::Status newStatus);
-    void errorChanged(QVariantMap newError);
+    void errorChanged(const QVariantMap &newError);
 
 private Q_SLOTS:
     void setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message);
+    void setReadyStatus();
 
 private:
     bool completed;

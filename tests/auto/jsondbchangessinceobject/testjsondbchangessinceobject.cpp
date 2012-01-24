@@ -62,7 +62,6 @@ const QString qmlProgramForPartition = QLatin1String(
             "import QtQuick 2.0 \n"
             "import QtJsonDb 1.0 as JsonDb \n"
             "JsonDb.Partition { "
-                "signal callbackSignal(bool error, variant meta, variant response);"
                 "id: sharedPartition;"
                 "name: \"com.nokia.shared\";"
             "}");
@@ -141,8 +140,8 @@ ComponentData *TestJsonDbChangesSinceObject::createComponent()
         qDebug() << componentData->component->errors();
     QObject::connect(componentData->qmlElement, SIGNAL(finished()),
                      this, SLOT(finishedSlot()));
-    QObject::connect(componentData->qmlElement, SIGNAL(error(int, QString)),
-                     this, SLOT(errorSlot(int, QString)));
+    QObject::connect(componentData->qmlElement, SIGNAL(errorChanged(const QVariantMap&)),
+                     this, SLOT(errorSlot(const QVariantMap&)));
     mComponents.append(componentData);
     return componentData;
 }
@@ -184,8 +183,10 @@ void TestJsonDbChangesSinceObject::cleanupTestCase()
     deleteDbFiles();
 }
 
-void TestJsonDbChangesSinceObject::errorSlot(int code, const QString &message)
+void TestJsonDbChangesSinceObject::errorSlot(const QVariantMap &newError)
 {
+    int code = newError.value("code").toInt();
+    QString message = newError.value("message").toString();
     callbackError = true;
     callbackErrorCode = code;
     callbackErrorMessage = message;
@@ -220,7 +221,7 @@ void TestJsonDbChangesSinceObject::singleType()
     QVariantMap item = createObject(__FUNCTION__).toMap();
     int id = mClient->create(item,  "com.nokia.shared");
     waitForResponse1(id);
-    const QString expression("exec();");
+    const QString expression("start();");
     QDeclarativeExpression *expr;
     expr = new QDeclarativeExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
     expr->evaluate();
@@ -245,7 +246,7 @@ void TestJsonDbChangesSinceObject::multipleObjects()
     int id = mClient->create(QVariant(items),  "com.nokia.shared");
     waitForResponse1(id);
     qSort(items.begin(), items.end(), posLessThan);
-    const QString expression("exec();");
+    const QString expression("start();");
     QDeclarativeExpression *expr;
     expr = new QDeclarativeExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
     expr->evaluate();
@@ -286,7 +287,7 @@ void TestJsonDbChangesSinceObject::multipleTypes()
     item = createObject(types[1]).toMap();
     id = mClient->create(item,  "com.nokia.shared");
     waitForResponse1(id);
-    const QString expression("exec();");
+    const QString expression("start();");
     QDeclarativeExpression *expr;
     expr = new QDeclarativeExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
     expr->evaluate();
@@ -313,12 +314,12 @@ void TestJsonDbChangesSinceObject::createChangesSince()
     currentQmlElement = queryObject;
     QObject::connect(currentQmlElement, SIGNAL(finished()),
                      this, SLOT(finishedSlot()));
-    QObject::connect(currentQmlElement, SIGNAL(error(int, QString)),
-                     this, SLOT(errorSlot(int, QString)));
+    QObject::connect(currentQmlElement, SIGNAL(errorChanged(const QVariantMap&)),
+                     this, SLOT(errorSlot(const QVariantMap&)));
     //Create an object
     QVariantMap item = createObject(__FUNCTION__).toMap();
     mClient->create(item,  "com.nokia.shared");
-    QMetaObject::invokeMethod(currentQmlElement, "exec", Qt::DirectConnection);
+    QMetaObject::invokeMethod(currentQmlElement, "start", Qt::DirectConnection);
     cbData.clear();
     waitForCallback2();
     QCOMPARE(cbData.size(), 1);

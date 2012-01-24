@@ -81,7 +81,7 @@ private slots:
     void queryLimit();
 
 public slots:
-    void errorSlot(QVariantMap newError);
+    void errorSlot(const QVariantMap &newError);
     void finishedSlot();
 
 protected slots:

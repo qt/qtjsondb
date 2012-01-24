@@ -352,7 +352,7 @@ JsonDbNotify* JsonDbPartition::createNotification(const QString &query, QObject 
         var bindings = {'firstName':'Book'};
         queryObject = nokiaPartition.createQuery('[?_type="Contact"][?name=%firstName]', -1, bindings, topLevelItem);
         queryObject.finished.connect(onFinished);
-        queryObject.exec();
+        queryObject.start();
     }
     \endcode
     \sa QtJsonDb::Query
@@ -374,7 +374,7 @@ JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit,
     \qmlmethod object QtJsonDb::Partition::createChangesSince(stateNumber, types, parentItem)
 
     Create the ChangesSince object. It will set the \a stateNumber, filter \a types parameters
-    of the object. Users have to call exec() to start the changesSince query in this partition.
+    of the object. Users have to call start() to start the changesSince query in this partition.
     The \a parentItem decides the life time of the returned object. If the \a parentItem
     is null, the script engine will destroy the object during garbage collection.
 
@@ -389,7 +389,7 @@ JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit,
     Component.onCompleted: {
         changesObject = nokiaPartition.createChangesSince(10, ["Contact"], topLevelItem);
         changesObject.finished.connect(onFinished);
-        changesObject.exec()
+        changesObject.start();
 
     }
     \endcode
