@@ -481,15 +481,14 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
 }
 
 /*!
-  \qmlmodule QtAddOn.JsonDb
+  \qmlmodule QtJsonDb
 
   QML interface to Json Database.
 */
 
 /*!
     \qmlclass JsonDbListModel
-    \ingroup qml-working-with-data
-    \inqmlmodule QtAddOn.JsonDb
+    \inqmlmodule QtJsonDb
     \inherits ListModel
     \since 1.x
 
@@ -497,8 +496,11 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
     ListView or GridView displaying data items matching a query.
 
     \code
-    JsonDbListModel {
+    import QtJsonDb 1.0 as JsonDb
+
+    JsonDb.JsonDbListModel {
       id: contactsModel
+      partition: nokiaPartition
       query: "[?_type=\"Contact\"]"
       roleNames: ["firstName", "lastName", "phoneNumber"]
     }
@@ -518,15 +520,30 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
 */
 
 /*!
-    \qmlproperty int QtAddOn.JsonDb::JsonDbListModel::rowCount
+    \qmlproperty int QtJsonDb::JsonDbListModel::rowCount
 
     Returns the number of rows in the model.
 */
 
 /*!
-    \qmlproperty string QtAddOn.JsonDb::JsonDbListModel::query
+    \qmlproperty string QtJsonDb::JsonDbListModel::query
 
-    Returns the model's query.
+    The query string in JsonQuery format used by the model to fetch
+    items from the database.
+
+    In the following example, the model would contain all
+    the objects with \a _type contains the value \a "CONTACT" from partition
+    called "com.nokia.shared"
+
+    \qml
+    JsonDb.JsonDbListModel {
+        id: listModel
+        query: "[?_type=\"CONTACT\"]"
+        partition:JsonDb.Partiton {
+            name:"com.nokia.shared"
+        }
+    }
+    \endqml
 */
 
 JsonDbListModel::JsonDbListModel(QObject *parent)
@@ -569,9 +586,6 @@ void JsonDbListModelPrivate::createOrUpdateNotification()
     DEBUG() << notificationObjectRequestIds;
 }
 
-/*!
-  \qmlmethod QtAddOn.JsonDb::JsonDbListModel::sectionIndex(section, successCallback, errorCallback)
- */
 int JsonDbListModel::sectionIndex(const QString &section,
                                   const QJSValue &successCallback,
                                   const QJSValue &errorCallback)
@@ -591,11 +605,6 @@ int JsonDbListModel::sectionIndex(const QString &section,
     return id;
 }
 
-/*!
-  \qmlproperty int QtAddOn.JsonDb::JsonDbListModel::count
-
-  Returns the number of items in the model.
-*/
 int JsonDbListModel::count() const
 {
     Q_D(const JsonDbListModel);
@@ -773,21 +782,6 @@ void JsonDbListModel::setQuery(const QString &newQuery)
     d->populateModel();
 }
 
-/*!
-  \qmlproperty string QtAddOn.JsonDb::JsonDbListModel::query
-
-  Returns the query used by the model to fetch items from the database.
-
-  In the following example, the \a JsonDbListModel would contain all the objects with \a _type contains the value \a "CONTACT"
-
-  \qml
-  JsonDbListModel {
-      id: listModel
-      query: "[?_type=\"CONTACT\"]"
-  }
-  \endqml
-
-*/
 QString JsonDbListModel::query() const
 {
     Q_D(const JsonDbListModel);
@@ -795,8 +789,18 @@ QString JsonDbListModel::query() const
 }
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbSortingListModel::partition
-     Holds the partition object for the model.
+    \qmlproperty object QtJsonDb::JsonDbListModel::partition
+
+    Holds the partition object for the model.
+    \qml
+    JsonDb.JsonDbListModel {
+        id: contacts
+        query: '[?_type="Contact"]'
+        roleNames: ["firstName", "lastName", "_uuid"]
+        partition: nokiaPartition
+    }
+
+    \endqml
 */
 
 JsonDbPartition* JsonDbListModel::partition()
@@ -844,9 +848,9 @@ void JsonDbListModel::setLimit(int newLimit)
 }
 
 /*!
-  \qmlproperty int QtAddOn.JsonDb::JsonDbListModel::limit
+  \qmlproperty int QtJsonDb::JsonDbListModel::limit
 
-  The number of items to be cached.
+  The number of items to be cached. This is not the query limit.
 */
 int JsonDbListModel::limit() const
 {
@@ -861,7 +865,7 @@ void JsonDbListModel::setChunkSize(int newChunkSize)
 }
 
 /*!
-  \qmlproperty int QtAddOn.JsonDb::JsonDbListModel::chunkSize
+  \qmlproperty int QtJsonDb::JsonDbListModel::chunkSize
 
   The number of items to fetch at a time from the database.
 
@@ -881,7 +885,7 @@ void JsonDbListModel::setLowWaterMark(int newLowWaterMark)
 }
 
 /*!
-  \qmlproperty int QtAddOn.JsonDb::JsonDbListModel::lowWaterMark
+  \qmlproperty int QtJsonDb::JsonDbListModel::lowWaterMark
 
   Controls when to fetch more items from the database.
 
@@ -897,7 +901,7 @@ int JsonDbListModel::lowWaterMark() const
 
 
 /*!
-  \qmlproperty ListOrObject QtAddOn.JsonDb::JsonDbListModel::roleNames
+  \qmlproperty ListOrObject QtJsonDb::JsonDbListModel::roleNames
 
   Controls which properties to expose from the objects matching the query.
 
@@ -906,9 +910,10 @@ int JsonDbListModel::lowWaterMark() const
   delegate for each item viewed.
 
   \code
-  JsonDbListModel {
+  JsonDb.JsonDbListModel {
     query: "[?_type=\"MyType\"]"
     roleNames: ['a', 'b']
+    partition: nokiaPartition
   }
   ListView {
       model: listModel
@@ -929,9 +934,10 @@ int JsonDbListModel::lowWaterMark() const
   function makeRoleNames() {
     return { 'a': 'aLongName', 'liftedProperty': 'nested.property' };
   }
-  JsonDbListModel {
+  JsonDb.JsonDbListModel {
     id: listModel
     query: "[?_type=\"MyType\"]"
+    partition: nokiaPartition
     roleNames: makeRoleNames()
   }
   ListView {
@@ -1209,9 +1215,12 @@ void JsonDbListModelPrivate::_q_jsonDbErrorResponse(int id, int code, const QStr
 }
 
 /*!
-    \qmlmethod QVariant JsonDbListModel::get(int idx, const QString &property) const
-    \since 1.x
+    \qmlmethod object QtJsonDb::JsonDbListModel::get(int index, string property)
+
+    Retrieves the value of the \a property for the object at \a index. If the index
+    is out of range or the property name is not valid it returns an empty object.
 */
+
 QVariant JsonDbListModel::get(int idx, const QString &property) const
 {
     int role = roleFromString(property);
