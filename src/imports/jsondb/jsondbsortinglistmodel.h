@@ -122,9 +122,12 @@ private:
     Q_DECLARE_PRIVATE(JsonDbSortingListModel)
     QScopedPointer<JsonDbSortingListModelPrivate> d_ptr;
     Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QVariant&))
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbNotified(const QString&, const QVariant&, const QString&))
     Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, int, const QString&))
     Q_PRIVATE_SLOT(d_func(), void _q_refreshModel())
+    Q_PRIVATE_SLOT(d_func(), void _q_dbNotified(QString, QtAddOn::JsonDb::JsonDbNotification))
+    Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyReadyResponse(int, QVariant))
+    Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyErrorResponse(int, int, QString))
+
 };
 
 #endif // JSONDBSORTINGLISTMODEL_H

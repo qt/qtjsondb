@@ -73,8 +73,6 @@ void JsonDbSortingListModelPrivate::init()
                q, SLOT(_q_jsonDbResponse(int,const QVariant&)));
     q->connect(&dbClient, SIGNAL(error(int,int,const QString&)),
                q, SLOT(_q_jsonDbErrorResponse(int,int,const QString&)));
-    q->connect(&dbClient, SIGNAL(notified(const QString&,const QVariant&,const QString&)),
-               q, SLOT(_q_jsonDbNotified(const QString&,const QVariant&,const QString&)));
 }
 
 JsonDbSortingListModelPrivate::~JsonDbSortingListModelPrivate()
@@ -389,9 +387,7 @@ void JsonDbSortingListModelPrivate::clearNotification(int index)
 
     RequestInfo &r = partitionObjectDetails[index];
     if (!r.notifyUuid.isEmpty()) {
-        QVariantMap notificationObject;
-        notificationObject.insert("_uuid", r.notifyUuid);
-        dbClient.remove(notificationObject, QLatin1String("com.nokia.qtjsondb.Ephemeral"));
+        dbClient.unregisterNotification(r.notifyUuid);
     }
     r.clear();
 }
@@ -404,12 +400,18 @@ void JsonDbSortingListModelPrivate::clearNotifications()
 
 void JsonDbSortingListModelPrivate::createOrUpdateNotification(int index)
 {
+    Q_Q(JsonDbSortingListModel);
     if (index >= partitionObjects.count())
         return;
     clearNotification(index);
-    partitionObjectDetails[index].notificationRequestId  = dbClient.notify(
-                JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate| JsonDbClient::NotifyRemove,
-                query, partitionObjects[index]->name());
+    JsonDbClient::NotifyTypes notifyActions = JsonDbClient::NotifyCreate
+            | JsonDbClient::NotifyUpdate| JsonDbClient::NotifyRemove;
+    partitionObjectDetails[index].notifyUuid= dbClient.registerNotification(
+                notifyActions , query, partitionObjects[index]->name(),
+                q, SLOT(_q_dbNotified(QString,QtAddOn::JsonDb::JsonDbNotification)),
+                q, SLOT(_q_dbNotifyReadyResponse(int,QVariant)),
+                SLOT(_q_dbNotifyErrorResponse(int,int,QString)));
+
 }
 
 void JsonDbSortingListModelPrivate::createOrUpdateNotifications()
@@ -443,15 +445,6 @@ int JsonDbSortingListModelPrivate::indexOfrequestId(int requestId)
 {
     for (int i = 0; i<partitionObjectDetails.count(); i++) {
         if (requestId == partitionObjectDetails[i].requestId)
-            return i;
-    }
-    return -1;
-}
-
-int JsonDbSortingListModelPrivate::indexOfNotifyRequestId(int notifyRequestId)
-{
-    for (int i = 0; i<partitionObjectDetails.count(); i++) {
-        if (notifyRequestId == partitionObjectDetails[i].notificationRequestId)
             return i;
     }
     return -1;
@@ -518,53 +511,28 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
     return item;
 }
 
-void JsonDbSortingListModelPrivate::sendNotifications(const QString& currentNotifyUuid, const QVariant &v, const QString &action)
+void JsonDbSortingListModelPrivate::sendNotifications(const QString& currentNotifyUuid, const QVariant &v, JsonDbClient::NotifyType action)
 {
-    int idx = -1;
-    if ((idx = indexOfNotifyUUID(currentNotifyUuid)) == -1) {
+    int idx = indexOfNotifyUUID(currentNotifyUuid);
+    if (idx == -1)
         return;
-    }
+
     const QVariantMap &item = v.toMap();
-    if (action == JsonDbString::kCreateStr) {
+    if (action == JsonDbClient::NotifyCreate) {
         addItem(item, idx);
-        return ;
-    } else if (action == JsonDbString::kRemoveStr) {
+    } else if (action == JsonDbClient::NotifyRemove) {
         deleteItem(item, idx);
-        return ;
-    } else if (action == JsonDbString::kUpdateStr) {
+    } else if (action == JsonDbClient::NotifyUpdate) {
         updateItem(item, idx);
-        return ;
     }
 }
 
 void JsonDbSortingListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
 {
-    int idx = -1;
-    if ((idx = indexOfrequestId(id)) != -1) {
+    int idx = indexOfrequestId(id);
+    if (idx != -1) {
         partitionObjectDetails[idx].requestId = -1;
         fillData(v, idx);
-    } else if ((idx = indexOfNotifyRequestId(id)) != -1) {
-        partitionObjectDetails[idx].notificationRequestId = -1;
-        QVariantMap o = v.toMap();
-        partitionObjectDetails[idx].notifyUuid = o.value(JsonDbString::kUuidStr).toString();
-    }
-}
-
-void JsonDbSortingListModelPrivate::_q_jsonDbNotified(const QString& currentNotifyUuid, const QVariant &v, const QString &action)
-{
-    int idx = -1;
-    if ((idx = indexOfNotifyUUID(currentNotifyUuid)) == -1) {
-        return;
-    }
-    if (state == JsonDbSortingListModel::Querying) {
-        NotifyItem  pending;
-        pending.notifyUuid = currentNotifyUuid;
-        pending.item = v;
-        pending.action = action;
-        pendingNotifications.append(pending);
-        return;
-    } else if (state == JsonDbSortingListModel::Ready) {
-        sendNotifications(currentNotifyUuid, v, action);
     }
 }
 
@@ -581,6 +549,29 @@ void JsonDbSortingListModelPrivate::_q_refreshModel()
 {
     // ignore active requests.
     fetchModel(false);
+}
+
+void JsonDbSortingListModelPrivate::_q_dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification)
+{
+    if (state == JsonDbSortingListModel::Querying) {
+        NotifyItem  pending;
+        pending.notifyUuid = notify_uuid;
+        pending.item = _notification.object();
+        pending.action = _notification.action();
+        pendingNotifications.append(pending);
+    } else if (state == JsonDbSortingListModel::Ready) {
+        sendNotifications(notify_uuid, _notification.object(), _notification.action());
+    }
+}
+
+void JsonDbSortingListModelPrivate::_q_dbNotifyReadyResponse(int /* id */, const QVariant &/* result */)
+{
+}
+
+void JsonDbSortingListModelPrivate::_q_dbNotifyErrorResponse(int id, int code, const QString &message)
+{
+    Q_UNUSED(id);
+    qWarning() << QString("JsonDbSortingList Notification error: %1 %2").arg(code).arg(message);
 }
 
 void JsonDbSortingListModelPrivate::partitions_append(QDeclarativeListProperty<JsonDbPartition> *p, JsonDbPartition *v)

@@ -64,7 +64,7 @@ struct CallbackInfo {
 struct NotifyItem {
     QString  notifyUuid;
     QVariant item;
-    QString action;
+    JsonDbClient::NotifyType action;
 };
 
 class SortingKeyPrivate;
@@ -85,7 +85,6 @@ struct RequestInfo
 {
     int requestId;
     int lastOffset;
-    int notificationRequestId;
     QString notifyUuid;
     int lastSize;
 
@@ -94,7 +93,6 @@ struct RequestInfo
     {
         requestId = -1;
         lastOffset = 0;
-        notificationRequestId = -1;
         lastSize = -1;
         notifyUuid.clear();
     }
@@ -161,7 +159,6 @@ public:
     void parseSortOrder();
 
     int indexOfrequestId(int requestId);
-    int indexOfNotifyRequestId(int notifyRequestId);
     int indexOfNotifyUUID(const QString& notifyUuid);
 
     QVariant getItem(int index);
@@ -171,13 +168,15 @@ public:
     void set(int index, const QJSValue& valuemap,
                                      const QJSValue &successCallback,
                                      const QJSValue &errorCallback);
-    void sendNotifications(const QString&, const QVariant &, const QString &);
+    void sendNotifications(const QString&, const QVariant &, JsonDbClient::NotifyType);
 
     // private slots
     void _q_jsonDbResponse(int , const QVariant &);
-    void _q_jsonDbNotified(const QString&, const QVariant &, const QString &);
     void _q_jsonDbErrorResponse(int , int, const QString&);
     void _q_refreshModel();
+    void _q_dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification);
+    void _q_dbNotifyReadyResponse(int id, const QVariant &result);
+    void _q_dbNotifyErrorResponse(int id, int code, const QString &message);
 
     static void partitions_append(QDeclarativeListProperty<JsonDbPartition> *p, JsonDbPartition *v);
     static int partitions_count(QDeclarativeListProperty<JsonDbPartition> *p);
