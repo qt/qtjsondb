@@ -39,8 +39,9 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDBSORTINGLISTMODEL_P_H
-#define JSONDBSORTINGLISTMODEL_P_H
+
+#ifndef JSONDBCACHINGLISTMODEL_P_H
+#define JSONDBCACHINGLISTMODEL_P_H
 
 #include <QHash>
 #include <QMultiMap>
@@ -51,27 +52,46 @@
 #include <QUuid>
 
 #include "jsondb-client.h"
-#include "private/jsondb-connection_p.h"
 #include "jsondbmodelutils.h"
+#include "jsondbmodelcache.h"
 
-QT_USE_NAMESPACE_JSONDB
+Q_USE_JSONDB_NAMESPACE
 
-class JsonDbSortingListModelPrivate
+struct JsonDbModelIndexNSize
 {
-    Q_DECLARE_PUBLIC(JsonDbSortingListModel)
+    int index;
+    int count;
+
+    JsonDbModelIndexNSize() { clear();}
+    void clear()
+    {
+        index = -1;
+        count = 0;
+    }
+};
+
+class JsonDbCachingListModelPrivate
+{
+    Q_DECLARE_PUBLIC(JsonDbCachingListModel)
 public:
-    JsonDbSortingListModel *q_ptr;
+    JsonDbCachingListModel *q_ptr;
 
     QList<RequestInfo> partitionObjectDetails;
     QList<QPointer<JsonDbPartition> >partitionObjects;
 
     bool componentComplete;
     bool resetModel;
-    bool overflow;
+    int lowWaterMark;
 
-    QHash<QString, QVariantMap> objects; // uuid -> object
-    QMap<SortingKey, QString> objectUuids; // sortvalue -> uuid
+    JsonDbModelIndexNSize currentCacheRequest;
+    ModelCache objectCache;
+
+    JsonDbModelObjectType tmpObjects; // uuid -> object
+    JsonDbModelIndexType objectUuids; // sortvalue -> uuid
     QMap<QString, SortingKey> objectSortValues; // uuid -> sortvalue
+
+    QList<RequestInfo> partitionKeyRequestDetails;
+    QList<JsonDbModelIndexType> partitionObjectUuids;
 
     QList<bool> ascendingOrders;
     QStringList orderProperties;
@@ -80,61 +100,86 @@ public:
     QString query;
     QVariant queryOptions;
     QString sortOrder;
+    QString queryForSortKeys;
+    QString queryForIndexSpec;
+    QList<IndexInfo> partitionIndexDetails;
 
-    int limit;
+    int cacheSize;
     int chunkSize;
     QVariantMap roleMap;
     QHash<int, QByteArray> roleNames;
 
     QHash<int, QStringList> properties;
     QList<NotifyItem> pendingNotifications;
+    QList<int> cacheMiss;
+    QMap<int, QJSValue> getCallbacks;
+    QList< QPair<int,int> > requestQueue;
 
-    JsonDbSortingListModel::State state;
+    JsonDbCachingListModel::State state;
     JsonDbClient dbClient;
     QModelIndex parent;
+    int errorCode;
+    QString errorString;
 
 public:
-    JsonDbSortingListModelPrivate(JsonDbSortingListModel *q);
-    ~JsonDbSortingListModelPrivate();
+    JsonDbCachingListModelPrivate(JsonDbCachingListModel *q);
+    ~JsonDbCachingListModelPrivate();
     void init();
+    void setCacheParams(int maxItems);
+
+    void createObjectRequests(int startIndex, int maxItems);
+    void clearCache();
 
     void removeLastItem();
     void addItem(const QVariantMap &item, int partitionIndex);
     void deleteItem(const QVariantMap &item, int partitionIndex);
     void updateItem(const QVariantMap &item, int partitionIndex);
+    void fillKeys(const QVariant &v, int partitionIndex);
     void fillData(const QVariant &v, int partitionIndex);
-    void sortObjects();
     void reset();
+    void emitDataChanged(int from, int to);
 
-    void fetchPartition(int index);
+    bool checkForDefaultIndexTypes(int index);
+    void fetchIndexSpec(int index);
+    void fetchPartitionKeys(int index);
+    void initializeModel(bool reset = true);
     void fetchModel(bool reset = true);
+    void fetchNextKeyChunk(int partitionIndex);
     void fetchNextChunk(int partitionIndex);
+    void prefetchNearbyPages(int currentIndex);
+    void addIndexToQueue(int index);
+    void requestPageContaining(int index);
 
     void clearNotification(int index);
     void clearNotifications();
     void createOrUpdateNotification(int index);
     void createOrUpdateNotifications();
     void parseSortOrder();
+    void setQueryForSortKeys();
+    void verifyIndexSpec(const QVariant &v, int partitionIndex);
 
-    int indexOfrequestId(int requestId);
+    int indexOfKeyRequestId(int requestId);
+    int indexOfRequestId(int requestId);
     int indexOfNotifyUUID(const QString& notifyUuid);
+    int indexOfKeyIndexSpecId(int requestId);
 
     QVariant getItem(int index);
     QVariant getItem(int index, int role);
+    void queueGetCallback(int index, const QJSValue &callback);
+    void callGetCallback(int index, QJSValue callback);
     JsonDbPartition* getItemPartition(int index);
     int indexOf(const QString &uuid) const;
     void set(int index, const QJSValue& valuemap,
-                                     const QJSValue &successCallback,
-                                     const QJSValue &errorCallback);
-    void sendNotifications(const QString&, const QVariant &, JsonDbClient::NotifyType);
-
+             const QJSValue &successCallback,
+             const QJSValue &errorCallback);
+    void sendNotifications(const QString& currentNotifyUuid, const QVariant &v, JsonDbClient::NotifyType action);
     // private slots
     void _q_jsonDbResponse(int , const QVariant &);
     void _q_jsonDbErrorResponse(int , int, const QString&);
-    void _q_refreshModel();
     void _q_dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification);
     void _q_dbNotifyReadyResponse(int id, const QVariant &result);
     void _q_dbNotifyErrorResponse(int id, int code, const QString &message);
+    void _q_verifyDefaultIndexType(int index);
 
     static void partitions_append(QDeclarativeListProperty<JsonDbPartition> *p, JsonDbPartition *v);
     static int partitions_count(QDeclarativeListProperty<JsonDbPartition> *p);
@@ -143,4 +188,4 @@ public:
 
 };
 
-#endif // JSONDBSORTINGLISTMODEL_P_H
+#endif // JSONDBCACHINGLISTMODEL_P_H

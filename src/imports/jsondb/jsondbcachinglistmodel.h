@@ -39,8 +39,9 @@
 **
 ****************************************************************************/
 
-#ifndef JsonDbListModel_H
-#define JsonDbListModel_H
+
+#ifndef JSONDBCACHINGLISTMODEL_H
+#define JSONDBCACHINGLISTMODEL_H
 
 #include <QAbstractListModel>
 #include <QHash>
@@ -49,112 +50,88 @@
 #include <QSharedDataPointer>
 #include <QStringList>
 #include <QDeclarativeParserStatus>
+#include <QDeclarativeListProperty>
 #include <QJSValue>
 #include <QScopedPointer>
 
 #include "jsondb-global.h"
 #include "jsondbpartition.h"
 
-QT_USE_NAMESPACE_JSONDB
+namespace QtAddOn { namespace JsonDb {
+class QsonObject;
+class QsonMap;
+} } // end namespace QtAddOn::JsonDb
 
-class JsonDbSortKeyPrivate;
-class JsonDbSortKey {
-public:
-    JsonDbSortKey();
-    JsonDbSortKey(const QVariantMap &object, const QStringList &directions, const QList<QStringList> &paths);
-    JsonDbSortKey(const JsonDbSortKey&);
-
-    const QVariantList &keys() const;
-    const QStringList &directions() const;
-    QString toString() const;
-private:
-    QSharedDataPointer<JsonDbSortKeyPrivate> d;
-};
-bool operator <(const JsonDbSortKey &a, const JsonDbSortKey &b);
-
-class JsonDbListModelPrivate;
+class JsonDbCachingListModelPrivate;
 class JsonDbPartition;
 
-class JsonDbListModel : public QAbstractListModel, public QDeclarativeParserStatus
+class JsonDbCachingListModel : public QAbstractListModel, public QDeclarativeParserStatus
 {
     Q_OBJECT
     Q_INTERFACES(QDeclarativeParserStatus)
+    Q_ENUMS(State)
 public:
-    JsonDbListModel(QObject *parent = 0);
-    virtual ~JsonDbListModel();
+    enum State { None, Querying, Ready, Error };
 
-    Q_PROPERTY(QString state READ state NOTIFY stateChanged)
+    JsonDbCachingListModel(QObject *parent = 0);
+    virtual ~JsonDbCachingListModel();
+
+    Q_PROPERTY(State state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString query READ query WRITE setQuery)
-    Q_PROPERTY(int count READ count NOTIFY countChanged)
+    Q_PROPERTY(QString sortOrder READ sortOrder WRITE setSortOrder)
     Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
-    Q_PROPERTY(int limit READ limit WRITE setLimit)
-    Q_PROPERTY(int chunkSize READ chunkSize WRITE setChunkSize)
-    Q_PROPERTY(int lowWaterMark READ lowWaterMark WRITE setLowWaterMark)
     Q_PROPERTY(QVariant roleNames READ scriptableRoleNames WRITE setScriptableRoleNames)
-    Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
+    Q_PROPERTY(int cacheSize READ cacheSize WRITE setCacheSize)
+    Q_PROPERTY(QDeclarativeListProperty<JsonDbPartition> partitions READ partitions)
+    Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
 
     virtual void classBegin();
     virtual void componentComplete();
-    virtual int count() const;
-    virtual QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
+
     virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
-
     virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
-
-    virtual void fetchMore(const QModelIndex &parent);
-    virtual bool canFetchMore(const QModelIndex &parent) const;
 
     QVariant scriptableRoleNames() const;
     void setScriptableRoleNames(const QVariant &roles);
 
-    QString state() const;
-
-    virtual QString toString(int role) const;
-    int roleFromString(const QString &roleName) const;
-
     QString query() const;
     void setQuery(const QString &newQuery);
 
-    JsonDbPartition* partition();
-    void setPartition(JsonDbPartition *newPartiton);
+    QDeclarativeListProperty<JsonDbPartition> partitions();
 
-    void setLimit(int newLimit);
-    int limit() const;
+    int cacheSize() const;
+    void setCacheSize(int newCacheSize);
 
-    void setChunkSize(int newChunkSize);
-    int chunkSize() const;
+    QString sortOrder() const;
+    void setSortOrder(const QString &newSortOrder);
 
-    void setLowWaterMark(int newLowWaterMark);
-    int lowWaterMark() const;
 
-    Q_INVOKABLE QVariant get(int idx, const QString &property) const;
-    Q_INVOKABLE void set(int index, const QJSValue &valuemap,
-                         const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
-                         const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
-    Q_INVOKABLE void setProperty(int index, const QString &property, const QVariant &value,
-                                 const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
-                                 const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
-    Q_INVOKABLE int sectionIndex(const QString &section, const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
-                                  const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
+    JsonDbCachingListModel::State state() const;
+
+    Q_INVOKABLE int indexOf(const QString &uuid) const;
+    Q_INVOKABLE void get(int index, const QJSValue &callback);
+    Q_INVOKABLE JsonDbPartition* getPartition(int index) const;
+    QVariantMap error() const;
 
 signals:
-    void stateChanged() const;
-    void countChanged() const;
-    void rowCountChanged() const;
+    void stateChanged(State state) const;
+    void rowCountChanged(int newCount) const;
+    void errorChanged(QVariantMap newError);
 
 private Q_SLOTS:
     void partitionNameChanged(const QString &partitionName);
 
 private:
-    Q_DISABLE_COPY(JsonDbListModel)
-    Q_DECLARE_PRIVATE(JsonDbListModel)
-    QScopedPointer<JsonDbListModelPrivate> d_ptr;
+    Q_DISABLE_COPY(JsonDbCachingListModel)
+    Q_DECLARE_PRIVATE(JsonDbCachingListModel)
+    QScopedPointer<JsonDbCachingListModelPrivate> d_ptr;
     Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QVariant&))
     Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, int, const QString&))
-    Q_PRIVATE_SLOT(d_func(), void _q_requestAnotherChunk(int))
     Q_PRIVATE_SLOT(d_func(), void _q_dbNotified(QString, QtAddOn::JsonDb::JsonDbNotification))
     Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyReadyResponse(int, QVariant))
     Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyErrorResponse(int, int, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_verifyDefaultIndexType(int))
 
 };
-#endif
+
+#endif // JSONDBCACHINGLISTMODEL_H

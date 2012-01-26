@@ -27,7 +27,11 @@ HEADERS += \
     plugin.h \
     jsondatabase.h \
     jsondbqueryobject.h \
-    jsondbchangessinceobject.h
+    jsondbchangessinceobject.h \
+    jsondbmodelcache.h \
+    jsondbcachinglistmodel_p.h \
+    jsondbcachinglistmodel.h \
+    jsondbmodelutils.h
 
 HEADERS += $$QSONCONVERSION_HEADERS
 
@@ -39,6 +43,9 @@ SOURCES += \
     plugin.cpp \
     jsondatabase.cpp \
     jsondbqueryobject.cpp \
-    jsondbchangessinceobject.cpp
+    jsondbchangessinceobject.cpp \
+    jsondbcachinglistmodel.cpp \
+    jsondbmodelcache.cpp \
+    jsondbmodelutils.cpp
 
 SOURCES += $$QSONCONVERSION_SOURCES

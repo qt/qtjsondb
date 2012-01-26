@@ -88,17 +88,13 @@ void JsonDbListModelPrivate::init()
                q, SLOT(_q_jsonDbResponse(int,const QVariant&)));
     q->connect(&jsonDb, SIGNAL(error(int,int,const QString&)),
                q, SLOT(_q_jsonDbErrorResponse(int,int,const QString&)));
-    q->connect(&jsonDb, SIGNAL(notified(const QString&,const QVariant&,const QString&)),
-               q, SLOT(_q_jsonDbNotified(const QString&,const QVariant&,const QString&)));
 }
 
 JsonDbListModelPrivate::~JsonDbListModelPrivate()
 {
     // Why do we need to do this while destroying the object
     if (!notifyUuid.isEmpty()) {
-        QVariantMap notificationObject;
-        notificationObject.insert("_uuid", notifyUuid);
-        jsonDb.remove(notificationObject, QLatin1String("com.nokia.qtjsondb.Ephemeral"));
+        jsonDb.unregisterNotification(notifyUuid);
     }
 }
 
@@ -414,58 +410,6 @@ QVariantMap JsonDbListModelPrivate::getItem(const QModelIndex &modelIndex, int r
     return getItem(modelIndex.row(), handleCacheMiss, cacheMiss);
 }
 
-QVariant lookupProperty(QVariantMap object, const QStringList &path)
-{
-    if (!path.size()) {
-        return QVariant();
-    }
-    QVariantMap emptyMap;
-    QVariantList emptyList;
-    QVariantList objectList;
-    for (int i = 0; i < path.size() - 1; i++) {
-        const QString &key = path.at(i);
-        // this part of the property is a list
-        if (!objectList.isEmpty()) {
-            bool ok = false;
-            int index = key.toInt(&ok);
-            if (ok && (index >= 0) && (objectList.count() > index)) {
-                if (objectList.at(index).type() == QVariant::List) {
-                    objectList = objectList.at(index).toList();
-                    object = emptyMap;
-                } else  {
-                    object = objectList.at(index).toMap();
-                    objectList = emptyList;
-                }
-                continue;
-            }
-        }
-        // this part is a map
-        if (object.contains(key)) {
-            if (object.value(key).type() == QVariant::List) {
-                objectList = object.value(key).toList();
-                object = emptyMap;
-            } else  {
-                object = object.value(key).toMap();
-                objectList = emptyList;
-            }
-        } else {
-            return QVariant();
-        }
-    }
-    const QString &key = path.last();
-    // get the last part from the list
-    if (!objectList.isEmpty()) {
-        bool ok = false;
-        int index = key.toInt(&ok);
-        if (ok && (index >= 0) && (objectList.count() > index)) {
-            return objectList.at(index);
-        }
-    }
-    // if the last part is in a map
-    return object.value(key);
-}
-
-
 static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyChain, QVariant value)
 {
     if (propertyChain.size() < 1) {
@@ -572,18 +516,22 @@ void JsonDbListModel::componentComplete()
 
 void JsonDbListModelPrivate::createOrUpdateNotification()
 {
+    Q_Q(JsonDbListModel);
+
     if (!notifyUuid.isEmpty()) {
-        QVariantMap notificationObject;
-        notificationObject.insert("_uuid", notifyUuid);
-        jsonDb.remove(notificationObject, QLatin1String("com.nokia.qtjsondb.Ephemeral"));
+        jsonDb.unregisterNotification(notifyUuid);
         notifyUuid.clear();
     }
 
-    int id = jsonDb.notify(
-                JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate| JsonDbClient::NotifyRemove,
-                query, partitionObject->name());
-    notificationObjectRequestIds.insert(id);
-    DEBUG() << notificationObjectRequestIds;
+    JsonDbClient::NotifyTypes notifyActions = JsonDbClient::NotifyCreate
+            | JsonDbClient::NotifyUpdate| JsonDbClient::NotifyRemove;
+
+    notifyUuid = jsonDb.registerNotification(
+                notifyActions , query, partitionObject->name(),
+                q, SLOT(_q_dbNotified(QString,QtAddOn::JsonDb::JsonDbNotification)),
+                q, SLOT(_q_dbNotifyReadyResponse(int,QVariant)),
+                SLOT(_q_dbNotifyErrorResponse(int,int,QString)));
+
 }
 
 int JsonDbListModel::sectionIndex(const QString &section,
@@ -956,13 +904,6 @@ QVariant JsonDbListModel::scriptableRoleNames() const
     return d->roleMap;
 }
 
-QString removeArrayOperator(QString propertyName)
-{
-    propertyName.replace(QLatin1String("["), QLatin1String("."));
-    propertyName.remove(QLatin1Char(']'));
-    return propertyName;
-}
-
 void JsonDbListModel::setScriptableRoleNames(const QVariant &vroles)
 {
     Q_D(JsonDbListModel);
@@ -1084,10 +1025,6 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
         totalRowCountRecieved = true;
         if (updateRecieved)
             resetModelFinished();
-    } else if (notificationObjectRequestIds.contains(id)) {
-        notificationObjectRequestIds.remove(id);
-        QVariantMap o = v.toMap();
-        notifyUuid = o.value(JsonDbString::kUuidStr).toString();
     } else if (updateRequestIds.constFind(id) != updateRequestIds.constEnd()) {
         CallbackInfo info = updateRequestIds.value(id);
         if (info.successCallback.isCallable()) {
@@ -1167,33 +1104,44 @@ bool JsonDbListModelPrivate::findSortOrder()
     return true;
 }
 
-void JsonDbListModelPrivate::_q_jsonDbNotified(const QString& currentNotifyUuid, const QVariant &v, const QString &action)
+void JsonDbListModelPrivate::_q_dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification)
 {
-    if (currentNotifyUuid != notifyUuid) {
+    if (notify_uuid != notifyUuid) {
         return;
     }
     if (resetModel) {
-        // we have not received the first chunk, wait for it before processing notifications
         NotifyItem  pending;
-        pending.notifyUuid = currentNotifyUuid;
-        pending.item = v;
-        pending.action = action;
+        pending.notifyUuid = notify_uuid;
+        pending.item = _notification.object();
+        pending.action = _notification.action();
         pendingNotifications.append(pending);
-        return;
+    } else {
+        sendNotifications(_notification.object(), _notification.action());
     }
-    const QVariantMap &item = v.toMap();
-    if (action == JsonDbString::kCreateStr) {
-        insertItem(item);
-        return ;
-    } else if (action == JsonDbString::kRemoveStr) {
-        deleteItem(item);
-        return ;
-    } else if (action == JsonDbString::kUpdateStr) {
-        updateItem(item);
-        return ;
-    }
-
 }
+
+void JsonDbListModelPrivate::sendNotifications(const QVariant &v, JsonDbClient::NotifyType action)
+{
+    const QVariantMap &item = v.toMap();
+    if (action == JsonDbClient::NotifyCreate) {
+        insertItem(item);
+    } else if (action == JsonDbClient::NotifyRemove) {
+        deleteItem(item);
+    } else if (action == JsonDbClient::NotifyUpdate) {
+        updateItem(item);
+    }
+}
+
+void JsonDbListModelPrivate::_q_dbNotifyReadyResponse(int /* id */, const QVariant &/* result */)
+{
+}
+
+void JsonDbListModelPrivate::_q_dbNotifyErrorResponse(int id, int code, const QString &message)
+{
+    Q_UNUSED(id);
+    qWarning() << QString("JsonDbListModel Notification error: %1 %2").arg(code).arg(message);
+}
+
 
 void JsonDbListModelPrivate::_q_jsonDbErrorResponse(int id, int code, const QString &message)
 {

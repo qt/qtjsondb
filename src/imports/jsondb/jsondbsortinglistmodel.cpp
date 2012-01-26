@@ -52,9 +52,6 @@
   \class JsonDbSortingListModel
 */
 
-QVariant lookupProperty(QVariantMap object, const QStringList &path);
-QString removeArrayOperator(QString propertyName);
-
 JsonDbSortingListModelPrivate::JsonDbSortingListModelPrivate(JsonDbSortingListModel *q)
     : q_ptr(q)
     , componentComplete(false)
@@ -79,13 +76,6 @@ JsonDbSortingListModelPrivate::~JsonDbSortingListModelPrivate()
 {
     // Why do we need to do this while destroying the object
     clearNotifications();
-}
-
-template <typename T> int iterator_position(T &begin, T &end, T &value)
-{
-    int i = 0;
-    for (T itr = begin;(itr != end && itr != value); i++, itr++) {}
-    return i;
 }
 
 void JsonDbSortingListModelPrivate::removeLastItem()
@@ -557,7 +547,7 @@ void JsonDbSortingListModelPrivate::_q_dbNotifyReadyResponse(int /* id */, const
 void JsonDbSortingListModelPrivate::_q_dbNotifyErrorResponse(int id, int code, const QString &message)
 {
     Q_UNUSED(id);
-    qWarning() << QString("JsonDbSortingList Notification error: %1 %2").arg(code).arg(message);
+    qWarning() << QString("JsonDbSortingListModel Notification error: %1 %2").arg(code).arg(message);
 }
 
 void JsonDbSortingListModelPrivate::partitions_append(QDeclarativeListProperty<JsonDbPartition> *p, JsonDbPartition *v)
@@ -917,7 +907,7 @@ QDeclarativeListProperty<JsonDbPartition> JsonDbSortingListModel::partitions()
     \qmlproperty string QtJsonDb::JsonDbSortingListModel::sortOrder
 
     The order used by the model to sort the items. The sortOrder has to be
-    specided in the JsonQuery format. The sorting is done by the model and not
+    specified in the JsonQuery format. The sorting is done by the model and not
     by the database. This makes it possible to support multiple sortkeys.
     When a qyeryLimit is set and the query result contains more items than the
     the limit (an overflow), the model will discard the rest of the items. The
@@ -1052,62 +1042,5 @@ JsonDbPartition* JsonDbSortingListModel::getPartition(int index) const
 
     This handler is called when the number of items in the model has changed.
 */
-
-SortingKey::SortingKey(int partitionIndex, const QVariantMap &object, const QList<bool> &directions, const QList<QStringList> &paths)
-{
-    QVariantList values;
-    for (int i = 0; i < paths.size(); i++)
-        values.append(lookupProperty(object, paths[i]));
-    d = new SortingKeyPrivate(partitionIndex, QUuid(object[QLatin1String("_uuid")].toString()), directions, values);
-
-}
-
-SortingKey::SortingKey(const SortingKey &other)
-    :d(other.d)
-{
-}
-
-int SortingKey::partitionIndex() const
-{
-    return d->partitionIndex;
-}
-
-static bool operator<(const QVariant& lhs, const QVariant& rhs)
-{
-    if ((lhs.type() == QVariant::Int) && (rhs.type() == QVariant::Int))
-        return lhs.toInt() < rhs.toInt();
-    else if ((lhs.type() == QVariant::LongLong) && (rhs.type() == QVariant::LongLong))
-        return lhs.toLongLong() < rhs.toLongLong();
-    else if ((lhs.type() == QVariant::Double) && (rhs.type() == QVariant::Double))
-        return lhs.toFloat() < rhs.toFloat();
-    return (QString::compare(lhs.toString(), rhs.toString(), Qt::CaseInsensitive ) < 0);
-}
-
-bool SortingKey::operator <(const SortingKey &rhs) const
-{
-    for (int i = 0; i < d->values.size(); i++) {
-        const QVariant &lhsValue = d->values[i];
-        const QVariant &rhsValue = rhs.d->values[i];
-        if (lhsValue != rhsValue) {
-            bool result = lhsValue < rhsValue;
-            return (d->directions[i] ? result :!result);
-        }
-    }
-    return (d->uuid < rhs.d->uuid);
-}
-
-bool SortingKey::operator ==(const SortingKey &rhs) const
-{
-    bool equal = true;
-    for (int i = 0; i < d->values.size(); i++) {
-        const QVariant &lhsValue = d->values[i];
-        const QVariant &rhsValue = rhs.d->values[i];
-        if (lhsValue != rhsValue) {
-            equal = false;
-            break;
-        }
-    }
-    return (equal && (d->uuid == rhs.d->uuid));
-}
 
 #include "moc_jsondbsortinglistmodel.cpp"

@@ -48,6 +48,7 @@
 #include "jsondbnotification.h"
 #include "jsondbqueryobject.h"
 #include "jsondbchangessinceobject.h"
+#include "jsondbcachinglistmodel.h"
 
 Q_EXPORT_PLUGIN2(jsondbplugin, JsonDbPlugin)
 QDeclarativeEngine *g_declEngine = 0;
@@ -77,4 +78,5 @@ void JsonDbPlugin::registerTypes(const char *uri)
     qmlRegisterType<JsonDbNotify>(uri, 1, 0, "Notification");
     qmlRegisterType<JsonDbQueryObject>(uri, 1, 0, "Query");
     qmlRegisterType<JsonDbChangesSinceObject>(uri, 1, 0, "ChangesSince");
+    qmlRegisterType<JsonDbCachingListModel>(uri, 1, 0, "JsonDbCachingListModel");
 }

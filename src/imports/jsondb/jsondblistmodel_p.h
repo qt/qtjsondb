@@ -51,20 +51,9 @@
 
 #include "jsondb-client.h"
 #include "private/jsondb-connection_p.h"
+#include "jsondbmodelutils.h"
 
 QT_USE_NAMESPACE_JSONDB
-
-struct CallbackInfo {
-    int index;
-    QJSValue successCallback;
-    QJSValue errorCallback;
-};
-
-struct NotifyItem {
-    QString  notifyUuid;
-    QVariant item;
-    QString action;
-};
 
 class JsonDbListModelPrivate
 {
@@ -84,7 +73,6 @@ public:
     int newChunkOffset;
 
     QSet<int> requestIds;
-    QSet<int> notificationObjectRequestIds;
     QMap<int, CallbackInfo> updateRequestIds;
     QMap<int, CallbackInfo> sectionIndexRequestIds;
     int totalCountRequestId;
@@ -155,6 +143,11 @@ public:
     void _q_jsonDbErrorResponse(int , int, const QString&);
 
     void _q_requestAnotherChunk(int offset);
+    void _q_dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification);
+    void _q_dbNotifyReadyResponse(int /* id */, const QVariant &/* result */);
+    void _q_dbNotifyErrorResponse(int id, int code, const QString &message);
+
+    void sendNotifications(const QVariant &v, JsonDbClient::NotifyType action);
 
     void populateModel();
     void createOrUpdateNotification();
