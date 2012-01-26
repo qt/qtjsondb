@@ -103,7 +103,7 @@ public:
     void setSortOrder(const QString &newSortOrder);
 
 
-    Q_INVOKABLE  JsonDbSortingListModel::State state() const;
+    JsonDbSortingListModel::State state() const;
 
     Q_INVOKABLE int indexOf(const QString &uuid) const;
     Q_INVOKABLE QJSValue get(int index) const;
