@@ -64,7 +64,6 @@ Item {
     function partitionCreateCallback(error, response) {
         if (error) {
             console.log(JSON.stringify(error));
-            return;
         }
         console.log("Partition Created id = "+response.id +" count = "+response.items.length);
         for (var i = 0; i < response.items.length; i++) {
