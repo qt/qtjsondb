@@ -33,6 +33,7 @@ public:
     const QString errorMessage() const;
 
     quint32 tag() const { return mTag; }
+    bool isReadOnly() const { return mIsRead; }
 
 private:
     friend class QManagedBtree;
@@ -42,6 +43,7 @@ private:
     QBtreeTxn *mTxn;
     QManagedBtree *mBtree;
     quint32 mTag;
+    bool mIsRead;
 
     typedef void (QManagedBtreeTxn::*SafeBool)() const;
     void noBoolComparisons () const {}

@@ -131,7 +131,7 @@ void QManagedBtree::abort(QManagedBtreeTxn *txn)
 {
     Q_ASSERT(txn);
     QBtreeTxn *btxn = 0;
-    if (txn->txn()->isReadOnly()) {
+    if (txn->isReadOnly()) {
         RefedTxnMap::iterator it = mReaders.find(txn->tag());
         Q_ASSERT(it != mReaders.end());
         if (it.value().clients.size() > 1) // more readers present, just remove this one
@@ -152,7 +152,7 @@ void QManagedBtree::remove(QManagedBtreeTxn *txn)
 {
     // Internal btree txn should be either commited or aborted at this point
     // If it's not then it's just QManagedBtreeTxn's dtor being a tease.
-    if (txn->txn()->isReadWrite()) {
+    if (!txn->isReadOnly()) {
         if (mWriter.txn) { // commit/abort not called
             if (mWriter.clients.size() > 1) {
                 mWriter.clients.remove(txn);

@@ -1182,7 +1182,6 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
             goto fail;
         }
 
-        bt->path = strdup(path);
         bt->fd = fd;
         bt->flags = flags;
         bt->flags &= ~BT_FIXPADDING;

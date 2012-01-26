@@ -5,7 +5,7 @@
 #include "qmanagedbtreetxn.h"
 
 QManagedBtreeTxn::QManagedBtreeTxn()
-    : mTxn(0), mBtree(0), mTag(0)
+    : mTxn(0), mBtree(0), mTag(0), mIsRead(false)
 {
 }
 
@@ -15,13 +15,13 @@ QManagedBtreeTxn::~QManagedBtreeTxn()
 }
 
 QManagedBtreeTxn::QManagedBtreeTxn(QManagedBtree *mbtree, QBtreeTxn *txn)
-    : mTxn(0), mBtree(0), mTag(0)
+    : mTxn(0), mBtree(0), mTag(0), mIsRead(false)
 {
     reset(mbtree, txn);
 }
 
 QManagedBtreeTxn::QManagedBtreeTxn(const QManagedBtreeTxn &other)
-    : mTxn(0), mBtree(0), mTag(0)
+    : mTxn(0), mBtree(0), mTag(0), mIsRead(false)
 {
     reset(other.mBtree, other.mTxn);
 }
@@ -87,6 +87,7 @@ void QManagedBtreeTxn::reset(QManagedBtree *mbtree, QBtreeTxn *txn)
         Q_ASSERT(mbtree->handle() == txn->btree()->handle());
         Q_ASSERT(txn->handle());
         mTag = txn->tag();
+        mIsRead = txn->isReadOnly();
         mbtree->add(this);
     }
 }
