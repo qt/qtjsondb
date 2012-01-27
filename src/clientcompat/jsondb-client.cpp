@@ -484,7 +484,7 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
     {
         QString queryString = QLatin1String("[?_type=\"Person\"][?name=%name]");
         QVariantMap bindings;
-        bindings.insert(QLatin1String("%name"), name);
+        bindings.insert(QLatin1String("name"), name);
         client->query(queryString, 0, -1, bindings);
     }
   \endcode
