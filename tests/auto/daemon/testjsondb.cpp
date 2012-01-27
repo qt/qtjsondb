@@ -2533,7 +2533,9 @@ void TestJsonDb::unindexedFind()
     verifyGoodResult(createResult);
 
     QJsonObject request;
-    request.insert("query", QString("[?bar=10]"));
+    // need to pass a string value for bar in the query because auto-
+    // generated indexes are always of type "string"
+    request.insert("query", QString("[?bar=\"10\"]"));
     JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
     int extraneous = 0;
     JsonDbObjectList data = queryResult.data;

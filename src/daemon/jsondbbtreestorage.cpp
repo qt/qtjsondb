@@ -1445,13 +1445,9 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         && mViews.contains(typeNames.toList()[0]))
         table = mViews[typeNames.toList()[0]];
     if (!indexedQueryTermCount && !indexCandidate.isEmpty()) {
-        if (0) {
-            if (gVerbose) qDebug() << "adding index" << indexCandidate;
+            if (gDebug)
+                qDebug() << "adding index" << indexCandidate;
             table->addIndex(indexCandidate);
-            if (gVerbose) qDebug() << "done adding index" << indexCandidate;
-        } else {
-            if (gVerbose) qDebug() << "not adding index" << indexCandidate;
-        }
     }
 
     for (int i = 0; i < orderTerms.size(); i++) {
