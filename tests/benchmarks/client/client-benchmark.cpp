@@ -48,6 +48,9 @@
 static const char dbfile[] = "dbFile-test-jsondb";
 
 int gMany = ::getenv("BENCHMARK_MANY") ? ::atoi(::getenv("BENCHMARK_MANY")) : 1000;
+bool gPerformanceLog = ::getenv("JSONDB_PERFORMANCE_LOG") ? (::memcmp(::getenv("JSONDB_PERFORMANCE_LOG"), "true", 4) == 0) : false;
+#define BENCH_BEGIN_TAG if (gPerformanceLog) qDebug() << "[QBENCH-BEGIN]"
+#define BENCH_END_TAG if (gPerformanceLog) qDebug() << "[QBENCH-END]"
 
 TestJson::TestJson()
     : mProcess(0)
@@ -162,8 +165,10 @@ void TestJson::createOneItem()
     item.insert("phone","123456789");
 
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         int id = mClient->create(item);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 }
 
@@ -171,6 +176,7 @@ void TestJson::createOneItem()
 void TestJson::createThousandItems()
 {
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         for (int i = 0; i < gMany; ++i) {
             QVariantMap item;
             item.insert("_type", "randNumber");
@@ -179,6 +185,7 @@ void TestJson::createThousandItems()
             int id = mClient->create(item);
             waitForResponse1(id);
         }
+        BENCH_END_TAG;
     }
 }
 
@@ -188,8 +195,10 @@ void TestJson::findOneItem()
     item.insert("query","[?_type=\"Friends\"][?name=\"Name-49\"]");
 
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         int id = mClient->find(item);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 
     QVariantMap mapResponse = mData.toMap();
@@ -203,8 +212,10 @@ void TestJson::findThousandItems()
     item.insert("query","[?_type=\"Friends\"]");
 
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         int id = mClient->find(item);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 
     QVariantMap mapResponse = mData.toMap();
@@ -218,8 +229,10 @@ void TestJson::findThousandItemsSorted()
     item.insert("query","[?_type=\"Friends\"][/name]");
 
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         int id = mClient->find(item);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 
     QVariantMap mapResponse = mData.toMap();
@@ -231,8 +244,10 @@ void TestJson::queryOneItem()
 {
     QString queryString("[?_type=\"Friends\"][?name=\"Name-49\"]");
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         int id = mClient->query(queryString);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 
     QVariantMap mapResponse = mData.toMap();
@@ -252,8 +267,10 @@ void TestJson::queryThousandItems()
 {
     QFETCH(QString, queryString);
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         int id = mClient->query(queryString);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 
     QVariantMap mapResponse = mData.toMap();
@@ -274,8 +291,10 @@ void TestJson::updateOneItem()
     item.insert("_uuid", mLastUuid);
 
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         int id = mClient->update(item);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 }
 
@@ -292,6 +311,7 @@ void TestJson::updateThousandItems()
     }
 
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         QString queryString("[?_type=\"updateThousandItems\"]");
         int id = mClient->query(queryString);
         waitForResponse1(id);
@@ -305,6 +325,7 @@ void TestJson::updateThousandItems()
             int id = mClient->update(mapItem);
             waitForResponse1(id);
         }
+        BENCH_END_TAG;
     }
 
     // remove those items
@@ -324,8 +345,10 @@ void TestJson::removeOneItem()
 
     item.insert("_uuid", mLastUuid);
     QBENCHMARK_ONCE {
+        BENCH_BEGIN_TAG;
         int id = mClient->remove(item);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 }
 
@@ -342,6 +365,7 @@ void TestJson::removeThousandItems()
 
     QString queryString("[?_type=\"removeThousandItems\"]");
     QBENCHMARK_ONCE {
+        BENCH_BEGIN_TAG;
         int id = mClient->query(queryString);
         waitForResponse1(id);
 
@@ -353,6 +377,7 @@ void TestJson::removeThousandItems()
             int id = mClient->remove(mapItem);
             waitForResponse1(id);
         }
+        BENCH_END_TAG;
     }
 }
 
@@ -369,8 +394,10 @@ void TestJson::removeWithQuery()
 
     QString queryString("[?_type=\"removeThousandItems\"]");
     QBENCHMARK_ONCE {
+        BENCH_BEGIN_TAG;
         int id = mClient->remove(queryString);
         waitForResponse1(id);
+        BENCH_END_TAG;
     }
 
     QVariantMap mapResponse = mData.toMap();
@@ -409,9 +436,11 @@ void TestJson::notifyUpdateOneItem()
 
     int i = 0;
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         item.insert("phone",QString("11112%1").arg(i++, 4));
         int id = mClient->update(item);
         waitForResponse4(id, -1, notifyUuid, 1);
+        BENCH_END_TAG;
     }
 
     // remove notification object
@@ -440,8 +469,10 @@ void TestJson::notifyCreateOneItem()
     item2.insert("phone","123456789");
 
     QBENCHMARK {
+        BENCH_BEGIN_TAG;
         int id = mClient->create(item2);
         waitForResponse4(id, -1, notifyUuid, 1);
+        BENCH_END_TAG;
     }
 
     // remove notification object
@@ -477,8 +508,10 @@ void TestJson::notifyRemoveOneItem()
     item.insert("_uuid", itemUuid);
 
     QBENCHMARK_ONCE {
+        BENCH_BEGIN_TAG;
         int id = mClient->remove(item);
         waitForResponse4(id, -1, notifyUuid, 1);
+        BENCH_END_TAG;
     }
 
     // remove notification object
