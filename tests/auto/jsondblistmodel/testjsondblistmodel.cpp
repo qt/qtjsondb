@@ -149,6 +149,8 @@ void TestJsonDbListModel::initTestCase()
              this, SLOT(error(int, int, const QString&)));
 
     mPluginPath = findQMLPluginPath("QtJsonDb");
+    if (mPluginPath.isEmpty())
+        qDebug() << "Couldn't find the plugin path for the plugin QtJsonDb";
 
     // Create the shared Partitions
     QVariantMap item;
@@ -164,6 +166,7 @@ QAbstractItemModel *TestJsonDbListModel::createModel()
     ModelData *newModel = new ModelData();
     newModel->engine = new QDeclarativeEngine();
     QString error;
+    Q_ASSERT(!mPluginPath.isEmpty());
     if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete newModel->engine;

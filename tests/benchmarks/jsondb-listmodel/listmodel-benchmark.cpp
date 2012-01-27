@@ -111,12 +111,12 @@ void TestListModel::initTestCase()
     QDeclarativeEngine *engine = new QDeclarativeEngine();
     QStringList pluginPaths = engine->importPathList();
     for (int i=0; (i<pluginPaths.count() && mPluginPath.isEmpty()); i++) {
-        QDir dir(pluginPaths[i]+"/QtJsonDb");
+        QDir dir(pluginPaths[i]+"/QtAddOn/JsonDb");
         dir.setFilter(QDir::Files | QDir::NoSymLinks);
         QFileInfoList list = dir.entryInfoList();
         for (int i = 0; i < list.size(); ++i) {
             QString error;
-            if (engine->importPlugin(list.at(i).absoluteFilePath(), QString("QtJsonDb"), &error)) {
+            if (engine->importPlugin(list.at(i).absoluteFilePath(), QString("QtAddOn.JsonDb"), &error)) {
                 mPluginPath = list.at(i).absoluteFilePath();
                 break;
             }
@@ -172,7 +172,7 @@ JsonDbListModel *TestListModel::createModel()
     ModelData *newModel = new ModelData();
     newModel->engine = new QDeclarativeEngine();
     QString error;
-    if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
+    if (!newModel->engine->importPlugin(mPluginPath, QString("QtAddOn.JsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete newModel->engine;
         return 0;
