@@ -2,7 +2,6 @@ TARGET = tst_daemon
 
 QT = network declarative testlib jsondbqson-private
 CONFIG -= app_bundle
-CONFIG += debug
 CONFIG += testcase
 
 INCLUDEPATH += $$PWD/../../../src/daemon

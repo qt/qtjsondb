@@ -5,7 +5,6 @@ TARGET = tst_bdb
 
 QT = network testlib
 CONFIG -= app_bundle
-CONFIG += debug
 CONFIG += testcase
 
 INCLUDEPATH += $$PWD/../../../src/daemon
