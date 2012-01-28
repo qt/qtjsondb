@@ -421,7 +421,6 @@ void TestJsonDbSortingListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("order", "99");  // move it to the end
         int id = mClient->update(item, "com.nokia.shared.2");
-        waitForResponse1(id);
     }
     waitForItemChanged();
 
@@ -438,7 +437,6 @@ void TestJsonDbSortingListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("order", "22");    // move it after "2"
         int id = mClient->update(item, "com.nokia.shared.2");
-        waitForResponse1(id);
     }
     waitForItemChanged();
 
@@ -455,7 +453,6 @@ void TestJsonDbSortingListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("order", "0");    // move it to the beginning
         int id = mClient->update(item, "com.nokia.shared.2");
-        waitForResponse1(id);
     }
     waitForItemChanged();
 

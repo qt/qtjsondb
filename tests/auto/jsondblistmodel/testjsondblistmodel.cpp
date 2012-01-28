@@ -245,10 +245,12 @@ void TestJsonDbListModel::createItem()
 
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Baker");
+    mItemsCreated = 0;
     id = mClient->create(item, "com.nokia.shared.1");
     waitForResponse1(id);
+    if (!mItemsCreated)
+        waitForExitOrTimeout();
 
-    waitForExitOrTimeout();;
     QCOMPARE(listModel->property("count").toInt(), 2);
     deleteModel(listModel);
 }
@@ -391,9 +393,11 @@ void TestJsonDbListModel::deleteItem()
     QCOMPARE(listModel->property("count").toInt(), 1);
 
     item.insert("name", "Baker");
+    mItemsCreated = 0;
     id = mClient->create(item,"com.nokia.shared.1");
     waitForResponse1(id);
-    waitForExitOrTimeout();
+    if (!mItemsCreated)
+        waitForExitOrTimeout();
     QCOMPARE(listModel->property("count").toInt(), 2);
 
     mWaitingForRowsRemoved = true;
