@@ -10,10 +10,6 @@
         <description>Client library tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/client;date &amp;&amp; ./tst_client&amp;&amp; date</step>
       </case>
-      <case name="tst_common" requirement="BAT" component="qt5jsondb"  timeout="100">
-        <description>Common functionality tests</description>
-        <step>cd /usr/lib/qt5jsondb-tests/auto/common;date &amp;&amp; ./tst_common &amp;&amp; date</step>
-      </case>
       <case name="tst_daemon" component="qt5jsondb"  timeout="2000">
         <description> JsonDb daemon tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/daemon;date &amp;&amp; ./tst_daemon &amp;&amp; date</step>
@@ -49,10 +45,6 @@
       <case name="tst_qbtree" requirement="BAT" component="qt5jsondb"  timeout="2000">
         <description>Btree tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/qbtree;date &amp;&amp; ./tst_qbtree&amp;&amp; date</step>
-      </case>
-      <case name="tst_qsonstream" requirement="BAT" component="qt5jsondb"  timeout="2000">
-        <description>Client-Server IPC tests</description>
-        <step>cd /usr/lib/qt5jsondb-tests/auto/qsonstream;date &amp;&amp; ./tst_qsonstream &amp;&amp; date</step>
       </case>
     </set>
   </suite>
