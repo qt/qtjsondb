@@ -434,6 +434,7 @@ void JsonDbConnectionPrivate::_q_onReceiveMessage(const QJsonObject &qjsonMsg)
             errorString = QLatin1String("Token authentication failed");
             emit q->statusChanged();
         }
+        return;
     }
 
     if (qjsonMsg.contains(JsonDbString::kNotifyStr)) {
@@ -444,8 +445,7 @@ void JsonDbConnectionPrivate::_q_onReceiveMessage(const QJsonObject &qjsonMsg)
     } else {
         QJsonValue qjsonResult = qjsonMsg.value(JsonDbString::kResultStr);
         if (qjsonResult.type() == QJsonValue::Object) {
-            QVariantMap result = qjsonResult.toObject().toVariantMap();
-            emit q->response(id, result);
+            emit q->response(id, qjsonResult.toObject().toVariantMap());
         } else {
             QVariantMap emap  = qjsonMsg.value(JsonDbString::kErrorStr).toObject().toVariantMap();
             emit q->error(id,

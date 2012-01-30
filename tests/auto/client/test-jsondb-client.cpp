@@ -103,8 +103,6 @@ private slots:
     void capabilitiesTypeQuery();
     void storageQuotas();
     void requestWithSlot();
-    void testToken_data();
-    void testToken();
     void partition();
     void queryObject();
     void changesSinceObject();
@@ -1269,60 +1267,6 @@ void TestJsonDbClient::connection_error(int id, int code, const QString &message
     Q_UNUSED(message);
     failed = true;
     mEventLoop.quit();
-}
-
-
-void TestJsonDbClient::testToken_data()
-{
-    QTest::addColumn<pid_t>("pid");
-    QTest::addColumn<QString>("tokenString");
-    QTest::addColumn<bool>("willFail");
-
-#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-    QTest::newRow("valid") << getpid() <<  "testToken_valid" << false;
-    QTest::newRow("invalid") << getpid()+1 <<  "testToken_invalid" << true;
-#else
-    QSKIP("Not supported on this platform");
-#endif
-}
-
-void TestJsonDbClient::testToken()
-{
-    QVERIFY(mClient);
-    QFETCH(pid_t, pid);
-    QFETCH(QString, tokenString);
-    QFETCH(bool, willFail);
-
-    // Create Security Object
-    QVariantMap item;
-    item.insert(JsonDbString::kTypeStr, "com.nokia.mp.core.Security");
-    item.insert(JsonDbString::kTokenStr, tokenString);
-#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-    item.insert("pid", pid);
-#else
-    Q_UNUSED(pid);
-#endif
-    item.insert("domain", "testDomain");
-    item.insert("identifier", "TestJsonDbClient");
-    QVariantMap capability;
-    QStringList accessTypesAllowed;
-    accessTypesAllowed << "allAllowed";
-    capability.insert("AllAccess", accessTypesAllowed);
-    item.insert("capabilities", capability);
-    int id = mClient->create(item);
-    waitForResponse1(id);
-
-    // Set token in environment
-    JsonDbConnection connection;
-    connect( &connection, SIGNAL(response(int, const QVariant&)),
-             this, SLOT(connection_response(int, const QVariant&)));
-    connect( &connection, SIGNAL(error(int, int, const QString&)),
-             this, SLOT(connection_error(int, int, const QString&)));
-
-    connection.setToken(tokenString);
-    connection.connectToServer();
-    mEventLoop.exec(QEventLoop::AllEvents);
-    QCOMPARE(failed, willFail);
 }
 
 void TestJsonDbClient::partition()
