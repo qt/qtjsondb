@@ -272,7 +272,7 @@ void TestJsonDbQueryObject::multipleObjects()
 
 void TestJsonDbQueryObject::createQuery()
 {
-    const QString createString = QString("createQuery('[?_type=\"%1\"]', -1, {}, null);");
+    const QString createString = QString("createQuery('[?_type=\"%1\"]', -1, {});");
     ComponentData *partition = createPartitionComponent();
     if (!partition || !partition->qmlElement) return;
     QString expression;

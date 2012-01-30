@@ -300,7 +300,7 @@ void TestJsonDbChangesSinceObject::multipleTypes()
 
 void TestJsonDbChangesSinceObject::createChangesSince()
 {
-    const QString createString = QString("createChangesSince(0, [\"%1\"], null);");
+    const QString createString = QString("createChangesSince(0, [\"%1\"]);");
     ComponentData *partition = createPartitionComponent();
     if (!partition || !partition->qmlElement) return;
     QString expression;

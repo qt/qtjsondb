@@ -82,17 +82,11 @@ public:
                            const QJSValue &options = QJSValue(),
                            const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
 
-    Q_INVOKABLE JsonDbNotify* createNotification(const QString &query,
-                                                 QObject *parentItem);
+    Q_INVOKABLE JsonDbNotify* createNotification(const QString &query);
 
-    Q_INVOKABLE JsonDbQueryObject* createQuery(const QString &query,
-                                               int limit,
-                                               QVariantMap bindings,
-                                               QObject *parentItem);
+    Q_INVOKABLE JsonDbQueryObject* createQuery(const QString &query, int limit, QVariantMap bindings);
 
-    Q_INVOKABLE JsonDbChangesSinceObject* createChangesSince(int stateNumber,
-                                                             const QStringList &types,
-                                                             QObject *parentItem);
+    Q_INVOKABLE JsonDbChangesSinceObject* createChangesSince(int stateNumber, const QStringList &types);
 
     QString name() const;
     void setName(const QString &partitionName);

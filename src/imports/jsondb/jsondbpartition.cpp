@@ -300,14 +300,15 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
 }
 
 /*!
-    \qmlmethod object QtJsonDb::Partition::createNotification(query, parentItem)
+    \qmlmethod object QtJsonDb::Partition::createNotification(query)
 
-    Create the Notification object for the specifed \a query. The \a parentItem
-    decides the life time of the returned object. If the \a parentItem is null,
-    the script engine will destroy the object during garbage collection.
+    Create the Notification object for the specifed \a query.The script engine
+    decides the life time of the returned object. The returned object can be saved
+    in a 'property var' until it is required.
 
     \code
     import QtJsonDb 1.0 as JsonDb
+    property var createNotification;
     function onCreateNotification(result, action, stateNumber)
     {
         console.log("create Notification : object " + result._uuid );
@@ -315,7 +316,7 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
     }
 
     Component.onCompleted: {
-        var createNotification = nokiaPartition.createNotification('[?_type="Contact"]', topLevelItem);
+        createNotification = nokiaPartition.createNotification('[?_type="Contact"]');
         createNotification.notification.connect(onCreateNotification);
     }
     \endcode
@@ -323,34 +324,36 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
 
 */
 
-JsonDbNotify* JsonDbPartition::createNotification(const QString &query, QObject *parentItem)
+JsonDbNotify* JsonDbPartition::createNotification(const QString &query)
 {
-    JsonDbNotify* notify = new JsonDbNotify(parentItem);
+    JsonDbNotify* notify = new JsonDbNotify();
     notify->setPartition(this);
     notify->setQuery(query);
     notify->componentComplete();
+    QDeclarativeEngine::setObjectOwnership(notify, QDeclarativeEngine::JavaScriptOwnership);
     return notify;
 }
 
 /*!
-    \qmlmethod object QtJsonDb::Partition::createQuery(query, limit, bindings, parentItem)
+    \qmlmethod object QtJsonDb::Partition::createQuery(query, limit, bindings)
 
     Create the Query object with the specified \a query string and other parameters.
-    Users have to call start() to start the query in this partition. The \a parentItem
-    decides the life time of the returned object. If the \a parentItem
-    is null, the script engine will destroy the object during garbage collection.
+    Users have to call start() to start the query in this partition. The script engine
+    decides the life time of the returned object. The returned object can be saved
+    in a 'property var' until it is required.
 
     \code
     import QtJsonDb 1.0 as JsonDb
+    property var queryObject;
     function onFinished()
     {
         var results = queryObject.takeResults();
-        console.log("Results: Count + results.length );
+        console.log("Results: Count" + results.length );
     }
 
     Component.onCompleted: {
         var bindings = {'firstName':'Book'};
-        queryObject = nokiaPartition.createQuery('[?_type="Contact"][?name=%firstName]', -1, bindings, topLevelItem);
+        queryObject = nokiaPartition.createQuery('[?_type="Contact"][?name=%firstName]', -1, bindings);
         queryObject.finished.connect(onFinished);
         queryObject.start();
     }
@@ -359,27 +362,29 @@ JsonDbNotify* JsonDbPartition::createNotification(const QString &query, QObject 
 
 */
 
-JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit, QVariantMap bindings, QObject *parentItem)
+JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit, QVariantMap bindings)
 {
-    JsonDbQueryObject* queryObject = new JsonDbQueryObject(parentItem);
+    JsonDbQueryObject* queryObject = new JsonDbQueryObject();
     queryObject->setQuery(query);
     queryObject->setBindings(bindings);
     queryObject->setLimit(limit);
     queryObject->setPartition(this);
     queryObject->componentComplete();
+    QDeclarativeEngine::setObjectOwnership(queryObject, QDeclarativeEngine::JavaScriptOwnership);
     return queryObject;
 }
 
 /*!
-    \qmlmethod object QtJsonDb::Partition::createChangesSince(stateNumber, types, parentItem)
+    \qmlmethod object QtJsonDb::Partition::createChangesSince(stateNumber, types)
 
     Create the ChangesSince object. It will set the \a stateNumber, filter \a types parameters
     of the object. Users have to call start() to start the changesSince query in this partition.
-    The \a parentItem decides the life time of the returned object. If the \a parentItem
-    is null, the script engine will destroy the object during garbage collection.
+    The script engine decides the life time of the returned object. The returned object can be
+    saved in a 'property var' until it is required.
 
     \code
     import QtJsonDb 1.0 as JsonDb
+    property var changesObject;
     function onFinished()
     {
         var results = queryObject.takeResults();
@@ -387,7 +392,7 @@ JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit,
     }
 
     Component.onCompleted: {
-        changesObject = nokiaPartition.createChangesSince(10, ["Contact"], topLevelItem);
+        changesObject = nokiaPartition.createChangesSince(10, ["Contact"]);
         changesObject.finished.connect(onFinished);
         changesObject.start();
 
@@ -397,13 +402,14 @@ JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit,
 
 */
 
-JsonDbChangesSinceObject* JsonDbPartition::createChangesSince(int stateNumber, const QStringList &types, QObject *parentItem)
+JsonDbChangesSinceObject* JsonDbPartition::createChangesSince(int stateNumber, const QStringList &types)
 {
-    JsonDbChangesSinceObject* changesSinceObject = new JsonDbChangesSinceObject(parentItem);
+    JsonDbChangesSinceObject* changesSinceObject = new JsonDbChangesSinceObject();
     changesSinceObject->setTypes(types);
     changesSinceObject->setStateNumber(stateNumber);
     changesSinceObject->setPartition(this);
     changesSinceObject->componentComplete();
+    QDeclarativeEngine::setObjectOwnership(changesSinceObject, QDeclarativeEngine::JavaScriptOwnership);
     return changesSinceObject;
 }
 

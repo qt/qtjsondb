@@ -44,7 +44,6 @@ import QtJsonDb 1.0 as JsonDb
 Item {
     width: 800
     height: 400
-    id: topLevelItem
 
     property var nokiaPartition;
     property var nokiaPartition2;
@@ -66,8 +65,8 @@ Item {
             console.log("Failed to create Partitions");
             return;
         }
-        nokiaPartition  = JsonDb.partition("com.nokia.shared", topLevelItem);
-        nokiaPartition2  = JsonDb.partition("com.nokia.shared2", topLevelItem);
+        nokiaPartition  = JsonDb.partition("com.nokia.shared");
+        nokiaPartition2  = JsonDb.partition("com.nokia.shared2");
         contacts.partitions = [nokiaPartition, nokiaPartition2];
     }
 
@@ -105,7 +104,7 @@ Item {
     }
 
     Component.onCompleted: {
-        JsonDb.listPartitions(checkForPartitions, topLevelItem);
+        JsonDb.listPartitions(checkForPartitions);
     }
 
     Button {

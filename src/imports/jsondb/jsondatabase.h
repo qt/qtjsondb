@@ -58,8 +58,8 @@ public:
     JsonDatabase(QObject *parent = 0);
     ~JsonDatabase();
 
-    Q_INVOKABLE JsonDbPartition* partition(const QString &partitionName, QObject *parentItem);
-    Q_INVOKABLE void listPartitions(const QJSValue &callback, QObject *parentItem);
+    Q_INVOKABLE JsonDbPartition* partition(const QString &partitionName);
+    Q_INVOKABLE void listPartitions(const QJSValue &callback);
     Q_INVOKABLE QString uuidFromObject(const QVariant &object);
 
 private Q_SLOTS:
@@ -68,7 +68,6 @@ private Q_SLOTS:
 
 private:
     QMap<int, QJSValue> listCallbacks;
-    QMap<int, QPointer<QObject> > parentItems;
     JsonDbClient jsonDb;
 };
 

@@ -146,8 +146,8 @@ Rectangle {
                 var lastNames = ["Reinolds", "Washburn", "Serra", "Cobb", "Frye", "Tam", "Book"]
                 function rand(n) { return Math.floor(Math.random() * n); }
 
-                var firstName = firstNames[rand(firstNames.length)]
-                var lastName = lastNames[rand(lastNames.length)]
+                var firstName = firstNames[rand(firstNames.length)];
+                var lastName = lastNames[rand(lastNames.length)];
                 systemPartition.create({ "_type":"Contact", "firstName":firstName,
                                            "lastName":lastName, "phoneNumbers": [rand(1000).toString(), rand(1000).toString()]},
                                        function (error, response) {

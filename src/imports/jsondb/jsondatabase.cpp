@@ -43,6 +43,7 @@
 #include "jsondbpartition.h"
 #include "jsondb-object.h"
 #include <QJSEngine>
+#include <QDeclarativeEngine>
 #include <qdebug.h>
 
 /*!
@@ -73,35 +74,35 @@ JsonDatabase::~JsonDatabase()
 /*!
     \qmlmethod object QtJsonDb::JsonDatabase::partition(partitionName, parentItem)
 
-    Retrieve the Partition object for the specifed \a partitonName. The \a parentItem
-    decides the life time of the returned object. If the \a parentItem is null, the
-    script engine will destroy the object during garbage collection.
+    Retrieve the Partition object for the specifed \a partitonName. The script engine
+    decides the life time of the returned object. The returned object can be saved
+    in a 'property var' until it is required.
 
     \code
     import QtJsonDb 1.0 as JsonDb
-    var nokiaDb = JsonDb.partition("com.nokia", parentItem)
+    var nokiaDb = JsonDb.partition("com.nokia")
     \endcode
 */
 
 
-JsonDbPartition* JsonDatabase::partition(const QString &partitionName, QObject *parent)
+JsonDbPartition* JsonDatabase::partition(const QString &partitionName)
 {
-    JsonDbPartition * newPartition = new JsonDbPartition(partitionName, parent);
+    JsonDbPartition* newPartition = new JsonDbPartition(partitionName);
+    QDeclarativeEngine::setObjectOwnership(newPartition, QDeclarativeEngine::JavaScriptOwnership);
     return newPartition;
 }
 
 /*!
-    \qmlmethod QtJsonDb::JsonDatabase::listPartitions(listCallback, parentItem)
+    \qmlmethod QtJsonDb::JsonDatabase::listPartitions(listCallback)
 
-    List all the partions accessible by this application. The \a parentItem
-    decides the life time of the returned objects. If the \a parentItem is null, the
+    List all the partions accessible by this application. The
     script engine will destroy the objects during garbage collection.
 
     The \a listCallback has the following signature.
 
     \code
     import QtJsonDb 1.0 as JsonDb
-    JsonDb.listPartitions(listCallback, parentItem);
+    JsonDb.listPartitions(listCallback);
 
     function listCallback(error, result) {
         if (error) {
@@ -114,7 +115,7 @@ JsonDbPartition* JsonDatabase::partition(const QString &partitionName, QObject *
     \endcode
 */
 
-void JsonDatabase::listPartitions(const QJSValue &listCallback, QObject *parent)
+void JsonDatabase::listPartitions(const QJSValue &listCallback)
 {
     if (!listCallback.isCallable()) {
         qWarning() << "Invalid callback specified.";
@@ -123,7 +124,6 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback, QObject *parent)
     QString query(QLatin1String("[?_type=\"Partition\"]"));
     int id = jsonDb.query(query, 0, -1, QLatin1String("com.nokia.qtjsondb.System"));
     listCallbacks.insert(id, listCallback);
-    parentItems.insert(id, parent);
 }
 
 /*!
@@ -158,7 +158,7 @@ void JsonDatabase::dbResponse(int id, const QVariant &result)
             for (int i = 0; i < count; ++i) {
                 QVariantMap object = items.at(i).toMap();
                 QString partitionName = object.value(QLatin1String("name")).toString();
-                response.setProperty(i, engine->newQObject(partition(partitionName, parentItems[id])));
+                response.setProperty(i, engine->newQObject(partition(partitionName)));
             }
             args << response;
         } else {
@@ -166,7 +166,6 @@ void JsonDatabase::dbResponse(int id, const QVariant &result)
         }
         callback.call(args);
         listCallbacks.remove(id);
-        parentItems.remove(id);
     }
 }
 
@@ -185,6 +184,5 @@ void JsonDatabase::dbErrorResponse(int id, int code, const QString &message)
 
         callback.call(args);
         listCallbacks.remove(id);
-        parentItems.remove(id);
     }
 }

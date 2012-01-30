@@ -330,7 +330,7 @@ void TestJsonDbNotification::multipleObjectNotifications()
 
 void TestJsonDbNotification::createNotification()
 {
-    const QString createString = QString("createNotification('[?_type=\"%1\"]', null);");
+    const QString createString = QString("createNotification('[?_type=\"%1\"]');");
     ComponentData *partition = createPartitionComponent();
     if (!partition || !partition->qmlElement) return;
     QString expression;
