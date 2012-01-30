@@ -596,8 +596,8 @@ int JsonDbListModel::sectionIndex(const QString &section,
     int id = d->jsonDb.query(sectionCountQueryLT, 0, -1, d->partitionObject->name());
     // Register any valid callbacks
     CallbackInfo info;
-    if (successCallback.isFunction()
-            || errorCallback.isFunction()) {
+    if (successCallback.isCallable()
+            || errorCallback.isCallable()) {
         info.successCallback = successCallback;
         info.errorCallback = errorCallback;
         d->sectionIndexRequestIds.insert(id, info);
@@ -694,8 +694,8 @@ void JsonDbListModelPrivate::set(int index, const QJSValue& valuemap,
     info.index = index;
     int id = jsonDb.update(item, partitionObject->name()); // possibly change to variantToQson(item)..
     // Register any valid callbacks
-    if (successCallback.isFunction()
-            || errorCallback.isFunction()) {
+    if (successCallback.isCallable()
+            || errorCallback.isCallable()) {
         info.successCallback = successCallback;
         info.errorCallback = errorCallback;
         updateRequestIds.insert(id, info);
@@ -743,8 +743,8 @@ void JsonDbListModelPrivate::setProperty(int index, const QString& property, con
 
     int id = jsonDb.update(item, partitionObject->name()); // possibly change to variantToQson(item)..
     // Register any valid callbacks
-    if (successCallback.isFunction()
-            || errorCallback.isFunction()) {
+    if (successCallback.isCallable()
+            || errorCallback.isCallable()) {
 
         // Item will be updated through the update notification
         CallbackInfo info;
@@ -1090,7 +1090,7 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
         notifyUuid = o.value(JsonDbString::kUuidStr).toString();
     } else if (updateRequestIds.constFind(id) != updateRequestIds.constEnd()) {
         CallbackInfo info = updateRequestIds.value(id);
-        if (info.successCallback.isFunction()) {
+        if (info.successCallback.isCallable()) {
             QJSValueList args;
             QJSValue scriptResult = info.successCallback.engine()->toScriptValue(id);
             args << scriptResult;
@@ -1101,7 +1101,7 @@ void JsonDbListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
         updateRequestIds.remove(id);
     } else if (sectionIndexRequestIds.constFind(id) != sectionIndexRequestIds.constEnd()) {
         CallbackInfo info = sectionIndexRequestIds.value(id);
-        if (info.successCallback.isFunction()) {
+        if (info.successCallback.isCallable()) {
             QVariantMap m = v.toMap();
             QVariantList items = m.value(QLatin1String("data")).toList();
             m =  items.at(0).toMap();
@@ -1202,7 +1202,7 @@ void JsonDbListModelPrivate::_q_jsonDbErrorResponse(int id, int code, const QStr
         qWarning() << QString("JsonDb error: %1 %2").arg(code).arg(message);
     }  else if (updateRequestIds.constFind(id) != updateRequestIds.constEnd()) {
         CallbackInfo info = updateRequestIds.value(id);
-        if (info.errorCallback.isFunction()) {
+        if (info.errorCallback.isCallable()) {
             QJSValueList args;
             args << info.errorCallback.engine()->toScriptValue(id);
             args << info.errorCallback.engine()->toScriptValue(info.index);

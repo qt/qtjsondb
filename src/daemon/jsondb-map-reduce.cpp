@@ -483,7 +483,7 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
             const QString &script = sourceFunctions.value(sourceType).toString();
             QJSValue mapFunction =
                 mScriptEngine->evaluate(QString("var map_%1 = (%2); map_%1;").arg(QString(sourceType).replace(".", "_")).arg(script));
-            if (mapFunction.isError() || !mapFunction.isFunction())
+            if (mapFunction.isError() || !mapFunction.isCallable())
                 setError( "Unable to parse map function: " + mapFunction.toString());
             mMapFunctions[sourceType] = mapFunction;
 
@@ -509,7 +509,7 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
         const QString &script = mDefinition.value("map").toString();
         QJSValue mapFunction =
             mScriptEngine->evaluate(QString("var map_%1 = (%2); map_%1;").arg(QString(sourceType).replace(".", "_")).arg(script));
-        if (mapFunction.isError() || !mapFunction.isFunction())
+        if (mapFunction.isError() || !mapFunction.isCallable())
             setError( "Unable to parse map function: " + mapFunction.toString());
         mMapFunctions[sourceType] = mapFunction;
 
@@ -673,7 +673,7 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, JsonDbOwner *owne
     QString script = mDefinition.value("add").toString();
     mAddFunction = mScriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("add").arg(script));
 
-    if (mAddFunction.isError() || !mAddFunction.isFunction()) {
+    if (mAddFunction.isError() || !mAddFunction.isCallable()) {
         setError("Unable to parse add function: " + mAddFunction.toString());
         return;
     }
@@ -681,13 +681,13 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, JsonDbOwner *owne
     script = mDefinition.value("subtract").toString();
     mSubtractFunction = mScriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("subtract").arg(script));
 
-    if (mSubtractFunction.isError() || !mSubtractFunction.isFunction())
+    if (mSubtractFunction.isError() || !mSubtractFunction.isCallable())
         setError("Unable to parse subtract function: " + mSubtractFunction.toString());
 }
 
 void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject after)
 {
-    Q_ASSERT(mAddFunction.isFunction());
+    Q_ASSERT(mAddFunction.isCallable());
 
     QJsonValue beforeKeyValue = mSourceKeyName.contains(".")
         ? JsonDb::propertyLookup(before, mSourceKeyNameList)
@@ -790,7 +790,7 @@ QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const Q
 
 QJsonValue JsonDbReduceDefinition::subtractObject(const QJsonValue &keyValue, const QJsonValue &previousValue, JsonDbObject object)
 {
-    Q_ASSERT(mSubtractFunction.isFunction());
+    Q_ASSERT(mSubtractFunction.isCallable());
 
     QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue.toVariant());
     QJSValue svPreviousValue = mScriptEngine->toScriptValue(previousValue.toObject().value(mTargetValueName).toVariant());

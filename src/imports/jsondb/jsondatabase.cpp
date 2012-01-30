@@ -116,7 +116,7 @@ JsonDbPartition* JsonDatabase::partition(const QString &partitionName, QObject *
 
 void JsonDatabase::listPartitions(const QJSValue &listCallback, QObject *parent)
 {
-    if (!listCallback.isFunction()) {
+    if (!listCallback.isCallable()) {
         qWarning() << "Invalid callback specified.";
         return;
     }

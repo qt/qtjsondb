@@ -235,9 +235,9 @@ QJSValue JsonDbComponent::notification(const QJSValue &object,
                                            QJSValue errorCallback)
 {
     // -- refuse to create notification without callback
-    if (!callback.isFunction()) {
+    if (!callback.isCallable()) {
         qWarning() << "Refusing to create notification without callback.";
-        if (errorCallback.isFunction()) {
+        if (errorCallback.isCallable()) {
             QJSValueList args;
             errorCallback.call(args);
         }
@@ -335,7 +335,7 @@ void JsonDbComponent::jsonDbResponse(int id, const QVariant &result)
             qDebug() << "[JSONDB] response:" << scriptResult.toString();
 
         // -- call the success callback function
-        if (info.successCallback.isFunction()) {
+        if (info.successCallback.isCallable()) {
             QJSValueList args;
             args << scriptResult << info.successCallback.engine()->toScriptValue(id);
             info.successCallback.call(args);
@@ -363,7 +363,7 @@ void JsonDbComponent::jsonDbErrorResponse(int id, int code, const QString& messa
         }
 
         // -- call the error callback function
-        if (info.errorCallback.isFunction()) {
+        if (info.errorCallback.isCallable()) {
             QJSValueList args;
             args << info.errorCallback.engine()->toScriptValue(message);
             args << info.errorCallback.engine()->toScriptValue(code);
@@ -418,9 +418,9 @@ int JsonDbComponent::addRequestInfo(int id, RequestType type, const QJSValue &ob
         qWarning() << "Missing database connection";
         return id;
     }
-    if (!successCallback.isUndefined() && !successCallback.isFunction())
+    if (!successCallback.isUndefined() && !successCallback.isCallable())
         qWarning() << "Success callback parameter "<<successCallback.toString()<<"is not a function.";
-    if (!errorCallback.isUndefined() && !errorCallback.isFunction())
+    if (!errorCallback.isUndefined() && !errorCallback.isCallable())
         qWarning() << "Error callback parameter "<<errorCallback.toString()<<"is not a function.";
 
     JsonDbComponent::RequestInfo &info = mRequests[id];

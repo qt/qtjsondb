@@ -86,7 +86,7 @@ bool JsonDbIndex::setPropertyFunction(const QString &propertyFunction)
 {
     if (!mScriptEngine)
         mScriptEngine = new QJSEngine(this);
-    mPropertyFunction = mScriptEngine->evaluate(QString("var %1 = %2; %1;").arg("index").arg(propertyFunction));    if (mPropertyFunction.isError() || !mPropertyFunction.isFunction()) {
+    mPropertyFunction = mScriptEngine->evaluate(QString("var %1 = %2; %1;").arg("index").arg(propertyFunction));    if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
         qDebug() << "Unable to parse index value function: " << mPropertyFunction.toString();
         return false;
     }
