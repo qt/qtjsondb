@@ -932,7 +932,9 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
             return makeResponse(resultmap, errormap);
         }
         if (gRejectStaleUpdates && version != _delrec.version()) {
-            setError( errormap, JsonDbError::UpdatingStaleVersion, "Updating stale version of object.");
+            if (gDebug)
+                qDebug() << "Stale update detected - expected version:" << _delrec.version() << object;
+            setError( errormap, JsonDbError::UpdatingStaleVersion, "Updating stale version of object. Expected version " + _delrec.version());
             return makeResponse(resultmap, errormap);
         }
     }
@@ -1384,7 +1386,11 @@ QJsonObject JsonDb::validateSchema(const QString &schemaName, JsonDbObject objec
         return QJsonObject();
     }
 
-    return mSchemas.validate(schemaName, object);
+    QJsonObject result = mSchemas.validate(schemaName, object);
+    if (gDebug && !result.value(JsonDbString::kCodeStr).isNull())
+        qDebug() << "Schema validation error: " << result.value(JsonDbString::kMessageStr).toString() << object;
+
+    return result;
 }
 
 QJsonObject JsonDb::validateMapObject(JsonDbObject map)
