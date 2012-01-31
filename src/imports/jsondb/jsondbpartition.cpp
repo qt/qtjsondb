@@ -100,6 +100,18 @@ void JsonDbPartition::setName(const QString &partitionName)
     }
 }
 
+namespace {
+static QVariant qjsvalue_to_qvariant(const QJSValue &value)
+{
+    if (value.isQObject()) {
+        // We need the QVariantMap & not the QObject wrapper
+        return qjsvalue_cast<QVariantMap>(value);
+    } else {
+        // Converts to either a QVariantList or a QVariantMap
+        return value.toVariant();
+    }
+}
+}
 /*!
     \qmlmethod int QtJsonDb::Partition::create(object newObject, object options, function callback)
 
@@ -156,7 +168,7 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
         actualOptions = QJSValue();
     }
     //#TODO ADD options
-    int id = jsonDb.create(object.toVariant(), _name);
+    int id = jsonDb.create(qjsvalue_to_qvariant(object), _name);
     createCallbacks.insert(id, actualCallback);
     return id;
 }
@@ -229,7 +241,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
         actualOptions = QJSValue();
     }
     //#TODO ADD options
-    int id = jsonDb.update(object.toVariant(), _name);
+    int id = jsonDb.update(qjsvalue_to_qvariant(object), _name);
     updateCallbacks.insert(id, actualCallback);
     return id;
 }
@@ -294,7 +306,7 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
         actualOptions = QJSValue();
     }
     //#TODO ADD options
-    int id = jsonDb.remove(object.toVariant(), _name);
+    int id = jsonDb.remove(qjsvalue_to_qvariant(object), _name);
     removeCallbacks.insert(id, actualCallback);
     return id;
 }
