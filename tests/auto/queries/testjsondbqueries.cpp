@@ -223,7 +223,7 @@ void TestJsonDbQueries::initTestCase()
     JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
     int numDefaultObjects = queryResult.data.size();
 
-    QFile contactsFile(findFile(SRCDIR, "dataset.json"));
+    QFile contactsFile(findFile("dataset.json"));
     QVERIFY2(contactsFile.exists(), "Err: dataset.json doesn't exist!");
 
     contactsFile.open(QIODevice::ReadOnly);

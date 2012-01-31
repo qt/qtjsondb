@@ -108,7 +108,7 @@ void TestJsonDbSortingListModel::deleteDbFiles()
 
 QVariant TestJsonDbSortingListModel::readJsonFile(const QString& filename)
 {
-    QString filepath = findFile(SRCDIR, filename);
+    QString filepath = findFile(filename);
     QFile jsonFile(filepath);
     jsonFile.open(QIODevice::ReadOnly);
     QByteArray json = jsonFile.readAll();

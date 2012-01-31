@@ -662,7 +662,7 @@ void TestJsonDbClient::notifyRemoveBatch()
 
 void TestJsonDbClient::schemaValidation()
 {
-    QFile schemaFile(findFile(SRCDIR, "create-test.json"));
+    QFile schemaFile(findFile("create-test.json"));
     schemaFile.open(QIODevice::ReadOnly);
     QByteArray json = schemaFile.readAll();
     schemaFile.close();

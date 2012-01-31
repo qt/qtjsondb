@@ -49,20 +49,27 @@
 #include <QLocalSocket>
 #include <qtestsystem.h>
 
-inline QString findFile(const char *srcdir, const QString &filename)
+inline QString findFile(const QString &filename)
 {
-    QString file = QString::fromLocal8Bit(srcdir) + QDir::separator() + filename;
+    QString file = ":/json/" + filename;
+    if (QFile::exists(file))
+    {
+        return file;
+    }
+
+    file = QCoreApplication::applicationDirPath() + QDir::separator() + filename;
     if (QFile::exists(file))
         return file;
-    file = QCoreApplication::arguments().at(0) + QDir::separator() + filename;
+
+    file = QDir::currentPath() + QDir::separator() + filename;
     if (QFile::exists(file))
         return file;
-    return QDir::currentPath() + QDir::separator() + filename;
+    return "";
 }
 
-inline QString findFile(const char *srcdir, const char *filename)
+inline QString findFile(const char *filename)
 {
-    return findFile(srcdir, QString::fromLocal8Bit(filename));
+    return findFile(QString::fromLocal8Bit(filename));
 }
 
 inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketName, const QStringList &args)

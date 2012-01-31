@@ -187,12 +187,12 @@ void TestJsonDb::initTestCase()
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId("com.noklab.nrcc.JsonDbTest");
 
-    QString srcDir = QString("%1/../../auto/daemon").arg(SRCDIR);
-    QFile contactsFile(findFile(srcDir.toLocal8Bit(), "largeContactsTest.json"));
-    if (!contactsFile.exists()) {
+    QString srcFile = findFile("largeContactsTest.json");
+    if (srcFile.isEmpty()) {
         qDebug() << "Err: largeContactsTest.json doesn't exist!";
         return;
     }
+    QFile contactsFile(srcFile);
     contactsFile.open(QIODevice::ReadOnly);
     QByteArray json = contactsFile.readAll();
     QJsonDocument document(QJsonDocument::fromJson(json));
@@ -1108,7 +1108,7 @@ void TestJsonDb::benchmarkQueryCount()
 
 QJsonValue TestJsonDb::readJsonFile(const QString& filename)
 {
-    QString filepath = findFile(SRCDIR, filename);
+    QString filepath = findFile(filename);
     QFile jsonFile(filepath);
     jsonFile.open(QIODevice::ReadOnly);
     QByteArray json = jsonFile.readAll();

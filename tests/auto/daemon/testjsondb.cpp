@@ -366,7 +366,7 @@ void TestJsonDb::createContacts()
     if (!mContactList.isEmpty())
         return;
 
-    QFile contactsFile(findFile(SRCDIR, "largeContactsTest.json"));
+    QFile contactsFile(findFile("largeContactsTest.json"));
     QVERIFY2(contactsFile.exists(), "Err: largeContactsTest.json doesn't exist!");
 
     contactsFile.open(QIODevice::ReadOnly);
@@ -3232,7 +3232,7 @@ void TestJsonDb::find10()
 
 QJsonValue TestJsonDb::readJsonFile(const QString& filename)
 {
-    QString filepath = findFile(SRCDIR, filename);
+    QString filepath = findFile(filename);
     QFile jsonFile(filepath);
     jsonFile.open(QIODevice::ReadOnly);
     QByteArray json = jsonFile.readAll();
