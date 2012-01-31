@@ -2,6 +2,10 @@
 <testdefinition version="0.1">
   <suite domain="Performance" name="benchmarks" timeout="15000">
     <set description=" Simple JSON DB performance tests " feature="JSONDB" level="System" name="jsondb-benchmarks" type="Integration" timeout="10000">
+      <case name="tst_bench_bdb" timeout="5000" component="qt5jsondb">
+        <description>bdb performance</description>
+        <step>cd /usr/lib/qt5jsondb-tests/benchmarks/bdb; date &amp;&amp; ./tst_bench_bdb &amp;&amp; date</step>
+      </case>
       <case name="tst_bench_client" timeout="5000" component="qt5jsondb">
         <description>Client API performance 01</description>
         <step>cd /usr/lib/qt5jsondb-tests/benchmarks/client; date &amp;&amp; ./tst_bench_client &amp;&amp; date</step>
