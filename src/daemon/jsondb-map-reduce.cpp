@@ -109,15 +109,18 @@ void JsonDb::createMapDefinition(QJsonObject mapDefinition, bool firstTime, cons
 
     if (firstTime && def->isActive()) {
         def->initScriptEngine();
-        GetObjectsResult getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceTypes[0]);
-        if (!getObjectResponse.error.isNull()) {
-            if (gVerbose)
-                qDebug() << "createMapDefinition" << sourceTypes << targetType << getObjectResponse.error.toString();
-            def->setError(getObjectResponse.error.toString());
-        };
-        JsonDbObjectList objects = getObjectResponse.data;
-        for (int i = 0; i < objects.size(); i++)
-            def->mapObject(objects.at(i));
+        foreach (const QString &sourceType, sourceTypes) {
+            GetObjectsResult getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceType);
+            if (!getObjectResponse.error.isNull()) {
+                if (gVerbose)
+                    qDebug() << "createMapDefinition" << sourceTypes << sourceType << targetType << getObjectResponse.error.toString();
+                def->setError(getObjectResponse.error.toString());
+                return;
+            }
+            JsonDbObjectList objects = getObjectResponse.data;
+            for (int i = 0; i < objects.size(); i++)
+                def->mapObject(objects.at(i));
+        }
     }
 }
 

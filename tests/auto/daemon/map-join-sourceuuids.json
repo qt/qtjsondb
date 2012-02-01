@@ -2,10 +2,22 @@
   {
     "_type": "_schemaType",
     "name": "MagicView",
-    "schema": {
-      "type": "object",
-      "extends": "View"
-    }
+      "schema": {
+          "type": "object",
+          "extends": "View",
+          "primaryKey": ["_type", "key"],
+          "properties": {
+              "key": {
+                  "type": "string"
+              },
+              "foo": {
+                  "type": "string"
+              },
+              "bar": {
+                  "type": "string"
+              }
+          }
+      }
   },
   {
     "_type": "_schemaType",
@@ -53,7 +65,7 @@
           jsondb.lookup({'index':'magic', 'value':bar.magic, 'objectType': 'Foo'}, bar); \
         } else { \
           foo = context; \
-          jsondb.emit({key: foo.magic, foo: foo._uuid, bar: bar._uuid, barExtra: bar.extra }); \
+          jsondb.emit({ key: foo.magic, foo: foo._uuid, bar: bar._uuid, barExtra: bar.extra }); \
        } \
     } "
 }
