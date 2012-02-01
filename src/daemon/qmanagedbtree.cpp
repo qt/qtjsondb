@@ -48,10 +48,17 @@
 #include "qmanagedbtree.h"
 #include "qmanagedbtreetxn.h"
 
+// Every gCompactRate commits, compact the btree. Do not compact if zero.
+int gCompactRate = qgetenv("JSONDB_COMPACT_RATE").size() ? ::atoi(qgetenv("JSONDB_COMPACT_RATE")) : 1000;
+// Every gSyncRate commits, fsync the btree. Do not fsync if zero.
+int gSyncRate = qgetenv("JSONDB_SYNC_RATE").size() ? ::atoi(qgetenv("JSONDB_SYNC_RATE")) : 100;
+
 QManagedBtree::QManagedBtree()
     : mBtree(new QBtree())
 {
     mWriter.txn = 0;
+    mBtree->setAutoCompactRate(gCompactRate);
+    mBtree->setAutoCompactRate(gSyncRate);
 }
 
 QManagedBtree::~QManagedBtree()

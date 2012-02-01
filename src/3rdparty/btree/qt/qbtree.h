@@ -78,6 +78,11 @@ public:
     void setAutoCompactRate(int rate);
     void setCacheSize(unsigned int cacheSize);
 
+    int autoSyncRate() const
+    { return mAutoSyncRate; }
+    int autoCompactRate() const
+    { return mAutoCompactRate; }
+
     bool open();
     void close();
 
