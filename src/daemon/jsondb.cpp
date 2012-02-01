@@ -438,6 +438,14 @@ QJsonValue JsonDb::fromJSValue(const QJSValue &v)
         return QJsonValue(v.toString());
     if (v.isBool())
         return QJsonValue(v.toBool());
+    if (v.isArray()) {
+        QJsonArray a;
+        int size = v.property("length").toInt();
+        for (int i = 0; i < size; i++) {
+            a.append(fromJSValue(v.property(i)));
+        }
+        return a;
+    }
     if (v.isObject()) {
         QJSValueIterator it(v);
         QJsonObject o;
@@ -448,14 +456,6 @@ QJsonValue JsonDb::fromJSValue(const QJSValue &v)
             o.insert(name, fromJSValue(value));
         }
         return o;
-    }
-    if (v.isArray()) {
-        QJsonArray a;
-        int size = v.property("length").toInt();
-        for (int i = 0; i < size; i++) {
-            a.append(fromJSValue(v.property(i)));
-        }
-        return a;
     }
     return QJsonValue(QJsonValue::Undefined);
 }
