@@ -40,7 +40,7 @@
       </case>
       <case name="tst_jsondbchangessinceobject" requirement="BAT, CST" component="qt5jsondb"  timeout="600">
         <description>QML JsonDB ChangesSinceObject tests</description>
-        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbchangessinceobject;date &amp;&amp; ./tst_jsondbchangesinceobject -platform minimal&amp;&amp; date</step>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbchangessinceobject;date &amp;&amp; ./tst_jsondbchangessinceobject -platform minimal&amp;&amp; date</step>
       </case>
       <case name="tst_qbtree" requirement="BAT" component="qt5jsondb"  timeout="2000">
         <description>Btree tests</description>
