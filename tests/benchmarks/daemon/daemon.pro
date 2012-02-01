@@ -5,7 +5,6 @@ INSTALLS += target
 
 QT = network declarative testlib
 CONFIG -= app_bundle
-CONFIG += testcase
 
 INCLUDEPATH += $$PWD/../../../src/daemon
 LIBS += -L$$QT.jsondb.libs

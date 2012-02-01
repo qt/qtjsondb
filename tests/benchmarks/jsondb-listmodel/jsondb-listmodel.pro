@@ -5,7 +5,6 @@ INCLUDEPATH += .
 
 QT = core network testlib gui declarative jsondb-private
 CONFIG -= app_bundle
-CONFIG += testcase
 
 include($$PWD/../../shared/shared.pri)
 include($$PWD/../../../qtjsondb.pri)
