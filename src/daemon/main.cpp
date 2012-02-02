@@ -67,9 +67,6 @@ QT_USE_NAMESPACE_JSONDB
 
 void daemonize()
 {
-    if (::getppid() == 1)
-        return;  // Already a daemon if owned by init
-
     int i = fork();
     if (i < 0) exit(1); // Fork error
     if (i > 0) exit(0); // Parent exits
@@ -178,6 +175,7 @@ int main(int argc, char * argv[])
     QStringList args = QCoreApplication::arguments();
     bool terminate = false;
     bool compactOnClose = false;
+    bool detach = false;
 
     progname = args.takeFirst();
     while (args.size()) {
@@ -215,7 +213,7 @@ int main(int argc, char * argv[])
 #endif
 #ifdef Q_OS_LINUX
         } else if ( arg == "-daemon" ) {
-            daemonize();
+            detach = true;
 #endif
         } else if (arg == "-validate-schemas") {
             gValidateSchemas = true;
@@ -307,5 +305,7 @@ int main(int argc, char * argv[])
     }
     if (terminate)
         return 0;
+    if (detach)
+        daemonize();
     return app.exec();
 }
