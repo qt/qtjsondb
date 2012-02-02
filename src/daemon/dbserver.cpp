@@ -53,6 +53,9 @@
 
 #ifdef Q_OS_UNIX
 #include <sys/socket.h>
+#include <pwd.h>
+#include <grp.h>
+#include <errno.h>
 #endif
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -221,13 +224,119 @@ void DBServer::handleTcpConnection()
 JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 {
     QIODevice *device = stream->device();
-    if (!mOwners.contains(device)) {
-        // security hole
-        JsonDbOwner *owner = new JsonDbOwner(this);
-        owner->setOwnerId(QString::fromLatin1("unknown app %1").arg((intptr_t)stream));
-        owner->setDomain("unknown app domain");
-        mOwners[stream->device()] = owner;
+
+    if (!gEnforceAccessControlPolicies) {
+        // We are not enforcing policies here, allow requests
+        // from all applications.
+        // ### TODO: We will have to remove this afterwards
+        return createDummyOwner(stream);
     }
+
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
+    if (!mOwners.contains(device)) {
+        ucred peercred;
+        socklen_t peercredlen = sizeof peercred;
+        int s = 0;
+        QLocalSocket *sock = qobject_cast<QLocalSocket *>(stream->device());
+        if (sock) {
+            s = sock->socketDescriptor();
+        } else {
+            QAbstractSocket *sock = qobject_cast<QAbstractSocket *>(stream->device());
+            if (sock)
+                s = sock->socketDescriptor();
+        }
+        if (s <= 0) {
+            qWarning() << Q_FUNC_INFO << "socketDescriptor () does not return a valid descriptor.";
+            return 0;
+        }
+        if (getsockopt(s, SOL_SOCKET, SO_PEERCRED, &peercred, &peercredlen)) {
+            qWarning() << Q_FUNC_INFO << "getsockopt(...SO_PEERCRED...) failed" << ::strerror(errno) << errno;
+            return 0;
+        }
+
+        QScopedPointer<JsonDbOwner> owner(new JsonDbOwner(this));
+        struct passwd *pwd = ::getpwuid(peercred.uid);
+        QString username = QString::fromLocal8Bit(pwd->pw_name);
+        // OwnerId == username
+        owner->setOwnerId(username);
+
+        // Parse domain from username
+        QStringList domainParts = username.split(QLatin1Char('.'), QString::SkipEmptyParts);
+        if (domainParts.count() > 2)
+            owner->setDomain(username.left(username.lastIndexOf(QLatin1Char('.'))));
+        else
+            owner->setDomain(QStringLiteral("public"));
+        DBG() << "domain set to" << owner->domain();
+
+        // Get capabilities from supplementary groups
+        if (peercred.uid) {
+            int ngroups = 128;
+            gid_t groups[128];
+            bool setOwner = false;
+            QJsonObject capabilities;
+            if (::getgrouplist(pwd->pw_name, pwd->pw_gid, groups, &ngroups) != -1) {
+                struct group *gr;
+                for (int i = 0; i < ngroups; i++) {
+                    gr = ::getgrgid(groups[i]);
+                    if (::strcasecmp (gr->gr_name, "identity") == 0)
+                        setOwner = true;
+                }
+                for (int i = 0; i < ngroups; i++) {
+                    gr = ::getgrgid(groups[i]);
+                    QJsonArray value;
+                    if (::strcasecmp (gr->gr_name, "identity") == 0)
+                        continue;
+                    value.append(QJsonValue(QLatin1String("Read")));
+                    value.append(QJsonValue(QLatin1String("Write")));
+                    if (setOwner)
+                        value.append(QJsonValue(QLatin1String("setOwner")));
+                    capabilities.insert(QString::fromLocal8Bit(gr->gr_name), value);
+                    DBG() << "Adding capability" << QString::fromLocal8Bit(gr->gr_name) <<
+                             "to user" << owner->ownerId() << "setOwner =" << setOwner;
+                }
+                owner->setCapabilities(capabilities, mJsonDb);
+            } else {
+                qWarning() << Q_FUNC_INFO << owner->ownerId() << "belongs to too many groups (>128)";
+            }
+        } else {
+            // root can access all
+            owner->setAllowAll(true);
+            owner->setStorageQuota(-1);
+        }
+
+        // Read quota from security object
+        // TODO: rename to com.nokia.mt.core.Quota?
+        GetObjectsResult result = mJsonDb->getObjects(JsonDbString::kTypeStr, QString("com.nokia.mp.core.Security"));
+        JsonDbObjectList securityObjects;
+        for (int i = 0; i < result.data.size(); i++) {
+            JsonDbObject doc = result.data.at(i);
+            if (doc.value(JsonDbString::kTokenStr).toString() == username)
+                securityObjects.append(doc);
+        }
+        if (securityObjects.size() == 1) {
+            QJsonObject securityObject = securityObjects.at(0);
+            QJsonObject capabilities = securityObject.value("capabilities").toObject();
+            QStringList keys = capabilities.keys();
+            if (keys.contains("quotas")) {
+                QJsonObject quotas = capabilities.value("quotas").toObject();
+                int storageQuota = quotas.value("storage").toDouble();
+                owner->setStorageQuota(storageQuota);
+            }
+        } else if (!securityObjects.isEmpty()) {
+            qWarning() << Q_FUNC_INFO << "Wrong number of security objects found." << securityObjects.size();
+            return 0;
+        }
+
+        mOwners[stream->device()] = owner.take();
+    }
+#else
+    // security hole
+    // TODO: Mac socket authentication
+    JsonDbOwner *owner = new JsonDbOwner(this);
+    owner->setOwnerId(QString::fromLatin1("unknown app %1").arg((intptr_t)stream));
+    owner->setDomain("unknown app domain");
+    mOwners[stream->device()] = owner;
+#endif
     Q_ASSERT(mOwners[device]);
     return mOwners[device];
 }
@@ -262,10 +371,9 @@ void DBServer::updateView( const QString &viewType, const QString &partitionName
     mJsonDb->updateView(viewType, partitionName);
 }
 
-void DBServer::processCreate(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName)
+void DBServer::processCreate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName)
 {
     QJsonObject result;
-    JsonDbOwner *owner = getOwner(stream);
     switch (object.type()) {
     case QJsonValue::Array: {
         // TODO:  Properly handle creating notifications from a list
@@ -298,11 +406,10 @@ void DBServer::processCreate(JsonStream *stream, const QJsonValue &object, int i
     stream->send(result);
 }
 
-void DBServer::processUpdate(JsonStream *stream, const QJsonValue &object,
+void DBServer::processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object,
                              int id, const QString &partitionName)
 {
     QJsonObject result;
-    JsonDbOwner *owner = getOwner(stream);
     switch (object.type()) {
     case QJsonValue::Array: {
         // TODO:  Properly handle updating notifications from a list
@@ -343,9 +450,8 @@ void DBServer::processUpdate(JsonStream *stream, const QJsonValue &object,
     stream->send(result);
 }
 
-void DBServer::processRemove(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName)
+void DBServer::processRemove(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName)
 {
-    JsonDbOwner *owner = getOwner(stream);
     QJsonObject result;
     switch (object.type()) {
     case QJsonValue::Array: {
@@ -386,9 +492,8 @@ void DBServer::processRemove(JsonStream *stream, const QJsonValue &object, int i
     stream->send(result);
 }
 
-void DBServer::processFind(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName)
+void DBServer::processFind(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName)
 {
-    JsonDbOwner *owner = getOwner(stream);
     QJsonObject response;
     switch (object.type()) {
     case QJsonValue::Object: {
@@ -426,9 +531,8 @@ void DBServer::processFind(JsonStream *stream, const QJsonValue &object, int id,
     stream->send(response);
 }
 
-void DBServer::processChangesSince(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName)
+void DBServer::processChangesSince(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName)
 {
-    JsonDbOwner *owner = getOwner(stream);
     QJsonObject request(object.toObject());
     QJsonObject result;
     switch (object.type()) {
@@ -443,39 +547,12 @@ void DBServer::processChangesSince(JsonStream *stream, const QJsonValue &object,
     stream->send(result);
 }
 
-bool DBServer::validateToken( JsonStream *stream, const JsonDbObject &securityObject )
-{
-    bool valid = false;
-#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-    pid_t pid = securityObject.value("pid").toDouble();
-    ucred peercred;
-    socklen_t peercredlen = sizeof peercred;
-    int s = 0;
-    QLocalSocket *sock = qobject_cast<QLocalSocket *>(stream->device());
-    if (sock) {
-        s = sock->socketDescriptor();
-    } else {
-        QAbstractSocket *sock = qobject_cast<QAbstractSocket *>(stream->device());
-        if (sock)
-            s = sock->socketDescriptor();
-    }
-    if (!getsockopt(s, SOL_SOCKET, SO_PEERCRED, &peercred, &peercredlen)) {
-        valid = (pid == peercred.pid);
-    }
-#else
-    Q_UNUSED(stream);
-    Q_UNUSED(securityObject);
-    valid = true;
-#endif
-    return valid;
-}
-
 // This will create a dummy owner. Used only when the policies are not enforced.
 // When policies are not enforced the JsonDbOwner allows access to everybody.
-void DBServer::createDummyOwner( JsonStream *stream, int id )
+JsonDbOwner *DBServer::createDummyOwner( JsonStream *stream)
 {
     if (gEnforceAccessControlPolicies)
-        return;
+        return 0;
 
     JsonDbOwner *owner = new JsonDbOwner(this);
     owner->setOwnerId(QString("unknown app"));
@@ -484,97 +561,20 @@ void DBServer::createDummyOwner( JsonStream *stream, int id )
     owner->setCapabilities(capabilities, mJsonDb);
     mOwners[stream->device()] = owner;
 
-    QJsonObject result;
-    result.insert( JsonDbString::kResultStr, QLatin1String("Okay") );
-    result.insert( JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
-    result.insert( JsonDbString::kIdStr, id );
-    stream->send(result);
+    return mOwners[stream->device()];
 }
 
 void DBServer::processToken(JsonStream *stream, const QJsonValue &object, int id)
 {
-    if (!gEnforceAccessControlPolicies) {
-        // We are not enforcing policies here, allow 'token' requests
-        // from all applications.
-        // ### TODO: We will have to remove this afterwards
-        createDummyOwner(stream, id);
-        return;
-    }
-
-    bool tokenValidated = false;
+    // Always succeed. Authentication is done using the socket peer credentials in getOwner()
+    Q_UNUSED(object);
+    QJsonObject resultObject;
+    resultObject.insert(JsonDbString::kResultStr, QLatin1String("Okay"));
     QJsonObject result;
-    QString errorStr(QLatin1String("Invalid token"));
-    if (object.type() == QJsonValue::String) {
-        QString token = object.toString();
-
-        // grant all access to applications with the master token.
-        if (!mMasterToken.isEmpty() && mMasterToken == token) {
-            JsonDbOwner *owner = new JsonDbOwner(this);
-            owner->setAllowAll(true);
-            owner->setStorageQuota(-1);
-            mOwners[stream->device()] = owner;
-            tokenValidated = true;
-        } else {
-            GetObjectsResult result = mJsonDb->getObjects(JsonDbString::kTypeStr, QString("com.nokia.mp.core.Security"));
-            JsonDbObjectList securityObjects;
-            for (int i = 0; i < result.data.size(); i++) {
-                JsonDbObject doc = result.data.at(i);
-                if (doc.value(JsonDbString::kTokenStr).toString() == token)
-                    securityObjects.append(doc);
-            }
-            if (securityObjects.size() == 1) {
-                JsonDbObject securityObject = securityObjects.at(0);
-                if (validateToken(stream, securityObject)) {
-                    QString identifier = securityObject.value("identifier").toString();
-                    QString domain = securityObject.value("domain").toString();
-                    QJsonObject capabilities = securityObject.value("capabilities").toObject();
-
-                    JsonDbOwner *owner = new JsonDbOwner(this);
-                    owner->setOwnerId(identifier);
-                    owner->setDomain(domain);
-                    owner->setCapabilities(capabilities, mJsonDb);
-
-                    QStringList keys = capabilities.keys();
-                    if (keys.contains("quotas")) {
-                        QJsonObject quotas = capabilities.value("quotas").toObject();
-                        int storageQuota = quotas.value("storage").toDouble();
-                        owner->setStorageQuota(storageQuota);
-                    }
-                    mOwners[stream->device()] = owner;
-                    tokenValidated = true;
-                }
-            } else {
-                if (securityObjects.size()) {
-                    errorStr = QLatin1String("Wrong number of security objects found.");
-                    DBG() << Q_FUNC_INFO << "Wrong number of security objects found." << securityObjects.size();
-                } else {
-                    errorStr = QLatin1String("No security object for token");
-                    DBG() << Q_FUNC_INFO << "No security object for token" << token << "Using default owner and access control";
-                }
-            }
-        }
-    }
-    if (tokenValidated) {
-        QJsonObject resultObject;
-        resultObject.insert(JsonDbString::kResultStr, QLatin1String("Okay"));
-        result.insert(JsonDbString::kResultStr, resultObject);
-        result.insert(JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
-    } else {
-        result = createError(JsonDbError::InvalidRequest, errorStr);
-    }
+    result.insert(JsonDbString::kResultStr, resultObject);
+    result.insert(JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
     result.insert(JsonDbString::kIdStr, id);
     stream->send(result);
-    // in case of an invalid token, close the connection
-    if (!tokenValidated) {
-        QLocalSocket *socket = qobject_cast<QLocalSocket *>(stream->device());
-        if (socket) {
-            socket->disconnectFromServer();
-        } else {
-            QTcpSocket *tcpSocket = qobject_cast<QTcpSocket *>(stream->device());
-            if (tcpSocket)
-                tcpSocket->disconnectFromHost();
-        }
-    }
 }
 
 void DBServer::receiveMessage(const QJsonObject &message)
@@ -594,18 +594,33 @@ void DBServer::receiveMessage(const QJsonObject &message)
         timer.start();
     }
 
+    JsonDbOwner *owner = getOwner(stream);
+    if (!owner) {
+        sendError(stream, JsonDbError::InvalidRequest, QLatin1String("Authentication error"), id);
+        // Close the socket in case of authentication error
+        QLocalSocket *socket = qobject_cast<QLocalSocket *>(stream->device());
+        if (socket) {
+            socket->disconnectFromServer();
+        } else {
+            QTcpSocket *tcpSocket = qobject_cast<QTcpSocket *>(stream->device());
+            if (tcpSocket)
+                tcpSocket->disconnectFromHost();
+        }
+        return;
+    }
+
     if (action == JsonDbString::kCreateStr)
-        processCreate(stream, object, id, partitionName);
+        processCreate(stream, owner, object, id, partitionName);
     else if (action == JsonDbString::kUpdateStr)
-        processUpdate(stream, object, id, partitionName);
+        processUpdate(stream, owner, object, id, partitionName);
     else if (action == JsonDbString::kRemoveStr)
-        processRemove(stream, object, id, partitionName);
+        processRemove(stream, owner, object, id, partitionName);
     else if (action == JsonDbString::kFindStr)
-        processFind(stream, object, id, partitionName);
+        processFind(stream, owner, object, id, partitionName);
     else if (action == JsonDbString::kTokenStr)
         processToken(stream, object, id);
     else if (action == JsonDbString::kChangesSinceStr)
-        processChangesSince(stream, object, id, partitionName);
+        processChangesSince(stream, owner, object, id, partitionName);
     else {
         const QMetaObject *mo = mJsonDb->metaObject();
         QJsonObject result;
@@ -613,7 +628,7 @@ void DBServer::receiveMessage(const QJsonObject &message)
         if (mo->invokeMethod(mJsonDb, action.toLatin1().data(),
                              Qt::DirectConnection,
                              Q_RETURN_ARG(QJsonObject, result),
-                             Q_ARG(JsonDbOwner *, getOwner(stream)),
+                             Q_ARG(JsonDbOwner *, owner),
                              Q_ARG(QJsonValue, object.toObject()))) {
             if (!result.isEmpty()) {
                 result.insert(JsonDbString::kIdStr, id);

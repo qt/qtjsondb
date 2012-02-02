@@ -89,16 +89,15 @@ protected slots:
     void updateView( const QString &viewType, const QString &partitionName );
 
 private:
-    void processFind(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
-    void processCreate(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
-    void processUpdate(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
-    void processRemove(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
+    void processFind(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName);
+    void processCreate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName);
+    void processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName);
+    void processRemove(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName);
     void processToken(JsonStream *stream, const QJsonValue &object, int id);
-    void processChangesSince(JsonStream *stream, const QJsonValue &object, int id, const QString &partitionName);
+    void processChangesSince(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName);
 
-    JsonDbOwner *getOwner( JsonStream *stream );
-    bool validateToken(JsonStream *stream, const JsonDbObject &securityObject );
-    void createDummyOwner( JsonStream *stream, int id );
+    JsonDbOwner *getOwner( JsonStream *stream);
+    JsonDbOwner *createDummyOwner( JsonStream *stream);
 
     quint16                          mTcpServerPort;
     QLocalServer                    *mServer;
