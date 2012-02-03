@@ -451,7 +451,7 @@ QJsonValue JsonDb::fromJSValue(const QJSValue &v)
     }
     if (v.isArray()) {
         QJsonArray a;
-        int size = v.property("length").toInt32();
+        int size = v.property("length").toInt();
         for (int i = 0; i < size; i++) {
             a.append(fromJSValue(v.property(i)));
         }
