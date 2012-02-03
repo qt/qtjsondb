@@ -165,7 +165,7 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
             return -1;
         }
         actualCallback = actualOptions;
-        actualOptions = QJSValue();
+        actualOptions = QJSValue(QJSValue::UndefinedValue);
     }
     //#TODO ADD options
     int id = jsonDb.create(qjsvalue_to_qvariant(object), _name);
@@ -238,7 +238,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
             return -1;
         }
         actualCallback = actualOptions;
-        actualOptions = QJSValue();
+        actualOptions = QJSValue(QJSValue::UndefinedValue);
     }
     //#TODO ADD options
     int id = jsonDb.update(qjsvalue_to_qvariant(object), _name);
@@ -303,11 +303,82 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
             return -1;
         }
         actualCallback = actualOptions;
-        actualOptions = QJSValue();
+        actualOptions = QJSValue(QJSValue::UndefinedValue);
     }
     //#TODO ADD options
     int id = jsonDb.remove(qjsvalue_to_qvariant(object), _name);
     removeCallbacks.insert(id, actualCallback);
+    return id;
+}
+
+/*!
+    \qmlmethod QtJsonDb::Partition::find(object query, object options, function callback)
+
+    Finds the objects matching the \a query string in the partition. The \a options specifies
+    how query should be handled. The \a query should be specified in JsonQuery format.
+    \a options support the following properties.
+    \list
+    \o options.limit - Maximum number of items to be fetched
+    \o options.bindings - Holds the bindings object for the placeholders used in the query string. Note that
+    the placeholder marker '%' should not be included as part of the keys.
+    \endlist
+
+    The callback will be called in case of failure or success. It has the following signature
+    \code
+    function findCallback(error, response) {
+        if (error) {
+            // 'error' object is only defined in case of an error otherwise undefined.
+            console.log("Update Error :"+JSON.stringify(error));
+            return;
+        }
+        console.log("response.id = "+response.id +" count = "+response.items.length);
+        // response.items is an array of objects
+        for (var i = 0; i < response.items.length; i++) {
+            console.log("_uuid = "+response.items[i]._uuid);
+        }
+    }
+    \endcode
+
+    The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
+    only defined in case of an error. The \a response object contains the following properties :
+    \list
+    \o id -  The id of the request.
+    \o stateNumber - The state label of the partition this write was committed in.
+    \o items - An array of objects
+    \endlist
+
+    \sa QtJsonDb::Query
+
+*/
+
+int JsonDbPartition::find(const QString &query, const QJSValue &options, const QJSValue &callback)
+{
+    QJSValue actualOptions = options;
+    QJSValue actualCallback = callback;
+    if (options.isCallable()) {
+        if (!callback.isUndefined()) {
+            qWarning() << "Callback should be the last parameter.";
+            return -1;
+        }
+        actualCallback = actualOptions;
+        actualOptions = QJSValue(QJSValue::UndefinedValue);
+    }
+    JsonDbQueryObject *newQuery = new JsonDbQueryObject();
+    newQuery->setQuery(query);
+    if (!actualOptions.isUndefined()) {
+        QVariantMap opt = actualOptions.toVariant().toMap();
+        if (opt.contains(QLatin1String("limit")))
+            newQuery->setLimit(opt.value(QLatin1String("limit")).toInt());
+        if (opt.contains(QLatin1String("bindings")))
+            newQuery->setBindings(opt.value(QLatin1String("bindings")).toMap());
+    }
+    newQuery->setPartition(this);
+    connect(newQuery, SIGNAL(finished()), this, SLOT(queryFinished()));
+    connect(newQuery, SIGNAL(statusChanged(JsonDbQueryObject::Status)), this, SLOT(queryStatusChanged()));
+    findCallbacks.insert(newQuery, actualCallback);
+    newQuery->componentComplete();
+    int id = newQuery->start();
+    findIds.insert(newQuery, id);
     return id;
 }
 
@@ -530,4 +601,52 @@ void JsonDbPartition::dbErrorResponse(int id, int code, const QString &message)
     } else if (updateCallbacks.contains(id)) {
         callErrorCallback(updateCallbacks, id, code, message);
     }
+}
+
+void JsonDbPartition::queryFinished()
+{
+    JsonDbQueryObject *object = qobject_cast<JsonDbQueryObject*>(sender());
+    if (object) {
+        int id = findIds.value(object);
+        QJSValue callback = findCallbacks.value(object);
+        QJSEngine *engine = callback.engine();
+        if (engine && callback.isCallable()) {
+            QJSValueList args;
+            // object : id  , statenumber , items
+            QJSValue response= engine->newObject();
+            response.setProperty(JsonDbString::kStateNumberStr, object->stateNumber());
+            response.setProperty(JsonDbString::kIdStr,  id);
+            response.setProperty(QLatin1String("items"), engine->toScriptValue(object->takeResults()));
+            args << QJSValue(QJSValue::UndefinedValue) << response;
+            callback.call(args);
+        }
+        findIds.remove(object);
+        findCallbacks.remove(object);
+        object->deleteLater();
+    }
+}
+
+void JsonDbPartition::queryStatusChanged()
+{
+    JsonDbQueryObject *object = qobject_cast<JsonDbQueryObject*>(sender());
+    if (object && object->status() == JsonDbQueryObject::Error) {
+        int id = findIds.value(object);
+        QJSValue callback = findCallbacks.value(object);
+        QJSEngine *engine = callback.engine();
+        if (engine && callback.isCallable()) {
+            QJSValueList args;
+
+            QJSValue response = engine->newObject();
+            response.setProperty(JsonDbString::kStateNumberStr, -1);
+            response.setProperty(JsonDbString::kIdStr,  id);
+            response.setProperty(QLatin1String("items"), engine->newArray());
+
+            args << engine->toScriptValue(object->error())<< response;
+            callback.call(args);
+        }
+        findIds.remove(object);
+        findCallbacks.remove(object);
+        object->deleteLater();
+    }
+
 }

@@ -340,6 +340,60 @@ void TestJsonDbPartition::remove()
     delete expr;
     deleteComponent(partition);
 }
+// JsonDb.Partition.find()
+void TestJsonDbPartition::find()
+{
+    const QString createString = QString("create(%1, function (error, response) {callbackSignal(error, response);});");
+    const QString findString = QString("find('[?_type = \""+QString( __FUNCTION__ )+"\"]', function (error, response) {callbackSignal(error, response);});");
+    ComponentData *partition = createComponent();
+    if (!partition || !partition->qmlElement) return;
+    QVariant obj;
+    QVariantMap objMap;
+    QVariantList objList;
+    QString expression;
+
+    obj = createObject(__FUNCTION__);
+    expression = QString(createString).arg(objectString(QString(), obj));
+
+    QDeclarativeExpression *expr;
+    int id = 0;
+    expr = new QDeclarativeExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    id = expr->evaluate().toInt();
+    waitForCallback();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    //find this object
+    expression = findString;
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    obj = createObjectList(__FUNCTION__, 5);
+    expression = QString(createString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+
+    //Find all objects
+    expression = findString;
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 6);
+
+    delete expr;
+    deleteComponent(partition);
+}
 
 QTEST_MAIN(TestJsonDbPartition)
 

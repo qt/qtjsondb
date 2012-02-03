@@ -71,16 +71,20 @@ public:
     Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
 
     Q_INVOKABLE int create(const QJSValue &object,
-                           const QJSValue &options = QJSValue(),
+                           const QJSValue &options = QJSValue(QJSValue::UndefinedValue),
                            const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
 
     Q_INVOKABLE int update(const QJSValue &object,
-                           const QJSValue &options = QJSValue(),
+                           const QJSValue &options = QJSValue(QJSValue::UndefinedValue),
                            const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
 
     Q_INVOKABLE int remove(const QJSValue &object,
-                           const QJSValue &options = QJSValue(),
+                           const QJSValue &options = QJSValue(QJSValue::UndefinedValue),
                            const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
+
+    Q_INVOKABLE int find(const QString &query,
+                         const QJSValue &options = QJSValue(QJSValue::UndefinedValue),
+                         const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
 
     Q_INVOKABLE JsonDbNotify* createNotification(const QString &query);
 
@@ -109,6 +113,8 @@ private:
     QMap<int, QJSValue> removeCallbacks;
     QMap<QString, QPointer<JsonDbNotify> > notifications;
     QList<QObject*> childQMLElements;
+    QMap<JsonDbQueryObject*, QJSValue> findCallbacks;
+    QMap<JsonDbQueryObject*, int> findIds;
 
     void updateNotification(JsonDbNotify *notify);
     void removeNotification(JsonDbNotify *notify);
@@ -119,6 +125,8 @@ private:
 private Q_SLOTS:
     void dbResponse(int id, const QVariant &result);
     void dbErrorResponse(int id, int code, const QString &message);
+    void queryFinished();
+    void queryStatusChanged();
 
     friend class JsonDatabase;
     friend class JsonDbNotify;

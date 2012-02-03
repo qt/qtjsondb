@@ -75,6 +75,7 @@ private slots:
     void create();
     void update();
     void remove();
+    void find();
 
 public slots:
     void callbackSlot(QVariant error, QVariant response);
