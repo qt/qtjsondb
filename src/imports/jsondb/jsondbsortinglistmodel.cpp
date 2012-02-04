@@ -497,20 +497,6 @@ int JsonDbSortingListModelPrivate::indexOf(const QString &uuid) const
     return iterator_position(begin, end, i);
 }
 
-static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyChain, QVariant value)
-{
-    if (propertyChain.size() < 1) {
-        qCritical() << "updateProperty" << "empty property chain" << item;
-    } else if (propertyChain.size() == 1) {
-        item.insert(propertyChain[0], value.toString());
-    } else {
-        QString property = propertyChain[0];
-        QVariant newChild = updateProperty(item.value(property).toMap(), propertyChain.mid(1), value);
-        item.insert(property, newChild);
-    }
-    return item;
-}
-
 void JsonDbSortingListModelPrivate::sendNotifications(const QString& currentNotifyUuid, const QVariant &v, JsonDbClient::NotifyType action)
 {
     int idx = indexOfNotifyUUID(currentNotifyUuid);
