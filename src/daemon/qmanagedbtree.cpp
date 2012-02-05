@@ -69,7 +69,7 @@ QManagedBtree::QManagedBtree()
 {
     mWriter.txn = 0;
     mBtree->setAutoCompactRate(gCompactRate);
-    mBtree->setAutoCompactRate(gSyncRate);
+    mBtree->setAutoSyncRate(gSyncRate);
 }
 
 QManagedBtree::~QManagedBtree()
