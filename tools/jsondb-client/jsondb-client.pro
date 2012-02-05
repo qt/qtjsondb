@@ -1,7 +1,7 @@
 TARGET = jsondb-client
 DESTDIR = $$QT.jsondb.bins
 
-target.path = $$[QT_INSTALL_BINS]
+target.path = $$[QT_INSTALL_PREFIX]/bin
 INSTALLS += target
 
 QT = core network declarative jsondb

@@ -1,6 +1,6 @@
 TARGET = jsondb
 DESTDIR = $$QT.jsondb.bins
-target.path = $$[QT_INSTALL_BINS]
+target.path = $$[QT_INSTALL_PREFIX]/bin
 INSTALLS += target
 
 LIBS += -L$$QT.jsondb.libs
