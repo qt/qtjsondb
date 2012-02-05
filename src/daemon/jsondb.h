@@ -121,6 +121,7 @@ public:
     QJsonObject removeViewObject(const JsonDbOwner *owner, JsonDbObject, const QString &partition = QString());
 
     QJsonObject changesSince(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
+    Q_INVOKABLE QJsonObject log(JsonDbOwner *owner, QJsonValue data);
 
     JsonDbOwner *owner() const { return mOwner; }
     bool load(const QString &jsonFileName);

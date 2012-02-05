@@ -602,8 +602,10 @@ void DBServer::receiveMessage(const QJsonObject &message)
                              Q_RETURN_ARG(QJsonObject, result),
                              Q_ARG(JsonDbOwner *, getOwner(stream)),
                              Q_ARG(QJsonValue, object.toObject()))) {
-            result.insert( JsonDbString::kIdStr, id );
-            stream->send(result);
+            if (!result.isEmpty()) {
+                result.insert(JsonDbString::kIdStr, id);
+                stream->send(result);
+            }
         } else {
             sendError(stream, JsonDbError::InvalidRequest,
                       QString("Invalid request '%1'").arg(action), id);

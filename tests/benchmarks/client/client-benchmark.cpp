@@ -41,6 +41,7 @@
 
 #include <QtTest/QtTest>
 #include "client-benchmark.h"
+#include "private/jsondb-connection_p.h"
 #include <json.h>
 
 #include "util.h"
@@ -49,8 +50,18 @@ static const char dbfile[] = "dbFile-test-jsondb";
 
 int gMany = ::getenv("BENCHMARK_MANY") ? ::atoi(::getenv("BENCHMARK_MANY")) : 1000;
 bool gPerformanceLog = ::getenv("JSONDB_PERFORMANCE_LOG") ? (::memcmp(::getenv("JSONDB_PERFORMANCE_LOG"), "true", 4) == 0) : false;
-#define BENCH_BEGIN_TAG if (gPerformanceLog) qDebug() << "[QBENCH-BEGIN]"
-#define BENCH_END_TAG if (gPerformanceLog) qDebug() << "[QBENCH-END]"
+
+void sendLogMessage(const QString &msg) {
+    QVariantMap request;
+    request.insert(QLatin1String("action"), QLatin1String("log"));
+    QVariantMap object;
+    object.insert(QLatin1String("message"), msg);
+    request.insert(QLatin1String("object"), object);
+    QtAddOn::JsonDb::JsonDbConnection::instance()->request(request);
+}
+
+#define BENCH_BEGIN_TAG if (gPerformanceLog) sendLogMessage(QString("[QBENCH-BEGIN] %1").arg(__FUNCTION__))
+#define BENCH_END_TAG if (gPerformanceLog) sendLogMessage(QString("[QBENCH-END] %1").arg(__FUNCTION__))
 
 TestJson::TestJson()
     : mProcess(0)

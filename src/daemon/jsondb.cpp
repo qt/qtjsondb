@@ -1762,6 +1762,14 @@ QJSValue JsonDb::toJSValue(const QJsonObject &object, QJSEngine *scriptEngine)
     return scriptEngine->toScriptValue<QVariant>(object.toVariantMap());
 }
 
+QJsonObject JsonDb::log(JsonDbOwner *owner, QJsonValue data)
+{
+    Q_UNUSED(owner);
+    if (gDebug || gPerformanceLog)
+        qDebug() << data.toObject().value(JsonDbString::kMessageStr).toString();
+    return QJsonObject();
+}
+
 QHash<QString, qint64> JsonDb::fileSizes(const QString &partitionName) const
 {
     QString name = partitionName;
