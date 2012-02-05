@@ -172,6 +172,7 @@ private slots:
     void remove2();
     void remove3();
     void remove4();
+    void remove5();
 
     void schemaValidation_data();
     void schemaValidation();
@@ -843,6 +844,28 @@ void TestJsonDb::remove4()
     verifyErrorResult(result);
     result = mJsonDb->remove(mOwner, item);
     verifyErrorResult(result);
+}
+
+/*
+ * Remove a stale version of the object
+ */
+void TestJsonDb::remove5()
+{
+    ScopedAssignment<bool> rejectStaleUpdates(gRejectStaleUpdates, true);
+
+    JsonDbObject item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("update-test-type"));
+
+    QJsonObject result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    QString version = item.take(JsonDbString::kVersionStr).toString();
+    result = mJsonDb->remove(mOwner, item);
+    verifyErrorResult(result);
+
+    item.insert(JsonDbString::kVersionStr, version);
+    result = mJsonDb->remove(mOwner, item);
+    verifyGoodResult(result);
 }
 
 void TestJsonDb::schemaValidation_data()

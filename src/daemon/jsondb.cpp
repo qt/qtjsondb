@@ -1068,7 +1068,7 @@ QJsonObject JsonDb::updateViewObject(const JsonDbOwner *owner, JsonDbObject &obj
 
 QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object, const QString &partition, bool isViewObject)
 {
-    QJsonObject errormap;
+    QJsonObject responseMap, errormap;
     QString uuid;
     RETURN_IF_ERROR(errormap, checkUuidPresent(object, uuid));
     QString objectType = object.value(JsonDbString::kTypeStr).toString();
@@ -1082,6 +1082,16 @@ QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object,
         gotDelrec = storage->getObject(uuid, delrec, objectType);
     if (!gotDelrec)
         mEphemeralStorage->get(object.uuid(), &delrec);
+
+    // temporary fix for rejecting stale removes
+    // TODO: refactor update to properly handle stale removes
+    if (gRejectStaleUpdates && !delrec.isEmpty()
+            && object.value(JsonDbString::kVersionStr).toString() != delrec.value(JsonDbString::kVersionStr).toString()) {
+        if (gDebug)
+            qDebug() << "Stale remove detected - expected version:" << delrec.version() << object;
+        setError(errormap, JsonDbError::UpdatingStaleVersion, "Removing stale version of object. Expected version " + delrec.version());
+        return makeResponse(responseMap, errormap, false);
+    }
 
     JsonDbObject tombstone;
     tombstone.insert(JsonDbString::kUuidStr, uuid);
