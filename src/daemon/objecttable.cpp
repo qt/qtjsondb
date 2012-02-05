@@ -188,6 +188,11 @@ IndexSpec *ObjectTable::indexSpec(const QString &propertyName)
         return 0;
 }
 
+QHash<QString, IndexSpec> ObjectTable::indexSpecs() const
+{
+    return mIndexes;
+}
+
 bool ObjectTable::addIndex(const QString &propertyName, const QString &propertyType,
                            const QString &objectType, const QString &propertyFunction)
 {

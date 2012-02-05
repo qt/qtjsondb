@@ -885,6 +885,31 @@ void JsonDbBtreeStorage::checkIndexConsistency(ObjectTable *objectTable, JsonDbI
         updateIndex(objectTable, index);
 }
 
+QHash<QString, qint64> JsonDbBtreeStorage::fileSizes() const
+{
+    QList<QFileInfo> fileInfo;
+    fileInfo << mBdbIndexes->fileName();
+    fileInfo << mObjectTable->bdb()->fileName();
+
+    foreach (const IndexSpec &spec, mObjectTable->indexSpecs().values()) {
+        if (spec.index->bdb())
+            fileInfo << spec.index->bdb()->fileName();
+    }
+
+    foreach (ObjectTable *view, mViews) {
+        fileInfo << view->bdb()->fileName();
+        foreach (const IndexSpec &spec, view->indexSpecs().values()) {
+            if (spec.index->bdb())
+                fileInfo << spec.index->bdb()->fileName();
+        }
+    }
+
+    QHash<QString, qint64> result;
+    foreach (const QFileInfo &info, fileInfo)
+        result.insert(info.fileName(), info.size());
+    return result;
+}
+
 static bool sDebugQuery = (::getenv("JSONDB_DEBUG_QUERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_QUERY")) == "true") : false);
 
 IndexQuery *IndexQuery::indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table,

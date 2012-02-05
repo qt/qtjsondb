@@ -126,6 +126,8 @@ public:
     QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
 
     IndexSpec *indexSpec(const QString &propertyName);
+    QHash<QString, IndexSpec> indexSpecs() const;
+
     bool addIndex(const QString &propertyName,
                   const QString &propertyType = QString("string"),
                   const QString &objectType = QString(),

@@ -79,7 +79,6 @@ bool gValidateSchemas = (::getenv("JSONDB_VALIDATE_SCHEMAS") ? (QLatin1String(::
 bool gRejectStaleUpdates = (::getenv("JSONDB_REJECT_STALE_UPDATES") ? (QLatin1String(::getenv("JSONDB_REJECT_STALE_UPDATES")) == "true") : false);
 bool gVerbose = (::getenv("JSONDB_VERBOSE") ? (QLatin1String(::getenv("JSONDB_VERBOSE")) == "true") : false);
 bool gShowErrors = (::getenv("JSONDB_SHOW_ERRORS") ? (QLatin1String(::getenv("JSONDB_SHOW_ERRORS")) == "true") : false);
-QMap<QString, int> gTouchedFiles;
 #ifndef QT_NO_DEBUG_OUTPUT
 bool gDebug = (::getenv("JSONDB_DEBUG") ? (QLatin1String(::getenv("JSONDB_DEBUG")) == "true") : false);
 bool gDebugRecovery = (::getenv("JSONDB_DEBUG_RECOVERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_RECOVERY")) == "true") : false);
@@ -1751,6 +1750,19 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
 QJSValue JsonDb::toJSValue(const QJsonObject &object, QJSEngine *scriptEngine)
 {
     return scriptEngine->toScriptValue<QVariant>(object.toVariantMap());
+}
+
+QHash<QString, qint64> JsonDb::fileSizes(const QString &partitionName) const
+{
+    QString name = partitionName;
+    if (name.isEmpty())
+        name = JsonDbString::kSystemPartitionName;
+
+    JsonDbBtreeStorage *partition = findPartition(name);
+    if (partition)
+        return partition->fileSizes();
+
+    return QHash<QString, qint64>();
 }
 
 QT_END_NAMESPACE_JSONDB

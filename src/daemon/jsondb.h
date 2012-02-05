@@ -75,7 +75,6 @@ extern bool gUseQsonInDb;
 extern bool gUseJsonInDb;
 extern bool gVerbose;
 extern bool gPrintErrors;
-extern QMap<QString, int> gTouchedFiles;
 #ifndef QT_NO_DEBUG_OUTPUT
 extern bool gDebug;
 extern bool gDebugRecovery;
@@ -142,6 +141,8 @@ public:
     static QJSValue toJSValue(const QJsonObject &object, QJSEngine *mScriptEngine);
 
     void updateView(const QString &viewType, const QString &partitionName = JsonDbString::kSystemPartitionName);
+
+    QHash<QString, qint64> fileSizes(const QString &partitionName = JsonDbString::kSystemPartitionName) const;
 
 protected:
     bool populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object);

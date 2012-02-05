@@ -206,6 +206,8 @@ public:
     void checkIndex(const QString &propertyName);
     bool compact();
 
+    QHash<QString, qint64> fileSizes() const;
+
 protected:
     bool checkStateConsistency();
     void checkIndexConsistency(ObjectTable *table, JsonDbIndex *index);

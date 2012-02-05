@@ -573,9 +573,12 @@ void DBServer::receiveMessage(const QJsonObject &message)
     QString partitionName = message.value(JsonDbString::kPartitionStr).toString();
 
     QElapsedTimer timer;
+    QHash<QString, qint64> fileSizes;
+
     if (gPerformanceLog) {
+        if (gVerbose)
+            fileSizes = mJsonDb->fileSizes(partitionName);
         timer.start();
-        gTouchedFiles.clear();
     }
 
     if (action == JsonDbString::kCreateStr)
@@ -618,10 +621,15 @@ void DBServer::receiveMessage(const QJsonObject &message)
         }
         qDebug().nospace() << "+ JsonDB Perf: [id]" << id << "[id]:[action]" << action
                            << "[action]:[ms]" << timer.elapsed() << "[ms]:[details]" << additionalInfo << "[details]";
-        if (gVerbose && !gTouchedFiles.isEmpty()) {
-            for (QMap<QString, int>::iterator i = gTouchedFiles.begin(); i != gTouchedFiles.end(); ++i) {
-                QFile file(i.key());
-                qDebug().nospace() << "\t [file]" << i.key() << "[file]:[commits]" << i.value() << " [commits]:[size]" << file.size() << "[size]";
+        if (gVerbose) {
+            QHash<QString, qint64> newSizes = mJsonDb->fileSizes(partitionName);
+            QHashIterator<QString, qint64> files(fileSizes);
+
+            while (files.hasNext()) {
+                files.next();
+                if (newSizes[files.key()] != files.value())
+                    qDebug().nospace() << "\t [file]" << files.key() << "[file]:[size]" << (newSizes[files.key()] - files.value()) << "[size]";
+
             }
         }
     }
