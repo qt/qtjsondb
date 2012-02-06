@@ -1272,10 +1272,17 @@ public:
 private:
     QJsonValue mValue;
 };
-class QueryConstraintHas: public QueryConstraint {
+class QueryConstraintExists: public QueryConstraint {
 public:
-    QueryConstraintHas() { }
+    QueryConstraintExists() { }
     bool matches(const QJsonValue &v) { return !v.isUndefined(); }
+private:
+};
+class QueryConstraintNotExists: public QueryConstraint {
+public:
+    QueryConstraintNotExists() { }
+    // this will never match
+    bool matches(const QJsonValue &v) { return v.isUndefined(); }
 private:
 };
 class QueryConstraintIn: public QueryConstraint {
@@ -1368,7 +1375,9 @@ void JsonDbBtreeStorage::compileOrQueryTerm(IndexQuery *indexQuery, const QueryT
     } else if (op == "!=") {
         indexQuery->addConstraint(new QueryConstraintNe(fieldValue));
     } else if (op == "exists") {
-        indexQuery->addConstraint(new QueryConstraintHas);
+        indexQuery->addConstraint(new QueryConstraintExists);
+    } else if (op == "notExists") {
+        indexQuery->addConstraint(new QueryConstraintNotExists);
     } else if (op == "in") {
         QJsonArray value = queryTerm.value().toArray();
         //qDebug() << "in" << value << value.size();

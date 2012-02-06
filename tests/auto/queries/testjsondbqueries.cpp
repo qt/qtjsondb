@@ -122,6 +122,7 @@ private slots:
     void queryOneOrOtherType();
     void queryTypesIn();
     void queryFieldExists();
+    void queryFieldNotExists();
     void queryLessThan();
     void queryLessThanOrEqual();
     void queryGreaterThan();
@@ -321,6 +322,16 @@ void TestJsonDbQueries::queryFieldExists()
     JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
+}
+
+void TestJsonDbQueries::queryFieldNotExists()
+{
+    QJsonObject query;
+    query.insert(JsonDbString::kQueryStr, QString("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"][/_type]"));
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    QCOMPARE(queryResult.data.size(),
+             mDataStats["num-bunnies"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
 }
 
 void TestJsonDbQueries::queryLessThan()

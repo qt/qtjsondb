@@ -307,7 +307,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
                         term.regExp().setCaseSensitivity(Qt::CaseInsensitive);
                     //qDebug() << "pattern" << tvs.mid(2, eor-2);
                     term.regExp().setPattern(tvs.mid(2, eor-2));
-                } else if (op != "exists") {
+                } else if ((op != "exists") && (op != "notExists")) {
                     QString value = tokenizer.pop();
                     bool ok = true;;
                     if (value == "[") {
@@ -506,6 +506,9 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 matches = greaterThan(objectFieldValue, termValue);
             } else if (op == "exists") {
                 if (objectFieldValue.type() != QJsonValue::Undefined)
+                    matches = true;
+            } else if (op == "notExists") {
+                if (objectFieldValue.type() == QJsonValue::Undefined)
                     matches = true;
             } else if (op == "in") {
                 if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "in" << termValue
