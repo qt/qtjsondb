@@ -124,7 +124,11 @@ bool DBServer::socket()
     QLocalServer::removeServer(socketName);
     mServer = new QLocalServer(this);
     connect(mServer, SIGNAL(newConnection()), this, SLOT(handleConnection()));
-    if (!mServer->listen(socketName))
+    if (mServer->listen(socketName))
+        QFile::setPermissions(mServer->fullServerName(), QFile::ReadUser | QFile::WriteUser | QFile::ExeUser |
+                                                        QFile::ReadGroup | QFile::WriteGroup | QFile::ExeGroup |
+                                                        QFile::ReadOther | QFile::WriteOther | QFile::ExeOther);
+    else
         qCritical() << "DBServer::start - Unable to open" << socketName << "socket";
 
     if (mTcpServerPort) {
