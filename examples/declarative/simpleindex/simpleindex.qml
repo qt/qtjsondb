@@ -92,4 +92,10 @@ Rectangle {
         systemPartition.create(indexDefinition, createCallback);
     }
 //! [Creating an Index Using a Property Function]
+    Component.onCompleted: {
+        createIdentifierIndex(createCallback)
+        console.log("The simple index was created!")
+        create(createCallback)
+        console.log("The property function index was created!")
+    }
 }

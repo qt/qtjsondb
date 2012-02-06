@@ -157,6 +157,7 @@ Rectangle {
 
     JsonDb.JsonDbListModel {
         id: contacts
+        partition: systemPartition
         query: '[?_type="ContactLogView"][/date]'
         roleNames: ["date", "name", "number"]
     }
