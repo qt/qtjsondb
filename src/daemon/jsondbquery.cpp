@@ -197,7 +197,8 @@ QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, Q
     const ushort trueLiteral[] = {'t','r','u','e', 0};
     const ushort falseLiteral[] = {'f','a','l','s','e', 0};
     const ushort *literal = json.utf16();
-    if (ok) { *ok = true; }
+    Q_ASSERT(ok != NULL);
+    *ok = true;
     switch (literal[0]) {
     case '"':
         term->setValue(json.mid(1, json.size()-2));
@@ -206,7 +207,7 @@ QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, Q
         // we will interpret  "true0something" as true is it a real problem ?
         for (int i = 1; i < 5 /* 'true0' length */; ++i) {
             if (trueLiteral[i] != literal[i]) {
-                if (ok) { *ok = false; }
+                *ok = false;
                 return term->value();
             }
         }
@@ -216,7 +217,7 @@ QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, Q
         // we will interpret  "false0something" as false is it a real problem ?
         for (int i = 1; i < 6  /* 'false0' length */; ++i) {
             if (falseLiteral[i] != literal[i]) {
-                if (ok) { *ok = false; }
+                *ok = false;
                 return term->value();
             }
         }
@@ -231,11 +232,11 @@ QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, Q
     }
     case 0:
         // This can happen if json.length() == 0
-        if (ok) { *ok = false; }
+        *ok = false;
         return term->value();
     default:
         int result = json.toInt(ok);
-        if (ok) {
+        if (*ok) {
             term->setValue(result);
         } else {
             // bad luck, it can be only a double
