@@ -512,7 +512,6 @@ bool JsonDb::open()
         JsonDbObject partition;
         partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
         partition.insert(QLatin1String("name"), JsonDbString::kSystemPartitionName);
-        partition.insert(QLatin1String("file"), systemFileName);
         result = storage->createPersistentObject(partition);
         if (responseIsError(result)) {
             qCritical() << "Cannot create a system partition";
@@ -522,7 +521,7 @@ bool JsonDb::open()
 
     for (int i = 0; i < partitions.size(); ++i) {
         JsonDbObject part = partitions.at(i);
-        QString filename = part.value(QLatin1String("file")).toString();
+        QString filename = mFilePath + part.value(QLatin1String("file")).toString();
         QString name = part.value(QLatin1String("name")).toString();
 
         if (name == JsonDbString::kSystemPartitionName)
@@ -1730,7 +1729,7 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
         return makeResponse(resultmap, errormap);
     }
 
-    QString filename = mFilePath + name + QLatin1String(".db");
+    QString filename = name + QLatin1String(".db");
 
     JsonDbObject partition;
     partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
@@ -1740,6 +1739,7 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
     if (responseIsError(result))
         return result;
 
+    filename = mFilePath + filename;
     JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(filename, name, this);
     if (gVerbose) qDebug() << "Opening partition" << name;
 
