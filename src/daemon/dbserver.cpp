@@ -247,8 +247,14 @@ void DBServer::notified(const QString &notificationId, JsonDbObject object, cons
     map.insert( JsonDbString::kNotifyStr, obj );
     map.insert( JsonDbString::kUuidStr, notificationId );
 
-    DBG() << "Sending notify" << map;
-    stream->send(map);
+    if (stream && stream->device() && stream->device()->isWritable()) {
+        DBG() << "Sending notify" << map;
+        stream->send(map);
+    }
+    else {
+        mNotifications.remove(notificationId);
+        DBG() << "Invalid stream" << static_cast<void*>(stream);
+    }
 }
 
 void DBServer::updateView( const QString &viewType, const QString &partitionName )
@@ -280,7 +286,8 @@ void DBServer::processCreate(JsonStream *stream, const QJsonValue &object, int i
         if (!uuid.isEmpty()
               // && partitionName == JsonDbString::kEphemeralPartitionName ### TODO: uncomment me
             && document.value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr) {
-            mNotifications.insert(uuid, stream);
+            if (stream->device() && mConnections.value(stream->device()) == stream)
+                mNotifications.insert(uuid, stream);
         }
         break; }
     default:
@@ -323,8 +330,10 @@ void DBServer::processUpdate(JsonStream *stream, const QJsonValue &object,
             qCritical() << "UPDATE:" << document << " Error Message : " << result.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString();
 
         if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName &&
-                document.value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr)
-            mNotifications.insert(uuid, stream);
+                document.value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr) {
+            if (stream->device() && mConnections.value(stream->device()) == stream)
+                mNotifications.insert(uuid, stream);
+        }
         break; }
     default:
         result = createError(JsonDbError::MissingObject, "Update requires list or object");
