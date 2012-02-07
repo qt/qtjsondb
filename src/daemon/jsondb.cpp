@@ -1033,11 +1033,11 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
     }
 
     if (forCreation)
-        checkNotifications(partitionId, master, JsonDbNotification::Create);
+        checkNotifications(partitionId, master, oldMaster, JsonDbNotification::Create);
     else if (forRemoval)
-        checkNotifications(partitionId, master, JsonDbNotification::Delete);
+        checkNotifications(partitionId, master, oldMaster, JsonDbNotification::Delete);
     else
-        checkNotifications(partitionId, master, JsonDbNotification::Update);
+        checkNotifications(partitionId, master, oldMaster, JsonDbNotification::Update);
 
     // method used to be non-const, so writing back
     // TODO: fixme
@@ -1112,10 +1112,9 @@ GetObjectsResult JsonDb::getObjects(const QString &keyName, const QJsonValue &ke
     return GetObjectsResult();
 }
 
-void JsonDb::checkNotifications(const QString &partitionName, JsonDbObject object, JsonDbNotification::Action action)
+void JsonDb::checkNotifications(const QString &partitionName, JsonDbObject object, JsonDbObject oldObject,
+                                JsonDbNotification::Action action)
 {
-    //DBG() << object;
-
     QStringList notificationKeys;
     if (object.contains(JsonDbString::kTypeStr)) {
         QString objectType = object.value(JsonDbString::kTypeStr).toString();
@@ -1130,6 +1129,8 @@ void JsonDb::checkNotifications(const QString &partitionName, JsonDbObject objec
         notificationKeys << object.value(JsonDbString::kUuidStr).toString();
     notificationKeys << "__generic_notification__";
 
+    bool deleted = object.contains(JsonDbString::kDeletedStr) && object.value(JsonDbString::kDeletedStr).toBool();
+
     QHash<QString, JsonDbObject> objectCache;
     for (int i = 0; i < notificationKeys.size(); i++) {
         QString key = notificationKeys[i];
@@ -1138,23 +1139,37 @@ void JsonDb::checkNotifications(const QString &partitionName, JsonDbObject objec
             JsonDbNotification *n = it.value();
             if (jsondbSettings->debug())
                 qDebug() << "Notification" << n->query() << n->actions();
-            if (n->partition() == partitionName && n->actions() & action) {
+            JsonDbNotification::Action effectiveAction = action;
+            if (n->partition() == partitionName) {
                 JsonDbObject r;
                 if (!n->query().isEmpty()) {
                     if (jsondbSettings->debug())
                         qDebug() << "Checking notification" << n->query() << endl
                                  << "    for object" << object;
                     JsonDbQuery *query  = n->parsedQuery();
-                    if (query->match(object, &objectCache, 0))
+                    bool oldMatches = query->match(oldObject, &objectCache, 0/*mStorage*/);
+                    bool newMatches = query->match(object, &objectCache, 0/*mStorage*/);
+                    if (oldMatches || newMatches)
                         r = object;
+                    if (!oldMatches && newMatches) {
+                        effectiveAction = JsonDbNotification::Create;
+                    } else if (oldMatches
+                               && (!newMatches || deleted)) {
+                        r = oldObject;
+                        effectiveAction = JsonDbNotification::Delete;
+                    } else if (oldMatches && newMatches) {
+                        effectiveAction = JsonDbNotification::Update;
+                    }
                     if (jsondbSettings->debug())
                         qDebug() << "Got result" << r;
                 } else {
                     r = object;
                 }
-                if (!r.isEmpty()) {
-                    QString actionStr = (action == JsonDbNotification::Create ? JsonDbString::kCreateStr :
-                                         (action == JsonDbNotification::Update ? JsonDbString::kUpdateStr : JsonDbString::kRemoveStr));
+                if (!r.isEmpty()
+                    && (n->actions() & effectiveAction)) {
+                    QString actionStr = ( effectiveAction == JsonDbNotification::Create ? JsonDbString::kCreateStr :
+                                          (effectiveAction == JsonDbNotification::Update ? JsonDbString::kUpdateStr :
+                                           JsonDbString::kRemoveStr ));
                     emit notified(n->uuid(), r, actionStr);
                 }
             }
@@ -1653,7 +1668,7 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
     mPartitions.insert(name, partition);
     JsonDbView::initViews(partition, name);
 
-    checkNotifications(mSystemPartitionName, partitionDefinition, JsonDbNotification::Create);
+    checkNotifications(mSystemPartitionName, partitionDefinition, JsonDbObject(), JsonDbNotification::Create);
 
     return result;
 }

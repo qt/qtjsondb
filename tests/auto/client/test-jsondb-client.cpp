@@ -100,6 +100,7 @@ private slots:
     void index();
     void registerNotification();
     void notify();
+    void notifyUpdate();
     void notifyViaCreate();
     void notifyRemoveBatch();
     void notifyMultiple();
@@ -828,6 +829,53 @@ void TestJsonDbClient::notify()
     mClient->unregisterNotification(notifyUuid);
 }
 
+void TestJsonDbClient::notifyUpdate()
+{
+    int id = 400;
+
+    // Create a notification object
+    JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
+    const QString query = "[?_type=\"com.test.notify-test\"][?filter=\"match\"]";
+    QString notifyUuid = mClient->registerNotification(actions, query);
+
+    // Create a notify-test object
+    QVariantMap object;
+    object.insert("_type","com.test.notify-test");
+    object.insert("name","test1");
+    object.insert("filter","match");
+    id = mClient->create(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+    QVariant uuid = mData.toMap().value("_uuid");
+    QString version = mData.toMap().value("_version").toString();
+
+    QCOMPARE(mNotifications.size(), 1);
+    JsonDbTestNotification n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QString("create"));
+
+    // Update the notify-test object
+    // query no longer matches, so we should receive a "remove" notification even though it is an update
+    object.insert("_uuid",uuid);
+    object.insert("_version", version);
+    object.insert("filter","nomatch");
+    id = mClient->update(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+
+    QCOMPARE(mNotifications.size(), 1);
+    n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QLatin1String("remove"));
+
+    // Remove the notify-test object
+    id = mClient->remove(object);
+    waitForResponse1(id);
+
+    QCOMPARE(mNotifications.size(), 0);
+
+    // Remove the notification object
+    mClient->unregisterNotification(notifyUuid);
+}
+
 void TestJsonDbClient::notifyViaCreate()
 {
     int id = 400;
@@ -975,6 +1023,7 @@ void TestJsonDbClient::notifyRemoveBatch()
         uuidList << v.toMap().value("_uuid");
 
     // Remove the objects
+    mNotifications.clear();
     id = mClient->remove(list);
     waitForResponse4(id, -1, notifyUuid, count);
 

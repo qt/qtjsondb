@@ -173,8 +173,8 @@ protected:
 
     void updateEagerViewTypes(const QString &objectType);
 
-    void checkNotifications(const QString &partitionName, JsonDbObject obj, JsonDbNotification::Action action);
-
+    void checkNotifications(const QString &partitionName, JsonDbObject obj, JsonDbObject oldObject,
+                            JsonDbNotification::Action action);
     const JsonDbNotification *createNotification(const JsonDbOwner *owner, JsonDbObject object);
     void removeNotification(const QString &uuid);
 
