@@ -836,7 +836,7 @@ void TestJsonDbBdb::syncMarker()
     bdb->clearData();
 
     AoDb db;
-    bool ok = db.open(dbname, AoDb::NoSync | AoDb::UseSyncMarker);
+    bool ok = db.open(dbname, AoDb::NoSync | AoDb::UseSyncMarker | AoDb::NoPageChecksums);
     QVERIFY(ok);
 
     ok = db.begin();
@@ -856,7 +856,7 @@ void TestJsonDbBdb::syncMarker()
     QVERIFY(ok);
 
     AoDb db2;
-    ok = db2.open(dbname, AoDb::NoSync | AoDb::UseSyncMarker);
+    ok = db2.open(dbname, AoDb::NoSync | AoDb::UseSyncMarker | AoDb::NoPageChecksums);
     QVERIFY(ok);
     QByteArray value;
     ok = db2.get(QByteArray("foo"), value);

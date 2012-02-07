@@ -1147,7 +1147,7 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
 {
         struct mpage    *mp;
         struct bt_meta  *meta;
-        pgno_t           meta_pgno, next_pgno;
+        pgno_t           meta_pgno, next_pgno, rest_pgno;
         off_t            size;
         off_t            bt_prev_sz = bt->size;
 
@@ -1213,7 +1213,17 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
                                 return BT_FAIL;
                         } else if (F_ISSET(bt->flags, BT_USEMARKER) && !F_ISSET(meta->flags, BT_MARKER)) {
                                 DPRINTF("found a meta page %d but without marker, skipping...", meta_pgno);
-                                /* skipping this meta page */
+                                /* dont skip if pages up to last marked meta are ok */
+                                if (!F_ISSET(bt->flags, BT_NOPGCHECKSUM)) {
+                                        rest_pgno = meta_pgno - 1;
+                                        while ((mp = btree_get_mpage(bt, rest_pgno)) != NULL) {
+                                                if (rest_pgno == 0 || (btree_is_meta_page(bt, mp->page) && F_ISSET(meta->flags, BT_MARKER))) {
+                                                        bcopy(meta, &bt->meta, sizeof(bt->meta));
+                                                        return BT_SUCCESS;
+                                                }
+                                                rest_pgno--;
+                                        }
+                                }
                         } else {
                                 /* Make copy of last meta page. */
                                 bcopy(meta, &bt->meta, sizeof(bt->meta));

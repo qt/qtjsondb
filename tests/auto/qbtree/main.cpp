@@ -91,6 +91,7 @@ private slots:
     void prefixTest();
     void cursors();
     void markerFileSizeCheck();
+    void markerChecksumRollCheck();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 flag = -1);
@@ -760,7 +761,7 @@ void TestQBtree::compareSequenceOfVarLengthKeys()
 void TestQBtree::syncMarker()
 {
     db->close();
-    QVERIFY(db->open(QBtree::NoSync | QBtree::UseSyncMarker));
+    QVERIFY(db->open(QBtree::NoSync | QBtree::UseSyncMarker | QBtree::NoPageChecksums));
 
     QBtreeTxn *txn = db->begin();
     QVERIFY(txn);
@@ -775,7 +776,7 @@ void TestQBtree::syncMarker()
     QVERIFY(txn->commit(6));
 
     QBtree db2(dbname);
-    QVERIFY(db2.open(QBtree::NoSync | QBtree::UseSyncMarker));
+    QVERIFY(db2.open(QBtree::NoSync | QBtree::UseSyncMarker | QBtree::NoPageChecksums));
     QByteArray value;
     txn = db2.begin(QBtree::TxnReadOnly);
     QVERIFY(txn);
@@ -1294,6 +1295,33 @@ void TestQBtree::markerFileSizeCheck()
     btree_txn_abort(txn);
 
     btree_close(bt2);
+}
+
+void TestQBtree::markerChecksumRollCheck()
+{
+    db->close();
+    db->open(QBtree::NoSync | QBtree::UseSyncMarker);
+
+    QBtreeTxn *txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo1"), QByteArray("bar1")));
+    QVERIFY(txn->commit(1));
+
+    txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo2"), QByteArray("bar2")));
+    QVERIFY(txn->commit(2));
+
+    txn = db->beginReadWrite();
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo3"), QByteArray("bar3")));
+    QVERIFY(txn->commit(3));
+
+    btree_close_nosync(db->handle());
+    db->close();
+
+    db->open(QBtree::NoSync | QBtree::UseSyncMarker);
+    QCOMPARE(db->tag(), 3u);
 }
 
 QTEST_MAIN(TestQBtree)
