@@ -360,7 +360,7 @@ void JsonDbNotify::clearError()
     int oldErrorCode = errorCode;
     errorCode = 0;
     errorString.clear();
-    if (oldErrorCode != JsonDbNotify::Error) {
+    if (oldErrorCode != errorCode) {
         emit errorChanged(error());
     }
 }
@@ -405,7 +405,7 @@ void JsonDbNotify::dbNotifyErrorResponse(int id, int code, const QString &messag
         objectStatus = JsonDbNotify::Error;
         emit statusChanged(objectStatus);
     }
-    if (oldErrorCode != JsonDbNotify::Error) {
+    if (oldErrorCode != errorCode) {
         emit errorChanged(error());
     }
 }

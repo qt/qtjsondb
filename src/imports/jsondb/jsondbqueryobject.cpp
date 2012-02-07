@@ -361,7 +361,7 @@ void JsonDbQueryObject::clearError()
     int oldErrorCode = errorCode;
     errorCode = 0;
     errorString.clear();
-    if (oldErrorCode != Error) {
+    if (oldErrorCode != errorCode) {
         emit errorChanged(error());
     }
 }
