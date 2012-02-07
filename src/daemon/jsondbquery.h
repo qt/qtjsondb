@@ -71,6 +71,7 @@ public:
 
     JsonDbQueryTokenizer(QString input);
     QString pop();
+    QString popIdentifier();
     QString peek();
     void push(QString token) {
         if (!mNextToken.isEmpty())

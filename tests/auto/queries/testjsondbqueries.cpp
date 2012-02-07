@@ -128,7 +128,7 @@ private slots:
     void queryGreaterThan();
     void queryGreaterThanOrEqual();
     void queryNotEqual();
-
+    void queryQuotedProperties();
 
 private:
     void removeDbFiles();
@@ -373,6 +373,33 @@ void TestJsonDbQueries::queryNotEqual()
     JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
     QCOMPARE(queryResult.data.size(), mTotalObjects - mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldNotEqualTo<QString>("_type", "dragon")));
+}
+
+void TestJsonDbQueries::queryQuotedProperties()
+{
+    QJsonObject query;
+    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][/_type]"));
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    QCOMPARE(queryResult.data.size(), mDataStats["num-red-eyes"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
+
+    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][= \"eye-color\"]"));
+    queryResult = mJsonDb->find(mOwner, query);
+    // single values are returned in queryResult.values
+    QCOMPARE(queryResult.values.size(), mDataStats["num-red-eyes"].toInt());
+    QCOMPARE(queryResult.values.at(0).toString(), QString("red"));
+
+    query.insert(JsonDbString::kQueryStr, QString("[?\"eye-color\" = \"red\"][= [\"eye-color\", age ]]"));
+    queryResult = mJsonDb->find(mOwner, query);
+    // array values are returned in queryResult.values
+    QCOMPARE(queryResult.values.size(), mDataStats["num-red-eyes"].toInt());
+    QCOMPARE(queryResult.values.at(0).toArray().at(0).toString(), QString("red"));
+
+    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"dragon\"][/_type][?\"eye-color\" = \"red\"][= {\"color-of-eyes\": \"eye-color\" }]"));
+    queryResult = mJsonDb->find(mOwner, query);
+    // object values are returned in queryResult.data
+    QCOMPARE(queryResult.data.size(), mDataStats["num-red-eyes"].toInt());
+    QCOMPARE(queryResult.data.at(0).value("color-of-eyes").toString(), QString("red"));
 }
 
 QTEST_MAIN(TestJsonDbQueries)

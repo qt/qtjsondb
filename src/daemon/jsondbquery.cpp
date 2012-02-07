@@ -101,6 +101,15 @@ QString JsonDbQueryTokenizer::pop()
     return token;
 }
 
+QString JsonDbQueryTokenizer::popIdentifier()
+{
+    QString identifier = pop();
+    if (identifier.startsWith('\"')
+        && identifier.endsWith('\"'))
+        identifier = identifier.mid(1, identifier.size()-2);
+    return identifier;
+}
+
 QString JsonDbQueryTokenizer::peek()
 {
     if (mNextToken.isEmpty()) {
@@ -254,9 +263,9 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
         if (token == "?") {
             OrQueryTerm oqt;
             do {
-                QString fieldSpec = tokenizer.pop();
+                QString fieldSpec = tokenizer.popIdentifier();
                 if (fieldSpec == "|")
-                    fieldSpec = tokenizer.pop();
+                    fieldSpec = tokenizer.popIdentifier();
 
                 QString opOrJoin = tokenizer.pop();
                 QString op;
@@ -264,7 +273,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
                 QString joinField;
                 while (opOrJoin == "->") {
                     joinFields.append(fieldSpec);
-                    fieldSpec = tokenizer.pop();
+                    fieldSpec = tokenizer.popIdentifier();
                     opOrJoin = tokenizer.pop();
                 }
                 if (joinFields.size())
@@ -346,7 +355,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
             bool isListObject = false;
             bool inListObject = false;
             QString nextToken;
-            while (!(nextToken = tokenizer.pop()).isEmpty()) {
+            while (!(nextToken = tokenizer.popIdentifier()).isEmpty()) {
                 if (nextToken == "{")
                     isMapObject = true;
                 else if (nextToken == "[") {
@@ -370,12 +379,12 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
                             parseError = true;
                             break;
                         }
-                        nextToken = tokenizer.pop();
+                        nextToken = tokenizer.popIdentifier();
                     }
                     while (tokenizer.peek() == "->") {
                         QString op = tokenizer.pop();
                         nextToken.append(op);
-                        nextToken.append(tokenizer.pop());
+                        nextToken.append(tokenizer.popIdentifier());
                     }
                     parsedQuery.mapExpressionList.append(nextToken);
                     QString maybeComma = tokenizer.pop();
@@ -400,7 +409,7 @@ JsonDbQuery JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
         } else if ((token == "/") || (token == "\\") || (token == ">") || (token == "<")) {
             QString ordering = token;
             OrderTerm term;
-            term.propertyName = tokenizer.pop();
+            term.propertyName = tokenizer.popIdentifier();
             term.ascending = ((ordering == "/") || (ordering == ">"));
             parsedQuery.orderTerms.append(term);
         } else if (token == "count") {

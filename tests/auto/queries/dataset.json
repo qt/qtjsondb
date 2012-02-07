@@ -7,6 +7,12 @@
     "num-blue-dragons": 6,
     "num-red-dragons":4,
 
+    "num-blue-eyes":2,
+    "num-green-eyes":3,
+    "num-hazel-eyes":2,
+    "num-purple-eyes":1,
+    "num-red-eyes":2,
+
     "num-bunnies": 10,
     "num-fluffy-bunnies":4,
     "num-demon-bunnies":3,
@@ -18,61 +24,71 @@
     "_type" : "dragon",
     "name": "marcia d'arcy",
     "color": "blue",
-    "age": 0
+    "age": 0,
+    "eye-color": "green"
   },
   {
     "_type" : "dragon",
     "name": "jeffrey samuels",
     "color": "blue",
-    "age": 0
+    "age": 0,
+    "eye-color": "hazel"
   },
   {
     "_type" : "dragon",
     "name": "robert demmon",
     "color": "blue",
-    "age": 2
+    "age": 2,
+    "eye-color": "blue"
   },
   {
     "_type" : "dragon",
     "name": "heidi motika",
     "color": "blue",
-    "age": 2
+    "age": 2,
+    "eye-color": "blue"
   },
   {
     "_type" : "dragon",
     "name": "leslie pugh",
     "color": "blue",
-    "age": 4
+    "age": 4,
+    "eye-color": "hazel"
   },
   {
     "_type" : "dragon",
     "name": "ryan houlette",
     "color": "blue",
-    "age": 4
+    "age": 4,
+    "eye-color": "green"
   },
   {
     "_type" : "dragon",
     "name": "kenton kossan",
     "color": "red",
-    "age": 6
+    "age": 6,
+    "eye-color": "red"
   },
   {
     "_type" : "dragon",
     "name": "connie goddard",
     "color": "red",
-    "age": 6
+    "age": 6,
+    "eye-color": "red"
   },
   {
     "_type" : "dragon",
     "name": "andrew keopraseuth",
     "color": "red",
-    "age": 8
+    "age": 8,
+    "eye-color": "green"
   },
   {
     "_type" : "dragon",
     "name": "charlie stern",
     "color": "red",
-    "age": 8
+    "age": 8,
+    "eye-color": "purple"
   },
 
 
