@@ -39,8 +39,6 @@
 **
 ****************************************************************************/
 
-#include "jsondb-trace.h"
-
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QRegExp>

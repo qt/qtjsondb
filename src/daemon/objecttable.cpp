@@ -43,7 +43,6 @@
 #include <QDir>
 #include <QElapsedTimer>
 
-#include "jsondb-trace.h"
 #include "objecttable.h"
 #include "jsondb.h"
 #include "jsondbindex.h"

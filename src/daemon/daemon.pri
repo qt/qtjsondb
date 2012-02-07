@@ -8,7 +8,6 @@ HEADERS += \
     $$PWD/jsondb-map-reduce.h \
     $$PWD/jsondb-owner.h \
     $$PWD/jsondb-proxy.h \
-    $$PWD/jsondb-trace.h \
     $$PWD/jsondb-response.h \
     $$PWD/jsondb.h \
     $$PWD/jsondbbtreestorage.h \
@@ -35,7 +34,6 @@ SOURCES += \
     $$PWD/jsondb-map-reduce.cpp \
     $$PWD/jsondb-owner.cpp \
     $$PWD/jsondb-proxy.cpp \
-    $$PWD/jsondb-trace.cpp \
     $$PWD/jsondb-response.cpp \
     $$PWD/jsondb.cpp \
     $$PWD/jsondbbtreestorage.cpp \
