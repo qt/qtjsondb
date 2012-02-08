@@ -1,10 +1,8 @@
 TARGET = tst_bench_daemon
 
-target.path = $$[QT_INSTALL_PREFIX]/bin
-INSTALLS += target
-
 QT = network declarative testlib
 CONFIG -= app_bundle
+CONFIG += testcase
 
 INCLUDEPATH += $$PWD/../../../src/daemon
 LIBS += -L$$QT.jsondb.libs
