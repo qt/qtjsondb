@@ -256,6 +256,11 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 
         QScopedPointer<JsonDbOwner> owner(new JsonDbOwner(this));
         struct passwd *pwd = ::getpwuid(peercred.uid);
+        if (!pwd) {
+            qWarning() << Q_FUNC_INFO << "pwd entry for" << peercred.uid <<
+                          "not found" << strerror(errno);
+            return 0;
+        }
         QString username = QString::fromLocal8Bit(pwd->pw_name);
         // OwnerId == username
         owner->setOwnerId(username);
@@ -263,10 +268,11 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
         // Parse domain from username
         QStringList domainParts = username.split(QLatin1Char('.'), QString::SkipEmptyParts);
         if (domainParts.count() > 2)
-            owner->setDomain(username.left(username.lastIndexOf(QLatin1Char('.'))));
+            owner->setDomain (domainParts.at(0)+QLatin1Char('.')+domainParts.at(1));
         else
             owner->setDomain(QStringLiteral("public"));
-        DBG() << "domain set to" << owner->domain();
+        DBG() << "username" << username << "uid" << peercred.uid << "domain set to" <<
+                 owner->domain();
 
         // Get capabilities from supplementary groups
         if (peercred.uid) {
@@ -278,23 +284,25 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
                 struct group *gr;
                 for (int i = 0; i < ngroups; i++) {
                     gr = ::getgrgid(groups[i]);
-                    if (::strcasecmp (gr->gr_name, "identity") == 0)
+                    if (gr && ::strcasecmp (gr->gr_name, "identity") == 0)
                         setOwner = true;
                 }
-                for (int i = 0; i < ngroups; i++) {
+                // Start from 1 to omit the primary group
+                for (int i = 1; i < ngroups; i++) {
                     gr = ::getgrgid(groups[i]);
                     QJsonArray value;
-                    if (::strcasecmp (gr->gr_name, "identity") == 0)
+                    if (!gr || ::strcasecmp (gr->gr_name, "identity") == 0)
                         continue;
-                    value.append(QJsonValue(QLatin1String("Read")));
-                    value.append(QJsonValue(QLatin1String("Write")));
+                    value.append(QJsonValue(QLatin1String("read")));
+                    value.append(QJsonValue(QLatin1String("write")));
                     if (setOwner)
                         value.append(QJsonValue(QLatin1String("setOwner")));
                     capabilities.insert(QString::fromLocal8Bit(gr->gr_name), value);
                     DBG() << "Adding capability" << QString::fromLocal8Bit(gr->gr_name) <<
                              "to user" << owner->ownerId() << "setOwner =" << setOwner;
                 }
-                owner->setCapabilities(capabilities, mJsonDb);
+                if (ngroups)
+                    owner->setCapabilities(capabilities, mJsonDb);
             } else {
                 qWarning() << Q_FUNC_INFO << owner->ownerId() << "belongs to too many groups (>128)";
             }
@@ -343,7 +351,7 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 
 void DBServer::notified(const QString &notificationId, JsonDbObject object, const QString &action)
 {
-    DBG() << "DBServer::notified" << "notificationId" << notificationId << "object" << object;
+    DBG() << "notificationId" << notificationId << "object" << object;
     JsonStream *stream = mNotifications.value(notificationId);
     // if the notified signal() is delivered after the notification has been deleted,
     // then there is no stream to send to

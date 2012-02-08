@@ -314,6 +314,7 @@ void JsonDbConnectionPrivate::_q_onConnected()
         mStream.setDevice(socket);
     else
         mStream.setDevice(tcpSocket);
+    QObject::disconnect(&mStream, SIGNAL(receive(QJsonObject)), q, SLOT(_q_onReceiveMessage(QJsonObject)));
     QObject::connect(&mStream, SIGNAL(receive(QJsonObject)), q, SLOT(_q_onReceiveMessage(QJsonObject)));
 
     if (!mToken.isEmpty()) {

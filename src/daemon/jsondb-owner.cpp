@@ -95,8 +95,13 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *
                     if (accessTypeTranslation.contains(op)) {
                         QStringList rules;
                         QJsonArray jsonRules = accessTypeTranslation.value(op).toArray();
-                        for (int r = 0; r < jsonRules.size(); r++)
-                            rules.append(jsonRules[r].toString());
+                        for (int r = 0; r < jsonRules.size(); r++) {
+                            // search & replace %domain and %owner in rules
+                            QString rule = jsonRules[r].toString();
+                            rule = rule.replace("%domain", domain());
+                            rule = rule.replace("%owner", ownerId());
+                            rules.append(rule);
+                        }
                         allowedObjects[op].unite(QSet<QString>::fromList(rules));
                     }
                 }

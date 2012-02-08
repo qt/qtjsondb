@@ -115,4 +115,40 @@ inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketNam
     return process;
 }
 
+inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &socketName, const QStringList &args)
+{
+    static bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
+    static bool useValgrind = qgetenv("AUTOTEST_VALGRIND_JSONDB").toInt() == 1;
+    if (dontlaunch)
+        return 0;
+    QString jsondb_app = QString::fromLocal8Bit(prefix) + QDir::separator() + "jsondb";
+    if (!QFile::exists(jsondb_app))
+        jsondb_app = QLatin1String("jsondb"); // rely on the PATH
+
+    ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
+    qDebug() << "Starting process" << jsondb_app << args << "with socket" << socketName;
+    qint64 pid;
+    if (useValgrind) {
+        QStringList args1 = args;
+        args1.prepend(jsondb_app);
+        QProcess::startDetached ( jsondb_app, args1, QDir::currentPath(), &pid );
+    } else {
+        QProcess::startDetached ( jsondb_app, args, QDir::currentPath(), &pid );
+    }
+
+    /* Wait until the jsondb is accepting connections */
+    int tries = 0;
+    bool connected = false;
+    while (!connected && tries++ < 100) {
+        QLocalSocket socket;
+        socket.connectToServer(socketName);
+        if (socket.waitForConnected())
+            connected = true;
+        QTest::qWait(250);
+    }
+    if (!connected)
+        qFatal("Unable to connect to jsondb process");
+    return pid;
+}
+
 #endif // UTIL_H
