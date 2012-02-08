@@ -529,9 +529,9 @@ void JsonDbBtreeStorage::addView(const QString &viewType)
             return;
         }
         mViews.insert(viewType, viewObjectTable);
-        viewObjectTable->addIndex(JsonDbString::kUuidStr, "string", viewType);
+        viewObjectTable->addIndexOnProperty(JsonDbString::kUuidStr, "string", viewType);
         // TODO: special case for the following
-        viewObjectTable->addIndex(JsonDbString::kTypeStr, "string", viewType);
+        viewObjectTable->addIndexOnProperty(JsonDbString::kTypeStr, "string", viewType);
     }
 }
 
@@ -816,45 +816,44 @@ void JsonDbBtreeStorage::initIndexes()
         if (gVerbose) qDebug() << "initIndexes" << "index" << indexObject;
         QString indexObjectType = indexObject.value(JsonDbString::kTypeStr).toString();
         if (indexObjectType == kIndexTypeStr) {
+            QString indexName = indexObject.value(kNameStr).toString();
             QString propertyName = indexObject.value(kPropertyNameStr).toString();
             QString propertyType = indexObject.value(kPropertyTypeStr).toString();
             QString objectType = indexObject.value(kObjectTypeStr).toString();
             QString propertyFunction = indexObject.value(kPropertyFunctionStr).toString();
-            QStringList path = propertyName.split('.');
 
             ObjectTable *table = findObjectTable(objectType);
-            table->addIndex(propertyName, propertyType, objectType, propertyFunction);
+            table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
             //checkIndexConsistency(index);
         }
     }
 
-
     beginTransaction();
-    mObjectTable->addIndex(JsonDbString::kUuidStr, "string", QString());
-    mObjectTable->addIndex(JsonDbString::kTypeStr, "string", QString());
+    mObjectTable->addIndexOnProperty(JsonDbString::kUuidStr, "string");
+    mObjectTable->addIndexOnProperty(JsonDbString::kTypeStr, "string");
     commitTransaction();
 }
 
-bool JsonDbBtreeStorage::addIndex(const QString &propertyName, const QString &propertyType,
-                                  const QString &objectType, const QString &propertyFunction)
+bool JsonDbBtreeStorage::addIndex(const QString &indexName, const QString &propertyName,
+                                  const QString &propertyType, const QString &objectType, const QString &propertyFunction)
 {
+    Q_ASSERT(!indexName.isEmpty());
     //qDebug() << "JsonDbBtreeStorage::addIndex" << propertyName << objectType;
-    QJsonValue resultmap, errormap;
     ObjectTable *table = findObjectTable(objectType);
-    const IndexSpec *indexSpec = table->indexSpec(propertyName);
+    const IndexSpec *indexSpec = table->indexSpec(indexName);
     if (indexSpec)
         return true;
     //if (gVerbose) qDebug() << "JsonDbBtreeStorage::addIndex" << propertyName << objectType;
-    return table->addIndex(propertyName, propertyType, objectType, propertyFunction);
+    return table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
 }
 
-bool JsonDbBtreeStorage::removeIndex(const QString &propertyName, const QString &objectType)
+bool JsonDbBtreeStorage::removeIndex(const QString &indexName, const QString &objectType)
 {
     ObjectTable *table = findObjectTable(objectType);
-    const IndexSpec *indexSpec = table->indexSpec(propertyName);
+    const IndexSpec *indexSpec = table->indexSpec(indexName);
     if (!indexSpec)
         return false;
-    return table->removeIndex(propertyName);
+    return table->removeIndex(indexName);
 }
 
 bool JsonDbBtreeStorage::checkStateConsistency()
@@ -1479,7 +1478,7 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
     if (!indexedQueryTermCount && !indexCandidate.isEmpty()) {
             if (gDebug)
                 qDebug() << "adding index" << indexCandidate;
-            table->addIndex(indexCandidate);
+            table->addIndexOnProperty(indexCandidate);
     }
 
     for (int i = 0; i < orderTerms.size(); i++) {
@@ -1490,7 +1489,7 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
             if (0) {
                 if (gVerbose) qDebug() << "adding index for sort term" << propertyName;
                 Q_ASSERT(table);
-                table->addIndex(propertyName);
+                table->addIndexOnProperty(propertyName);
                 Q_ASSERT(table->indexSpec(propertyName));
                 if (gVerbose) qDebug() << "done adding index" << propertyName;
             } else {

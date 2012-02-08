@@ -169,7 +169,7 @@ protected:
     enum Action { Create, Remove };
 
     bool addIndex(JsonDbObject indexObject, const QString &partition);
-    bool removeIndex(const QString &propertyName,
+    bool removeIndex(const QString &indexName,
                      const QString &objectType = QString(),
                      const QString &partition = QString());
     bool removeIndex(JsonDbObject indexObject, const QString &partition);

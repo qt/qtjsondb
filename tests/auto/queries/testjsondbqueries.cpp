@@ -115,6 +115,7 @@ public:
 private slots:
     void initTestCase();
     void cleanupTestCase();
+    void init();
     void cleanup();
 
     void queryAll();
@@ -129,6 +130,7 @@ private slots:
     void queryGreaterThanOrEqual();
     void queryNotEqual();
     void queryQuotedProperties();
+    void querySortedByIndexName();
 
 private:
     void removeDbFiles();
@@ -151,7 +153,8 @@ private:
 
 const char *kFilename = "test_queries";
 
-
+// Passed to confirmEachObject to verify if field in data results matches either a single value
+// or matches any value in a list of values.
 template<class T>
 struct CheckObjectFieldEqualTo
 {
@@ -175,6 +178,9 @@ struct CheckObjectFieldEqualTo
     QList<T> listOfValues;
 };
 
+
+// Passed to confirmEachObject to verify that field in data results doesnt match either a single value
+// or doesnt matches any value in a list of values.
 template <class T>
 struct CheckObjectFieldNotEqualTo : public CheckObjectFieldEqualTo<T>
 {
@@ -187,6 +193,23 @@ struct CheckObjectFieldNotEqualTo : public CheckObjectFieldEqualTo<T>
     bool operator() (const JsonDbObject &obj) const {
         return !CheckObjectFieldEqualTo<T>::operator ()(obj);
     }
+};
+
+
+// Passed to confirmEachObject to verify that the order of the returned results matches the
+// order of the list of values that are passed in
+template<class T>
+struct CheckSortOrder
+{
+    CheckSortOrder(QString fld, QList<T> values)
+        : index(0), field(fld), listOfValues(values)
+    {}
+    bool operator() (const JsonDbObject &obj) {
+        return obj[field].toVariant().template value<T>() == listOfValues.at(index++);
+    }
+    int index;
+    QString field;
+    QList<T> listOfValues;
 };
 
 TestJsonDbQueries::TestJsonDbQueries()
@@ -218,12 +241,6 @@ void TestJsonDbQueries::initTestCase()
     mOwner->setOwnerId("com.noklab.nrcc.JsonDbTestQueries");
     mJsonDb->open();
 
-    // Set total number of default objects to use for verification
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[*]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
-    int numDefaultObjects = queryResult.data.size();
-
     QFile contactsFile(findFile("dataset.json"));
     QVERIFY2(contactsFile.exists(), "Err: dataset.json doesn't exist!");
 
@@ -231,8 +248,7 @@ void TestJsonDbQueries::initTestCase()
     QByteArray json = contactsFile.readAll();
     JsonReader parser;
     bool ok = parser.parse(json);
-    if (!ok)
-        qDebug() << parser.errorString();
+    QVERIFY2(ok, parser.errorString().toAscii());
     QVariantList contactList = parser.result().toList();
     foreach (QVariant v, contactList) {
         JsonDbObject object(QJsonObject::fromVariantMap(v.toMap()));
@@ -240,7 +256,6 @@ void TestJsonDbQueries::initTestCase()
 
         // see dataset.json for data types. there's tight coupling between the code
         // in these tests and the data set.
-
         if (type == QString("dragon") || type == QString("bunny")) {
             QString name = object.value("name").toString();
             QStringList names = name.split(" ");
@@ -248,22 +263,9 @@ void TestJsonDbQueries::initTestCase()
             nameObject.insert("first", names[0]);
             nameObject.insert("last", names[names.size()-1]);
             object.insert("name", nameObject);
-        } else if (type == QString("data-stats")) {
-            object.insert("num-default-objects", numDefaultObjects);
         }
         verifyGoodResult(mJsonDb->create(mOwner, object));
     }
-
-    // extract stats from data set and calculate a few others
-    query = QJsonObject();
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"data-stats\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
-    mDataStats = queryResult.data.at(0).toVariantMap();
-
-
-    mTotalObjects = mDataStats["num-objects"].toInt() +
-                    numDefaultObjects +
-                    1; // +1 for the data-stats object
 }
 
 void TestJsonDbQueries::cleanupTestCase()
@@ -274,6 +276,26 @@ void TestJsonDbQueries::cleanupTestCase()
         mJsonDb = 0;
     }
     removeDbFiles();
+}
+
+void TestJsonDbQueries::init()
+{
+    // Set total number of objects and total default objects not used by the
+    // data set to use for verification
+    QJsonObject query;
+    query.insert(JsonDbString::kQueryStr, QString("[*]"));
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    mTotalObjects = queryResult.data.size();
+
+    // extract stats from data set and calculate a few others
+    query = QJsonObject();
+    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"data-stats\"]"));
+    queryResult = mJsonDb->find(mOwner, query);
+    mDataStats = queryResult.data.at(0).toVariantMap();
+    mDataStats["num-default-objects"] = mTotalObjects - mDataStats["num-objects"].toInt();
+
+    JsonDbObject statObject = JsonDbObject::fromVariantMap(mDataStats);
+    verifyGoodResult(mJsonDb->update(mOwner, statObject));
 }
 
 void TestJsonDbQueries::cleanup()
@@ -400,6 +422,46 @@ void TestJsonDbQueries::queryQuotedProperties()
     // object values are returned in queryResult.data
     QCOMPARE(queryResult.data.size(), mDataStats["num-red-eyes"].toInt());
     QCOMPARE(queryResult.data.at(0).value("color-of-eyes").toString(), QString("red"));
+}
+
+void TestJsonDbQueries::querySortedByIndexName()
+{
+    JsonDbObject index;
+    index.insert("_type", QString("Index"));
+    index.insert("name", QString("dragonSort"));
+    index.insert("propertyName", QString("age"));
+    index.insert("propertyType", QString("number"));
+    verifyGoodResult(mJsonDb->create(mOwner, index));
+
+    index = JsonDbObject();
+    index.insert("_type", QString("Index"));
+    index.insert("propertyName", QString("age"));
+    index.insert("propertyType", QString("number"));
+    verifyGoodResult(mJsonDb->create(mOwner, index));
+
+    QJsonObject query;
+    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][/age]"));
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 0 << 0 << 2 << 2 << 4 << 4 << 6 << 6 << 8 << 8)));
+
+    query = QJsonObject();
+    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][/dragonSort]"));
+    queryResult = mJsonDb->find(mOwner, query);
+    QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 0 << 0 << 2 << 2 << 4 << 4 << 6 << 6 << 8 << 8)));
+
+    query = QJsonObject();
+    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][\\age]"));
+    queryResult = mJsonDb->find(mOwner, query);
+    QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 8 << 8 << 6 << 6 << 4 << 4 << 2 << 2 << 0 << 0)));
+
+    query = QJsonObject();
+    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][\\dragonSort]"));
+    queryResult = mJsonDb->find(mOwner, query);
+    QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 8 << 8 << 6 << 6 << 4 << 4 << 2 << 2 << 0 << 0)));
 }
 
 QTEST_MAIN(TestJsonDbQueries)

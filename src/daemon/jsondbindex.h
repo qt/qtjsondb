@@ -70,8 +70,8 @@ class JsonDbIndex : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbIndex(const QString &fileName, const QString &propertyName, const QString &type,
-                QObject *parent = 0);
+    JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
+                const QString &propertyType = 0, QObject *parent = 0);
     ~JsonDbIndex();
 
     QString propertyName() const { return mPropertyName; }
@@ -144,6 +144,7 @@ private:
 
 class IndexSpec {
 public:
+    QString name;
     QString propertyName;
     QStringList path;
     QString propertyType;

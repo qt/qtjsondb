@@ -55,7 +55,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 static bool debugIndexObject = false;
 
-JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &propertyName,
+JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
                          const QString &propertyType, QObject *parent)
     : QObject(parent)
     , mPropertyName(propertyName)
@@ -67,12 +67,11 @@ JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &propertyName,
     , mCacheSize(0)
 {
     QFileInfo fi(fileName);
-    QDir dir(fi.absolutePath());
     QString dirName = fi.dir().path();
     QString baseName = fi.fileName();
     if (baseName.endsWith(".db"))
         baseName.chop(3);
-    mFileName = QString("%1/%2-%3-Index.db").arg(dirName).arg(baseName).arg(propertyName);
+    mFileName = QString("%1/%2-%3-Index.db").arg(dirName).arg(baseName).arg(indexName);
 }
 
 JsonDbIndex::~JsonDbIndex()
@@ -87,7 +86,8 @@ bool JsonDbIndex::setPropertyFunction(const QString &propertyFunction)
 {
     if (!mScriptEngine)
         mScriptEngine = new QJSEngine(this);
-    mPropertyFunction = mScriptEngine->evaluate(QString("var %1 = %2; %1;").arg("index").arg(propertyFunction));    if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
+    mPropertyFunction = mScriptEngine->evaluate(QString("var %1 = %2; %1;").arg("index").arg(propertyFunction));
+    if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
         qDebug() << "Unable to parse index value function: " << mPropertyFunction.toString();
         return false;
     }

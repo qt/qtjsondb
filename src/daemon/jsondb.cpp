@@ -1177,36 +1177,47 @@ void JsonDb::checkNotifications(const QString &partition, JsonDbObject object, N
     }
 }
 
-bool JsonDb::removeIndex(const QString &propertyName, const QString &objectType, const QString &partition)
+bool JsonDb::removeIndex(const QString &indexName, const QString &objectType, const QString &partition)
 {
     if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->removeIndex(propertyName, objectType);
+        return storage->removeIndex(indexName, objectType);
     return false;
 }
 
 bool JsonDb::addIndex(JsonDbObject indexObject, const QString &partition)
 {
+    // For propertyFunction, the indexName has to be set by user. Else it can
+    // default to propertyType.
+    QString indexName = indexObject.value(kNameStr).toString();
     QString propertyName = indexObject.value(kPropertyNameStr).toString();
     QString propertyType = indexObject.value(kPropertyTypeStr).toString();
     QString objectType = indexObject.value(kObjectTypeStr).toString();
-    QString propertyFunction = !propertyName.isEmpty() ? QString() : indexObject.value(kPropertyFunctionStr).toString();
-    QString indexName = !propertyName.isEmpty() ? propertyName : indexObject.value(kNameStr).toString();
+    QString propertyFunction = indexObject.value(kPropertyFunctionStr).toString();
+
+    Q_ASSERT(propertyName.isEmpty() ^ propertyFunction.isEmpty());
+    Q_ASSERT(!propertyFunction.isEmpty() ? !indexName.isEmpty() : true);
+
+    if (indexName.isEmpty())
+        indexName = propertyName;
 
     if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->addIndex(indexName, propertyType, objectType, propertyFunction);
+        return storage->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
     qWarning() << "addIndex" << "did not find partition" << partition;
     return false;
 }
 
 bool JsonDb::removeIndex(JsonDbObject indexObject, const QString &partition)
 {
+    QString indexName = indexObject.value(kNameStr).toString();
     QString propertyName = indexObject.value(kPropertyNameStr).toString();
-    QString propertyType = indexObject.value(kPropertyTypeStr).toString();
     QString objectType = indexObject.value(kObjectTypeStr).toString();
 
-    if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->removeIndex(propertyName, objectType);
-    return false;
+    if (indexName.isEmpty())
+        indexName = propertyName;
+
+    Q_ASSERT(!indexName.isEmpty());
+
+    return removeIndex(indexName, objectType, partition);
 }
 
 void JsonDb::updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path)
@@ -1221,7 +1232,7 @@ void JsonDb::updateSchemaIndexes(const QString &schemaName, QJsonObject object, 
             QStringList kpath = path;
             kpath << k;
             JsonDbBtreeStorage *storage = findPartition(JsonDbString::kSystemPartitionName);
-            storage->addIndex(kpath.join("."), propertyType, schemaName);
+            storage->addIndexOnProperty(kpath.join("."), propertyType, schemaName);
         }
         if (propertyInfo.contains("properties")) {
             updateSchemaIndexes(schemaName, propertyInfo, path + (QStringList() << k));
@@ -1585,11 +1596,16 @@ QJsonObject JsonDb::validateAddIndex(const JsonDbObject &newIndex, const JsonDbO
                              QString("Changing old index objectType from '%1' to '%2' not supported")
                              .arg(oldIndex.value(kObjectTypeStr).toString())
                              .arg(newIndex.value(kObjectTypeStr).toString()));
+        if (oldIndex.value(kPropertyFunctionStr).toString() != newIndex.value(kPropertyFunctionStr).toString())
+            return makeError(JsonDbError::InvalidIndexOperation,
+                             QString("Changing old index propertyFunction from '%1' to '%2' not supported")
+                             .arg(oldIndex.value(kPropertyFunctionStr).toString())
+                             .arg(newIndex.value(kPropertyFunctionStr).toString()));
     }
 
-    if (!(newIndex.contains(kPropertyNameStr) ^ newIndex.contains(kPropertyFunctionStr)))
+    if (!(newIndex.contains(kPropertyFunctionStr) ^ newIndex.contains(kPropertyNameStr)))
         return makeError(JsonDbError::InvalidIndexOperation,
-                         QString("Index object must have have either propertyName and propertyFunction but not both"));
+                         QString("Index object must have one of propertyName or propertyFunction set"));
 
     if (newIndex.contains(kPropertyFunctionStr) && !newIndex.contains(kNameStr))
         return makeError(JsonDbError::InvalidIndexOperation,

@@ -168,11 +168,16 @@ public:
 
     void initIndexes();
     bool checkValidity();
-    bool addIndex(const QString &propertyName,
+    bool addIndex(const QString &indexName,
+                  const QString &propertyName,
                   const QString &propertyType = QString("string"),
                   const QString &objectType = QString(),
                   const QString &propertyFunction = QString());
-    bool removeIndex(const QString &propertyName, const QString &objectType);
+    bool addIndexOnProperty(const QString &propertyName,
+                            const QString &propertyType = QString("string"),
+                            const QString &objectType = QString())
+    { return addIndex(propertyName, propertyName, propertyType, objectType); }
+    bool removeIndex(const QString &indexName, const QString &objectType);
 
     bool checkQuota(const JsonDbOwner *owner, int size) const;
     bool addToQuota(const JsonDbOwner *owner, int size);

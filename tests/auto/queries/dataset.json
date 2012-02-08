@@ -24,7 +24,7 @@
     "_type" : "dragon",
     "name": "marcia d'arcy",
     "color": "blue",
-    "age": 0,
+    "age": 2,
     "eye-color": "green"
   },
   {
@@ -45,7 +45,7 @@
     "_type" : "dragon",
     "name": "heidi motika",
     "color": "blue",
-    "age": 2,
+    "age": 0,
     "eye-color": "blue"
   },
   {
@@ -59,7 +59,7 @@
     "_type" : "dragon",
     "name": "ryan houlette",
     "color": "blue",
-    "age": 4,
+    "age": 8,
     "eye-color": "green"
   },
   {
@@ -80,7 +80,7 @@
     "_type" : "dragon",
     "name": "andrew keopraseuth",
     "color": "red",
-    "age": 8,
+    "age": 4,
     "eye-color": "green"
   },
   {

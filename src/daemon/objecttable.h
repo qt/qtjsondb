@@ -127,16 +127,21 @@ public:
     void changesSince(quint32 stateNumber, QMap<quint32, QList<ObjectChange> > *changes);
     QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
 
-    IndexSpec *indexSpec(const QString &propertyName);
+    IndexSpec *indexSpec(const QString &indexName);
     QHash<QString, IndexSpec> indexSpecs() const;
 
-    bool addIndex(const QString &propertyName,
+    bool addIndex(const QString &indexName,
+                  const QString &propertyName = QString(),
                   const QString &propertyType = QString("string"),
                   const QString &objectType = QString(),
                   const QString &propertyFunction = QString());
-    bool removeIndex(const QString &propertyName);
-    void reindexObjects(const QString &propertyName, const QStringList &path, quint32 stateNumber);
-    void indexObject(const ObjectKey & objectKey, JsonDbObject object, quint32 stateNumber);
+    bool addIndexOnProperty(const QString &propertyName,
+                            const QString &propertyType = QString("string"),
+                            const QString &objectType = QString())
+    { return addIndex(propertyName, propertyName, propertyType, objectType); }
+    bool removeIndex(const QString &indexName);
+    void reindexObjects(const QString &indexName, const QStringList &path, quint32 stateNumber);
+    void indexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
     void deindexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
     void updateIndex(JsonDbIndex *index);    
 

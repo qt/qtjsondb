@@ -99,8 +99,8 @@ void JsonDb::createMapDefinition(QJsonObject mapDefinition, bool firstTime, cons
 
     JsonDbBtreeStorage *storage = findPartition(partition);
     storage->addView(targetType);
-    storage->addIndex("_sourceUuids.*", "string", targetType);
-    storage->addIndex("_mapUuid", "string", targetType);
+    storage->addIndexOnProperty("_sourceUuids.*", "string", targetType);
+    storage->addIndexOnProperty("_mapUuid", "string", targetType);
 
     JsonDbMapDefinition *def = new JsonDbMapDefinition(this, mOwner, partition, mapDefinition, this);
     for (int i = 0; i < sourceTypes.size(); i++)
@@ -160,10 +160,10 @@ void JsonDb::createReduceDefinition(QJsonObject reduceDefinition, bool firstTime
     mReduceDefinitionsBySource.insert(sourceType, def);
     mReduceDefinitionsByTarget.insert(targetType, def);
 
-    storage->addIndex("_sourceUuids.*", "string", targetType);
-    storage->addIndex(def->sourceKeyName(), "string", sourceType);
-    storage->addIndex(def->targetKeyName(), "string", targetType);
-    storage->addIndex("_reduceUuid", "string", targetType);
+    storage->addIndexOnProperty("_sourceUuids.*", "string", targetType);
+    storage->addIndexOnProperty(def->sourceKeyName(), "string", sourceType);
+    storage->addIndexOnProperty(def->targetKeyName(), "string", targetType);
+    storage->addIndexOnProperty("_reduceUuid", "string", targetType);
 
     if (firstTime && def->isActive()) {
         GetObjectsResult getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceType);
