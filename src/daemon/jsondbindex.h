@@ -96,6 +96,7 @@ public:
 //                       const QMap<quint32, QString> &keyUuids,
 //                       const QMap<QString, quint32> &uuidKeys,
 //                       JsonDbBtreeStorage *storage);
+    void setCacheSize(quint32 cacheSize);
     bool open();
     void close();
 
@@ -116,6 +117,7 @@ private:
     QJSValue   mPropertyFunction;
     QList<QJsonValue> mFieldValues;
     QManagedBtreeTxn mWriteTxn;
+    quint32 mCacheSize;
 };
 
 class JsonDbIndexCursor

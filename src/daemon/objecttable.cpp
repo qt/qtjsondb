@@ -60,6 +60,8 @@ extern bool gDebug;
 #define DBG() if (0) qDebug() << Q_FUNC_INFO
 #endif
 
+int gCacheSize = qgetenv("JSONDB_CACHE_SIZE").size() ? ::atoi(qgetenv("JSONDB_CACHE_SIZE")) : 128;
+
 void makeStateKey(QByteArray &baStateKey, quint32 stateNumber)
 {
     baStateKey.resize(5);
@@ -95,6 +97,7 @@ bool ObjectTable::open(const QString&fileName, QBtree::DbFlags flags)
         return false;
     }
 #endif
+    mBdb->setCacheSize(gCacheSize);
     if (!mBdb->open(mFilename, flags)) {
         qCritical() << "mBdb->open" << mBdb->errorMessage();
         return false;
@@ -212,6 +215,7 @@ bool ObjectTable::addIndex(const QString &propertyName, const QString &propertyT
     indexSpec.index = new JsonDbIndex(mFilename, propertyName, propertyType, this);
     if (!propertyFunction.isEmpty())
         indexSpec.index->setPropertyFunction(propertyFunction);
+    indexSpec.index->setCacheSize(gCacheSize);
     indexSpec.index->open();
 
     QJsonObject indexObject;

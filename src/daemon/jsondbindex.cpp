@@ -64,6 +64,7 @@ JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &propertyName,
     , mStateNumber(0)
     , mBdb(0)
     , mScriptEngine(0)
+    , mCacheSize(0)
 {
     QFileInfo fi(fileName);
     QDir dir(fi.absolutePath());
@@ -107,6 +108,9 @@ bool JsonDbIndex::open()
         return true;
 
     mBdb.reset(new QManagedBtree());
+
+    if (mCacheSize)
+        mBdb->setCacheSize(mCacheSize);
 
     if (!mBdb->open(mFileName, QBtree::NoSync | QBtree::UseSyncMarker)) {
         qCritical() << "mBdb->open" << mBdb->errorMessage();
@@ -312,6 +316,13 @@ void JsonDbIndex::checkIndex()
     }
     qDebug() << "checkIndex" << mPropertyName << "done" << countf << countr << "entries checked";
 
+}
+
+void JsonDbIndex::setCacheSize(quint32 cacheSize)
+{
+    mCacheSize = cacheSize;
+    if (mBdb)
+        mBdb->setCacheSize(cacheSize);
 }
 
 JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index)
