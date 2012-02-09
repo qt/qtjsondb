@@ -49,6 +49,7 @@
 static const char dbfile[] = "dbFile-test-jsondb";
 
 int gMany = ::getenv("BENCHMARK_MANY") ? ::atoi(::getenv("BENCHMARK_MANY")) : 1000;
+int gTransactionSize = ::getenv("BENCHMARK_TRANSACTION_SIZE") ? ::atoi(::getenv("BENCHMARK_TRANSACTION_SIZE")) : 100;
 bool gPerformanceLog = ::getenv("JSONDB_PERFORMANCE_LOG") ? (::memcmp(::getenv("JSONDB_PERFORMANCE_LOG"), "true", 4) == 0) : false;
 
 void sendLogMessage(const QString &msg) {
@@ -111,9 +112,9 @@ void TestJson::initTestCase()
     waitForResponse1(id);
 
     // Create alot of items in the database
-    for (int k = 0; k < gMany; k += 100) {
+    for (int k = 0; k < gMany; k += gTransactionSize) {
         QVariantList friendsList;
-        for (int i = k; i < k+100; i++) { 
+        for (int i = k; i < k+gTransactionSize; i++) {
             QVariantMap item;
             item.insert("_type", "Friends");
             item.insert("name", QString("Name-%1").arg(i));
@@ -124,9 +125,9 @@ void TestJson::initTestCase()
         waitForResponse1(id);
     }
 
-    for (int k = 0; k < gMany; k += 100) {
+    for (int k = 0; k < gMany; k += gTransactionSize) {
         QVariantList imageList;
-        for (int i = k; i < k+100; i++) { 
+        for (int i = k; i < k+gTransactionSize; i++) {
             QVariantMap item;
             item.insert("_type", "Image");
             item.insert("name", QString("Name-%1.jpg").arg(qrand()));
@@ -137,9 +138,9 @@ void TestJson::initTestCase()
         waitForResponse1(id);
     }
 
-    for (int k = 0; k < gMany; k += 100) {
+    for (int k = 0; k < gMany; k += gTransactionSize) {
         QVariantList numberList;
-        for (int i = k; i < k+100; i++) { 
+        for (int i = k; i < k+gTransactionSize; i++) {
             QVariantMap item;
             item.insert("_type", "randNumber");
             item.insert("number", qrand()%gMany);
@@ -321,6 +322,7 @@ void TestJson::updateThousandItems()
         waitForResponse1(id);
     }
 
+    QVariantList items;
     QBENCHMARK {
         BENCH_BEGIN_TAG;
         QString queryString("[?_type=\"updateThousandItems\"]");
@@ -328,7 +330,7 @@ void TestJson::updateThousandItems()
         waitForResponse1(id);
 
         QVariantMap mapResponse = mData.toMap();
-        QVariantList items = mapResponse.value("data").toList();
+        items = mapResponse.value("data").toList();
         QCOMPARE(items.count(), gMany);
         for (int i = 0; i < gMany; i++) {
             QVariantMap mapItem = items.at(i).toMap();
@@ -340,9 +342,14 @@ void TestJson::updateThousandItems()
     }
 
     // remove those items
-    QString queryString("[?_type=\"updateThousandItems\"]");
-    int id = mClient->remove(queryString);
-    waitForResponse1(id);
+    //QString queryString("[?_type=\"updateThousandItems\"]");
+    //int id = mClient->remove(queryString);
+    //waitForResponse1(id);
+    for (int i = 0; i < gMany; i++) {
+        QVariantMap mapItem = items.at(i).toMap();
+        int id = mClient->remove(mapItem);
+        waitForResponse1(id);
+    }
 }
 
 void TestJson::removeOneItem()
@@ -394,6 +401,7 @@ void TestJson::removeThousandItems()
 
 void TestJson::removeWithQuery()
 {
+    QSKIP("skipping remove with query");
     for (int i = 0; i < gMany; i++) {
         QVariantMap item;
         item.insert("_type", "removeThousandItems");
