@@ -1062,7 +1062,7 @@ fail:
 static int
 btree_write_meta(struct btree *bt, pgno_t root, unsigned int flags, uint32_t tag)
 {
-        struct mpage    *mp;
+        struct mpage    *mp, *prev_mp;
         struct bt_meta  *meta;
         ssize_t          rc;
 
@@ -1073,6 +1073,9 @@ btree_write_meta(struct btree *bt, pgno_t root, unsigned int flags, uint32_t tag
 
         if ((mp = btree_new_page(bt, P_META)) == NULL)
                 return -1;
+
+        // get prev meta mpage from cache
+        prev_mp = mpage_lookup(bt, bt->meta.pgno);
 
         bt->meta.prev_meta = bt->meta.pgno;
         bt->meta.pgno = mp->pgno;
@@ -1095,6 +1098,10 @@ btree_write_meta(struct btree *bt, pgno_t root, unsigned int flags, uint32_t tag
         rc = write(bt->fd, mp->page, bt->head.psize);
         mp->dirty = 0;
         SIMPLEQ_REMOVE_HEAD(bt->txn->dirty_queue, next);
+        if (prev_mp) {
+                mpage_del(bt, prev_mp);
+                mpage_free(prev_mp);
+        }
         if (rc != (ssize_t)bt->head.psize) {
                 if (rc > 0)
                         DPRINTF("short write, filesystem full?");
