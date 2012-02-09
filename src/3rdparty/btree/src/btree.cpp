@@ -817,6 +817,10 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
         struct btree    *bt;
         struct iovec     iov[BT_COMMIT_PAGES];
         const int        needfsync = !F_ISSET(txn->bt->flags, BT_NOSYNC) || F_ISSET(flags, BT_FORCE_MARKER);
+        unsigned long    num_dirty = 0;
+        unsigned long    num_dirty_branches = 0;
+        unsigned long    num_dirty_leaves = 0;
+        unsigned long    num_dirty_overflows = 0;
 
         assert(txn != NULL);
         assert(txn->bt != NULL);
@@ -878,6 +882,12 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
                         mp->page->checksum = calculate_checksum(bt, mp->page);
                         iov[n].iov_len = bt->head.psize;
                         iov[n].iov_base = mp->page;
+                        if (IS_BRANCH(mp))
+                                num_dirty_branches++;
+                        else if (IS_LEAF(mp))
+                                num_dirty_leaves++;
+                        else
+                                num_dirty_overflows++;
                         DPRINTF("commiting page %u == %u with checksum %x", mp->pgno, mp->page->pgno, mp->page->checksum);
                         if (++n >= BT_COMMIT_PAGES) {
                                 done = 0;
@@ -887,6 +897,8 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
 
                 if (n == 0)
                         break;
+
+                num_dirty += n;
 
                 DPRINTF("commiting %u dirty pages", n);
                 rc = writev(bt->fd, iov, n);
@@ -910,7 +922,12 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
                                 break;
                 }
         } while (!done);
-
+        if (num_dirty > bt->stat.max_cache) {
+                fprintf(stderr, "large transaction: \t %ld B %ld L %ld O dirty \t %d B %d L %d O live pages %s\n",
+                        num_dirty_branches, num_dirty_leaves, num_dirty_overflows,
+                        bt->meta.branch_pages, bt->meta.leaf_pages, bt->meta.overflow_pages,
+                        bt->path);
+        }
 done:
         if (needfsync) {
                 if (fsync(bt->fd) != 0) {
@@ -3821,6 +3838,8 @@ void
 btree_set_cache_size(struct btree *bt, unsigned int cache_size)
 {
         assert(bt);
+        if (cache_size < bt->stat.max_cache)
+                mpage_prune(bt);
         if (cache_size)
                 bt->stat.max_cache = cache_size;
 }
