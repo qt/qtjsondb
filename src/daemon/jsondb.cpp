@@ -84,6 +84,7 @@ bool gDebug = (::getenv("JSONDB_DEBUG") ? (QLatin1String(::getenv("JSONDB_DEBUG"
 bool gDebugRecovery = (::getenv("JSONDB_DEBUG_RECOVERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_RECOVERY")) == "true") : false);
 bool gPerformanceLog = (::getenv("JSONDB_PERFORMANCE_LOG") ? (QLatin1String(::getenv("JSONDB_PERFORMANCE_LOG")) == "true") : false);
 #endif
+int gTransactionSize = ::getenv("JSONDB_TRANSACTION_SIZE") ? ::atoi(::getenv("JSONDB_TRANSACTION_SIZE")) : 100;
 
 const QString kSortKeysStr = QLatin1String("sortKeys");
 const QString kStateStr = QLatin1String("state");
@@ -237,20 +238,24 @@ QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list,
         return makeResponse(resultmap, errormap);
     }
 
-    WithTransaction lock(storage);
-    CHECK_LOCK_RETURN(lock, "createList");
     quint32 stateNumber = 0;
 
-    for (int i = 0; i < list.size(); ++i) {
-        JsonDbObject o = list.at(i);
-        QJsonObject r = create(owner, o, partition);
-        stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
-        if (responseIsError(r))
-            return r;
-        count += 1;
-        resultList.append(r.value("result").toObject());
+    int size = list.size();
+    int transactionSize = gTransactionSize ? gTransactionSize : size;
+    for (int k = 0; k < size; k += transactionSize) {
+        WithTransaction lock(storage);
+        CHECK_LOCK_RETURN(lock, "createList");
+        for (int i = k; i < qMin(k+transactionSize, size); ++i) {
+            JsonDbObject o = list.at(i);
+            QJsonObject r = create(owner, o, partition);
+            stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
+            if (responseIsError(r))
+                return r;
+            count += 1;
+            resultList.append(r.value("result").toObject());
+        }
+        lock.commit();
     }
-    lock.commit();
 
     QJsonObject resultmap, errormap;
     resultmap.insert( JsonDbString::kDataStr, resultList );
@@ -282,23 +287,26 @@ QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list,
         return makeResponse(resultmap, errormap);
     }
 
-    WithTransaction transaction(storage);
-    CHECK_LOCK_RETURN(transaction, "updateList");
     int count = 0;
     QJsonArray resultList;
     quint32 stateNumber = 0;
 
-    for (int i = 0; i < list.size(); ++i) {
-        JsonDbObject o = list.at(i);
-        QJsonObject r = update(owner, o, partition);
-        stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
-        if (responseIsError(r))
-            return r;
-        count += r.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kCountStr).toDouble();
-        resultList.append(r.value("result").toObject());
+    int size = list.size();
+    int transactionSize = gTransactionSize ? gTransactionSize : size;
+    for (int k = 0; k < size; k += transactionSize) {
+        WithTransaction transaction(storage);
+        CHECK_LOCK_RETURN(transaction, "updateList");
+        for (int i = k; i < qMin(k+transactionSize, size); ++i) {
+            JsonDbObject o = list.at(i);
+            QJsonObject r = update(owner, o, partition);
+            stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
+            if (responseIsError(r))
+                return r;
+            count += r.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kCountStr).toDouble();
+            resultList.append(r.value("result").toObject());
+        }
+        transaction.commit();
     }
-    transaction.commit();
-
     QJsonObject resultmap, errormap;
     resultmap.insert( JsonDbString::kDataStr, resultList );
     resultmap.insert( JsonDbString::kCountStr, count );
@@ -329,30 +337,35 @@ QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, 
         return makeResponse(resultmap, errormap);
     }
 
-    WithTransaction transaction(storage);
-    CHECK_LOCK_RETURN(transaction, "removeList");
     int count = 0;
     quint32 stateNumber = 0;
     QJsonArray removedList, errorsList;
-    for (int i = 0; i < list.size(); ++i) {
-        JsonDbObject o = list.at(i);
-        QString uuid = o.value(JsonDbString::kUuidStr).toString();
-        QJsonObject r = remove(owner, o, partition);
-        stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
-        QJsonObject error = r.value(JsonDbString::kErrorStr).toObject();
-        if (!error.isEmpty()) {
-            QJsonObject obj;
-            obj.insert(JsonDbString::kUuidStr, uuid);
-            obj.insert(JsonDbString::kErrorStr, error);
-            errorsList.append(obj);
-            continue;
+
+    int size = list.size();
+    int transactionSize = gTransactionSize ? gTransactionSize : size;
+    for (int k = 0; k < size; k += transactionSize) {
+        WithTransaction transaction(storage);
+        CHECK_LOCK_RETURN(transaction, "removeList");
+        for (int i = k; i < qMin(k+transactionSize, size); ++i) {
+            JsonDbObject o = list.at(i);
+            QString uuid = o.value(JsonDbString::kUuidStr).toString();
+            QJsonObject r = remove(owner, o, partition);
+            stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
+            QJsonObject error = r.value(JsonDbString::kErrorStr).toObject();
+            if (!error.isEmpty()) {
+                QJsonObject obj;
+                obj.insert(JsonDbString::kUuidStr, uuid);
+                obj.insert(JsonDbString::kErrorStr, error);
+                errorsList.append(obj);
+                continue;
+            }
+            count += r.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kCountStr).toDouble();
+            QJsonObject item;
+            item.insert(JsonDbString::kUuidStr, uuid);
+            removedList.append(item);
         }
-        count += r.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kCountStr).toDouble();
-        QJsonObject item;
-        item.insert(JsonDbString::kUuidStr, uuid);
-        removedList.append(item);
+        transaction.commit();
     }
-    transaction.commit();
 
     QJsonObject resultmap;
     resultmap.insert(JsonDbString::kCountStr, count);
