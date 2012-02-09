@@ -181,7 +181,8 @@ private:
 typedef QList<QJsonValue> QJsonValueList;
 typedef QList<QJsonObject> QJsonObjectList;
 typedef QList<JsonDbObject> JsonDbObjectList;
-struct JsonDbQueryResult {
+class JsonDbQueryResult {
+public:
     JsonDbObjectList data;
     QJsonArray values; // for queries returning single values or arrays of values
     QJsonValue length;
