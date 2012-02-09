@@ -50,10 +50,10 @@
 #include <QDeclarativeListProperty>
 #include "jsondb-client.h"
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 class JsonDbPartition;
 class JsonDbPartitionPrivate;
-
-QT_USE_NAMESPACE_JSONDB
 
 class JsonDbChangesSinceObject : public QObject, public QDeclarativeParserStatus
 {
@@ -125,5 +125,7 @@ private:
     friend class JsonDbPartition;
     friend class JsonDbPartitionPrivate;
 };
+
+QT_END_NAMESPACE_JSONDB
 
 #endif //JSONDBCHANGESSINCEOBJECT_H

@@ -44,6 +44,8 @@
 #include <QMap>
 #include <QDebug>
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 ModelPage::ModelPage()
     : index(-1)
     , count(0)
@@ -406,3 +408,4 @@ void ModelCache::dumpCacheDetails()
 
 }
 
+QT_END_NAMESPACE_JSONDB

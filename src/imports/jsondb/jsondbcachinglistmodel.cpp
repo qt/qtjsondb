@@ -55,6 +55,8 @@
   \class JsonDbCachingListModel
 */
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 JsonDbCachingListModelPrivate::JsonDbCachingListModelPrivate(JsonDbCachingListModel *q)
     : q_ptr(q)
     , componentComplete(false)
@@ -1509,3 +1511,4 @@ QVariantMap JsonDbCachingListModel::error() const
 }
 
 #include "moc_jsondbcachinglistmodel.cpp"
+QT_END_NAMESPACE_JSONDB

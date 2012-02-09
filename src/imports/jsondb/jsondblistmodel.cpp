@@ -59,6 +59,7 @@
   \internal
   \class JsonDbListModel
 */
+QT_BEGIN_NAMESPACE_JSONDB
 
 JsonDbListModelPrivate::JsonDbListModelPrivate(JsonDbListModel *q)
     : q_ptr(q)
@@ -1240,3 +1241,4 @@ bool operator <(const JsonDbSortKey &a, const JsonDbSortKey &b)
 }
 
 #include "moc_jsondblistmodel.cpp"
+QT_END_NAMESPACE_JSONDB

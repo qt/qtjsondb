@@ -44,7 +44,7 @@
 #include "private/jsondb-strings_p.h"
 #include <qdebug.h>
 
-QT_USE_NAMESPACE_JSONDB
+QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
     \qmlclass Query
@@ -415,3 +415,5 @@ void JsonDbQueryObject::setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, c
     }
 }
 
+#include "moc_jsondbqueryobject.cpp"
+QT_END_NAMESPACE_JSONDB

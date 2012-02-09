@@ -53,7 +53,7 @@
 #include "private/jsondb-connection_p.h"
 #include "jsondbmodelutils.h"
 
-QT_USE_NAMESPACE_JSONDB
+QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbListModelPrivate
 {
@@ -155,5 +155,7 @@ public:
 
     inline int itemsInCache() { return cacheEnd - cacheStart;}
 };
+
+QT_END_NAMESPACE_JSONDB
 
 #endif // JSONDBLISTMODEL_P_H

@@ -39,9 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDBPARTITION_H
-#define JSONDBPARTITION_H
-
+#ifndef JSONDBPARTITION_H1
+#define JSONDBPARTITION_H1
 
 #include <QObject>
 #include <QScopedPointer>
@@ -53,13 +52,13 @@
 
 #include "jsondb-client.h"
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 class JsonDatabase;
 class JsonDbNotify;
 class JsonDbPartitionPrivate;
 class JsonDbQueryObject;
 class JsonDbChangesSinceObject;
-
-QT_USE_NAMESPACE_JSONDB
 
 class JsonDbPartition: public QObject
 {
@@ -133,5 +132,7 @@ private Q_SLOTS:
     friend class JsonDbQueryObject;
     friend class JsonDbChangesSinceObject;
 };
+
+QT_END_NAMESPACE_JSONDB
 
 #endif

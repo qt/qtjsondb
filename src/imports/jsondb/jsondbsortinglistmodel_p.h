@@ -54,7 +54,7 @@
 #include "private/jsondb-connection_p.h"
 #include "jsondbmodelutils.h"
 
-QT_USE_NAMESPACE_JSONDB
+QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbSortingListModelPrivate
 {
@@ -142,5 +142,7 @@ public:
     static void partitions_clear(QDeclarativeListProperty<JsonDbPartition> *p);
 
 };
+
+QT_END_NAMESPACE_JSONDB
 
 #endif // JSONDBSORTINGLISTMODEL_P_H

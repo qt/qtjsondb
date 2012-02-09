@@ -50,6 +50,8 @@
 #include "jsondbchangessinceobject.h"
 #include "jsondbcachinglistmodel.h"
 
+QT_USE_NAMESPACE_JSONDB
+
 Q_EXPORT_PLUGIN2(jsondbplugin, JsonDbPlugin)
 QDeclarativeEngine *g_declEngine = 0;
 

@@ -41,6 +41,8 @@
 
 #include "jsondbmodelutils.h"
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 SortingKey::SortingKey(int partitionIndex, const QVariantMap &object, const QList<bool> &directions, const QList<QStringList> &paths, const SortIndexSpec &spec){
     QVariantList values;
     for (int i = 0; i < paths.size(); i++)
@@ -206,3 +208,4 @@ QString removeArrayOperator(QString propertyName)
     return propertyName;
 }
 
+QT_END_NAMESPACE_JSONDB

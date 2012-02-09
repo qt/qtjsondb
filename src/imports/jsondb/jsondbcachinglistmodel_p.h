@@ -55,7 +55,7 @@
 #include "jsondbmodelutils.h"
 #include "jsondbmodelcache.h"
 
-Q_USE_JSONDB_NAMESPACE
+QT_BEGIN_NAMESPACE_JSONDB
 
 struct JsonDbModelIndexNSize
 {
@@ -187,5 +187,7 @@ public:
     static void partitions_clear(QDeclarativeListProperty<JsonDbPartition> *p);
 
 };
+
+QT_END_NAMESPACE_JSONDB
 
 #endif // JSONDBCACHINGLISTMODEL_P_H

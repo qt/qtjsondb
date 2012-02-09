@@ -49,6 +49,8 @@
 #include <QVariantMap>
 #include "jsondbmodelutils.h"
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 typedef QMap<SortingKey, QString> JsonDbModelIndexType;
 typedef QHash<QString, QVariantMap> JsonDbModelObjectType;
 
@@ -111,5 +113,7 @@ public:
     int count();
     void dumpCacheDetails();
 };
+
+QT_END_NAMESPACE_JSONDB
 
 #endif // JSONDBMODELCACHE_H

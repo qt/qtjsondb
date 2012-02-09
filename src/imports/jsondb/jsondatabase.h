@@ -47,9 +47,9 @@
 #include <QPointer>
 #include "jsondb-client.h"
 
-class JsonDbPartition;
+QT_BEGIN_NAMESPACE_JSONDB
 
-QT_USE_NAMESPACE_JSONDB
+class JsonDbPartition;
 
 class JsonDatabase : public QObject
 {
@@ -70,5 +70,7 @@ private:
     QMap<int, QJSValue> listCallbacks;
     JsonDbClient jsonDb;
 };
+
+QT_END_NAMESPACE_JSONDB
 
 #endif

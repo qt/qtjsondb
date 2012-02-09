@@ -45,7 +45,7 @@
 #include "plugin.h"
 #include <qdebug.h>
 
-QT_USE_NAMESPACE_JSONDB
+QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
     \qmlclass Notification
@@ -410,3 +410,5 @@ void JsonDbNotify::dbNotifyErrorResponse(int id, int code, const QString &messag
     }
 }
 
+#include "moc_jsondbnotification.cpp"
+QT_END_NAMESPACE_JSONDB

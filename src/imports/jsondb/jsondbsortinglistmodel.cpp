@@ -52,6 +52,8 @@
   \class JsonDbSortingListModel
 */
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 JsonDbSortingListModelPrivate::JsonDbSortingListModelPrivate(JsonDbSortingListModel *q)
     : q_ptr(q)
     , componentComplete(false)
@@ -1044,3 +1046,4 @@ JsonDbPartition* JsonDbSortingListModel::getPartition(int index) const
 */
 
 #include "moc_jsondbsortinglistmodel.cpp"
+QT_END_NAMESPACE_JSONDB

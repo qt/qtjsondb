@@ -48,7 +48,7 @@
 #include "jsondbchangessinceobject.h"
 #include <qdebug.h>
 
-QT_USE_NAMESPACE_JSONDB
+QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
     \qmlclass Partition
@@ -650,3 +650,6 @@ void JsonDbPartition::queryStatusChanged()
     }
 
 }
+
+#include "moc_jsondbpartition.cpp"
+QT_END_NAMESPACE_JSONDB

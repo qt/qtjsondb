@@ -49,7 +49,7 @@
 #include <QVariant>
 #include "jsondb-client.h"
 
-QT_USE_NAMESPACE_JSONDB
+QT_BEGIN_NAMESPACE_JSONDB
 
 struct CallbackInfo {
     int index;
@@ -150,5 +150,7 @@ template <typename T> int iterator_position(T &begin, T &end, T &value)
 
 QVariant lookupProperty(QVariantMap object, const QStringList &path);
 QString removeArrayOperator(QString propertyName);
+
+QT_END_NAMESPACE_JSONDB
 
 #endif // JSONDBMODELUTILS_H

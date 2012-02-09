@@ -39,7 +39,6 @@
 **
 ****************************************************************************/
 
-
 #ifndef JSONDBCACHINGLISTMODEL_H
 #define JSONDBCACHINGLISTMODEL_H
 
@@ -57,10 +56,7 @@
 #include "jsondb-global.h"
 #include "jsondbpartition.h"
 
-namespace QtAddOn { namespace JsonDb {
-class QsonObject;
-class QsonMap;
-} } // end namespace QtAddOn::JsonDb
+QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbCachingListModelPrivate;
 class JsonDbPartition;
@@ -133,5 +129,7 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_verifyDefaultIndexType(int))
 
 };
+
+QT_END_NAMESPACE_JSONDB
 
 #endif // JSONDBCACHINGLISTMODEL_H

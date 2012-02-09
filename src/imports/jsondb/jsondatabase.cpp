@@ -46,6 +46,8 @@
 #include <QDeclarativeEngine>
 #include <qdebug.h>
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 /*!
     \qmlclass JsonDatabase
     \inqmlmodule QtJsonDb
@@ -186,3 +188,6 @@ void JsonDatabase::dbErrorResponse(int id, int code, const QString &message)
         listCallbacks.remove(id);
     }
 }
+
+#include "moc_jsondatabase.cpp"
+QT_END_NAMESPACE_JSONDB

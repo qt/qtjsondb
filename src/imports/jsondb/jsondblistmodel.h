@@ -55,7 +55,7 @@
 #include "jsondb-global.h"
 #include "jsondbpartition.h"
 
-QT_USE_NAMESPACE_JSONDB
+QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbSortKeyPrivate;
 class JsonDbSortKey {
@@ -157,4 +157,7 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyErrorResponse(int, int, QString))
 
 };
+
+QT_END_NAMESPACE_JSONDB
+
 #endif
