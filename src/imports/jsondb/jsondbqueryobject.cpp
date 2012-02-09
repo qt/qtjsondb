@@ -410,7 +410,7 @@ void JsonDbQueryObject::setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, c
         objectStatus = JsonDbQueryObject::Error;
         emit statusChanged(objectStatus);
     }
-    if (oldErrorCode != JsonDbQueryObject::Error) {
+    if (oldErrorCode != errorCode) {
         emit errorChanged(error());
     }
 }
