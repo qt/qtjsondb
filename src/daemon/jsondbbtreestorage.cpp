@@ -798,6 +798,19 @@ bool JsonDbBtreeStorage::checkValidity()
     return noErrors;
 }
 
+void JsonDbBtreeStorage::flushCaches()
+{
+    mObjectTable->flushCaches();
+    if (mBdbIndexes && mBdbIndexes->handle()) {
+        mBdbIndexes->setCacheSize(1);
+        mBdbIndexes->setCacheSize(gCacheSize);
+    }
+    for (QHash<QString,QPointer<ObjectTable> >::const_iterator it = mViews.begin();
+         it != mViews.end();
+         ++it)
+        it.value()->flushCaches();
+}
+
 void JsonDbBtreeStorage::initIndexes()
 {
     QByteArray baPropertyName;

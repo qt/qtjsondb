@@ -76,6 +76,8 @@ public:
     QJSValue mapFunction(const QString &sourceType) const;
     ObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
 
+    void initScriptEngine();
+    void releaseScriptEngine();
     void mapObject(JsonDbObject object);
     void unmapObject(const JsonDbObject &object);
     void setError(const QString &errorMsg);
@@ -120,6 +122,8 @@ public:
     const QJSValue &addFunction() const { return mAddFunction; }
     const QJSValue &subtractFunction() const { return mSubtractFunction; }
 
+    void initScriptEngine();
+    void releaseScriptEngine();
     void updateObject(JsonDbObject before, JsonDbObject after);
     QJsonValue addObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);
     QJsonValue subtractObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);

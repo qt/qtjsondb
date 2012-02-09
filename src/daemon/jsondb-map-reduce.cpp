@@ -108,6 +108,7 @@ void JsonDb::createMapDefinition(QJsonObject mapDefinition, bool firstTime, cons
     mMapDefinitionsByTarget.insert(targetType, def);
 
     if (firstTime && def->isActive()) {
+        def->initScriptEngine();
         GetObjectsResult getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceTypes[0]);
         if (!getObjectResponse.error.isNull()) {
             if (gVerbose)
@@ -166,6 +167,7 @@ void JsonDb::createReduceDefinition(QJsonObject reduceDefinition, bool firstTime
     storage->addIndexOnProperty("_reduceUuid", "string", targetType);
 
     if (firstTime && def->isActive()) {
+        def->initScriptEngine();
         GetObjectsResult getObjectResponse = getObjects(JsonDbString::kTypeStr, sourceType);
         if (!getObjectResponse.error.isNull()) {
             if (gVerbose)
@@ -463,11 +465,20 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
     , mPartition(partition)
     , mOwner(owner)
     , mDefinition(definition)
-    , mScriptEngine(new QJSEngine(this))
+    , mScriptEngine(0)
     , mUuid(definition.value(JsonDbString::kUuidStr).toString())
     , mTargetType(definition.value("targetType").toString())
     , mTargetTable(jsonDb->findPartition(partition)->findObjectTable(mTargetType))
 {
+}
+
+
+void JsonDbMapDefinition::initScriptEngine()
+{
+    if (mScriptEngine)
+        return;
+
+    mScriptEngine = new QJSEngine(this);
     QJSValue globalObject = mScriptEngine->globalObject();
     globalObject.setProperty("console", mScriptEngine->newQObject(new Console()));
 
@@ -485,7 +496,7 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
                 setError( "Unable to parse map function: " + mapFunction.toString());
             mMapFunctions[sourceType] = mapFunction;
 
-            mSourceTables[sourceType] = jsonDb->findPartition(partition)->findObjectTable(sourceType);
+            mSourceTables[sourceType] = mJsonDb->findPartition(mPartition)->findObjectTable(sourceType);
         }
 
         mJoinProxy = new JsonDbJoinProxy(mOwner, mJsonDb, this);
@@ -511,7 +522,7 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
             setError( "Unable to parse map function: " + mapFunction.toString());
         mMapFunctions[sourceType] = mapFunction;
 
-        mSourceTables[sourceType] = jsonDb->findPartition(partition)->findObjectTable(sourceType);
+        mSourceTables[sourceType] = mJsonDb->findPartition(mPartition)->findObjectTable(sourceType);
         mSourceTypes.append(sourceType);
 
         mMapProxy = new JsonDbMapProxy(mOwner, mJsonDb, this);
@@ -524,6 +535,13 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, JsonDbOwner *owner, con
     }
 }
 
+void JsonDbMapDefinition::releaseScriptEngine()
+{
+    mMapFunctions.clear();
+    delete mScriptEngine;
+    mScriptEngine = 0;
+}
+
 QJSValue JsonDbMapDefinition::mapFunction(const QString &sourceType) const
 {
     if (mMapFunctions.contains(sourceType))
@@ -534,6 +552,7 @@ QJSValue JsonDbMapDefinition::mapFunction(const QString &sourceType) const
 
 void JsonDbMapDefinition::mapObject(JsonDbObject object)
 {
+    initScriptEngine();
     const QString &sourceType = object.value(JsonDbString::kTypeStr).toString();
 
     QJSValue sv = JsonDb::toJSValue(object, mScriptEngine);
@@ -553,6 +572,7 @@ void JsonDbMapDefinition::mapObject(JsonDbObject object)
 void JsonDbMapDefinition::unmapObject(const JsonDbObject &object)
 {
     Q_ASSERT(object.value(JsonDbString::kUuidStr).type() == QJsonValue::String);
+    initScriptEngine();
     QJsonValue uuid = object.value(JsonDbString::kUuidStr);
     GetObjectsResult getObjectResponse = mTargetTable->getObjects("_sourceUuids.*", uuid, mTargetType);
     JsonDbObjectList dependentObjects = getObjectResponse.data;
@@ -653,7 +673,7 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, JsonDbOwner *owne
     , mOwner(owner)
     , mPartition(partition)
     , mDefinition(definition)
-    , mScriptEngine(new QJSEngine(this))
+    , mScriptEngine(0)
     , mUuid(mDefinition.value(JsonDbString::kUuidStr).toString())
     , mTargetType(mDefinition.value("targetType").toString())
     , mSourceType(mDefinition.value("sourceType").toString())
@@ -662,6 +682,14 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, JsonDbOwner *owne
     , mSourceKeyName(mDefinition.contains("sourceKeyName") ? mDefinition.value("sourceKeyName").toString() : QString("key"))
     , mSourceKeyNameList(mSourceKeyName.split("."))
 {
+}
+
+void JsonDbReduceDefinition::initScriptEngine()
+{
+    if (mScriptEngine)
+        return;
+
+    mScriptEngine = new QJSEngine(this);
     Q_ASSERT(!mDefinition.value("add").toString().isEmpty());
     Q_ASSERT(!mDefinition.value("subtract").toString().isEmpty());
 
@@ -683,8 +711,17 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, JsonDbOwner *owne
         setError("Unable to parse subtract function: " + mSubtractFunction.toString());
 }
 
+void JsonDbReduceDefinition::releaseScriptEngine()
+{
+    mAddFunction = QJSValue();
+    mSubtractFunction = QJSValue();
+    delete mScriptEngine;
+    mScriptEngine = 0;
+}
+
 void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject after)
 {
+    initScriptEngine();
     Q_ASSERT(mAddFunction.isCallable());
 
     QJsonValue beforeKeyValue = mSourceKeyName.contains(".")
@@ -765,6 +802,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
 
 QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const QJsonValue &previousValue, JsonDbObject object)
 {
+    initScriptEngine();
     QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue.toVariant());
     QJSValue svPreviousValue = mScriptEngine->toScriptValue(previousValue.toObject().value(mTargetValueName).toVariant());
     QJSValue svObject = JsonDb::toJSValue(object, mScriptEngine);
@@ -788,6 +826,7 @@ QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const Q
 
 QJsonValue JsonDbReduceDefinition::subtractObject(const QJsonValue &keyValue, const QJsonValue &previousValue, JsonDbObject object)
 {
+    initScriptEngine();
     Q_ASSERT(mSubtractFunction.isCallable());
 
     QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue.toVariant());

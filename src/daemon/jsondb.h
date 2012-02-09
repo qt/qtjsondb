@@ -106,6 +106,7 @@ public:
     void close();
     bool clear();
     bool checkValidity();
+    void reduceMemoryUsage();
 
     JsonDbQueryResult find(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
     QJsonObject create(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), bool viewObject=false);

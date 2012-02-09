@@ -120,6 +120,7 @@ public:
     bool commit(quint32);
     bool abort();
     bool compact();
+    void flushCaches();
 
     quint32 stateNumber() const { return mStateNumber; }
     quint32 storeStateChange(const ObjectKey &key1, ObjectChange::Action action, const JsonDbObject &old = JsonDbObject());

@@ -181,6 +181,20 @@ bool ObjectTable::compact()
     return mBdb->compact();
 }
 
+void ObjectTable::flushCaches()
+{
+    for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
+         it != mIndexes.end();
+         ++it) {
+        const IndexSpec &indexSpec = it.value();
+        // _uuid index does not have bdb() because it is actually the object table itself
+        if (!indexSpec.index->bdb())
+            continue;
+        indexSpec.index->bdb()->setCacheSize(1);
+        indexSpec.index->bdb()->setCacheSize(gCacheSize);
+    }
+}
+
 IndexSpec *ObjectTable::indexSpec(const QString &indexName)
 {
     //qDebug() << "ObjectTable::indexSpec" << propertyName << mFilename << (mIndexes.contains(propertyName) ? "exists" : "missing") << (long)this << mIndexes.keys();

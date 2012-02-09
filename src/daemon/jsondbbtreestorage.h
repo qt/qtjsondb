@@ -169,6 +169,7 @@ public:
 
     void initIndexes();
     bool checkValidity();
+    void flushCaches();
     bool addIndex(const QString &indexName,
                   const QString &propertyName,
                   const QString &propertyType = QString("string"),

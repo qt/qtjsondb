@@ -176,7 +176,7 @@ bool DBServer::load(const QString &jsonFileName)
 void DBServer::sigHUP()
 {
     DBG() << "SIGHUP received";
-    mJsonDb->checkValidity();
+    mJsonDb->reduceMemoryUsage();
 }
 
 void DBServer::sigTerm()

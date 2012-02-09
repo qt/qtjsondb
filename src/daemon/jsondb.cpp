@@ -573,6 +573,25 @@ bool JsonDb::checkValidity()
     return !fail;
 }
 
+/*!
+  This function frees all unnecessary memory, for example flushing the btree caches.
+ */
+void JsonDb::reduceMemoryUsage()
+{
+    for (QHash<QString, JsonDbBtreeStorage *>::const_iterator it = mStorages.begin();
+         it != mStorages.end(); ++it)
+        it.value()->flushCaches();
+    for (QMap<QString,JsonDbMapDefinition*>::const_iterator it = mMapDefinitionsByTarget.begin();
+         it != mMapDefinitionsByTarget.end();
+         ++it)
+        it.value()->releaseScriptEngine();
+    for (QMap<QString,JsonDbReduceDefinition*>::const_iterator it = mReduceDefinitionsByTarget.begin();
+         it != mReduceDefinitionsByTarget.end();
+         ++it)
+        it.value()->releaseScriptEngine();
+
+}
+
 void JsonDb::close()
 {
     if (mOpen) {
