@@ -200,6 +200,7 @@ private slots:
     void mapSelfJoinSourceUuids();
     void mapMapFunctionError();
     void mapSchemaViolation();
+    void mapArrayConversion();
     void reduce();
     void reduceRemoval();
     void reduceUpdate();
@@ -1958,6 +1959,32 @@ void TestJsonDb::mapSchemaViolation()
     verifyGoodResult(mJsonDb->remove(mOwner, map));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
+
+}
+
+void TestJsonDb::mapArrayConversion()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/map-array-conversion.json").toArray());
+    JsonDbObjectList toDelete;
+    for (int i = 0; i < objects.size(); i++) {
+        JsonDbObject object(objects.at(i).toObject());
+        QJsonObject result = mJsonDb->create(mOwner, object);
+        verifyGoodResult(result);
+        toDelete.append(object);
+    }
+
+    JsonDbObject testObject;
+    testObject.insert(JsonDbString::kTypeStr, QLatin1String("Test"));
+    QJsonObject result = mJsonDb->create(mOwner, testObject);
+    verifyGoodResult(result);
+
+    QJsonObject request;
+    request.insert("query", QLatin1String("[?_type=\"TestView\"]"));
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 1);
+    JsonDbObject o = queryResult.data.at(0);
+    QVERIFY(o.value("result").isArray());
 
 }
 
