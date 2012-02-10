@@ -187,12 +187,8 @@ void TestJsonDb::initTestCase()
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId("com.noklab.nrcc.JsonDbTest");
 
-    QString srcFile = findFile("largeContactsTest.json");
-    if (srcFile.isEmpty()) {
-        qDebug() << "Err: largeContactsTest.json doesn't exist!";
-        return;
-    }
-    QFile contactsFile(srcFile);
+    QFile contactsFile(":/daemon/json/largeContactsTest.json");
+    QVERIFY(contactsFile.exists());
     contactsFile.open(QIODevice::ReadOnly);
     QByteArray json = contactsFile.readAll();
     QJsonDocument document(QJsonDocument::fromJson(json));
@@ -263,7 +259,7 @@ void TestJsonDb::cleanup()
 
 void TestJsonDb::addSchema(const QString &schemaName)
 {
-    QJsonValue schema = readJsonFile(QString("../../auto/daemon/schemas/%1.json").arg(schemaName)).toArray();
+    QJsonValue schema = readJsonFile(QString(":/daemon/schemas/%1.json").arg(schemaName)).toArray();
     JsonDbObject schemaDocument;
     schemaDocument.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaDocument.insert("name", schemaName);
@@ -388,7 +384,7 @@ void TestJsonDb::jsonObjectInsertValue()
 
 void TestJsonDb::benchmarkCreate()
 {
-    QJsonArray contacts(readJsonFile("../../auto/daemon/largeContactsTest.json").toArray());
+    QJsonArray contacts(readJsonFile(":/daemon/json/largeContactsTest.json").toArray());
     QBENCHMARK {
         JsonDbObject contact(contacts.at(0).toObject());
             mJsonDb->create(mOwner, contact);
@@ -397,7 +393,7 @@ void TestJsonDb::benchmarkCreate()
 
 void TestJsonDb::benchmarkFileAppend()
 {
-    QJsonArray contacts(readJsonFile("../../auto/daemon/largeContactsTest.json").toArray());
+    QJsonArray contacts(readJsonFile(":/daemon/json/largeContactsTest.json").toArray());
     QFile objectFile("objectFile.bin");
     objectFile.open(QIODevice::ReadWrite);
 
@@ -410,7 +406,7 @@ void TestJsonDb::benchmarkFileAppend()
 
 void TestJsonDb::benchmarkFileAppend2()
 {
-    QJsonValue bson(readJsonFile("../../auto/daemon/largeContactsTest.json"));
+    QJsonValue bson(readJsonFile(":/daemon/json/largeContactsTest.json"));
     QJsonArray contacts(bson.toArray());
     QFile objectFile("objectFile.bin");
     objectFile.open(QIODevice::ReadWrite);
@@ -1108,7 +1104,7 @@ void TestJsonDb::benchmarkQueryCount()
 
 QJsonValue TestJsonDb::readJsonFile(const QString& filename)
 {
-    QString filepath = findFile(filename);
+    QString filepath = filename;
     QFile jsonFile(filepath);
     jsonFile.open(QIODevice::ReadOnly);
     QByteArray json = jsonFile.readAll();

@@ -1,22 +1,6 @@
 <RCC>
     <qresource prefix="/json">
         <file alias="create-test.json">auto/client/create-test.json</file>
-        <file alias="array.json">auto/daemon/array.json</file>
-        <file alias="capabilities-test.json">auto/daemon/capabilities-test.json</file>
-        <file alias="largeContactsTest.json">auto/daemon/largeContactsTest.json</file>
-        <file alias="largeContactsTest1k.json">auto/daemon/largeContactsTest1k.json</file>
-        <file alias="largeContactsTest10k.json">auto/daemon/largeContactsTest10k.json</file>
-        <file alias="largeContactsTest33k.json">auto/daemon/largeContactsTest33k.json</file>
-        <file alias="map-join-sourceuuids.json">auto/daemon/map-join-sourceuuids.json</file>
-        <file alias="map-join.json">auto/daemon/map-join.json</file>
-        <file alias="map-reduce-schema.json">auto/daemon/map-reduce-schema.json</file>
-        <file alias="map-reduce.json">auto/daemon/map-reduce.json</file>
-        <file alias="map-sametarget.json">auto/daemon/map-sametarget.json</file>
-        <file alias="pk-capability.json">auto/daemon/pk-capability.json</file>
-        <file alias="reduce-array.json">auto/daemon/reduce-array.json</file>
-        <file alias="reduce-data.json">auto/daemon/reduce-data.json</file>
-        <file alias="reduce-subprop.json">auto/daemon/reduce-subprop.json</file>
-        <file alias="reduce.json">auto/daemon/reduce.json</file>
         <file alias="list-objects.json">auto/jsondb-listmodel/list-objects.json</file>
         <file>auto/jsondblistmodel/list-objects.json</file>
         <file>auto/jsondbsortinglistmodel/list-objects.json</file>

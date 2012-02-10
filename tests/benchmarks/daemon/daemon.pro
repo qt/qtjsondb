@@ -9,6 +9,6 @@ LIBS += -L$$QT.jsondb.libs
 
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 include($$PWD/../../../src/daemon/daemon.pri)
-RESOURCES+=../../json.qrc
+RESOURCES+=../../json.qrc daemon.qrc
 SOURCES += \
     bench_daemon.cpp \

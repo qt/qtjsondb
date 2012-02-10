@@ -367,7 +367,7 @@ void TestJsonDb::createContacts()
     if (!mContactList.isEmpty())
         return;
 
-    QFile contactsFile(findFile("largeContactsTest.json"));
+    QFile contactsFile(":/daemon/json/largeContactsTest.json");
     QVERIFY2(contactsFile.exists(), "Err: largeContactsTest.json doesn't exist!");
 
     contactsFile.open(QIODevice::ReadOnly);
@@ -401,7 +401,7 @@ void TestJsonDb::createContacts()
 
 void TestJsonDb::addSchema(const QString &schemaName, JsonDbObject &schemaObject)
 {
-    QJsonValue schema = readJsonFile(QString("schemas/%1.json").arg(schemaName));
+    QJsonValue schema = readJsonFile(QString(":/daemon/schemas/%1.json").arg(schemaName));
     schemaObject = JsonDbObject();
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject.insert("name", schemaName);
@@ -460,7 +460,7 @@ void TestJsonDb::create()
  */
 void TestJsonDb::capabilities()
 {
-    QJsonArray viewDefinitions(readJsonFile("capabilities-test.json").toArray());
+    QJsonArray viewDefinitions(readJsonFile(":/daemon/json/capabilities-test.json").toArray());
     for (int i = 0; i < viewDefinitions.size(); ++i) {
         JsonDbObject object(viewDefinitions.at(i).toObject());
         if (object.value("_type").toString() == "CapabilitiesTest") {
@@ -1505,7 +1505,7 @@ void TestJsonDb::map()
 {
     addIndex(QLatin1String("phoneNumber"));
 
-    QJsonArray objects(readJsonFile("map-reduce.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
 
     JsonDbObjectList mapsReduces;
     JsonDbObjectList schemas;
@@ -1584,7 +1584,7 @@ void TestJsonDb::map()
 
 void TestJsonDb::mapDuplicateSourceAndTarget()
 {
-    QJsonArray objects(readJsonFile("map-sametarget.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/map-sametarget.json").toArray());
     JsonDbObjectList toDelete;
     JsonDbObjectList maps;
 
@@ -1620,7 +1620,7 @@ void TestJsonDb::mapDuplicateSourceAndTarget()
 
 void TestJsonDb::mapRemoval()
 {
-    QJsonArray objects(readJsonFile("map-sametarget.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/map-sametarget.json").toArray());
 
     QList<JsonDbObject> maps;
     QList<JsonDbObject> toDelete;
@@ -1663,7 +1663,7 @@ void TestJsonDb::mapRemoval()
 
 void TestJsonDb::mapUpdate()
 {
-    QJsonArray objects(readJsonFile("map-sametarget.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/map-sametarget.json").toArray());
 
     JsonDbObjectList maps;
     JsonDbObjectList toDelete;
@@ -1708,7 +1708,7 @@ void TestJsonDb::mapUpdate()
 
 void TestJsonDb::mapJoin()
 {
-    QJsonArray objects(readJsonFile("map-join.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/map-join.json").toArray());
 
     JsonDbObject join;
     JsonDbObject schema;
@@ -1819,7 +1819,7 @@ void TestJsonDb::mapSelfJoinSourceUuids()
 {
     addIndex("magic", "string");
 
-    QJsonArray objects(readJsonFile("map-join-sourceuuids.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/map-join-sourceuuids.json").toArray());
     JsonDbObjectList toDelete;
     JsonDbObject toUpdate;
 
@@ -1901,7 +1901,7 @@ void TestJsonDb::mapSchemaViolation()
     if (contactsRes.data.size() > 0)
       verifyGoodResult(mJsonDb->removeList(mOwner, contactsRes.data));
 
-    QJsonArray objects(readJsonFile("map-reduce-schema.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
     JsonDbObjectList toDelete;
     QJsonValue workingMap;
     JsonDbObject map;
@@ -1963,7 +1963,7 @@ void TestJsonDb::mapSchemaViolation()
 
 void TestJsonDb::reduce()
 {
-    QJsonArray objects(readJsonFile("reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
 
     JsonDbObjectList toDelete;
     JsonDbObjectList reduces;
@@ -1977,7 +1977,7 @@ void TestJsonDb::reduce()
         toDelete.append(object);
     }
 
-    objects = readJsonFile("reduce.json").toArray();
+    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
         QJsonObject result = mJsonDb->create(mOwner, object);
@@ -2008,7 +2008,7 @@ void TestJsonDb::reduce()
 
 void TestJsonDb::reduceRemoval()
 {
-    QJsonArray objects(readJsonFile("reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
 
     QJsonArray toDelete;
     QHash<QString, int> firstNameCount;
@@ -2020,7 +2020,7 @@ void TestJsonDb::reduceRemoval()
         toDelete.append(object);
     }
 
-    objects = readJsonFile("reduce.json").toArray();
+    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
     JsonDbObject reduce;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
@@ -2052,7 +2052,7 @@ void TestJsonDb::reduceRemoval()
 
 void TestJsonDb::reduceUpdate()
 {
-    QJsonArray objects(readJsonFile("reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
 
     QJsonArray toDelete;
     QHash<QString, int> firstNameCount;
@@ -2066,7 +2066,7 @@ void TestJsonDb::reduceUpdate()
         toDelete.append(object);
     }
 
-    objects = readJsonFile("reduce.json").toArray();
+    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
     JsonDbObject reduce;
     JsonDbObject schema;
     for (int ii = 0; ii < objects.size(); ii++) {
@@ -2117,7 +2117,7 @@ void TestJsonDb::reduceUpdate()
 
 void TestJsonDb::reduceDuplicate()
 {
-    QJsonArray objects(readJsonFile("reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
 
     JsonDbObjectList toDelete;
     QHash<QString, int> firstNameCount;
@@ -2131,7 +2131,7 @@ void TestJsonDb::reduceDuplicate()
         toDelete.append(object);
     }
 
-    objects = readJsonFile("reduce.json").toArray();
+    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
     JsonDbObject reduce;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
@@ -2232,7 +2232,7 @@ void TestJsonDb::reduceSchemaViolation()
 {
     ScopedAssignment<bool> validateSchemas(gValidateSchemas, true);
 
-    QJsonArray objects(readJsonFile("map-reduce-schema.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
 
     QJsonArray toDelete;
     JsonDbObject map;
@@ -2298,7 +2298,7 @@ void TestJsonDb::reduceSchemaViolation()
 
 void TestJsonDb::reduceSubObjectProp()
 {
-    QJsonArray objects(readJsonFile("reduce-subprop.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-subprop.json").toArray());
 
     QJsonArray toDelete;
     JsonDbObject reduce;
@@ -2340,7 +2340,7 @@ void TestJsonDb::reduceSubObjectProp()
 
 void TestJsonDb::reduceArray()
 {
-    QJsonArray objects(readJsonFile("reduce-array.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-array.json").toArray());
     QJsonArray toDelete;
 
     JsonDbObject human;
@@ -2441,7 +2441,7 @@ void TestJsonDb::addSchema()
 
 void TestJsonDb::duplicateSchema()
 {
-    QJsonValue schema = readJsonFile("schemas/address.json");
+    QJsonValue schema = readJsonFile(":/daemon/schemas/address.json");
     JsonDbObject schemaObject;
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject.insert("name", QLatin1String("Address"));
@@ -2463,7 +2463,7 @@ void TestJsonDb::duplicateSchema()
 
 void TestJsonDb::removeSchema()
 {
-    QJsonValue schema = readJsonFile("schemas/address.json");
+    QJsonValue schema = readJsonFile(":/daemon/schemas/address.json");
     JsonDbObject schemaObject;
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject.insert("name", QLatin1String("Address"));
@@ -2492,7 +2492,7 @@ void TestJsonDb::removeSchema()
 
 void TestJsonDb::removeViewSchema()
 {
-    QJsonArray objects = readJsonFile("reduce.json").toArray();
+    QJsonArray objects = readJsonFile(":/daemon/json/reduce.json").toArray();
     JsonDbObject schema;
     JsonDbObject reduce;
     for (int i = 0; i < objects.size(); ++i) {
@@ -2517,7 +2517,7 @@ void TestJsonDb::removeViewSchema()
 
 void TestJsonDb::updateSchema()
 {
-    QJsonObject schema = readJsonFile("schemas/address.json").toObject();
+    QJsonObject schema = readJsonFile(":/daemon/schemas/address.json").toObject();
     QVERIFY(!schema.isEmpty());
     JsonDbObject schemaObject;
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
@@ -3259,7 +3259,7 @@ void TestJsonDb::find10()
 
 QJsonValue TestJsonDb::readJsonFile(const QString& filename)
 {
-    QString filepath = findFile(filename);
+    QString filepath = filename;
     QFile jsonFile(filepath);
     jsonFile.open(QIODevice::ReadOnly);
     QByteArray json = jsonFile.readAll();
@@ -3285,7 +3285,7 @@ QJsonValue TestJsonDb::readJson(const QByteArray& json)
 
 void TestJsonDb::testPrimaryKey()
 {
-    JsonDbObject capability = readJsonFile("pk-capability.json").toObject();
+    JsonDbObject capability = readJsonFile(":/daemon/json/pk-capability.json").toObject();
     JsonDbObject replay(capability);
 
     QJsonObject result1 = mJsonDb->create(mOwner, capability);
@@ -3557,7 +3557,7 @@ void TestJsonDb::arrayIndexQuery()
 {
     addIndex(QLatin1String("phoneNumber"));
 
-    QJsonArray objects(readJsonFile("array.json").toArray());
+    QJsonArray objects(readJsonFile(":/daemon/json/array.json").toArray());
     QMap<QString, JsonDbObject> toDelete;
     for (int i = 0; i < objects.size(); ++i) {
         JsonDbObject object = objects.at(i).toObject();
