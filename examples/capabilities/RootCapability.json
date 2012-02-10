@@ -1,0 +1,14 @@
+{
+  "_type": "Capability",
+  "name": "root",
+  "partition": "all",
+  "accessRules": {
+    "rw": {
+      "read": [".*"],
+      "write": [".*"]
+    },
+    "setOwner": {
+      "setOwner": [".*"]
+    }
+  }
+}

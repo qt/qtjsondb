@@ -1,0 +1,72 @@
+{
+  "_type": "Capability",
+  "name": "user",
+  "partition": "com.nokia.qtjsondb.User",
+  "accessRules": {
+    "rw": {
+      "read": [".*"],
+      "write": ["[?_type startsWith \"public.\"]", "[?_type startsWith \"%domain.\"]",
+                "[?_owner=\"%owner\"]"]
+    },
+    "setOwner": {
+      "setOwner": ["[?_type startsWith \"public.\"]", "[?_type startsWith \"%domain.\"]",
+                   "[?_owner=\"%owner\"]"]
+    }
+  }
+}
+{
+  "_type": "Capability",
+  "name": "system",
+  "partition": "com.nokia.qtjsondb.Public",
+  "accessRules": {
+    "rw": {
+      "read": [".*"],
+      "write": [".*"]
+    },
+    "setOwner": {
+      "setOwner": [".*"]
+    }
+  }
+}
+{
+  "_type": "Capability",
+  "name": "user",
+  "partition": "com.nokia.qtjsondb.Ephemeral",
+  "accessRules": {
+    "rw": {
+      "read": [".*"],
+      "write": [".*"]
+    },
+    "setOwner": {
+      "setOwner": [".*"]
+    }
+  }
+}
+{
+  "_type": "Capability",
+  "name": "user",
+  "partition": "com.nokia.qtjsondb.Sdcard",
+  "accessRules": {
+    "rw": {
+      "read": [".*"],
+      "write": ["[?_type startsWith \"public.\"]", "[?_type startsWith \"%domain.\"]",
+                "[?_owner=\"%owner\"]"]
+    },
+    "setOwner": {
+      "setOwner": ["[?_type startsWith \"public.\"]", "[?_type startsWith \"%domain.\"]",
+                   "[?_owner=\"%owner\"]"]
+    }
+  }
+}
+{
+  "_type": "Capability",
+  "name": "user",
+  "partition": "%owner",
+  "accessRules": {
+    "rw": {
+      "read": [".*"],
+      "write": [".*"],
+      "setOwner": [".*"]
+    }
+  }
+}
