@@ -339,10 +339,12 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 #else
     // security hole
     // TODO: Mac socket authentication
-    JsonDbOwner *owner = new JsonDbOwner(this);
-    owner->setOwnerId(QString::fromLatin1("unknown app %1").arg((intptr_t)stream));
-    owner->setDomain("unknown app domain");
-    mOwners[stream->device()] = owner;
+    if (!mOwners.contains(device)) {
+        JsonDbOwner *owner = new JsonDbOwner(this);
+        owner->setOwnerId(QString::fromLatin1("unknown app %1").arg((intptr_t)stream));
+        owner->setDomain("unknown app domain");
+        mOwners[device] = owner;
+    }
 #endif
     Q_ASSERT(mOwners[device]);
     return mOwners[device];
@@ -561,7 +563,11 @@ JsonDbOwner *DBServer::createDummyOwner( JsonStream *stream)
     if (gEnforceAccessControlPolicies)
         return 0;
 
-    JsonDbOwner *owner = new JsonDbOwner(this);
+    JsonDbOwner *owner = mOwners.value(stream->device());
+    if (owner)
+        return owner;
+
+    owner = new JsonDbOwner(this);
     owner->setOwnerId(QString("unknown app"));
     owner->setDomain(QString("unknown domain"));
     QJsonObject capabilities;
@@ -703,7 +709,7 @@ void DBServer::removeConnection()
         mConnections.remove(connection);
     }
     if (mOwners.contains(connection)) {
-        JsonDbOwner *owner =mOwners.value(connection);
+        JsonDbOwner *owner = mOwners.value(connection);
         if (owner)
             owner->deleteLater();
         mOwners.remove(connection);
