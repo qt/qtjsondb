@@ -74,19 +74,20 @@ public:
 
     QList<QString> allowedObjects(const QString &op) const;
 
-    void setAllowedObjects(const QString &op, const QList<QString> &queries);
+    void setAllowedObjects(const QString &partition, const QString &op,
+                           const QList<QString> &queries);
     void setCapabilities(QJsonObject &capabilities, JsonDb *jsondb);
     void setAllowAll(bool allowAll) { mAllowAll = allowAll; }
 
-    bool isAllowed(JsonDbObject &object, const QString &op) const;
+    bool isAllowed(JsonDbObject &object, const QString &partition, const QString &op) const;
     int storageQuota() const { return mStorageQuota; }
     void setStorageQuota(int storageQuota) { mStorageQuota = storageQuota; }
 
 private:
     QString mOwnerId; // from security object
     QString mDomain;  // from security object
-    QMap<QString, QList<QString> > mAllowedObjects; // list of querie strings
-    QMap<QString, QList<JsonDbQuery> > mAllowedObjectQueries;
+    QMap<QString, QMap<QString, QList<QString> > > mAllowedObjects; // list of querie strings per partition
+    QMap<QString, QMap<QString, QList<JsonDbQuery> > > mAllowedObjectQueries;
     int mStorageQuota;
     bool mAllowAll;
     friend class ::TestJsonDb;

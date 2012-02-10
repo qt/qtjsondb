@@ -106,7 +106,6 @@ private slots:
     void schemaValidation();
     void changesSince();
     void requestWithSlot();
-    void partition();
     void queryObject();
     void changesSinceObject();
     void jsondbobject();
@@ -126,6 +125,8 @@ private:
     void removeDbFiles();
     // Temporarily disable quota test
     void storageQuotas();
+    // Temporarily disable partition test
+    void partition();
 };
 
 #ifndef DONT_START_SERVER
@@ -244,26 +245,44 @@ void TestJsonDbClient::initTestCase()
         JsonDbObject capa_obj;
         capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
         capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("com.nokia.qtjsondb.System"));
         QVariantMap access_rules;
-        QVariantMap read_rule;
-        read_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
-        access_rules.insert(QLatin1String("read"), read_rule);
-        QVariantMap write_rule;
-        write_rule.insert(QLatin1String("write"),
+        QVariantMap rw_rule;
+        rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
+        rw_rule.insert(QLatin1String("write"),
                           (QStringList() <<
                            QLatin1String("[?_type=~\"/public.*/w\"]") <<
                            QLatin1String("[?_type=~\"/%domain.*/w\"]") <<
-                           QLatin1String("[?_owner=\"%owner\"]") <<
-                           QLatin1String("[?_type=\"notification\"]")));
-        access_rules.insert(QLatin1String("write"), write_rule);
+                           QLatin1String("[?_owner=\"%owner\"]")));
+        access_rules.insert(QLatin1String("rw"), rw_rule);
         QVariantMap set_owner_rule;
         set_owner_rule.insert(QLatin1String("setOwner"),
                               (QStringList() << QLatin1String("[*]")));
+        set_owner_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
+        set_owner_rule.insert(QLatin1String("write"), (QStringList() << QLatin1String("[*]")));
         access_rules.insert(QLatin1String("setOwner"), set_owner_rule);
         capa_obj.insert(QLatin1String("accessRules"), access_rules);
         connectToServer();
         qDebug() << "Creating: " << capa_obj;
         int id = mClient->create(capa_obj);
+        waitForResponse1(id);
+        capa_obj.clear();
+        capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
+        capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("com.nokia.qtjsondb.Ephemeral"));
+        access_rules.clear();
+        rw_rule.clear();
+        rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
+        rw_rule.insert(QLatin1String("write"),
+                          (QStringList() <<
+                           QLatin1String("[?_type=~\"/public.*/w\"]") <<
+                           QLatin1String("[?_type=~\"/%domain.*/w\"]") <<
+                           QLatin1String("[?_owner=\"%owner\"]") <<
+                           QLatin1String("[?_type=\"notification\"]")));
+        access_rules.insert(QLatin1String("rw"), rw_rule);
+        capa_obj.insert(QLatin1String("accessRules"), access_rules);
+        qDebug() << "Creating: " << capa_obj;
+        id = mClient->create(capa_obj);
         waitForResponse1(id);
 
         mClient->disconnectFromServer();
@@ -631,7 +650,7 @@ void TestJsonDbClient::notifyViaCreate()
     notificationObject.insert("_type", "notification");
     notificationObject.insert("query", query);
     notificationObject.insert("actions", actions);
-    id = mClient->create(notificationObject);
+    id = mClient->create(notificationObject, QLatin1String("com.nokia.qtjsondb.Ephemeral"));
     waitForResponse1(id);
     QVariantMap notifyObject = mData.toMap();
     QString notifyUuid = notifyObject.value("_uuid").toString();
@@ -672,7 +691,7 @@ void TestJsonDbClient::notifyViaCreate()
     QCOMPARE(n.mAction, QLatin1String("remove"));
 
     // Remove the notification object
-    id = mClient->remove(notifyObject);
+    id = mClient->remove(notifyObject, QLatin1String("com.nokia.qtjsondb.Ephemeral"));
     waitForResponse1(id);
 }
 

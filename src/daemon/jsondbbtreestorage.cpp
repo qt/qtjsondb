@@ -962,6 +962,11 @@ IndexQuery::~IndexQuery()
     }
 }
 
+QString IndexQuery::partition() const
+{
+    return mStorage->name();
+}
+
 quint32 IndexQuery::stateNumber() const
 {
     return mBdbIndex->tag();
@@ -1605,7 +1610,7 @@ void JsonDbBtreeStorage::doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList
     for (JsonDbObject object = indexQuery->first();
          !object.isEmpty();
          object = indexQuery->next()) {
-        if (!owner->isAllowed(object, QString("read")))
+        if (!owner->isAllowed(object, indexQuery->partition(), QString("read")))
             continue;
         if (limit && (offset <= 0)) {
             if (!countOnly) {
@@ -1674,6 +1679,7 @@ void JsonDbBtreeStorage::doMultiIndexQuery(const JsonDbOwner *owner, JsonDbObjec
         s = findMinHead(heads, path0, ascending);
         object = heads[s];
         heads[s] = queries[s]->next();
+        QString partition = queries[s]->partition();
         if (heads[s].isEmpty()) {
             heads.takeAt(s);
             queries.takeAt(s);
@@ -1681,7 +1687,7 @@ void JsonDbBtreeStorage::doMultiIndexQuery(const JsonDbOwner *owner, JsonDbObjec
         if (object.isEmpty())
             break;
 
-        if (!owner->isAllowed(object, QString("read")))
+        if (!owner->isAllowed(object, partition, QString("read")))
             continue;
         if (limit && (offset <= 0)) {
             if (!countOnly) {

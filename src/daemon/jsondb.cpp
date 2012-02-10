@@ -798,7 +798,7 @@ QJsonObject JsonDb::create(const JsonDbOwner *owner, JsonDbObject& object, const
         return makeResponse(resultmap, errormap);
     }
 
-    populateIdBySchema(owner, object);
+    populateIdBySchema(owner, object, partition);
     object.generateUuid();
 
     return update(owner, object, partition, isViewObject);
@@ -835,14 +835,14 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         RETURN_IF_ERROR(errormap, checkNaturalObjectType(object, objectType));
     if (!forRemoval)
         RETURN_IF_ERROR(errormap, validateSchema(objectType, object));
-    RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, "write"));
-
     QString partition = partition_.isEmpty() ? JsonDbString::kSystemPartitionName : partition_;
+    RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, partition, "write"));
+
     RETURN_IF_ERROR(errormap, checkPartitionPresent(partition));
 
     // don't repopulate if deleting object, if it's a schema type then _id is altered.
     if (!forRemoval) {
-        if (populateIdBySchema(owner, object)) {
+        if (populateIdBySchema(owner, object, partition)) {
             object.generateUuid();
 
             if (object.value(JsonDbString::kUuidStr).toString() != uuid) {
@@ -1240,12 +1240,13 @@ void JsonDb::updateSchemaIndexes(const QString &schemaName, QJsonObject object, 
     }
 }
 
-bool JsonDb::populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object)
+bool JsonDb::populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object,
+                                const QString &partition)
 {
     // minimize inserts
     if (!object.contains(JsonDbString::kOwnerStr)
         || ((object.value(JsonDbString::kOwnerStr).toString() != owner->ownerId())
-            && !owner->isAllowed(object, "setOwner")))
+            && !owner->isAllowed(object, partition, "setOwner")))
         object.insert(JsonDbString::kOwnerStr, owner->ownerId());
 
     QString objectType = object.value(JsonDbString::kTypeStr).toString();
@@ -1508,9 +1509,9 @@ QJsonObject JsonDb::checkNaturalObjectType(JsonDbObject object, QString &type)
 }
 
 QJsonObject JsonDb::checkAccessControl(const JsonDbOwner *owner, JsonDbObject object,
-                                   const QString &op)
+                                   const QString &partition, const QString &op)
 {
-    if (!owner->isAllowed(object, op))
+    if (!owner->isAllowed(object, partition, op))
         return makeError(JsonDbError::OperationNotPermitted, "Access denied");
     return QJsonObject();
 }

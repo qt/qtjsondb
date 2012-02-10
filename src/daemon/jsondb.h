@@ -146,7 +146,8 @@ public:
     QHash<QString, qint64> fileSizes(const QString &partitionName = JsonDbString::kSystemPartitionName) const;
 
 protected:
-    bool populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object);
+    bool populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object,
+                            const QString &partition);
 
     void initSchemas();
     void updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path=QStringList());
@@ -160,7 +161,8 @@ protected:
     QJsonObject checkUuidPresent(JsonDbObject object, QString &uuid);
     QJsonObject checkTypePresent(JsonDbObject, QString &type);
     QJsonObject checkNaturalObjectType(JsonDbObject object, QString &type);
-    QJsonObject checkAccessControl(const JsonDbOwner *owner, JsonDbObject object, const QString &op);
+    QJsonObject checkAccessControl(const JsonDbOwner *owner, JsonDbObject object,
+                                   const QString &partition, const QString &op);
     QJsonObject checkQuota(const JsonDbOwner *owner, int size, JsonDbBtreeStorage *partition);
     QJsonObject checkCanAddSchema(JsonDbObject schema, JsonDbObject oldSchema = QJsonObject());
     QJsonObject checkCanRemoveSchema(JsonDbObject schema);

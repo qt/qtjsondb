@@ -53,21 +53,22 @@ JsonDbOwner::JsonDbOwner( QObject *parent )
 {
     QList<QString> defaultQueries;
     defaultQueries.append(".*");
-    setAllowedObjects("read", defaultQueries);
-    setAllowedObjects("write", defaultQueries);
+    setAllowedObjects("all", "read", defaultQueries);
+    setAllowedObjects("all", "write", defaultQueries);
 }
 
 JsonDbOwner::~JsonDbOwner()
 {
 }
 
-void JsonDbOwner::setAllowedObjects(const QString &op, const QList<QString> &queries)
+void JsonDbOwner::setAllowedObjects(const QString &partition, const QString &op,
+                                    const QList<QString> &queries)
 {
-    mAllowedObjects[op] = queries;
-    mAllowedObjectQueries[op].clear();
+    mAllowedObjects[partition][op] = queries;
+    mAllowedObjectQueries[partition][op].clear();
     QJsonObject nullBindings;
     foreach (const QString &query, queries) {
-        mAllowedObjectQueries[op].append(JsonDbQuery::parse(query, nullBindings));
+        mAllowedObjectQueries[partition][op].append(JsonDbQuery::parse(query, nullBindings));
     }
 }
 
@@ -84,6 +85,8 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *
     for (int i = 0; i < translations.size(); ++i) {
         JsonDbObject translation = translations.at(i);
         QString name = translation.value("name").toString();
+        QString partition = translation.value("partition").toString();
+        partition = partition.replace("%owner", ownerId());
         if (applicationCapabilities.contains(name)) {
             QJsonObject accessRules = translation.value("accessRules").toObject();
             QVariantList accessTypesAllowed =
@@ -107,9 +110,9 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *
                 }
             }
         }
-    }
-    foreach (const QString op, ops) {
-        setAllowedObjects(op, allowedObjects.value(op).toList());
+        foreach (const QString op, ops) {
+            setAllowedObjects(partition, op, allowedObjects.value(op).toList());
+        }
     }
     if (gVerbose) {
         qDebug() << "setCapabilities" << mOwnerId;
@@ -117,12 +120,17 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *
     }
 }
 
-bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &op) const
+bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
+                            const QString &op) const
 {
     if (mAllowAll || !gEnforceAccessControlPolicies)
         return true;
-
-    QList<JsonDbQuery> queries = mAllowedObjectQueries[op];
+    QList<JsonDbQuery> queries = mAllowedObjectQueries[partition][op];
+    foreach (const JsonDbQuery &query, queries) {
+        if (query.match(object, NULL, NULL))
+            return true;
+    }
+    queries = mAllowedObjectQueries[QLatin1String("all")][op];
     foreach (const JsonDbQuery &query, queries) {
         if (query.match(object, NULL, NULL))
             return true;

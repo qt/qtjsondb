@@ -485,8 +485,8 @@ void TestJsonDb::allowAll()
     ScopedAssignment<bool> enforceAccessControl(gEnforceAccessControlPolicies, true);
 
     JsonDbOwner *owner = new JsonDbOwner();
-    owner->setAllowedObjects("read", QStringList());
-    owner->setAllowedObjects("write", QStringList());
+    owner->setAllowedObjects(QLatin1String("all"), QLatin1String("read"), QStringList());
+    owner->setAllowedObjects(QLatin1String("all"), QLatin1String("write"), QStringList());
     owner->setStorageQuota(-1);
 
     JsonDbObject toPut;
@@ -3806,8 +3806,8 @@ void TestJsonDb::setOwner()
     JsonDbOwner *unauthOwner = new JsonDbOwner(this);
     unauthOwner->setOwnerId("com.noklab.nrcc.OtherOwner");
     unauthOwner->setAllowAll(false);
-    unauthOwner->setAllowedObjects("write", (QStringList() << QLatin1String("[*]")));
-    unauthOwner->setAllowedObjects("read", (QStringList() << QLatin1String("[*]")));
+    unauthOwner->setAllowedObjects(QLatin1String("all"), "write", (QStringList() << QLatin1String("[*]")));
+    unauthOwner->setAllowedObjects(QLatin1String("all"), "read", (QStringList() << QLatin1String("[*]")));
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));

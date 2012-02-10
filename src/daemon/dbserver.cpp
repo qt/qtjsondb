@@ -293,10 +293,9 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
                     QJsonArray value;
                     if (!gr || ::strcasecmp (gr->gr_name, "identity") == 0)
                         continue;
-                    value.append(QJsonValue(QLatin1String("read")));
-                    value.append(QJsonValue(QLatin1String("write")));
                     if (setOwner)
                         value.append(QJsonValue(QLatin1String("setOwner")));
+                    value.append(QJsonValue(QLatin1String("rw")));
                     capabilities.insert(QString::fromLocal8Bit(gr->gr_name), value);
                     DBG() << "Adding capability" << QString::fromLocal8Bit(gr->gr_name) <<
                              "to user" << owner->ownerId() << "setOwner =" << setOwner;

@@ -100,6 +100,7 @@ public:
     ~IndexQuery();
 
     ObjectTable *objectTable() const { return mObjectTable; }
+    QString partition() const;
     void addConstraint(QueryConstraint *qc) { mQueryConstraints.append(qc); }
     bool ascending() const { return mAscending; }
     QString propertyName() const { return mPropertyName; }

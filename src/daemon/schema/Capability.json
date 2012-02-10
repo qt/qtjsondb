@@ -1,11 +1,16 @@
 {
   "type": "object",
-  "primaryKey": ["_type", "name"],
+    "primaryKey": ["_type", "name", "partition"],
   "properties": {
     "name": {
       "type": "string",
       "description": "Name of the capability"
     },
+    "partition": {
+      "type":"string",
+      "description": "partition where this capability should be used"
+    },
+
     "accessRules": {
       "type": "object",
       "patternProperties": {
