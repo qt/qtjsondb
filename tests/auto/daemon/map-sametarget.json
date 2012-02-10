@@ -18,14 +18,12 @@
   {
     "_type": "Map",
     "targetType": "ContactView",
-    "sourceType": "Contact2",
-    "map": "function map (c) { jsondb.emitViewObject(c.name.lastName, { displayName: c.displayName }); }"
+    "map": {"Contact2": "function (c) { jsondb.emit({key: c.name.lastName, displayName: c.displayName, contact2: true }); }"}
   },
   {
     "_type": "Map",
     "targetType": "ContactView",
-    "sourceType": "Contact3",
-    "map": "function map (c) { jsondb.emitViewObject(c.name.lastName, { displayName: c.displayName, firstName: c.name.firstName });  }"
+    "map": {"Contact3": "function (c) { jsondb.emit({key: c.name.lastName, displayName: c.displayName, firstName: c.name.firstName, contact3: true }); }"}
   },
   {
     "_type": "Contact2",

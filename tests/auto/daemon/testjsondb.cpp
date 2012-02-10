@@ -1271,9 +1271,9 @@ void TestJsonDb::mapDefinition()
     JsonDbObject mapDefinition;
     mapDefinition.insert(JsonDbString::kTypeStr, QLatin1String("Map"));
     mapDefinition.insert("targetType", QLatin1String("MyViewType"));
-    mapDefinition.insert("sourceType", QLatin1String("Contact"));
-    mapDefinition.insert("map", QLatin1String("function map (c) { }"));
-
+    JsonDbObject sourceToMapFunctions;
+    sourceToMapFunctions.insert("Contact", QLatin1String("function map (c) { }"));
+    mapDefinition.insert("map", sourceToMapFunctions);
     QJsonObject res = mJsonDb->create(mOwner, mapDefinition);
     verifyGoodResult(res);
 
@@ -1434,7 +1434,7 @@ void TestJsonDb::mapInvalidMapFunc()
 {
     JsonDbObject schema;
     schema.insert(JsonDbString::kTypeStr, QLatin1String("_schemaType"));
-    schema.insert(JsonDbString::kNameStr, QLatin1String("MyViewType"));
+    schema.insert(JsonDbString::kNameStr, QLatin1String("InvalidMapViewType"));
     QJsonObject schemaSub;
     schemaSub.insert("type", QLatin1String("object"));
     schemaSub.insert("extends", QLatin1String("View"));
@@ -1444,16 +1444,18 @@ void TestJsonDb::mapInvalidMapFunc()
 
     JsonDbObject mapDefinition;
     mapDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
-    mapDefinition.insert("targetType", QLatin1String("MyViewType"));
-    mapDefinition.insert("sourceType", QLatin1String("Contact"));
-    mapDefinition.insert("map", QLatin1String("function map (c) { ;")); // non-parsable map function
+    mapDefinition.insert("targetType", QLatin1String("InvalidMapViewType"));
+    JsonDbObject sourceToMapFunctions;
+    sourceToMapFunctions.insert("Contact", QLatin1String("function map (c) { ;")); // non-parsable map function
+    mapDefinition.insert("map", sourceToMapFunctions);
 
+    qDebug() << "mapDefinition" << mapDefinition;
     QJsonObject defRes = mJsonDb->create(mOwner, mapDefinition);
     verifyGoodResult(defRes);
     QString uuid = defRes.value("result").toObject().value("_uuid").toString();
 
     // force the view to be updated
-    mJsonDb->updateView("MyViewType");
+    mJsonDb->updateView("InvalidMapViewType");
 
     // now check for an error
     GetObjectsResult res = mJsonDb->getObjects("_uuid", uuid, JsonDbString::kMapTypeStr);
@@ -1605,7 +1607,7 @@ void TestJsonDb::mapDuplicateSourceAndTarget()
     int firstNameCount = 0;
     JsonDbObjectList data = queryResult.data;
     for (int ii = 0; ii < data.size(); ii++)
-        if (!data.at(ii).value("value").toObject().value("firstName").toString().isEmpty())
+        if (!data.at(ii).value("firstName").toString().isEmpty())
             firstNameCount++;
     QCOMPARE(firstNameCount, 2);
 
@@ -1856,7 +1858,7 @@ void TestJsonDb::mapMapFunctionError()
 {
     JsonDbObject schema;
     schema.insert(JsonDbString::kTypeStr, QString("_schemaType"));
-    schema.insert(JsonDbString::kNameStr, QString("MyViewType"));
+    schema.insert(JsonDbString::kNameStr, QString("MapFunctionErrorViewType"));
     QJsonObject schemaSub;
     schemaSub.insert("type", QString("object"));
     schemaSub.insert("extends", QString("View"));
@@ -1866,9 +1868,10 @@ void TestJsonDb::mapMapFunctionError()
 
     JsonDbObject mapDefinition;
     mapDefinition.insert(JsonDbString::kTypeStr, QString("Map"));
-    mapDefinition.insert("targetType", QString("MyViewType"));
-    mapDefinition.insert("sourceType", QString("Contact"));
-    mapDefinition.insert("map", QString("function map (c) { invalidobject.fail(); }")); // error in map function
+    mapDefinition.insert("targetType", QString("MapFunctionErrorViewType"));
+    JsonDbObject sourceToMapFunctions;
+    sourceToMapFunctions.insert("Contact", QString("function map (c) { invalidobject.fail(); }")); // error in map function
+    mapDefinition.insert("map", sourceToMapFunctions);
 
     QJsonObject defRes = mJsonDb->create(mOwner, mapDefinition);
     verifyGoodResult(defRes);
@@ -1878,7 +1881,7 @@ void TestJsonDb::mapMapFunctionError()
     QJsonObject res = mJsonDb->create(mOwner, contact);
 
     // trigger the view update
-    mJsonDb->updateView("MyViewType");
+    mJsonDb->updateView("MapFunctionErrorViewType");
 
     // see if the map definition is still active
     GetObjectsResult getObjects = mJsonDb->getObjects("_uuid", defRes.value("result").toObject().value("_uuid").toString());
@@ -1900,7 +1903,7 @@ void TestJsonDb::mapSchemaViolation()
 
     QJsonArray objects(readJsonFile("map-reduce-schema.json").toArray());
     JsonDbObjectList toDelete;
-    QString workingMap;
+    QJsonValue workingMap;
     JsonDbObject map;
 
     for (int ii = 0; ii < objects.size(); ii++) {
@@ -1909,8 +1912,8 @@ void TestJsonDb::mapSchemaViolation()
 
             // use the broken Map function that creates schema violations
             if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr) {
-                workingMap = object.value("map").toString();
-                object.insert("map", object.value("brokenMap").toString());
+                workingMap = object.value("map");
+                object.insert("map", object.value("brokenMap"));
             }
 
             QJsonObject result = mJsonDb->create(mOwner, object);
@@ -2515,6 +2518,7 @@ void TestJsonDb::removeViewSchema()
 void TestJsonDb::updateSchema()
 {
     QJsonObject schema = readJsonFile("schemas/address.json").toObject();
+    QVERIFY(!schema.isEmpty());
     JsonDbObject schemaObject;
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject.insert("name", QLatin1String("Address"));

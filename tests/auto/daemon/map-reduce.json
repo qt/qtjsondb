@@ -60,8 +60,7 @@
   {
     "_type": "Map",
     "targetType": "Phone",
-    "sourceType": "Contact",
-    "map": "function map (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emitViewObject(phone.number, c.displayName); }}"
+    "map": {"Contact": "function (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emit({key: phone.number, displayName: c.displayName}); }}"}
   },
   {
     "_type": "Reduce",

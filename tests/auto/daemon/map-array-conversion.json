@@ -1,0 +1,17 @@
+[
+{
+    "_type": "_schemaType",
+    "name": "TestView",
+    "schema": {
+        "type": "object",
+        "extends": "View"
+    }
+},
+{
+    "_type": "Map",
+    "targetType": "TestView",
+    "map": {
+        "Test": "function(test) { jsondb.emit({result: [10, true, \"hello\",null]}) }"
+    }
+}
+]

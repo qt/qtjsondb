@@ -48,14 +48,10 @@
       "type": "object",
       "extends": {"$ref": "View"},
       "properties": {
-        "value": {
-          "type": "object",
-          "properties": {
-            "displayName": { "type":"string", "required": true }
-          }
+          "key": { "type":"string", "required": true },
+          "displayName": { "type":"string", "required": true }
         }
       }
-    }
   },
   {
     "_type": "_schemaType",
@@ -76,9 +72,8 @@
   {
     "_type": "Map",
     "targetType": "Phone",
-    "sourceType": "Contact",
-    "brokenMap": "function map (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emitViewObject(phone.number, { name: c.displayName }); }}",
-    "map": "function map (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emitViewObject(phone.number, { displayName: c.displayName}); }}"
+    "brokenMap": {"Contact":"function map (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emit({key: phone.number, name: c.displayName }); }}"},
+    "map": {"Contact":"function map (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emit({key: phone.number, displayName: c.displayName}); }}"}
   },
   {
     "_type": "Reduce",
