@@ -67,6 +67,8 @@ extern bool gDebug;
 #define DBG() if (0) qDebug() << Q_FUNC_INFO
 #endif
 
+static int gReadBufferSize = 65536;
+
 /*********************************************/
 
 static QJsonObject createError( JsonDbError::ErrorCode code, const QString& message )
@@ -196,6 +198,8 @@ void DBServer::sigINT()
 void DBServer::handleConnection()
 {
     if (QIODevice *connection = mServer->nextPendingConnection()) {
+        qobject_cast<QLocalSocket *>(connection)->setReadBufferSize(gReadBufferSize);
+
         //connect(connection, SIGNAL(error(QLocalSocket::LocalSocketError)),
         //        this, SLOT(handleConnectionError()));
         DBG() << "client connected to jsondb server" << connection;
