@@ -50,14 +50,16 @@
 #include <string.h>
 
 QBtree::QBtree()
-    : mBtree(0), mCmp(0), mCacheSize(0), mFlags(0), mCommitCount(0),
-      mAutoCompactRate(0), mAutoSyncRate(0)
+    : mBtree(0), mCmp(0), mCacheSize(0), mFlags(0),
+      mWrites(0), mReads(0), mHits(0),
+      mCommitCount(0), mAutoCompactRate(0), mAutoSyncRate(0)
 {
 }
 
 QBtree::QBtree(const QString &filename)
-    : mFilename(filename), mBtree(0), mCmp(0), mCacheSize(0), mFlags(0), mCommitCount(0),
-      mAutoCompactRate(0), mAutoSyncRate(0)
+    : mFilename(filename), mBtree(0), mCmp(0), mCacheSize(0), mFlags(0),
+      mWrites(0), mReads(0), mHits(0),
+      mCommitCount(0), mAutoCompactRate(0), mAutoSyncRate(0)
 {
 }
 
@@ -131,6 +133,11 @@ bool QBtree::compact()
     if (btree_get_flags(mBtree) & BT_RDONLY)
         return false;
 
+    const struct btree_stat *stat = btree_stat(mBtree);
+    mWrites += stat->writes;
+    mReads += stat->reads;
+    mHits += stat->hits;
+
     if (btree_compact(mBtree) != BT_SUCCESS)
         return false;
 
@@ -201,10 +208,19 @@ quint32 QBtree::tag() const
     return stat->tag;
 }
 
-const struct btree_stat *QBtree::stat() const
+QBtree::Stat QBtree::stat() const
 {
-    Q_ASSERT(mBtree);
-    return btree_stat(mBtree);
+    if (!mBtree)
+        return QBtree::Stat();
+
+    const struct btree_stat *stat = btree_stat(mBtree);
+    QBtree::Stat result;
+    result.reads = stat->reads + mReads;
+    result.hits = stat->hits + mHits;
+    result.writes = stat->writes + mWrites;
+    result.ksize = stat->ksize;
+    result.psize = stat->psize;
+    return result;
 }
 
 void QBtree::setCacheSize(unsigned int cacheSize)

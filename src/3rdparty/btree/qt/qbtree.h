@@ -66,6 +66,26 @@ public:
     };
     Q_DECLARE_FLAGS(DbFlags, DbFlag)
 
+    class Stat
+    {
+    public:
+        qint32 reads;
+        qint32 hits;
+        qint32 writes;
+        quint32 psize;
+        quint32 ksize;
+        Stat() : reads(0), hits(0), writes(0), psize(0), ksize(0) {};
+        Stat &operator += (const Stat &o)
+        {
+            reads += o.reads;
+            hits += o.hits;
+            writes += o.writes;
+            psize = o.psize;
+            ksize = o.ksize;
+            return *this;
+        }
+    };
+
     QBtree();
     QBtree(const QString &filename);
     ~QBtree();
@@ -101,7 +121,7 @@ public:
     bool rollback();
 
     QString fileName() const { return mFilename; }
-    const struct btree_stat *stat() const;
+    QBtree::Stat stat() const;
     quint64 count() const;
     btree *handle() const { return mBtree; }
     quint32 tag() const;
@@ -121,6 +141,7 @@ private:
     CmpFunc mCmp;
     int mCacheSize;
     int mFlags;
+    qint32 mWrites, mReads, mHits; // pages written and read, page cache hits
 
     int mCommitCount;
     int mAutoCompactRate;

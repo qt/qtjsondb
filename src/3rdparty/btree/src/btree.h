@@ -69,6 +69,7 @@ enum cursor_op {            /* cursor operations */
 struct btree_stat {
         unsigned long long int   hits;          /* cache hits */
         unsigned long long int   reads;         /* page reads */
+        unsigned long long int   writes;         /* page writes */
         unsigned int             max_cache;     /* max cached pages */
         unsigned int             cache_size;    /* current cache size */
         unsigned int             branch_pages;

@@ -901,6 +901,7 @@ btree_txn_commit(struct btree_txn *txn, unsigned int tag, unsigned int flags)
                 num_dirty += n;
 
                 DPRINTF("commiting %u dirty pages", n);
+                bt->stat.writes += n;
                 rc = writev(bt->fd, iov, n);
                 if (rc != (ssize_t)bt->head.psize*n) {
                         if (rc > 0) {
@@ -979,6 +980,7 @@ btree_write_header(struct btree *bt, int fd)
 
         p->checksum = calculate_checksum(bt, p);
         DPRINTF("writing page %u with checksum %x", p->pgno, p->checksum);
+        bt->stat.writes++;
         rc = write(fd, p, bt->head.psize);
         free(p);
         if (rc != (ssize_t)bt->head.psize) {
@@ -1003,6 +1005,7 @@ btree_read_header(struct btree *bt)
         /* We don't know the page size yet, so use a minimum value.
          */
 
+        bt->stat.reads++;
         if ((rc = pread(bt->fd, page, PAGESIZE, 0)) == 0) {
                 errno = ENOENT;
                 goto fail;
@@ -1049,6 +1052,7 @@ btree_read_header(struct btree *bt)
         } else {
                 const size_t pheadsz = PAGEHDRSZ + sizeof(bt_head);
                 pcheck = (struct page *)malloc(pheadsz);
+                bt->stat.reads++;
                 if (pread(bt->fd, page, pheadsz, 0) <= 0) {
                     EPRINTF("pread failed to get data to verify checksum");
                     goto fail;
@@ -1116,6 +1120,7 @@ btree_write_meta(struct btree *bt, pgno_t root, unsigned int flags, uint32_t tag
         mp->page->checksum = calculate_checksum(bt, mp->page);
         DPRINTF("writing page %u with checksum %x, digest %.*s", mp->page->pgno, mp->page->checksum, SHA_DIGEST_LENGTH, meta->hash);
 
+        bt->stat.writes++;
         rc = write(bt->fd, mp->page, bt->head.psize);
         mp->dirty = 0;
         SIMPLEQ_REMOVE_HEAD(bt->txn->dirty_queue, next);
@@ -3699,6 +3704,7 @@ btree_compact_tree(struct btree *bt, pgno_t pgno, struct btree *btc)
         pgno = p->pgno = btc->txn->next_pgno++;
         p->checksum = calculate_checksum(bt, p);
         DPRINTF("writing page %u with checksum %x", p->pgno, p->checksum);
+        bt->stat.writes++;
         rc = write(btc->fd, p, bt->head.psize);
         free(p);
         if (rc != (ssize_t)bt->head.psize)
@@ -3872,7 +3878,6 @@ btree_stat(struct btree *bt)
 {
         if (bt == NULL)
                 return NULL;
-
         bt->stat.branch_pages = bt->meta.branch_pages;
         bt->stat.leaf_pages = bt->meta.leaf_pages;
         bt->stat.overflow_pages = bt->meta.overflow_pages;
@@ -3883,7 +3888,6 @@ btree_stat(struct btree *bt)
         bt->stat.created_at = bt->meta.created_at;
         bt->stat.tag = bt->meta.tag;
         bt->stat.ksize = bt->head.ksize;
-
         return &bt->stat;
 }
 

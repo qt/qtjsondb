@@ -979,7 +979,7 @@ void TestQBtree::corruptSinglePage(int psize, int pgno, qint32 flag)
 
 void TestQBtree::pageChecksum()
 {
-    const qint64 psize = db->stat()->psize;
+    const qint64 psize = db->stat().psize;
     QByteArray value;
 
     QBtreeTxn *txn = db->beginReadWrite();
@@ -1055,12 +1055,12 @@ void TestQBtree::keySizes()
     QVector<QByteArray> illegalkeys;
     QVector<QByteArray> values;
 
-    qDebug() << "Testing with max key size:" << db->stat()->ksize;
+    qDebug() << "Testing with max key size:" << db->stat().ksize;
 
     for (int i = 0; i < numlegal; ++i) {
-        legalkeys.append(QByteArray(db->stat()->ksize - i, 'a' + i));
+        legalkeys.append(QByteArray(db->stat().ksize - i, 'a' + i));
         if (i < numillegal)
-            illegalkeys.append(QByteArray(db->stat()->ksize + i + 1, 'a' + i));
+            illegalkeys.append(QByteArray(db->stat().ksize + i + 1, 'a' + i));
         values.append(QByteArray(500 + myRand(2000), 'a' + i));
     }
 
@@ -1108,7 +1108,7 @@ void TestQBtree::prefixSizes()
         QByteArray key(pfxsize + keysize, 'a');
         for (int j = 0; j < keysize; ++j)
             key[pfxsize + j] = '0' + myRand(10);
-        if (db->stat()->ksize == 255) // chop off if max key size is 255
+        if (db->stat().ksize == 255) // chop off if max key size is 255
             key = key.mid(key.size() - 255);
         keys.append(key);
     }
