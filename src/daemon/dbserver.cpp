@@ -147,6 +147,9 @@ bool DBServer::socket()
 
 bool DBServer::start(bool compactOnClose)
 {
+    QElapsedTimer timer;
+    if (gPerformanceLog)
+        timer.start();
     mJsonDb = new JsonDb(mFileName, this);
     mJsonDb->setCompactOnClose(compactOnClose);
     if (!connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
@@ -161,6 +164,12 @@ bool DBServer::start(bool compactOnClose)
     if (!mJsonDb->open()) {
       qCritical() << "DBServer::start - Unable to open database";
       return false;
+    }
+    if (gPerformanceLog) {
+        JsonDbStat stat = mJsonDb->stat();
+        qDebug().nospace() << "+ JsonDB Perf: " << "[action]" << "start" << "[action]:[ms]" << timer.elapsed()
+                           << "[ms]:[reads]" << stat.reads << "[reads]:[hits]" << stat.hits
+                           << "[hits]:[writes]" << stat.writes << "[writes]";
     }
     return true;
 }
@@ -606,9 +615,11 @@ void DBServer::receiveMessage(const QJsonObject &message)
     QElapsedTimer timer;
     QHash<QString, qint64> fileSizes;
 
+    JsonDbStat startStat;
     if (gPerformanceLog) {
         if (gVerbose)
             fileSizes = mJsonDb->fileSizes(partitionName);
+        startStat = mJsonDb->stat();
         timer.start();
     }
 
@@ -660,6 +671,8 @@ void DBServer::receiveMessage(const QJsonObject &message)
     }
     if (gPerformanceLog) {
         QString additionalInfo;
+        JsonDbStat stat = mJsonDb->stat();
+        stat -= startStat;
         if ( action == JsonDbString::kFindStr ) {
             additionalInfo = object.toObject().value("query").toString();
         } else if (object.type() == QJsonValue::Array) {
@@ -668,7 +681,8 @@ void DBServer::receiveMessage(const QJsonObject &message)
             additionalInfo = object.toObject().value(JsonDbString::kTypeStr).toString();
         }
         qDebug().nospace() << "+ JsonDB Perf: [id]" << id << "[id]:[action]" << action
-                           << "[action]:[ms]" << timer.elapsed() << "[ms]:[details]" << additionalInfo << "[details]";
+                           << "[action]:[ms]" << timer.elapsed() << "[ms]:[details]" << additionalInfo << "[details]"
+                           << ":[reads]" << stat.reads << "[reads]:[hits]" << stat.hits << "[hits]:[writes]" << stat.writes << "[writes]";
         if (gVerbose) {
             QHash<QString, qint64> newSizes = mJsonDb->fileSizes(partitionName);
             QHashIterator<QString, qint64> files(fileSizes);

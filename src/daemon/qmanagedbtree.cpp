@@ -297,3 +297,11 @@ bool QManagedBtree::clearData()
     QFile::remove(mBtree->fileName());
     return mBtree->open();
 }
+
+QBtree::Stat QManagedBtree::stat() const
+{
+    if (mBtree)
+        return mBtree->stat();
+    else
+      return QBtree::Stat();
+}

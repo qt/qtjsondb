@@ -181,6 +181,25 @@ bool ObjectTable::compact()
     return mBdb->compact();
 }
 
+JsonDbStat ObjectTable::stat() const
+{
+    JsonDbStat result;
+    for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
+         it != mIndexes.end();
+         ++it) {
+        const IndexSpec &indexSpec = it.value();
+        if (indexSpec.index->bdb()) {
+            QBtree::Stat stat = indexSpec.index->bdb()->stat();
+            result += JsonDbStat(stat.reads, stat.hits, stat.writes);
+        }
+        // _uuid index does not have bdb() because it is actually the object table itself
+    }
+    QBtree::Stat stat = mBdb->stat();
+    result += JsonDbStat(stat.reads, stat.hits, stat.writes);
+    return result;
+}
+
+
 void ObjectTable::flushCaches()
 {
     for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();

@@ -58,6 +58,7 @@
 #include "jsondbobject.h"
 #include "jsondbquery.h"
 #include "jsondbbtreestorage.h"
+#include "jsondbstat.h"
 #include "jsondb-map-reduce.h"
 #include "notification.h"
 #include "schemamanager_p.h"
@@ -107,6 +108,7 @@ public:
     bool clear();
     bool checkValidity();
     void reduceMemoryUsage();
+    JsonDbStat stat() const;
 
     JsonDbQueryResult find(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
     QJsonObject create(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), bool viewObject=false);

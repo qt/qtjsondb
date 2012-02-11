@@ -15,6 +15,7 @@ HEADERS += \
     $$PWD/jsondbobject.h \
     $$PWD/jsondbindex.h \
     $$PWD/jsondbquery.h \
+    $$PWD/jsondbstat.h \
     $$PWD/notification.h \
     $$PWD/objectkey.h \
     $$PWD/objecttable.h \

@@ -120,6 +120,7 @@ public:
     bool commit(quint32);
     bool abort();
     bool compact();
+    JsonDbStat stat() const;
     void flushCaches();
 
     quint32 stateNumber() const { return mStateNumber; }

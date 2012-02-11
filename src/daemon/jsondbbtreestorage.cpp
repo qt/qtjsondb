@@ -1795,6 +1795,18 @@ bool JsonDbBtreeStorage::compact()
     return result;
 }
 
+struct JsonDbStat JsonDbBtreeStorage::stat() const
+{
+    JsonDbStat result;
+    for (QHash<QString,QPointer<ObjectTable> >::const_iterator it = mViews.begin();
+          it != mViews.end();
+          ++it) {
+        result += it.value()->stat();
+     }
+    result += mObjectTable->stat();
+    return result;
+}
+
 QString JsonDbBtreeStorage::name() const
 {
     return mPartitionName;

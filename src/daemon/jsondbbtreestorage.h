@@ -50,7 +50,9 @@
 #include <QPointer>
 
 #include "jsondb.h"
+#include "jsondbstat.h"
 #include "jsondb-owner.h"
+#include "qbtree.h"
 
 #include "objectkey.h"
 #include "qmanagedbtreetxn.h"
@@ -157,7 +159,6 @@ class JsonDbBtreeStorage : public QObject
 {
     Q_OBJECT
 public:
-
     JsonDbBtreeStorage(const QString &filename, const QString &name, JsonDb *jsonDb);
     ~JsonDbBtreeStorage();
     bool open();
@@ -212,6 +213,7 @@ public:
 
     void checkIndex(const QString &propertyName);
     bool compact();
+    struct JsonDbStat stat() const;
 
     QHash<QString, qint64> fileSizes() const;
 

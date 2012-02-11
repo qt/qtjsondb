@@ -605,10 +605,22 @@ void JsonDb::reduceMemoryUsage()
 
 }
 
+JsonDbStat JsonDb::stat() const
+{
+    JsonDbStat result;
+    foreach (JsonDbBtreeStorage *storage, mStorages)
+        result += storage->stat();
+    return result;
+}
+
 void JsonDb::close()
 {
     if (mOpen) {
         foreach (JsonDbBtreeStorage *storage, mStorages) {
+            JsonDbStat stat = storage->stat();
+            qDebug() << "Partition"
+                     << "read" << stat.reads << "hits" << stat.hits << "writes" << stat.writes
+                     << storage->name();
             if (mCompactOnClose)
                 storage->compact();
             storage->close();
