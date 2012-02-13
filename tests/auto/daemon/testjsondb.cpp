@@ -335,8 +335,8 @@ void TestJsonDb::cleanupTestCase()
 
 void TestJsonDb::cleanup()
 {
-//    QCOMPARE(mJsonDb->mStorage->mTransactionDepth, 0);
-    //QVERIFY(mJsonDb->checkValidity());
+    foreach (JsonDbBtreeStorage *storage, mJsonDb->mStorages)
+        QCOMPARE(storage->mTransactionDepth, 0);
 }
 
 void TestJsonDb::reopen()
@@ -1759,7 +1759,7 @@ void TestJsonDb::mapJoin()
     for (int i = 0; i < resultList.size(); ++i) {
         JsonDbObject person = resultList.at(i);
         QJsonArray sources = person.value("_sourceUuids").toArray();
-        QVERIFY(sources.size() == 1 || sources.contains(person.value("friend")));
+        QVERIFY(sources.size() == 2 || sources.contains(person.value("friend")));
     }
 
     // take the last person, find his friend, and remove that friend's friend property
@@ -1840,7 +1840,7 @@ void TestJsonDb::mapSelfJoinSourceUuids()
     verifyGoodQueryResult(queryResult);
 
     QCOMPARE(queryResult.data.size(), 1);
-    QCOMPARE(queryResult.data.at(0).value("_sourceUuids").toArray().size(), 2);
+    QCOMPARE(queryResult.data.at(0).value("_sourceUuids").toArray().size(), 3);
 
     toUpdate.insert("extra", QString("123123"));
     verifyGoodResult(mJsonDb->update(mOwner, toUpdate));
@@ -1848,7 +1848,7 @@ void TestJsonDb::mapSelfJoinSourceUuids()
     queryResult = mJsonDb->find(mOwner, query);
     verifyGoodQueryResult(queryResult);
 
-    QCOMPARE(queryResult.data.at(0).value("_sourceUuids").toArray().size(), 2);
+    QCOMPARE(queryResult.data.at(0).value("_sourceUuids").toArray().size(), 3);
     for (int i = toDelete.size() - 1; i >= 0; i--)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(i)))
     mJsonDb->removeIndex("magic", "string");

@@ -100,7 +100,6 @@ void JsonDb::createMapDefinition(QJsonObject mapDefinition, bool firstTime, cons
     JsonDbBtreeStorage *storage = findPartition(partition);
     storage->addView(targetType);
     storage->addIndexOnProperty("_sourceUuids.*", "string", targetType);
-    storage->addIndexOnProperty("_mapUuid", "string", targetType);
 
     JsonDbMapDefinition *def = new JsonDbMapDefinition(this, mOwner, partition, mapDefinition, this);
     for (int i = 0; i < sourceTypes.size(); i++)
@@ -142,7 +141,7 @@ void JsonDb::removeMapDefinition(QJsonObject mapDefinition, const QString &parti
     }
 
     // remove the output objects
-    GetObjectsResult getObjectResponse = getObjects("_mapUuid",
+    GetObjectsResult getObjectResponse = getObjects("_sourceUuids.*",
                                                    mapDefinition.value(JsonDbString::kUuidStr), targetType);
     JsonDbObjectList objects = getObjectResponse.data;
     for (int i = 0; i < objects.size(); i++)
@@ -164,8 +163,9 @@ void JsonDb::createReduceDefinition(QJsonObject reduceDefinition, bool firstTime
     mReduceDefinitionsBySource.insert(sourceType, def);
     mReduceDefinitionsByTarget.insert(targetType, def);
 
-    storage->addIndexOnProperty("_sourceUuids.*", "string", targetType);
+    // TODO: this index should not be automatic
     storage->addIndexOnProperty(def->sourceKeyName(), "string", sourceType);
+    // TODO: this index should not be automatic
     storage->addIndexOnProperty(def->targetKeyName(), "string", targetType);
     storage->addIndexOnProperty("_reduceUuid", "string", targetType);
 
@@ -561,7 +561,8 @@ void JsonDbMapDefinition::mapObject(JsonDbObject object)
     QJSValue sv = JsonDb::toJSValue(object, mScriptEngine);
     QString uuid = object.value(JsonDbString::kUuidStr).toString();
     mSourceUuids.clear();
-    mSourceUuids.append(uuid);
+    mSourceUuids.append(mUuid); // depends on the map definition object
+    mSourceUuids.append(uuid);  // depends on the source object
     QJSValue mapped;
 
     QJSValueList mapArgs;
@@ -640,7 +641,6 @@ void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
     foreach (const QString &str, mSourceUuids)
         sourceUuids.append(str);
     newItem.insert("_sourceUuids", sourceUuids);
-    newItem.insert("_mapUuid", mUuid);
 
     QJsonObject res = mJsonDb->createViewObject(mOwner, newItem, mPartition);
     if (JsonDb::responseIsError(res))
