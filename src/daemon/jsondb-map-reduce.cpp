@@ -803,8 +803,8 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
 QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const QJsonValue &previousValue, JsonDbObject object)
 {
     initScriptEngine();
-    QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue.toVariant());
-    QJSValue svPreviousValue = mScriptEngine->toScriptValue(previousValue.toObject().value(mTargetValueName).toVariant());
+    QJSValue svKeyValue = JsonDb::toJSValue(keyValue, mScriptEngine);
+    QJSValue svPreviousValue = JsonDb::toJSValue(previousValue.toObject().value(mTargetValueName), mScriptEngine);
     QJSValue svObject = JsonDb::toJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
@@ -813,7 +813,7 @@ QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const Q
 
     if (!reduced.isUndefined() && !reduced.isError()) {
         QJsonObject jsonReduced;
-        jsonReduced.insert(mTargetValueName, QJsonValue::fromVariant(reduced.toVariant()));
+        jsonReduced.insert(mTargetValueName, JsonDb::fromJSValue(reduced));
         return jsonReduced;
     } else {
 
@@ -829,8 +829,9 @@ QJsonValue JsonDbReduceDefinition::subtractObject(const QJsonValue &keyValue, co
     initScriptEngine();
     Q_ASSERT(mSubtractFunction.isCallable());
 
-    QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue.toVariant());
-    QJSValue svPreviousValue = mScriptEngine->toScriptValue(previousValue.toObject().value(mTargetValueName).toVariant());
+    QJSValue svKeyValue = JsonDb::toJSValue(keyValue, mScriptEngine);
+    QJSValue svPreviousValue = JsonDb::toJSValue(previousValue.toObject().value(mTargetValueName),
+                                                 mScriptEngine);
     QJSValue sv = JsonDb::toJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
@@ -839,7 +840,7 @@ QJsonValue JsonDbReduceDefinition::subtractObject(const QJsonValue &keyValue, co
 
     if (!reduced.isUndefined() && !reduced.isError()) {
         QJsonObject jsonReduced;
-        jsonReduced.insert(mTargetValueName, QJsonValue::fromVariant(reduced.toVariant()));
+        jsonReduced.insert(mTargetValueName, JsonDb::fromJSValue(reduced));
         return jsonReduced;
     } else {
         if (reduced.isError())

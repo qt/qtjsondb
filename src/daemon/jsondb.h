@@ -140,6 +140,7 @@ public:
     static QJsonValue propertyLookup(QJsonObject o, const QStringList &path);
 
     static QJsonValue fromJSValue(const QJSValue &v);
+    static QJSValue toJSValue(const QJsonValue &v, QJSEngine *scriptEngine);
     static QJSValue toJSValue(const QJsonObject &object, QJSEngine *mScriptEngine);
 
     void updateView(const QString &viewType, const QString &partitionName = JsonDbString::kSystemPartitionName);

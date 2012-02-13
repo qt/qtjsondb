@@ -75,7 +75,7 @@
           if (context.friend) \
              jsondb.emit({name: p.name, friend: p.friend, foaf: context.friend.friend, foo: null }); \
           else \
-             jsondb.emit({name: context.person.name, friend: context.person.friend, foaf: p.friend, foo: null }); \
+             jsondb.emit({name: context.person.name, friend: context.person.friend, foaf: p.friend, foo: undefined }); \
         } \
       }"
     }

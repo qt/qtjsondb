@@ -1775,7 +1775,7 @@ void TestJsonDb::mapJoin()
     }
 
     QVERIFY(fr.value(JsonDbString::kUuidStr).toString() == p.value("friend").toString());
-    fr.insert("friend", QJsonValue(QJsonValue::Null));
+    fr.insert("friend", QJsonValue(QJsonValue::Undefined));
     verifyGoodResult(mJsonDb->update(mOwner, fr));
 
     GetObjectsResult foafRes = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));

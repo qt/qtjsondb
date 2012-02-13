@@ -1806,9 +1806,38 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
     return result;
 }
 
+QJSValue JsonDb::toJSValue(const QJsonValue &v, QJSEngine *scriptEngine)
+{
+    switch (v.type()) {
+    case QJsonValue::Null:
+        return QJSValue(QJSValue::NullValue);
+    case QJsonValue::Undefined:
+        return QJSValue(QJSValue::UndefinedValue);
+    case QJsonValue::Double:
+        return QJSValue(v.toDouble());
+    case QJsonValue::String:
+        return QJSValue(v.toString());
+    case QJsonValue::Bool:
+        return QJSValue(v.toBool());
+    case QJsonValue::Array: {
+        QJSValue jsArray = scriptEngine->newArray();
+        QJsonArray array = v.toArray();
+        for (int i = 0; i < array.size(); i++)
+            jsArray.setProperty(i, toJSValue(array.at(i), scriptEngine));
+        return jsArray;
+    }
+    case QJsonValue::Object:
+        return toJSValue(v.toObject(), scriptEngine);
+    }
+    return QJSValue(QJSValue::UndefinedValue);
+}
+
 QJSValue JsonDb::toJSValue(const QJsonObject &object, QJSEngine *scriptEngine)
 {
-    return scriptEngine->toScriptValue<QVariant>(object.toVariantMap());
+    QJSValue jsObject = scriptEngine->newObject();
+    for (QJsonObject::const_iterator it = object.begin(); it != object.end(); ++it)
+        jsObject.setProperty(it.key(), toJSValue(it.value(), scriptEngine));
+    return jsObject;
 }
 
 QJsonObject JsonDb::log(JsonDbOwner *owner, QJsonValue data)
