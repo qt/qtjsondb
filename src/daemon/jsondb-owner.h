@@ -87,7 +87,7 @@ private:
     QString mOwnerId; // from security object
     QString mDomain;  // from security object
     QMap<QString, QMap<QString, QList<QString> > > mAllowedObjects; // list of querie strings per partition
-    QMap<QString, QMap<QString, QList<JsonDbQuery> > > mAllowedObjectQueries;
+    QMap<QString, QMap<QString, QList<JsonDbQuery *> > > mAllowedObjectQueries;
     int mStorageQuota;
     bool mAllowAll;
     friend class ::TestJsonDb;

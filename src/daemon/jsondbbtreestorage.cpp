@@ -1375,14 +1375,14 @@ void JsonDbBtreeStorage::updateIndex(ObjectTable *table, JsonDbIndex *index)
     table->updateIndex(index);
 }
 
-IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery &query)
+IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query)
 {
     IndexQuery *indexQuery = 0;
     JsonDbQuery *residualQuery = new JsonDbQuery();
     QString orderField;
     QSet<QString> typeNames;
-    const QList<OrderTerm> &orderTerms = query.orderTerms;
-    const QList<OrQueryTerm> &orQueryTerms = query.queryTerms;
+    const QList<OrderTerm> &orderTerms = query->orderTerms;
+    const QList<OrQueryTerm> &orQueryTerms = query->queryTerms;
     QString indexCandidate;
     ObjectTable *table = mObjectTable; //TODO fix me
     int indexedQueryTermCount = 0;
@@ -1555,7 +1555,7 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
             updateIndex(table, indexSpec->index);
         indexQuery = IndexQuery::indexQuery(this, table, defaultIndex, indexSpec->propertyType, owner);
         if (typeNames.size() == 0)
-            qCritical() << "searching all objects" << query.query;
+            qCritical() << "searching all objects" << query->query;
 
         if (defaultIndex == JsonDbString::kTypeStr) {
             foreach (const OrQueryTerm &term, orQueryTerms) {
@@ -1573,7 +1573,7 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         indexQuery->setResidualQuery(residualQuery);
     else
         delete residualQuery;
-    indexQuery->setAggregateOperation(query.mAggregateOperation);
+    indexQuery->setAggregateOperation(query->mAggregateOperation);
     return indexQuery;
 }
 
@@ -1698,7 +1698,7 @@ bool JsonDbBtreeStorage::addToQuota(const JsonDbOwner *owner, int size)
     return true;
 }
 
-JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit, int offset)
+JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
 {
     JsonDbObjectList results;
     JsonDbObjectList joinedResults;
@@ -1732,11 +1732,11 @@ JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *
     result.sortKeys = sortKeys;
     int elapsedToDone = time.elapsed();
     if (gVerbose)
-        qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query.query;
+        qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query->query;
     return result;
 }
 
-JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit, int offset, QList<JsonDbBtreeStorage *> partitions)
+JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset, QList<JsonDbBtreeStorage *> partitions)
 {
     Q_ASSERT(partitions.size());
     JsonDbObjectList results;
@@ -1772,7 +1772,7 @@ JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *
     result.sortKeys = sortKeys;
     int elapsedToDone = time.elapsed();
     if (gVerbose)
-        qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query.query;
+        qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query->query;
     return result;
 }
 

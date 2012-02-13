@@ -125,14 +125,14 @@ bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
 {
     if (mAllowAll || !gEnforceAccessControlPolicies)
         return true;
-    QList<JsonDbQuery> queries = mAllowedObjectQueries[partition][op];
-    foreach (const JsonDbQuery &query, queries) {
-        if (query.match(object, NULL, NULL))
+    QList<JsonDbQuery *> queries = mAllowedObjectQueries[partition][op];
+    foreach (const JsonDbQuery *query, queries) {
+        if (query->match(object, NULL, NULL))
             return true;
     }
     queries = mAllowedObjectQueries[QLatin1String("all")][op];
-    foreach (const JsonDbQuery &query, queries) {
-        if (query.match(object, NULL, NULL))
+    foreach (const JsonDbQuery *query, queries) {
+        if (query->match(object, NULL, NULL))
             return true;
     }
     return false;

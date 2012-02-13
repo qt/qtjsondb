@@ -125,9 +125,9 @@ QJsonObject JsonDbEphemeralStorage::remove(const JsonDbObject &object)
     return JsonDbResponse::makeResponse(resultmap);
 }
 
-JsonDbQueryResult JsonDbEphemeralStorage::query(const JsonDbQuery &query, int limit, int offset) const
+JsonDbQueryResult JsonDbEphemeralStorage::query(const JsonDbQuery *query, int limit, int offset) const
 {
-    if (!query.orderTerms.isEmpty())
+    if (!query->orderTerms.isEmpty())
         return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,
                                                       QLatin1String("Cannot query with order term on ephemeral objects"));
     if (limit != -1 || offset != 0)
@@ -138,7 +138,7 @@ JsonDbQueryResult JsonDbEphemeralStorage::query(const JsonDbQuery &query, int li
     ObjectMap::const_iterator it, e;
     for (it = mObjects.begin(), e = mObjects.end(); it != e; ++it) {
         QJsonObject object = it.value();
-        if (query.match(object, 0, 0))
+        if (query->match(object, 0, 0))
             results.append(object);
     }
 

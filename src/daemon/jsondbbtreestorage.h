@@ -184,8 +184,8 @@ public:
     bool checkQuota(const JsonDbOwner *owner, int size) const;
     bool addToQuota(const JsonDbOwner *owner, int size);
 
-    JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit=-1, int offset=0);
-    JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit, int offset,
+    JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
+    JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset,
                                              QList<JsonDbBtreeStorage *> partitions);
     QJsonObject createPersistentObject(JsonDbObject & );
     QJsonObject updatePersistentObject(const JsonDbObject& oldObject, const JsonDbObject& object);
@@ -222,7 +222,7 @@ protected:
     void updateView(ObjectTable *table);
     void updateView(const QString &objectType);
 
-    IndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery &query);
+    IndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
     void compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm);
 
     void doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,

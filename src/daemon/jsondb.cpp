@@ -670,34 +670,34 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
         setError( errormap, JsonDbError::MissingQuery, "Missing query string");
     else {
 //        times.insert("time0 before parse", time.elapsed());
-        JsonDbQuery parsedQuery  = JsonDbQuery::parse(query, bindings);
+        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
 //        times.insert("time1 after parse", time.elapsed());
 
-        if (!parsedQuery.queryTerms.size() && !parsedQuery.orderTerms.size()) {
-            return JsonDbQueryResult::makeErrorResponse(JsonDbError::MissingQuery, QString("Missing query: ") + parsedQuery.queryExplanation.join("\n"));
+        if (!parsedQuery->queryTerms.size() && !parsedQuery->orderTerms.size()) {
+            return JsonDbQueryResult::makeErrorResponse(JsonDbError::MissingQuery, QString("Missing query: ") + parsedQuery->queryExplanation.join("\n"));
         }
 
         if (partition == JsonDbString::kEphemeralPartitionName)
-            return mEphemeralStorage->query(parsedQuery, limit, offset);
+            return mEphemeralStorage->query(parsedQuery.data(), limit, offset);
 
         JsonDbBtreeStorage *storage = findPartition(partition);
         if (!storage) {
             return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
         }
 
-        QStringList explanation = parsedQuery.queryExplanation;
-        QJsonValue::Type resultType = parsedQuery.resultType;
-        QStringList mapExpressions = parsedQuery.mapExpressionList;
-        QStringList mapKeys = parsedQuery.mapKeyList;
+        QStringList explanation = parsedQuery->queryExplanation;
+        QJsonValue::Type resultType = parsedQuery->resultType;
+        QStringList mapExpressions = parsedQuery->mapExpressionList;
+        QStringList mapKeys = parsedQuery->mapKeyList;
 
         JsonDbQueryResult queryResult;
         if (partition.isEmpty() && (mStorages.size() > 1))
-            queryResult = storage->queryPersistentObjects(owner, parsedQuery, limit, offset, mStorages.values());
+            queryResult = storage->queryPersistentObjects(owner, parsedQuery.data(), limit, offset, mStorages.values());
         else
-            queryResult = storage->queryPersistentObjects(owner, parsedQuery, limit, offset);
+            queryResult = storage->queryPersistentObjects(owner, parsedQuery.data(), limit, offset);
         JsonDbObjectList results = queryResult.data;
         if (gDebug) {
-            const QList<OrQueryTerm> &orQueryTerms = parsedQuery.queryTerms;
+            const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
             for (int i = 0; i < orQueryTerms.size(); i++) {
                 const OrQueryTerm &orQueryTerm = orQueryTerms[i];
                 foreach (const QueryTerm &queryTerm, orQueryTerm.terms()) {
@@ -711,7 +711,7 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
                     }
                 }
             }
-            QList<OrderTerm> &orderTerms = parsedQuery.orderTerms;
+            QList<OrderTerm> &orderTerms = parsedQuery->orderTerms;
             for (int i = 0; i < orderTerms.size(); i++) {
                 const OrderTerm &orderTerm = orderTerms[i];
                 if (gVerbose) qDebug() << __FILE__ << __LINE__ << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending ? "ascending" : "descending");
@@ -728,7 +728,7 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
 
         int length = results.size();
 
-        if (mapExpressions.length() && parsedQuery.mAggregateOperation.compare("count")) {
+        if (mapExpressions.length() && parsedQuery->mAggregateOperation.compare("count")) {
             QMap<QString, JsonDbObject> objectCache;
             int nExpressions = mapExpressions.length();
             QVector<QVector<QStringList> > joinPaths(nExpressions);
@@ -1658,9 +1658,9 @@ const Notification *JsonDb::createNotification(const JsonDbOwner *owner, JsonDbO
         partition = JsonDbString::kSystemPartitionName;
 
     Notification *n = new Notification(owner, uuid, query, actions, partition);
-    JsonDbQuery parsedQuery = JsonDbQuery::parse(query, bindings);
-    const QList<OrQueryTerm> &orQueryTerms = parsedQuery.queryTerms;
-    n->setCompiledQuery(new JsonDbQuery(parsedQuery.queryTerms, parsedQuery.orderTerms));
+    JsonDbQuery *parsedQuery = JsonDbQuery::parse(query, bindings);
+    n->setCompiledQuery(parsedQuery);
+    const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
 
     bool generic = true;
     for (int i = 0; i < orQueryTerms.size(); i++) {

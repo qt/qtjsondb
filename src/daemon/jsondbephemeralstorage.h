@@ -67,7 +67,7 @@ public:
     QJsonObject update(JsonDbObject &);
     QJsonObject remove(const JsonDbObject &);
 
-    JsonDbQueryResult query(const JsonDbQuery &query, int limit = -1, int offset = 0) const;
+    JsonDbQueryResult query(const JsonDbQuery *query, int limit = -1, int offset = 0) const;
 
 private:
     typedef QMap<QUuid, JsonDbObject> ObjectMap;

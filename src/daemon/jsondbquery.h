@@ -92,10 +92,10 @@ private:
     static TokenClass sTokenClass[128];
 };
 
-
+class JsonDbQuery;
 class QueryTerm {
 public:
-    QueryTerm();
+    QueryTerm(const JsonDbQuery *query);
     ~QueryTerm();
     QString propertyName() const { return mPropertyName; }
     void setPropertyName(QString propertyName) { mPropertyName = propertyName; mFieldPath = propertyName.split('.'); }
@@ -116,13 +116,18 @@ public:
     }
     const QVector<QStringList> &joinPaths() const { return mJoinPaths; }
 
-    QJsonValue value() const { return mValue; }
+    QString variable() const { return mVariable; }
+    void setVariable(const QString variable) { mVariable = variable; }
+
+    QJsonValue value() const;
     void setValue(const QJsonValue &v) { mValue = v; }
     QRegExp &regExp() { return mRegExp; }
     void setRegExp(const QRegExp &regExp) { mRegExp = regExp; }
     const QRegExp &regExpConst() const { return mRegExp; }
 
  private:
+    const JsonDbQuery *mQuery;
+    QString mVariable;
     QString mPropertyName;
     QStringList mFieldPath;
     QString mOp;
@@ -169,13 +174,17 @@ public:
     QString mAggregateOperation;
 
     QSet<QString> matchedTypes() const { return mMatchedTypes; }
+    QJsonValue binding(const QString variable) const { return mBindings.value(variable); }
+    void bind(QString variable, QJsonValue &binding) { mBindings[variable] = binding; }
     bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbBtreeStorage *storage = 0) const;
 
     static QJsonValue parseJsonLiteral(const QString &json, QueryTerm *term, QJsonObject &bindings, bool *ok);
-    static JsonDbQuery parse(const QString &query, QJsonObject &bindings);
+    static JsonDbQuery *parse(const QString &query, QJsonObject &bindings);
 
 private:
     QSet<QString> mMatchedTypes;
+    QMap<QString,QJsonValue> mBindings;
+    Q_DISABLE_COPY(JsonDbQuery);
 };
 
 typedef QList<QJsonValue> QJsonValueList;

@@ -560,7 +560,7 @@ void TestJsonDb::benchmarkParsedQuery()
         .arg("contact")
         .arg(item.value("name").toObject().value("first").toString());
     QJsonObject bindings;
-    JsonDbQuery parsedQuery = JsonDbQuery::parse(query, bindings);
+    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
 
     QBENCHMARK {
         QJsonObject request;
@@ -568,7 +568,7 @@ void TestJsonDb::benchmarkParsedQuery()
         //QVariantList orderTerms = parseResult.value("orderTerms").toList();
         int limit = 1;
         int offset = 0;
-        JsonDbQueryResult queryResult = mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->queryPersistentObjects(mOwner, parsedQuery, limit, offset);
+        JsonDbQueryResult queryResult = mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->queryPersistentObjects(mOwner, parsedQuery.data(), limit, offset);
         if (queryResult.data.size() != 1) {
             qDebug() << "result length" << queryResult.data.size();
             qDebug() << "item" << item;
@@ -1075,8 +1075,8 @@ void TestJsonDb::benchmarkCursorCount()
         );
     QJsonObject bindings;
     foreach (QString query, queries) {
-    JsonDbQuery parsedQuery = JsonDbQuery::parse(query, bindings);
-        IndexQuery *indexQuery = mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->compileIndexQuery(mOwner, parsedQuery);
+        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
+        IndexQuery *indexQuery = mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->compileIndexQuery(mOwner, parsedQuery.data());
         int count = 0;
         //qDebug() << "query" << query;
         QBENCHMARK {

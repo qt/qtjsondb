@@ -193,8 +193,6 @@ protected:
     void updateReduce(const QString &viewType, const QString &partitionName);
     void updateEagerViewTypes(const QString &objectType);
 
-    JsonDbQuery parseJsonQuery(const QString &query, QJsonValue &bindings) const;
-
     void checkNotifications(const QString &partition, JsonDbObject obj, Notification::Action action);
 
     const Notification *createNotification(const JsonDbOwner *owner, JsonDbObject object);
