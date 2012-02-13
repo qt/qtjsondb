@@ -235,8 +235,6 @@ protected:
 private:
     JsonDb          *mJsonDb;
     ObjectTable     *mObjectTable;
-    QManagedBtree   *mBdbIndexes;
-    QManagedBtreeTxn mIndexTxn;
     QVector<ObjectTable *> mTableTransactions;
 
     QString      mPartitionName;

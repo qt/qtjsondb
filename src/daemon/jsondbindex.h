@@ -99,6 +99,7 @@ public:
     void setCacheSize(quint32 cacheSize);
     bool open();
     void close();
+    bool exists() const;
 
 private:
     QList<QJsonValue> indexValues(JsonDbObject &object);

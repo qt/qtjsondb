@@ -42,6 +42,7 @@
 #include <QObject>
 #include <QByteArray>
 #include <QVariant>
+#include <QFile>
 #include <QFileInfo>
 #include <QDir>
 
@@ -128,6 +129,15 @@ void JsonDbIndex::close()
 {
     if (mBdb)
         mBdb->close();
+}
+
+/*!
+  Returns true if the index's btree file exists.
+*/
+bool JsonDbIndex::exists() const
+{
+    QFile file(mFileName);
+    return file.exists();
 }
 
 QManagedBtree *JsonDbIndex::bdb()

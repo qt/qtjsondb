@@ -234,6 +234,7 @@ bool ObjectTable::addIndex(const QString &indexName, const QString &propertyName
     if (!propertyFunction.isEmpty() && propertyName.isEmpty()) // propertyName takes precedence
         indexSpec.index->setPropertyFunction(propertyFunction);
     indexSpec.index->setCacheSize(gCacheSize);
+    bool indexExists = indexSpec.index->exists();
     indexSpec.index->open();
 
     QJsonObject indexObject;
@@ -248,19 +249,8 @@ bool ObjectTable::addIndex(const QString &indexName, const QString &propertyName
     Q_ASSERT(mIndexes.contains(name));
 
     QByteArray baIndexObject;
-    bool needsReindexing = false;
-    if (!mStorage->mBdbIndexes->getOne(name.toLatin1(), &baIndexObject)) {
-        baIndexObject = QJsonDocument(indexObject).toBinaryData();
-        bool ok = mStorage->mBdbIndexes->putOne(name.toLatin1(), baIndexObject);
-        if (!ok)
-            qCritical() << "error storing index object" << name << mStorage->mBdbIndexes->errorMessage();
-        if (gDebugRecovery) qDebug() << "Index" << name << "is new" << "reindexing";
-        needsReindexing = true;
-        Q_ASSERT(ok);
-    } else if (propertyName == JsonDbString::kUuidStr) {
-        // nothing more to do
-        return true;
-    } else if (indexSpec.index->stateNumber() != mStateNumber) {
+    bool needsReindexing = !indexExists;
+    if (indexExists && (indexSpec.index->stateNumber() != mStateNumber)) {
         needsReindexing = true;
         if (gDebugRecovery) qDebug() << "Index" << name << "stateNumber" << indexSpec.index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing" << "clearing";
         indexSpec.index->clearData();
@@ -281,13 +271,15 @@ bool ObjectTable::removeIndex(const QString &indexName)
     if (propertyName == JsonDbString::kUuidStr || propertyName == JsonDbString::kTypeStr)
         return true;
 
-    if (mStorage->mBdbIndexes->removeOne(indexName.toLatin1())) {
-        if (spec->index->bdb()->isWriteTxnActive()) { // Incase index is removed via Jdb::remove( _type=Index )
+    if (spec->index) {
+        if (spec->index->bdb()
+            && spec->index->bdb()->isWriteTxnActive()) { // Incase index is removed via Jdb::remove( _type=Index )
             mBdbTransactions.remove(mBdbTransactions.indexOf(spec->index->bdb()->existingWriteTxn()));
             spec->index->abort();
         }
         spec->index->close();
-        QFile::remove(spec->index->bdb()->fileName());
+        if (spec->index->bdb())
+            QFile::remove(spec->index->bdb()->fileName());
         delete spec->index;
         mIndexes.remove(indexName);
     }
