@@ -251,9 +251,8 @@ void TestJsonDbClient::initTestCase()
         rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
         rw_rule.insert(QLatin1String("write"),
                           (QStringList() <<
-                           QLatin1String("[?_type=~\"/public.*/w\"]") <<
-                           QLatin1String("[?_type=~\"/%domain.*/w\"]") <<
-                           QLatin1String("[?_owner=\"%owner\"]")));
+                           QLatin1String("[?_type startsWith \"public.\"]") <<
+                           QLatin1String("[?_owner startsWith %typeDomain]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         QVariantMap set_owner_rule;
         set_owner_rule.insert(QLatin1String("setOwner"),
@@ -275,16 +274,43 @@ void TestJsonDbClient::initTestCase()
         rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
         rw_rule.insert(QLatin1String("write"),
                           (QStringList() <<
-                           QLatin1String("[?_type=~\"/public.*/w\"]") <<
-                           QLatin1String("[?_type=~\"/%domain.*/w\"]") <<
-                           QLatin1String("[?_owner=\"%owner\"]") <<
-                           QLatin1String("[?_type=\"notification\"]")));
+                           QLatin1String("[?_type=\"notification\"]") <<
+                           QLatin1String("[?_type startsWith \"public.\"]") <<
+                           QLatin1String("[?_owner startsWith %typeDomain]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         capa_obj.insert(QLatin1String("accessRules"), access_rules);
         qDebug() << "Creating: " << capa_obj;
         id = mClient->create(capa_obj);
         waitForResponse1(id);
 
+        // Add a test object
+        JsonDbObject foo_obj;
+        foo_obj.insert(QLatin1String("_type"), QLatin1String("com.test.bar.FooType"));
+        foo_obj.insert(QLatin1String("name"), QLatin1String("foo"));
+        qDebug() << "Creating: " << foo_obj;
+        id = mClient->create(foo_obj);
+        waitForResponse1(id);
+
+        // Add a schemaValidation tests object (must be done as root)
+        QFile schemaFile(findFile("create-test.json"));
+        schemaFile.open(QIODevice::ReadOnly);
+        QByteArray json = schemaFile.readAll();
+        schemaFile.close();
+        JsonReader parser;
+        bool ok = parser.parse(json);
+        QVERIFY2(ok, parser.errorString().toLocal8Bit());
+        QVariantMap schemaBody = parser.result().toMap();
+        //qDebug() << "schemaBody" << schemaBody;
+        QVariantMap schemaObject;
+        schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
+        schemaObject.insert("name", "com.test.SchemaTestObject");
+        schemaObject.insert("schema", schemaBody);
+        //qDebug() << "schemaObject" << schemaObject;
+        id = mClient->create(schemaObject);
+        waitForResponse1(id);
+        QVERIFY(mData.toMap().contains("_uuid"));
+
+        qDebug() << "Disconnect client that was connected as root.";
         mClient->disconnectFromServer();
         delete mClient;
 
@@ -525,6 +551,23 @@ void TestJsonDbClient::update()
 
     // Check if _version has changed
     QVERIFY(obj.value("_version").toString() != version);
+
+    // Test access control
+    if (wasRoot) {
+        QVariantMap query1;
+        // Find the test item
+        query1.insert("query", "[?_type=\"com.test.bar.FooType\"]");
+        query1.insert("limit", 1);
+        id = mClient->find(query1);
+        waitForResponse1(id);
+        QVariantList answer = mData.toMap().value("data").toList();
+        QVariantMap item1 = answer.at(0).toMap();
+        item[QLatin1String("name")] = QLatin1String("fail");
+
+        id = mClient->update(item1);
+        // Should fail because of access control (error code 13)
+        waitForResponse2(id, 13);
+    }
 }
 
 /*
@@ -604,7 +647,7 @@ void TestJsonDbClient::notify()
     object.insert("name","test1");
     mNotifications.clear();
     id = mClient->create(object);
-    waitForResponse4(id, -1, notifyUuid, 1);
+    waitForResponse4(-1, -1, notifyUuid, 1);
     QVariant uuid = mData.toMap().value("_uuid");
     QString version = mData.toMap().value("_version").toString();
 
@@ -710,7 +753,7 @@ void TestJsonDbClient::registerNotification()
     object.insert("name","test1");
     id = mClient->create(object);
     qDebug() << "create id" << id;
-    waitForResponse4(id, -1, notifyUuid, 1);
+    waitForResponse4(-1, -1, notifyUuid, 1);
     QVariant uuid = mData.toMap().value("_uuid");
     QString version = mData.toMap().value("_version").toString();
 
@@ -805,27 +848,29 @@ void TestJsonDbClient::notifyRemoveBatch()
 
 void TestJsonDbClient::schemaValidation()
 {
-    QFile schemaFile(findFile("create-test.json"));
-    schemaFile.open(QIODevice::ReadOnly);
-    QByteArray json = schemaFile.readAll();
-    schemaFile.close();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    QVERIFY2(ok, parser.errorString().toLocal8Bit());
-    QVariantMap schemaBody = parser.result().toMap();
-    //qDebug() << "schemaBody" << schemaBody;
-    QVariantMap schemaObject;
-    schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
-    schemaObject.insert("name", "SchemaTestObject");
-    schemaObject.insert("schema", schemaBody);
-    //qDebug() << "schemaObject" << schemaObject;
-
-    int id = mClient->create(schemaObject);
-    waitForResponse1(id);
-    QVERIFY(mData.toMap().contains("_uuid"));
+    int id;
+    if (!wasRoot) {
+        QFile schemaFile(findFile("create-test.json"));
+        schemaFile.open(QIODevice::ReadOnly);
+        QByteArray json = schemaFile.readAll();
+        schemaFile.close();
+        JsonReader parser;
+        bool ok = parser.parse(json);
+        QVERIFY2(ok, parser.errorString().toLocal8Bit());
+        QVariantMap schemaBody = parser.result().toMap();
+        //qDebug() << "schemaBody" << schemaBody;
+        QVariantMap schemaObject;
+        schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
+        schemaObject.insert("name", "com.test.SchemaTestObject");
+        schemaObject.insert("schema", schemaBody);
+        //qDebug() << "schemaObject" << schemaObject;
+        id = mClient->create(schemaObject);
+        waitForResponse1(id);
+        QVERIFY(mData.toMap().contains("_uuid"));
+    }
 
     QVariantMap item;
-    item.insert(JsonDbString::kTypeStr, "SchemaTestObject");
+    item.insert(JsonDbString::kTypeStr, "com.test.SchemaTestObject");
     item.insert("create-test", 22);
     item.insert("another-field", "a string");
 
@@ -838,7 +883,7 @@ void TestJsonDbClient::schemaValidation()
     // Create an item that does not match the schema
 
     QVariantMap noncompliant;
-    noncompliant.insert(JsonDbString::kTypeStr, "SchemaTestObject");
+    noncompliant.insert(JsonDbString::kTypeStr, "com.test.SchemaTestObject");
     noncompliant.insert("create-test", 22);
     id = mClient->create(noncompliant);
     waitForResponse2(id, JsonDbError::FailedSchemaValidation);

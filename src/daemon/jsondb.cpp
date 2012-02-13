@@ -861,13 +861,32 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
     bool forRemoval = object.contains(JsonDbString::kDeletedStr) ? object.value(JsonDbString::kDeletedStr).toBool() : false;
     QString version = object.version();
 
+    QString partition = partition_.isEmpty() ? JsonDbString::kSystemPartitionName : partition_;
+    // For access control to work we need to read the _owner from the existing
+    // object.
+
+    JsonDbBtreeStorage *storage = findPartition(partition);
+    if (!storage  && partition != JsonDbString::kEphemeralPartitionName) {
+        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+        return makeResponse(resultmap, errormap);
+    }
+    JsonDbObject updrec;
+    bool gotUpdrec = false;
+    if (storage)
+        gotUpdrec = storage->getObject(uuid, updrec, object.value(JsonDbString::kTypeStr).toString());
+    if (!gotUpdrec)
+        mEphemeralStorage->get(object.uuid(), &updrec);
+    if (!updrec.value(JsonDbString::kOwnerStr).toString().isEmpty())
+        object.insert(JsonDbString::kOwnerStr, updrec.value(JsonDbString::kOwnerStr));
+    else if (object.value(JsonDbString::kOwnerStr).toString().isEmpty())
+        object.insert(JsonDbString::kOwnerStr, owner->ownerId());
+
     RETURN_IF_ERROR(errormap, checkUuidPresent(object, uuid));
     RETURN_IF_ERROR(errormap, checkTypePresent(object, objectType));
     if (!isViewObject)
         RETURN_IF_ERROR(errormap, checkNaturalObjectType(object, objectType));
     if (!forRemoval)
         RETURN_IF_ERROR(errormap, validateSchema(objectType, object));
-    QString partition = partition_.isEmpty() ? JsonDbString::kSystemPartitionName : partition_;
     RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, partition, "write"));
 
     RETURN_IF_ERROR(errormap, checkPartitionPresent(partition));
@@ -921,12 +940,6 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         }
 
         return response;
-    }
-
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    if (!storage) {
-        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
-        return makeResponse(resultmap, errormap);
     }
 
     WithTransaction transaction;
@@ -1127,6 +1140,8 @@ QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object,
     JsonDbObject tombstone;
     tombstone.insert(JsonDbString::kUuidStr, uuid);
     tombstone.insert(JsonDbString::kDeletedStr, true);
+    // Needed for access control
+    tombstone.insert(JsonDbString::kOwnerStr, delrec.value(JsonDbString::kOwnerStr));
     if (delrec.contains(JsonDbString::kTypeStr))
         tombstone.insert(JsonDbString::kTypeStr, delrec.value(JsonDbString::kTypeStr).toString());
     if (delrec.contains(JsonDbString::kVersionStr))

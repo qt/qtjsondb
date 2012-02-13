@@ -270,6 +270,7 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
         owner->setOwnerId(username);
 
         // Parse domain from username
+        // TODO: handle reverse domains like co.uk.foo, co.au.bar, co.nz.foo , .... correctly
         QStringList domainParts = username.split(QLatin1Char('.'), QString::SkipEmptyParts);
         if (domainParts.count() > 2)
             owner->setDomain (domainParts.at(0)+QLatin1Char('.')+domainParts.at(1));

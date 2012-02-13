@@ -66,9 +66,11 @@ void JsonDbOwner::setAllowedObjects(const QString &partition, const QString &op,
 {
     mAllowedObjects[partition][op] = queries;
     mAllowedObjectQueries[partition][op].clear();
-    QJsonObject nullBindings;
+    QJsonObject bindings;
+    bindings.insert(QLatin1String("domain"), domain());
+    bindings.insert(QLatin1String("owner"), ownerId());
     foreach (const QString &query, queries) {
-        mAllowedObjectQueries[partition][op].append(JsonDbQuery::parse(query, nullBindings));
+        mAllowedObjectQueries[partition][op].append(JsonDbQuery::parse(query, bindings));
     }
 }
 
@@ -99,11 +101,7 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *
                         QStringList rules;
                         QJsonArray jsonRules = accessTypeTranslation.value(op).toArray();
                         for (int r = 0; r < jsonRules.size(); r++) {
-                            // search & replace %domain and %owner in rules
-                            QString rule = jsonRules[r].toString();
-                            rule = rule.replace("%domain", domain());
-                            rule = rule.replace("%owner", ownerId());
-                            rules.append(rule);
+                            rules.append(jsonRules[r].toString());
                         }
                         allowedObjects[op].unite(QSet<QString>::fromList(rules));
                     }
@@ -125,13 +123,27 @@ bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
 {
     if (mAllowAll || !gEnforceAccessControlPolicies)
         return true;
+
+    QString _type = object[QLatin1String("_type")].toString();
+    QStringList domainParts = _type.split(QLatin1Char('.'), QString::SkipEmptyParts);
+    QString typeDomain;
+    // TODO: handle reverse domains like co.uk.foo, co.au.bar, co.nz.foo , .... correctly
+    if (domainParts.count() > 2)
+        typeDomain = _type.left(_type.lastIndexOf(QLatin1Char('.'))+1);
+    else
+        // Capability queries with _typeDomain should fail, if there is not long enough domain
+        typeDomain = QLatin1String("public.domain.fail.");
+    QJsonValue tdval = QJsonValue(typeDomain);
+
     QList<JsonDbQuery *> queries = mAllowedObjectQueries[partition][op];
-    foreach (const JsonDbQuery *query, queries) {
+    foreach (JsonDbQuery *query, queries) {
+        query->bind(QString(QLatin1String("typeDomain")), tdval);
         if (query->match(object, NULL, NULL))
             return true;
     }
     queries = mAllowedObjectQueries[QLatin1String("all")][op];
-    foreach (const JsonDbQuery *query, queries) {
+    foreach (JsonDbQuery *query, queries) {
+        query->bind(QString(QLatin1String("typeDomain")), tdval);
         if (query->match(object, NULL, NULL))
             return true;
     }
