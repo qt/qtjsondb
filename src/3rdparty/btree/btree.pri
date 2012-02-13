@@ -19,8 +19,5 @@ SOURCES += \
     $$PWD/qt/qbtreetxn.cpp \
     $$PWD/qt/qbtreecursor.cpp
 
-!mac:LIBS += -lssl -lcrypto
-
-
 
 

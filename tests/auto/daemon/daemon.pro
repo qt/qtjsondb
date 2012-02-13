@@ -21,7 +21,6 @@ TESTDATA += \
 
 INCLUDEPATH += $$PWD/../../../src/daemon
 LIBS += -L$$QT.jsondb.libs
-!mac:LIBS += -lssl -lcrypto
 
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 

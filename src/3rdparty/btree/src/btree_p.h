@@ -42,15 +42,10 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#if defined(__APPLE__)
-#  define COMMON_DIGEST_FOR_OPENSSL
-#  include <CommonCrypto/CommonDigest.h>
-#  define SHA1 CC_SHA1
-#else
-#  include <openssl/sha.h>
-#endif
-
 #include "btree.h"
+
+#include <QCryptographicHash>
+#define SHA_DIGEST_LENGTH 20 /* 160 bits */
 
 #define ATTR_PACKED __attribute__((packed))
 
@@ -238,6 +233,7 @@ struct btree {
         int                      ref;           /* increased by cursors & txn */
         struct btree_stat        stat;
         off_t                    size;          /* current file size */
+        QCryptographicHash       *hasher;
 };
 
 void                     btree_dump_tree(struct btree *bt, pgno_t pgno, int depth);

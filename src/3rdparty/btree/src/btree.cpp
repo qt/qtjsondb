@@ -510,7 +510,7 @@ mpage_del(struct btree *bt, struct mpage *mp)
 static void
 mpage_flush(struct btree *bt)
 {
-    struct mpage	*mp;
+    struct mpage        *mp;
 
     while ((mp = RB_MIN(page_cache, bt->page_cache)) != NULL) {
             mpage_del(bt, mp);
@@ -1102,8 +1102,12 @@ btree_write_meta(struct btree *bt, pgno_t root, unsigned int flags, uint32_t tag
         bt->meta.revisions++;
         bt->meta.tag = tag;
 
-        if (F_ISSET(bt->flags, BT_NOPGCHECKSUM))
-                SHA1((unsigned char *)&bt->meta, METAHASHLEN, bt->meta.hash);
+        if (F_ISSET(bt->flags, BT_NOPGCHECKSUM)) {
+                bt->hasher->reset();
+                bt->hasher->addData((const char *)&bt->meta, METAHASHLEN);
+                QByteArray result = bt->hasher->result();
+                memcpy(bt->meta.hash, result.constData(), result.size());
+        }
 
         /* Copy the meta data changes to the new meta page. */
         meta = METADATA(mp->page);
@@ -1154,7 +1158,10 @@ btree_is_meta_page(struct btree *bt, struct page *p)
         }
 
         if (F_ISSET(bt->flags, BT_NOPGCHECKSUM)) {
-                SHA1((unsigned char *)m, METAHASHLEN, hash);
+                bt->hasher->reset();
+                bt->hasher->addData((const char *)m, METAHASHLEN);
+                QByteArray result = bt->hasher->result();
+                memcpy(hash, result.constData(), result.size());
 
                 if (bcmp(hash, m->hash, SHA_DIGEST_LENGTH) != 0) {
                         EPRINTF("page %d has an invalid digest %.*s", p->pgno, SHA_DIGEST_LENGTH, m->hash);
@@ -1331,6 +1338,8 @@ btree_open_fd(const char *path, int fd, unsigned int flags)
         }
 
         bt = (struct btree *)calloc(1, sizeof(btree));
+        // initialize the hasher
+        bt->hasher = new QCryptographicHash(QCryptographicHash::Sha1);
 
         if (!bt) {
             EPRINTF("failed to allocate memory for btree");
@@ -1542,6 +1551,7 @@ btree_close(struct btree *bt)
                 DPRINTF("ref is zero, closing btree %p:%s", bt, bt->path);
                 close(bt->fd);
                 mpage_flush(bt);
+		delete bt->hasher;
                 free(bt->page_cache);
                 free(bt->lru_queue);
                 free(bt->path);
@@ -1560,6 +1570,7 @@ btree_close_nosync(struct btree *bt)
                 DPRINTF("ref is zero, closing btree %p:%s", bt, bt->path);
                 close(bt->fd);
                 mpage_flush(bt);
+		delete bt->hasher;
                 free(bt->page_cache);
                 free(bt->lru_queue);
                 free(bt->path);

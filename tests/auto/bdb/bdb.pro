@@ -8,7 +8,6 @@ CONFIG -= app_bundle
 CONFIG += testcase
 
 INCLUDEPATH += $$PWD/../../../src/daemon
-LIBS += -lssl -lcrypto
 
 SOURCES += \
     tst_jsondb_bdb.cpp \

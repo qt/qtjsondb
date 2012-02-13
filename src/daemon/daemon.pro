@@ -4,7 +4,6 @@ target.path = $$[QT_INSTALL_PREFIX]/bin
 INSTALLS += target
 
 LIBS += -L$$QT.jsondb.libs
-!mac:LIBS += -lssl -lcrypto
 
 QT = core network declarative
 
