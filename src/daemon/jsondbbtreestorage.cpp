@@ -509,8 +509,6 @@ void JsonDbBtreeStorage::addView(const QString &viewType)
         }
         mViews.insert(viewType, viewObjectTable);
         viewObjectTable->addIndexOnProperty(JsonDbString::kUuidStr, "string", viewType);
-        // TODO: special case for the following
-        viewObjectTable->addIndexOnProperty(JsonDbString::kTypeStr, "string", viewType);
     }
 }
 

@@ -441,10 +441,29 @@ GetObjectsResult ObjectTable::getObjects(const QString &keyName, const QJsonValu
         return result;
     }
 
-    if (!mIndexes.contains(keyName)) {
+    if (!mIndexes.contains(keyName) && (keyName != JsonDbString::kTypeStr)) {
         qDebug() << "ObjectTable::getObject" << "no index for" << keyName << mFilename;
         return result;
     }
+
+    if (!mIndexes.contains(keyName) && (keyName == JsonDbString::kTypeStr)) {
+        QBtreeCursor cursor(mBdb->btree());
+        for (bool ok = cursor.first(); ok; ok = cursor.next()) {
+            QByteArray baKey, baObject;
+            ok = cursor.current(&baKey, &baObject);
+            if (!ok)
+                break;
+            if (baKey.size() != 16) // state key is 5 bytes, or history key is 5 + 16 bytes
+                continue;
+            JsonDbObject object = QJsonDocument::fromBinaryData(baObject).object();
+            if (object.value(JsonDbString::kDeletedStr).toBool())
+                continue;
+            objectList.append(object);
+        }
+        result.data = objectList;
+        return result;
+    }
+
     const IndexSpec *indexSpec = &mIndexes[keyName];
     QByteArray forwardKey(makeForwardKey(makeFieldValue(keyValue, indexSpec->propertyType), ObjectKey()));
     //fprintf(stderr, "getObject bdb=%p\n", indexSpec->index->bdb());
