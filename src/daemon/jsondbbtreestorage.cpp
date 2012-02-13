@@ -740,7 +740,22 @@ GetObjectsResult JsonDbBtreeStorage::getObjects(const QString &keyName, const QJ
 
 QJsonObject JsonDbBtreeStorage::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
 {
-    return mObjectTable->changesSince(stateNumber, limitTypes);
+    ObjectTable *objectTable = 0;
+    if (!limitTypes.size())
+        objectTable = mObjectTable;
+    else
+        foreach (const QString &limitType, limitTypes) {
+            ObjectTable *ot = findObjectTable(limitType);
+            qDebug() << "changesSince" << limitType << QString::number((long long)ot, 16);
+            if (!objectTable)
+                objectTable = ot;
+            else if (ot == objectTable)
+                continue;
+            else
+                return JsonDb::makeError(JsonDbError::InvalidRequest, "limit types must be from the same object table");
+        }
+    Q_ASSERT(objectTable);
+    return objectTable->changesSince(stateNumber, limitTypes);
 }
 
 bool JsonDbBtreeStorage::checkValidity()
