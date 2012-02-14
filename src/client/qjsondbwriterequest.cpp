@@ -237,7 +237,7 @@ QJsonDbCreateRequest::QJsonDbCreateRequest(const QList<QJsonObject> &objects, QO
         if (!obj.contains(JsonDbStrings::Property::uuid()))
             obj.insert(JsonDbStrings::Property::uuid(), QUuid::createUuid().toString());
     }
-    setObjects(objects);
+    setObjects(objs);
 }
 
 /*!
