@@ -5,7 +5,6 @@
       "schema": {
           "type": "object",
           "extends": "View",
-          "primaryKey": ["_type", "key"],
           "properties": {
               "key": {
                   "type": "string"

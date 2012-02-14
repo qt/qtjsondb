@@ -87,7 +87,8 @@ void JsonDb::createMapDefinition(QJsonObject mapDefinition, bool firstTime, cons
 {
     QString targetType = mapDefinition.value("targetType").toString();
     QStringList sourceTypes;
-    if (mapDefinition.contains("join"))
+    bool isJoin = mapDefinition.contains("join");
+    if (isJoin)
         sourceTypes = mapDefinition.value("join").toObject().keys();
     else if (mapDefinition.contains("sourceType")) // deprecated
         sourceTypes.append(mapDefinition.value("sourceType").toString());
@@ -117,8 +118,12 @@ void JsonDb::createMapDefinition(QJsonObject mapDefinition, bool firstTime, cons
                 return;
             }
             JsonDbObjectList objects = getObjectResponse.data;
-            for (int i = 0; i < objects.size(); i++)
-                def->mapObject(objects.at(i));
+            for (int i = 0; i < objects.size(); i++) {
+                JsonDbObject object(objects.at(i));
+                if (isJoin)
+                    def->unmapObject(object);
+                def->mapObject(object);
+            }
         }
     }
 }
