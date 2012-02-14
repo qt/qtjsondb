@@ -1,0 +1,39 @@
+[
+  {
+  "_type":"com.nokia.mp.social.ApplicationFeatures",
+  "features":[
+         {
+          "feature":"provide Facebook",
+          "objectType":"com.nokia.mp.accounts.Account",
+          "properties":[
+                 {
+                  "allowMultiple":false,
+                  "description":"Facebook account provider",
+                  "iconUrl":"accounts.facebookprovider.png"
+                 }],
+          "supported":["share"]
+         }],
+  "features-file-version":1,
+  "identifier":"accounts.facebookprovider",
+  "name":"Facebook"
+  },
+  {
+  "_type":"com.nokia.mp.social.ApplicationFeatures",
+  "features":[
+         {
+          "feature":"provide Gmail",
+          "objectType":"com.nokia.mp.accounts.Account",
+          "properties":[
+                 {
+                  "allowMultiple":false,
+                  "description":"Gmail account provider",
+                  "iconUrl":"accounts.gmailprovider.png"
+                 }],
+          "supported":["share"]
+         }],
+  "features-file-version":1,
+  "identifier":"accounts.gmailprovider",
+  "name":"Gmail"
+  }
+]
+
