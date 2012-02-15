@@ -530,8 +530,10 @@ void JsonDbCachingListModelPrivate::reset()
     for (int i = 0; i<partitionIndexDetails.count(); i++) {
         partitionIndexDetails[i].clear();
     }
+    for (int i = 0; i<partitionObjectUuids.count(); i++) {
+        partitionObjectUuids[i].clear();
+    }
 
-    partitionObjectUuids.clear();
     objectCache.clear();
     objectUuids.clear();
     objectSortValues.clear();
@@ -605,7 +607,7 @@ void JsonDbCachingListModelPrivate::initializeModel(bool reset)
         objectCache.clear();
         objectUuids.clear();
         objectSortValues.clear();
-        for (int i = 0; i<partitionObjects.count(); i++) {
+        for (int i = 0; i<partitionObjectUuids.count(); i++) {
             partitionObjectUuids[i].clear();
         }
     }
