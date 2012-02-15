@@ -80,62 +80,54 @@ static bool operator<(const QVariant& lhs, const QVariant& rhs)
     return (QString::compare(lhs.toString(), rhs.toString(), Qt::CaseInsensitive ) < 0);
 }
 
-static bool lessThanWithSpec(const QVariant& lhs, const QVariant& rhs, const SortIndexSpec &spec)
+static int equalWithSpec(const QVariant& lhs, const QVariant& rhs, const SortIndexSpec &spec)
 {
     // Supports only string and UUID
     if (spec.type == SortIndexSpec::String) {
         Qt::CaseSensitivity cs = spec.caseSensitive ? Qt::CaseSensitive :Qt::CaseInsensitive;
-        return (QString::compare(lhs.toString(), rhs.toString(), cs) < 0);
+        return QString::compare(lhs.toString(), rhs.toString(), cs);
     } else if (spec.type == SortIndexSpec::UUID) {
         QByteArray lhsUuid = QUuid(lhs.toString()).toRfc4122();
         QByteArray rhsUuid = QUuid(lhs.toString()).toRfc4122();
-        return (memcmp(lhsUuid.constData(), rhsUuid.constData(), qMin(lhsUuid.size(), rhsUuid.size())) < 0);
+        return memcmp(lhsUuid.constData(), rhsUuid.constData(), qMin(lhsUuid.size(), rhsUuid.size()));
     }
-    return false;
-}
-
-static bool equalWithSpec(const QVariant& lhs, const QVariant& rhs, const SortIndexSpec &spec)
-{
-    // Supports only string and UUID
-    if (spec.type == SortIndexSpec::String) {
-        Qt::CaseSensitivity cs = spec.caseSensitive ? Qt::CaseSensitive :Qt::CaseInsensitive;
-        return (QString::compare(lhs.toString(), rhs.toString(), cs) == 0);
-    } else if (spec.type == SortIndexSpec::UUID) {
-        QByteArray lhsUuid = QUuid(lhs.toString()).toRfc4122();
-        QByteArray rhsUuid = QUuid(lhs.toString()).toRfc4122();
-        return (memcmp(lhsUuid.constData(), rhsUuid.constData(), qMin(lhsUuid.size(), rhsUuid.size())) == 0);
-    }
-    return false;
+    return -1;
 }
 
 bool SortingKey::operator <(const SortingKey &rhs) const
 {
-    for (int i = 0; i < d->values.size(); i++) {
-        const QVariant &lhsValue = d->values[i];
-        const QVariant &rhsValue = rhs.d->values[i];
+    const SortingKeyPrivate *dLhs = d;
+    const SortingKeyPrivate *dRhs = rhs.d;
+    const int nKeys = dLhs->count;
+    for (int i = 0; i < nKeys; i++) {
+        const QVariant &lhsValue = dLhs->values[i];
+        const QVariant &rhsValue = dRhs->values[i];
+        int cmp = -1;
         // The index spec is only applied to the first item
-        if (!i && (d->indexSpec.type == SortIndexSpec::String || d->indexSpec.type == SortIndexSpec::UUID)) {
-            if (!equalWithSpec(lhsValue, rhsValue, d->indexSpec)) {
-                bool result = lessThanWithSpec(lhsValue, rhsValue, d->indexSpec);
-                return (d->directions[i] ? result :!result);
+        if (!i && (dLhs->indexSpec.type == SortIndexSpec::String || dLhs->indexSpec.type == SortIndexSpec::UUID)) {
+            if ((cmp = equalWithSpec(lhsValue, rhsValue, dLhs->indexSpec))) {
+                return (dLhs->directions[i] ? (cmp < 0) : !(cmp < 0));
             }
         } else if (lhsValue != rhsValue) {
             bool result = lhsValue < rhsValue;
-            return (d->directions[i] ? result :!result);
+            return (dLhs->directions[i] ? result :!result);
         }
     }
-    return (memcmp(d->uuid.constData(), rhs.d->uuid.constData(), qMin(d->uuid.size(), rhs.d->uuid.size())) < 0);
+    return (memcmp(dLhs->uuid.constData(), dRhs->uuid.constData(), qMin(dLhs->uuid.size(), dRhs->uuid.size())) < 0);
 }
 
 bool SortingKey::operator ==(const SortingKey &rhs) const
 {
     bool equal = true;
-    for (int i = 0; i < d->values.size(); i++) {
-        const QVariant &lhsValue = d->values[i];
-        const QVariant &rhsValue = rhs.d->values[i];
+    const SortingKeyPrivate *dLhs = d;
+    const SortingKeyPrivate *dRhs = rhs.d;
+    const int nKeys = dLhs->count;
+    for (int i = 0; i < nKeys; i++) {
+        const QVariant &lhsValue = dLhs->values[i];
+        const QVariant &rhsValue = dRhs->values[i];
         // The index spec is only applied to the first item
-        if (!i && (d->indexSpec.type == SortIndexSpec::String || d->indexSpec.type == SortIndexSpec::UUID)) {
-            if (!equalWithSpec(lhsValue, rhsValue, d->indexSpec)) {
+        if (!i && (dLhs->indexSpec.type == SortIndexSpec::String || dLhs->indexSpec.type == SortIndexSpec::UUID)) {
+            if (equalWithSpec(lhsValue, rhsValue, dLhs->indexSpec)) {
                 equal = false;
                 break;
             }
@@ -145,7 +137,7 @@ bool SortingKey::operator ==(const SortingKey &rhs) const
         }
     }
     if (equal) {
-        return (memcmp(d->uuid.constData(), rhs.d->uuid.constData(), qMin(d->uuid.size(), rhs.d->uuid.size())) == 0);
+        return (memcmp(dLhs->uuid.constData(), dRhs->uuid.constData(), qMin(dLhs->uuid.size(), dRhs->uuid.size())) == 0);
     }
     return false;
 }

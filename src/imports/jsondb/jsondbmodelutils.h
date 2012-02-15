@@ -133,10 +133,28 @@ struct RequestInfo
 class SortingKeyPrivate : public QSharedData {
 public:
     SortingKeyPrivate(int index, const QByteArray &objectUuid, QList<bool> objectDirections, QVariantList objectKeys, const SortIndexSpec &spec)
-        :uuid(objectUuid), directions(objectDirections), values(objectKeys), partitionIndex(index), indexSpec(spec){}
+        :uuid(objectUuid), directions(0), values(0), count(0), partitionIndex(index), indexSpec(spec)
+    {
+        count = objectDirections.count();
+        directions = new bool[count];
+        for (int i=0; i<count; i++) {
+            directions[i] = objectDirections[i];
+        }
+        count = objectKeys.count();
+        values = new QVariant[count];
+        for (int i=0; i<count; i++) {
+            values[i] = objectKeys[i];
+        }
+    }
+    ~SortingKeyPrivate()
+    {
+        delete [] directions;
+        delete [] values;
+    }
     QByteArray uuid;
-    QList<bool>  directions;
-    QVariantList values;
+    bool *directions;
+    QVariant *values;
+    int count;
     int partitionIndex;
     SortIndexSpec indexSpec;
 };
