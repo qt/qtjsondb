@@ -605,6 +605,9 @@ void JsonDbCachingListModelPrivate::initializeModel(bool reset)
         objectCache.clear();
         objectUuids.clear();
         objectSortValues.clear();
+        for (int i = 0; i<partitionObjects.count(); i++) {
+            partitionObjectUuids[i].clear();
+        }
     }
     for (int i = 0; i<partitionObjects.count(); i++) {
         fetchIndexSpec(i);
