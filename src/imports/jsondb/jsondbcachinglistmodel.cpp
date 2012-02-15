@@ -552,15 +552,15 @@ bool JsonDbCachingListModelPrivate::checkForDefaultIndexTypes(int index)
     Q_Q(JsonDbCachingListModel);
     if (!orderProperties.count())
         return false;
-    bool defualtType = false;
+    bool defaultType = false;
     QString indexName = orderProperties[0];
-    if (!indexName.compare(QLatin1String("_uuid")) ||!indexName.compare(QLatin1String("_type"))) {
-        defualtType = true;
+    if (!indexName.compare(QLatin1String("_uuid")) || !indexName.compare(QLatin1String("_type"))) {
+        defaultType = true;
         QMetaObject::invokeMethod(q, "_q_verifyDefaultIndexType", Qt::QueuedConnection,
                                   QGenericReturnArgument(),
                                   Q_ARG(int, index));
     }
-    return defualtType;
+    return defaultType;
 }
 
 void JsonDbCachingListModelPrivate::fetchIndexSpec(int index)
