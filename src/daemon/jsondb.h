@@ -110,14 +110,23 @@ public:
     void reduceMemoryUsage();
     JsonDbStat stat() const;
 
-    JsonDbQueryResult find(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
-    QJsonObject create(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), bool viewObject=false);
-    QJsonObject update(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), bool viewObject=false);
-    QJsonObject remove(const JsonDbOwner *owner, const JsonDbObject&, const QString &partition = QString(), bool viewObject=false);
+    enum WriteMode {
+        DefaultWrite,       // legacy, let gRejectStaleUpdate decide
+        OptimisticWrite,    // write must not introduce a conflict
+        ForcedWrite,        // accept write as is (almost no matter what)
+        ReplicatedWrite,    // master/master replication, may create obj._meta.conflicts
+        ViewObject,         // internal for view object
+        EphemeralObject     // internal for ephemeral, just likely go away in future refactor
+    };
 
-    QJsonObject createList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partition = QString());
-    QJsonObject updateList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partition = QString());
-    QJsonObject removeList(const JsonDbOwner *owner, JsonDbObjectList, const QString &partition = QString());
+    JsonDbQueryResult find(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
+    QJsonObject create(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject update(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject remove(const JsonDbOwner *owner, const JsonDbObject&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
+
+    QJsonObject createList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject updateList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject removeList(const JsonDbOwner *owner, JsonDbObjectList, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
 
     QJsonObject createViewObject(const JsonDbOwner *owner, JsonDbObject &, const QString &partition = QString());
     QJsonObject updateViewObject(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString());

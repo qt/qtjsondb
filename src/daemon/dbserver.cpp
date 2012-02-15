@@ -389,7 +389,7 @@ void DBServer::updateView( const QString &viewType, const QString &partitionName
     mJsonDb->updateView(viewType, partitionName);
 }
 
-void DBServer::processCreate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName)
+void DBServer::processCreate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName, JsonDb::WriteMode writeMode)
 {
     QJsonObject result;
     switch (object.type()) {
@@ -401,13 +401,13 @@ void DBServer::processCreate(JsonStream *stream, JsonDbOwner *owner, const QJson
             QJsonObject o(list.at(i).toObject());
             olist.append(o);
         }
-        result = mJsonDb->createList(owner, olist, partitionName);
+        result = mJsonDb->createList(owner, olist, partitionName, writeMode);
         break; }
     case QJsonValue::Object: {
         QJsonObject o = object.toObject();
         JsonDbObject document(o);
 
-        result = mJsonDb->create(owner, document, partitionName);
+        result = mJsonDb->create(owner, document, partitionName, writeMode);
         QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
         if (!uuid.isEmpty()
               // && partitionName == JsonDbString::kEphemeralPartitionName ### TODO: uncomment me
@@ -425,7 +425,7 @@ void DBServer::processCreate(JsonStream *stream, JsonDbOwner *owner, const QJson
 }
 
 void DBServer::processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object,
-                             int id, const QString &partitionName)
+                             int id, const QString &partitionName, JsonDb::WriteMode writeMode)
 {
     QJsonObject result;
     switch (object.type()) {
@@ -437,7 +437,7 @@ void DBServer::processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJson
             QJsonObject o(list.at(i).toObject());
             olist.append(o);
         }
-        result = mJsonDb->updateList(owner, olist, partitionName);
+        result = mJsonDb->updateList(owner, olist, partitionName, writeMode);
         break; }
     case QJsonValue::Object: {
         QJsonObject o = object.toObject();
@@ -448,7 +448,7 @@ void DBServer::processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJson
         if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName)
             mNotifications.remove(uuid);
 
-        result = mJsonDb->update(owner, document, partitionName);
+        result = mJsonDb->update(owner, document, partitionName, writeMode);
         if (result.contains(JsonDbString::kErrorStr)
                 && (!result.value(JsonDbString::kErrorStr).isNull())
                 && !result.value(JsonDbString::kErrorStr).toObject().size())
@@ -468,7 +468,7 @@ void DBServer::processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJson
     stream->send(result);
 }
 
-void DBServer::processRemove(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName)
+void DBServer::processRemove(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName, JsonDb::WriteMode writeMode)
 {
     QJsonObject result;
     switch (object.type()) {
@@ -480,7 +480,7 @@ void DBServer::processRemove(JsonStream *stream, JsonDbOwner *owner, const QJson
             QJsonObject o(list.at(i).toObject());
             olist.append(o);
         }
-        result = mJsonDb->removeList(owner, olist, partitionName);
+        result = mJsonDb->removeList(owner, olist, partitionName, writeMode);
     } break;
     case QJsonValue::Object: {
         QJsonObject o = object.toObject();
@@ -494,7 +494,7 @@ void DBServer::processRemove(JsonStream *stream, JsonDbOwner *owner, const QJson
                 break;
             }
             JsonDbObjectList itemsToRemove = queryResult.data;
-            result = mJsonDb->removeList(owner, itemsToRemove, partitionName);
+            result = mJsonDb->removeList(owner, itemsToRemove, partitionName, writeMode);
         } else {
             JsonDbObject document(o);        // removing a single item
             QString uuid = document.value(JsonDbString::kUuidStr).toString();
@@ -633,19 +633,30 @@ void DBServer::receiveMessage(const QJsonObject &message)
         return;
     }
 
-    if (action == JsonDbString::kCreateStr)
-        processCreate(stream, owner, object, id, partitionName);
-    else if (action == JsonDbString::kUpdateStr)
-        processUpdate(stream, owner, object, id, partitionName);
-    else if (action == JsonDbString::kRemoveStr)
-        processRemove(stream, owner, object, id, partitionName);
-    else if (action == JsonDbString::kFindStr)
+    if (action == JsonDbString::kUpdateStr || action == JsonDbString::kRemoveStr || action == JsonDbString::kCreateStr) {
+        JsonDb::WriteMode writeMode = JsonDb::DefaultWrite;
+        QString writeModeRequested = message.value(QStringLiteral("writeMode")).toString();
+
+        if (writeModeRequested == QStringLiteral("optimistic"))
+            writeMode = JsonDb::OptimisticWrite;
+        else if (writeModeRequested == QStringLiteral("forced"))
+            writeMode = JsonDb::ForcedWrite;
+        else if (writeModeRequested == QStringLiteral("replicated"))
+            writeMode = JsonDb::ReplicatedWrite;
+
+        if (action == JsonDbString::kUpdateStr)
+            processUpdate(stream, owner, object, id, partitionName, writeMode);
+        else if (action == JsonDbString::kRemoveStr)
+            processRemove(stream, owner, object, id, partitionName, writeMode);
+        else if (action == JsonDbString::kCreateStr)
+            processCreate(stream, owner, object, id, partitionName, writeMode);
+    } else if (action == JsonDbString::kFindStr) {
         processFind(stream, owner, object, id, partitionName);
-    else if (action == JsonDbString::kTokenStr)
+    } else if (action == JsonDbString::kTokenStr) {
         processToken(stream, object, id);
-    else if (action == JsonDbString::kChangesSinceStr)
+    } else if (action == JsonDbString::kChangesSinceStr) {
         processChangesSince(stream, owner, object, id, partitionName);
-    else {
+    } else {
         const QMetaObject *mo = mJsonDb->metaObject();
         QJsonObject result;
         // DBG() << QString("using QMetaObject to invoke method %1").arg(action);

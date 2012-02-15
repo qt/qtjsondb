@@ -161,6 +161,10 @@ private slots:
 
     void reopen();
 
+    void computeVersion();
+    void updateVersionOptimistic();
+    void updateVersionReplicating();
+
     void create();
 
     void update();
@@ -422,6 +426,317 @@ void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyTy
     if (!objectType.isEmpty())
         index.insert(kObjectTypeStr, objectType);
     QVERIFY(mJsonDb->addIndex(index, JsonDbString::kSystemPartitionName));
+}
+
+void TestJsonDb::computeVersion()
+{
+    JsonDbObject item0;
+    QCOMPARE(item0.version(), QString());
+    item0.computeVersion();
+    QVERIFY(!item0.version().isEmpty());
+
+    // check that _uuid and _conflicts are ignored
+    JsonDbObject item1;
+    QVERIFY(item1.version().isEmpty());
+    item1.insert(JsonDbString::kUuidStr, QString("123"));
+    item1.insert(JsonDbString::kConflictsStr, QString("456"));
+    item1.computeVersion();
+    QVERIFY(item1.version().startsWith("1-"));
+    QCOMPARE(item1.version().size(), 12);
+    QVERIFY(!item0.isAncestorOf(item1));
+    QVERIFY(!item1.isAncestorOf(item0));
+
+    JsonDbObject replay(item1);
+    replay.computeVersion();
+    QCOMPARE(replay.isAncestorOf(item1), false);
+    QCOMPARE(item1.isAncestorOf(replay), false);
+    QCOMPARE(replay.version(), item1.version());
+
+    JsonDbObject item2(item1);
+    item2.insert(QStringLiteral("key"), QJsonValue::Null);
+    item2.computeVersion();
+    QVERIFY(item2.version().startsWith("2-"));
+    QCOMPARE(item2.version().size(), 12);
+    QVERIFY(item2.version().mid(2) != item1.version().mid(2));
+    QVERIFY(item1.isAncestorOf(item2));
+    QVERIFY(!item2.isAncestorOf(item1));
+
+    JsonDbObject item3(item2);
+    item3.insert(QStringLiteral("key"), false);
+    item3.computeVersion();
+    QVERIFY(item3.version().startsWith("3-"));
+    QCOMPARE(item3.version().size(), 12);
+    QVERIFY(item3.version().mid(2) != item2.version().mid(2));
+    QVERIFY(item1.isAncestorOf(item3));
+    QVERIFY(item2.isAncestorOf(item3));
+    QVERIFY(!item3.isAncestorOf(item1));
+    QVERIFY(!item3.isAncestorOf(item2));
+
+    JsonDbObject item4(item3);
+    item4.insert(QStringLiteral("key"), true);
+    item4.computeVersion();
+    QVERIFY(item4.version().startsWith("4-"));
+    QCOMPARE(item4.version().size(), 12);
+    QVERIFY(item4.version().mid(2) != item3.version().mid(2));
+    QVERIFY(item1.isAncestorOf(item4));
+    QVERIFY(item2.isAncestorOf(item4));
+    QVERIFY(item3.isAncestorOf(item4));
+    QVERIFY(!item4.isAncestorOf(item1));
+    QVERIFY(!item4.isAncestorOf(item2));
+    QVERIFY(!item4.isAncestorOf(item3));
+
+    JsonDbObject item5(item4);
+    item5.insert(QStringLiteral("key"), double(0));
+    item5.computeVersion();
+    QVERIFY(item5.version().startsWith("5-"));
+    QCOMPARE(item5.version().size(), 12);
+    QVERIFY(item5.version().mid(2) != item4.version().mid(2));
+    QVERIFY(item1.isAncestorOf(item5));
+    QVERIFY(item2.isAncestorOf(item5));
+    QVERIFY(item3.isAncestorOf(item5));
+    QVERIFY(item4.isAncestorOf(item5));
+    QVERIFY(!item5.isAncestorOf(item1));
+    QVERIFY(!item5.isAncestorOf(item2));
+    QVERIFY(!item5.isAncestorOf(item3));
+    QVERIFY(!item5.isAncestorOf(item4));
+
+    JsonDbObject item6(item5);
+    item6.insert(QStringLiteral("key"), QString());
+    item6.computeVersion();
+    QVERIFY(item6.version().startsWith("6-"));
+    QCOMPARE(item6.version().size(), 12);
+    QVERIFY(item6.version().mid(2) != item5.version().mid(2));
+    QVERIFY(item1.isAncestorOf(item6));
+    QVERIFY(item2.isAncestorOf(item6));
+    QVERIFY(item3.isAncestorOf(item6));
+    QVERIFY(item4.isAncestorOf(item6));
+    QVERIFY(item5.isAncestorOf(item6));
+    QVERIFY(!item6.isAncestorOf(item1));
+    QVERIFY(!item6.isAncestorOf(item2));
+    QVERIFY(!item6.isAncestorOf(item3));
+    QVERIFY(!item6.isAncestorOf(item4));
+    QVERIFY(!item6.isAncestorOf(item5));
+
+    JsonDbObject item7(item6);
+    item7.insert(QStringLiteral("key"), QJsonArray());
+    item7.computeVersion();
+    QVERIFY(item7.version().startsWith("7-"));
+    QCOMPARE(item7.version().size(), 12);
+    QVERIFY(item7.version().mid(2) != item6.version().mid(2));
+    QVERIFY(item1.isAncestorOf(item7));
+    QVERIFY(item2.isAncestorOf(item7));
+    QVERIFY(item3.isAncestorOf(item7));
+    QVERIFY(item4.isAncestorOf(item7));
+    QVERIFY(item5.isAncestorOf(item7));
+    QVERIFY(item6.isAncestorOf(item7));
+    QVERIFY(!item7.isAncestorOf(item1));
+    QVERIFY(!item7.isAncestorOf(item2));
+    QVERIFY(!item7.isAncestorOf(item3));
+    QVERIFY(!item7.isAncestorOf(item4));
+    QVERIFY(!item7.isAncestorOf(item5));
+    QVERIFY(!item7.isAncestorOf(item6));
+
+    JsonDbObject item8(item7);
+    item8.insert(QStringLiteral("key"), QJsonObject());
+    item8.computeVersion();
+    QVERIFY(item8.version().startsWith("8-"));
+    QCOMPARE(item8.version().size(), 12);
+    QVERIFY(item8.version().mid(2) != item7.version().mid(2));
+    QVERIFY(item1.isAncestorOf(item8));
+    QVERIFY(item2.isAncestorOf(item8));
+    QVERIFY(item3.isAncestorOf(item8));
+    QVERIFY(item4.isAncestorOf(item8));
+    QVERIFY(item5.isAncestorOf(item8));
+    QVERIFY(item6.isAncestorOf(item8));
+    QVERIFY(item7.isAncestorOf(item8));
+    QVERIFY(!item8.isAncestorOf(item1));
+    QVERIFY(!item8.isAncestorOf(item2));
+    QVERIFY(!item8.isAncestorOf(item3));
+    QVERIFY(!item8.isAncestorOf(item4));
+    QVERIFY(!item8.isAncestorOf(item5));
+    QVERIFY(!item8.isAncestorOf(item6));
+    QVERIFY(!item8.isAncestorOf(item7));
+
+    JsonDbObject item9(item8);
+    item9.insert(QStringLiteral("key"), QJsonValue::Undefined);
+    item9.computeVersion();
+    QVERIFY(item9.version().startsWith("9-"));
+    QCOMPARE(item9.version().size(), 12);
+    QVERIFY(item9.version().mid(2) != item8.version().mid(2));
+    QVERIFY(item1.isAncestorOf(item9));
+    QVERIFY(item2.isAncestorOf(item9));
+    QVERIFY(item3.isAncestorOf(item9));
+    QVERIFY(item4.isAncestorOf(item9));
+    QVERIFY(item5.isAncestorOf(item9));
+    QVERIFY(item6.isAncestorOf(item9));
+    QVERIFY(item7.isAncestorOf(item9));
+    QVERIFY(item8.isAncestorOf(item9));
+    QVERIFY(!item9.isAncestorOf(item1));
+    QVERIFY(!item9.isAncestorOf(item2));
+    QVERIFY(!item9.isAncestorOf(item3));
+    QVERIFY(!item9.isAncestorOf(item4));
+    QVERIFY(!item9.isAncestorOf(item5));
+    QVERIFY(!item9.isAncestorOf(item6));
+    QVERIFY(!item9.isAncestorOf(item7));
+    QVERIFY(!item9.isAncestorOf(item8));
+
+    QCOMPARE(item9.version().mid(1), item1.version().mid(1));
+}
+
+void TestJsonDb::updateVersionOptimistic()
+{
+    JsonDbObject master;
+    master.generateUuid();
+    master.computeVersion();
+
+    JsonDbObject target(master);
+    JsonDbObject update;
+
+    QString versionWritten;
+
+    // non-matching uuid should fail
+    QVERIFY(!target.updateVersionOptimistic(update, &versionWritten));
+    QCOMPARE(target, master);
+
+    // replay should succeed but not do anything
+    update = master;
+    QCOMPARE(target.updateVersionOptimistic(update, &versionWritten), true);
+    QCOMPARE(target, master);
+    QCOMPARE(versionWritten, target.version());
+    update.computeVersion();
+    QCOMPARE(versionWritten, update.version());
+
+    update.remove("_meta");
+    update.insert(QStringLiteral("update"), true);
+    JsonDbObject lateUpdate(master);
+    lateUpdate.remove("_meta");
+    lateUpdate.insert(QStringLiteral("update"), false);
+
+    QVERIFY(target.updateVersionOptimistic(update, &versionWritten));
+    update.computeVersion();
+    QCOMPARE(versionWritten, update.version());
+    QCOMPARE(target.value(QStringLiteral("update")).toBool(), true);
+
+    QVERIFY(master.isAncestorOf(target));
+    QVERIFY(!target.isAncestorOf(master));
+
+    QVERIFY(!target.updateVersionOptimistic(lateUpdate, &versionWritten));
+    QCOMPARE(target.version(), update.version());
+    QCOMPARE(target.value(QStringLiteral("update")).toBool(), true);
+    QVERIFY(master.isAncestorOf(target));
+    QVERIFY(!target.isAncestorOf(master));
+
+    lateUpdate.computeVersion();
+    QVERIFY(!lateUpdate.isAncestorOf(target));
+
+}
+
+void TestJsonDb::updateVersionReplicating()
+{
+    JsonDbObject master;
+    master.generateUuid();
+    master.computeVersion();
+
+    JsonDbObject target(master);
+    JsonDbObject source;
+
+    // add something that doesn't have matching uuid
+    QCOMPARE(target.updateVersionReplicating(source), false);
+    QCOMPARE(target, master);
+
+    // merge with replay
+    source = master;
+    QCOMPARE(target.updateVersionReplicating(source), true);
+    QCOMPARE(target, master);
+
+    // create a conflict
+    JsonDbObject conflict(master);
+    source.insert(QStringLiteral("key"), false);
+    source.computeVersion();
+    conflict.insert(QStringLiteral("key"), true);
+    conflict.computeVersion();
+
+    // sanity check which version will win
+    // deterministic assumption: source
+    // Note: if this ever fails, you modified the test or the version algorithm
+    // Changing the algorithm is very bad!
+    // If just changing the test, you need to reverse source and conflict in below QCOMPAREs
+    QVERIFY(conflict < source);
+
+    // adding order does NOT matter
+    QCOMPARE(target.updateVersionReplicating(conflict), true);
+    QCOMPARE(target.updateVersionReplicating(source), true);
+
+    // let's proof that
+    {
+        JsonDbObject reversedMergeOrder(master);
+        QCOMPARE(reversedMergeOrder.updateVersionReplicating(source), true);
+        QCOMPARE(reversedMergeOrder.updateVersionReplicating(conflict), true);
+        QCOMPARE(reversedMergeOrder, target);
+    }
+
+    // let's look at target more closely
+    QVERIFY(master.isAncestorOf(target));
+    QCOMPARE(target.version(), source.version());
+    {
+        // the reported conflict should equal the original sans meta
+
+        QJsonArray conflicts = target.value(JsonDbString::kMetaStr).toObject().value(JsonDbString::kConflictsStr).toArray();
+        JsonDbObject reportedConflict(conflicts.at(0).toObject());
+        QCOMPARE(reportedConflict.contains(JsonDbString::kMetaStr), false);
+
+        JsonDbObject checkConflict(conflict);
+        checkConflict.remove(JsonDbString::kMetaStr);
+
+        QCOMPARE(reportedConflict, checkConflict);
+    }
+
+    master = target;
+
+    // lets progress
+    source.insert(QStringLiteral("update"), true);
+    source.computeVersion();
+    QCOMPARE(target.updateVersionReplicating(source), true);
+
+    QVERIFY(master.isAncestorOf(target));
+    QCOMPARE(target.version(), source.version());
+    QCOMPARE(target.value(QStringLiteral("update")).toBool(), true);
+    {
+        // the reported conflict should equal the original sans meta
+
+        QJsonArray conflicts = target.value(JsonDbString::kMetaStr).toObject().value(JsonDbString::kConflictsStr).toArray();
+        JsonDbObject reportedConflict(conflicts.at(0).toObject());
+        QCOMPARE(reportedConflict.contains(JsonDbString::kMetaStr), false);
+
+        JsonDbObject checkConflict(conflict);
+        checkConflict.remove(JsonDbString::kMetaStr);
+
+        QCOMPARE(reportedConflict, checkConflict);
+    }
+
+    master = target;
+
+    // lets kill the conflict
+    conflict.insert(JsonDbString::kDeletedStr, true);
+    JsonDbObject conflictReplay(conflict);
+
+    conflict.computeVersion();
+    QCOMPARE(target.updateVersionReplicating(conflict), true);
+    {
+        QJsonObject meta = target.value(JsonDbString::kMetaStr).toObject();
+        QCOMPARE(meta.contains(JsonDbString::kConflictsStr), false);
+    }
+    QVERIFY(conflict.isAncestorOf(target));
+    QVERIFY(!target.isAncestorOf(conflict));
+    QCOMPARE(target.value(QStringLiteral("update")).toBool(), true);
+    QCOMPARE(target.version(), source.version());
+
+    // conflict removal should be possible by updateVersionOptimistic()
+    JsonDbObject update(master);
+    QString versionWritten;
+    QVERIFY(update.updateVersionOptimistic(conflictReplay, &versionWritten));
+    QCOMPARE(update, target);
+    QCOMPARE(versionWritten, conflict.version());
 }
 
 /*
@@ -732,7 +1047,11 @@ void TestJsonDb::update4()
     QString version1 = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kVersionStr).toString();
 
     item.insert(JsonDbString::kUuidStr, uuid);
+    JsonDbObject replay(item);
+
     item.insert(JsonDbString::kVersionStr, version1);
+
+
     item.insert("update-test", 101);
 
     result = mJsonDb->update(mOwner, item);
@@ -750,16 +1069,25 @@ void TestJsonDb::update4()
     QCOMPARE(queryResult.data.at(0).value(JsonDbString::kUuidStr).toString(), uuid);
     QCOMPARE(queryResult.data.at(0).value(JsonDbString::kVersionStr).toString(), version2);
 
-    // replay
-    item.insert(JsonDbString::kVersionStr, version1);
+
+    item.insert("update-test", 202);
+    item.insert("_version", version2);
     result = mJsonDb->update(mOwner, item);
+    verifyGoodResult(result);
+    verifyResultField(result,JsonDbString::kCountStr,1);
+    verifyResultField(result,JsonDbString::kUuidStr, uuid);
+    QString version3 = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kVersionStr).toString();
+    QVERIFY(version3 != version2);
+
+    // replay
+    result = mJsonDb->update(mOwner, replay);
     verifyGoodResult(result);
     verifyResultField(result, JsonDbString::kCountStr,1);
     verifyResultField(result, JsonDbString::kUuidStr, uuid);
-    verifyResultField(result, JsonDbString::kVersionStr, version2);
+    verifyResultField(result, JsonDbString::kVersionStr, version1);
 
     // conflict
-    item.insert(JsonDbString::kVersionStr, version1);
+    item.insert(JsonDbString::kVersionStr, version2);
     item.insert("update-test", 102);
     result = mJsonDb->update(mOwner, item);
     verifyErrorResult(result);
@@ -859,6 +1187,8 @@ void TestJsonDb::remove5()
 
     QJsonObject result = mJsonDb->create(mOwner, item);
     verifyGoodResult(result);
+
+    qDebug() << result;
 
     QString version = item.take(JsonDbString::kVersionStr).toString();
     result = mJsonDb->remove(mOwner, item);

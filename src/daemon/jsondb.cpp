@@ -226,7 +226,7 @@ QString JsonDb::createDatabaseId()
   This class should be optimized by a JsonDb subclass.
 */
 
-QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list, const QString &partition)
+QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list, const QString &partition, WriteMode writeMode)
 {
     int count = 0;
     QJsonArray resultList;
@@ -247,7 +247,7 @@ QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list,
         CHECK_LOCK_RETURN(lock, "createList");
         for (int i = k; i < qMin(k+transactionSize, size); ++i) {
             JsonDbObject o = list.at(i);
-            QJsonObject r = create(owner, o, partition);
+            QJsonObject r = create(owner, o, partition, writeMode);
             stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
             if (responseIsError(r))
                 return r;
@@ -278,7 +278,7 @@ QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list,
   This class should be optimized by a JsonDb subclass.
 */
 
-QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list, const QString &partition)
+QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list, const QString &partition, WriteMode writeMode)
 {
     JsonDbBtreeStorage *storage = findPartition(partition);
     if (!storage) {
@@ -298,7 +298,7 @@ QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list,
         CHECK_LOCK_RETURN(transaction, "updateList");
         for (int i = k; i < qMin(k+transactionSize, size); ++i) {
             JsonDbObject o = list.at(i);
-            QJsonObject r = update(owner, o, partition);
+            QJsonObject r = update(owner, o, partition, writeMode);
             stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
             if (responseIsError(r))
                 return r;
@@ -328,7 +328,7 @@ QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list,
   This class should be optimized by a JsonDb subclass.
 */
 
-QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, const QString &partition)
+QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, const QString &partition, WriteMode writeMode)
 {
     JsonDbBtreeStorage *storage = findPartition(partition);
     if (!storage) {
@@ -349,7 +349,7 @@ QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, 
         for (int i = k; i < qMin(k+transactionSize, size); ++i) {
             JsonDbObject o = list.at(i);
             QString uuid = o.value(JsonDbString::kUuidStr).toString();
-            QJsonObject r = remove(owner, o, partition);
+            QJsonObject r = remove(owner, o, partition, writeMode);
             stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
             QJsonObject error = r.value(JsonDbString::kErrorStr).toObject();
             if (!error.isEmpty()) {
@@ -799,7 +799,7 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
 
 */
 
-QJsonObject JsonDb::create(const JsonDbOwner *owner, JsonDbObject& object, const QString &partition, bool isViewObject)
+QJsonObject JsonDb::create(const JsonDbOwner *owner, JsonDbObject& object, const QString &partition, WriteMode writeMode)
 {
     QJsonObject resultmap, errormap;
     if (object.contains(JsonDbString::kUuidStr)) {
@@ -810,12 +810,12 @@ QJsonObject JsonDb::create(const JsonDbOwner *owner, JsonDbObject& object, const
     populateIdBySchema(owner, object, partition);
     object.generateUuid();
 
-    return update(owner, object, partition, isViewObject);
+    return update(owner, object, partition, writeMode);
 }
 
 QJsonObject JsonDb::createViewObject(const JsonDbOwner *owner, JsonDbObject& object, const QString &partition)
 {
-    return create(owner, object, partition, true);
+    return create(owner, object, partition, ViewObject);
 }
 
 
@@ -831,48 +831,42 @@ QJsonObject JsonDb::createViewObject(const JsonDbOwner *owner, JsonDbObject& obj
 
 */
 
-QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const QString &partition_, bool isViewObject)
+QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const QString &partition_, WriteMode writeMode)
 {
+    if (writeMode == DefaultWrite)
+        writeMode = gRejectStaleUpdates ? OptimisticWrite : ForcedWrite;
+
     QJsonObject resultmap, errormap;
     QString uuid, objectType;
     bool forRemoval = object.contains(JsonDbString::kDeletedStr) ? object.value(JsonDbString::kDeletedStr).toBool() : false;
-    QString version = object.version();
-
-    QString partition = partition_.isEmpty() ? JsonDbString::kSystemPartitionName : partition_;
-    // For access control to work we need to read the _owner from the existing
-    // object.
-
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    if (!storage  && partition != JsonDbString::kEphemeralPartitionName) {
-        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
-        return makeResponse(resultmap, errormap);
-    }
 
     RETURN_IF_ERROR(errormap, checkUuidPresent(object, uuid));
-    RETURN_IF_ERROR(errormap, checkTypePresent(object, objectType));
+    if (!forRemoval) {
+        RETURN_IF_ERROR(errormap, checkTypePresent(object, objectType));
+    } else {
+        objectType = object.type();
+        if (objectType.isEmpty()) {
+            JsonDbObject testEphemeral;
+            if (mEphemeralStorage->get(uuid, &testEphemeral)) {
+                objectType = testEphemeral.type();
+                writeMode = EphemeralObject;
+            }
+        }
+    }
 
-    // For access control to work we need to read the _owner from the existing
-    // object.
-    JsonDbObject updrec;
-    bool gotUpdrec = false;
-    if (storage)
-        gotUpdrec = storage->getObject(uuid, updrec, object.value(JsonDbString::kTypeStr).toString());
-    if (!gotUpdrec)
-        gotUpdrec = mEphemeralStorage->get(object.uuid(), &updrec);
+    QString partition = partition_.isEmpty() ? JsonDbString::kSystemPartitionName : partition_;
+    bool isNotification = objectType == JsonDbString::kNotificationTypeStr;
 
-    // Check if user could update the old object
-    if (gotUpdrec)
-        RETURN_IF_ERROR(errormap, checkAccessControl(owner, updrec, partition, "write"));
+    if (writeMode != EphemeralObject && (isNotification || partition == JsonDbString::kEphemeralPartitionName))
+        writeMode = EphemeralObject;
+    if (writeMode == EphemeralObject)
+        partition = JsonDbString::kEphemeralPartitionName;
 
-    if (!updrec.value(JsonDbString::kOwnerStr).toString().isEmpty())
-        object.insert(JsonDbString::kOwnerStr, updrec.value(JsonDbString::kOwnerStr));
-    else if (object.value(JsonDbString::kOwnerStr).toString().isEmpty())
-        object.insert(JsonDbString::kOwnerStr, owner->ownerId());
-    if (!isViewObject)
+
+    if (writeMode != ViewObject)
         RETURN_IF_ERROR(errormap, checkNaturalObjectType(object, objectType));
     if (!forRemoval)
         RETURN_IF_ERROR(errormap, validateSchema(objectType, object));
-    RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, partition, "write"));
 
     RETURN_IF_ERROR(errormap, checkPartitionPresent(partition));
 
@@ -887,181 +881,196 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
             }
         }
     }
-    object.computeVersion();
 
-    if (partition == JsonDbString::kEphemeralPartitionName
-            || objectType == JsonDbString::kNotificationTypeStr) { // hack! remove me soon
-        const bool isNotification = objectType == JsonDbString::kNotificationTypeStr;
-        JsonDbObject master;
-        bool exists = mEphemeralStorage->get(object.uuid(), &master);
-        if (exists && isNotification) {
-            // ensure this objects belongs to this connection so that other clients
-            // cannot update / remove someone else's notifications
-            if (owner->ownerId() != master.value(JsonDbString::kOwnerStr).toString()) {
-                setError(errormap, JsonDbError::MismatchedNotifyId, "Cannot touch notification objects that doesn't belong to you");
-                return makeResponse(resultmap, errormap);
-            }
-        }
-        bool deleted = object.value(JsonDbString::kDeletedStr).toBool();
-        if (deleted && !exists) {
-            setError(errormap, JsonDbError::MissingObject, QLatin1String("Cannot remove non-existing ephemeral object"));
+    JsonDbBtreeStorage *storage = 0;
+    WithTransaction transaction;
+    ObjectTable *objectTable = 0;
+
+    JsonDbObject master;
+    bool forCreation;
+
+    if (writeMode == EphemeralObject) {
+        forCreation = !mEphemeralStorage->get(object.uuid(), &master);
+
+        // ensure this objects belongs to this connection so that other clients
+        // cannot update / remove someone else's notifications
+        if (!forCreation && isNotification && owner->ownerId() != master.value(JsonDbString::kOwnerStr).toString()) {
+            setError(errormap, JsonDbError::MismatchedNotifyId, "Cannot touch notification objects that doesn't belong to you");
             return makeResponse(resultmap, errormap);
         }
-
-        QJsonObject response;
-        if (deleted) {
-            response = mEphemeralStorage->remove(master);
-            if (isNotification)
-                removeNotification(uuid);
-            checkNotifications(partition, master, Notification::Delete);
-        } else if (!exists) {
-            response = mEphemeralStorage->create(object);
-            if (isNotification)
-                createNotification(owner, object);
-            checkNotifications(partition, object, Notification::Create);
-        } else {
-            response = mEphemeralStorage->update(object);
-            checkNotifications(partition, object, Notification::Update);
+    } else {
+        storage = findPartition(partition);
+        if (!storage) {
+            setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+            return makeResponse(resultmap, errormap);
+        }
+        objectTable = storage->findObjectTable(objectType);
+        if (writeMode != ViewObject) {
+            transaction.setStorage(storage);
+            transaction.addObjectTable(objectTable);
         }
 
-        return response;
+        forCreation = !storage->getObject(uuid, master, objectType);
     }
 
-    WithTransaction transaction;
-    ObjectTable *objectTable = storage->findObjectTable(objectType);
-    if (!isViewObject) {
-        transaction.setStorage(storage);
-        transaction.addObjectTable(objectTable);
-    }
-
-    // retrieve record we are updating to use
-    JsonDbObject master;
-    bool forCreation = true;
-
-    JsonDbObject _delrec;
-    if (storage->getObject(uuid, _delrec, objectType)) {
-        master = _delrec;
-        forCreation = false;
-        Q_ASSERT(master.contains(JsonDbString::kUuidStr));
-    } else if (forRemoval) {
+    if (writeMode != ReplicatedWrite && forCreation && forRemoval) {
         setError(errormap, JsonDbError::MissingObject, QLatin1String("Cannot remove non-existing object"));
         return makeResponse(resultmap, errormap);
     }
 
-    if (forCreation || !gRejectStaleUpdates) {
-        master = object;
-    } else {
-        master = object;
-        if (object.version() == _delrec.version()) {
-            // updating from A to A => report success
-            resultmap.insert(JsonDbString::kCountStr, 1);
-            resultmap.insert(JsonDbString::kUuidStr, uuid);
-            resultmap.insert(JsonDbString::kVersionStr, object.version());
-//            resultmap.insert(JsonDbString::kStateNumberStr, (int)stateNumber); // ### TODO
-            return makeResponse(resultmap, errormap);
-        }
-        if (gRejectStaleUpdates && version != _delrec.version()) {
-            if (gDebug)
-                qDebug() << "Stale update detected - expected version:" << _delrec.version() << object;
-            setError( errormap, JsonDbError::UpdatingStaleVersion, "Updating stale version of object. Expected version " + _delrec.version());
-            return makeResponse(resultmap, errormap);
-        }
-    }
-    objectType = master.value(JsonDbString::kTypeStr).toString();
+    if (!forCreation)
+        RETURN_IF_ERROR(errormap, checkAccessControl(owner, master, partition, "write"));
 
-    if (forCreation && forRemoval) {
-        setError( errormap, JsonDbError::MissingObject, "Can not create a deleted object.");
+    if (!master.value(JsonDbString::kOwnerStr).toString().isEmpty())
+        object.insert(JsonDbString::kOwnerStr, master.value(JsonDbString::kOwnerStr));
+    else if (object.value(JsonDbString::kOwnerStr).toString().isEmpty())
+        object.insert(JsonDbString::kOwnerStr, owner->ownerId());
+
+    RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, partition, "write"));
+
+    bool validWrite = false;
+    QString versionWritten;
+
+    JsonDbObject oldMaster = master;
+
+    // if the old object is a schema, make sure it's ok to remove it
+    if (oldMaster.type() == JsonDbString::kSchemaTypeStr)
+        RETURN_IF_ERROR(errormap, checkCanRemoveSchema(oldMaster));
+
+    switch (writeMode) {
+    case OptimisticWrite:
+        validWrite = master.updateVersionOptimistic(object, &versionWritten);
+        break;
+    case ViewObject:
+    case ForcedWrite:
+    case EphemeralObject:
+        master = object;
+        versionWritten = master.computeVersion();
+        validWrite = true;
+        break;
+    case ReplicatedWrite:
+        validWrite = master.updateVersionReplicating(object);
+        versionWritten = master.version();
+        break;
+    default:
+        setError(errormap, JsonDbError::InvalidRequest, "Missing writeMode implementation.");
         return makeResponse(resultmap, errormap);
     }
+
+    if (!validWrite) {
+        if (writeMode == ReplicatedWrite) {
+            setError(errormap, JsonDbError::InvalidRequest, "Replication has reject your update for sanity reasons");
+        } else {
+            if (gDebug)
+                qDebug() << "Stale update detected - expected version:" << oldMaster.version() << object;
+            setError( errormap, JsonDbError::UpdatingStaleVersion, "Updating stale version of object. Expected version " + oldMaster.version() + ", is " + versionWritten);
+        }
+        return makeResponse(resultmap, errormap);
+    }
+
+    // recheck, it might just be a conflict removal
+    forRemoval = master.isDeleted();
+    objectType = master.type();
+    isNotification = objectType == JsonDbString::kNotificationTypeStr;
+
+    if (objectType.isEmpty()) {
+        // we skipped the objectType check for removals, let's add it back in
+        objectType = oldMaster.type();
+        master.insert(JsonDbString::kTypeStr, objectType);
+    }
+
+    bool isVisibleWrite = oldMaster.version() != master.version();
 
     if (objectType == "Partition") {
         if (!forCreation) {
             setError(errormap, JsonDbError::InvalidPartition, "Updates to partition objects not supported yet!");
             return makeResponse(resultmap, errormap);
         }
-
-        if (!partition.isEmpty() && partition != JsonDbString::kSystemPartitionName) {
-            setError(errormap, JsonDbError::InvalidPartition, "Partition objects can only be created in system partition");
-            return makeResponse(resultmap, errormap);
-        }
-
-        return createPartition(object);
+        return createPartition(master);
     }
 
-    // if the old object is a schema, make sure it's ok to remove it
-    if (_delrec.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
-        RETURN_IF_ERROR(errormap, checkCanRemoveSchema(_delrec));
-
-    // validate the new object
-    if (objectType == JsonDbString::kSchemaTypeStr)
-        RETURN_IF_ERROR(errormap, checkCanAddSchema(master, _delrec));
-    else if (objectType == JsonDbString::kMapTypeStr)
-        RETURN_IF_ERROR(errormap, validateMapObject(master));
-    else if (objectType == JsonDbString::kReduceTypeStr)
-        RETURN_IF_ERROR(errormap, validateReduceObject(master));
-
-    // If index, make sure it's ok to update/create (update not supported yet)
-    if (!forRemoval && objectType == kIndexTypeStr)
-        RETURN_IF_ERROR(errormap, validateAddIndex(master, _delrec));
-
-    int dataSize = master.toBinaryData().size() - _delrec.toBinaryData().size();
-    if (!forRemoval)
-        RETURN_IF_ERROR(errormap, checkQuota(owner, dataSize, storage));
+    // TODO: ephemeral objects?
+    if (isVisibleWrite && !forRemoval) {
+        // validate the new object
+        if (objectType == JsonDbString::kSchemaTypeStr)
+            RETURN_IF_ERROR(errormap, checkCanAddSchema(master, oldMaster));
+        else if (objectType == JsonDbString::kMapTypeStr)
+            RETURN_IF_ERROR(errormap, validateMapObject(master));
+        else if (objectType == JsonDbString::kReduceTypeStr)
+            RETURN_IF_ERROR(errormap, validateReduceObject(master));
+        else if (!forRemoval && objectType == kIndexTypeStr)
+            RETURN_IF_ERROR(errormap, validateAddIndex(master, oldMaster));
+    }
 
     QJsonObject response;
+    if (writeMode != EphemeralObject) {
+        int dataSize = 0;
 
-    Notification::Action action;
-    if (forRemoval) {
-        action = Notification::Delete;
-        response = storage->removePersistentObject(_delrec, master);
-    } else if (_delrec.isEmpty()) {
-        action = Notification::Create;
-        response = storage->createPersistentObject(master);
-    } else {
-        action = Notification::Update;
-        response = storage->updatePersistentObject(_delrec, master);
-    }
+        if (forCreation) {
+            dataSize = master.toBinaryData().size();
+            RETURN_IF_ERROR(errormap, checkQuota(owner, dataSize, storage));
+            response = storage->createPersistentObject(master);
+        } else if (forRemoval) {
+            dataSize = -oldMaster.toBinaryData().size();
+            response = storage->removePersistentObject(oldMaster, master);
+        } else {
+            dataSize = master.toBinaryData().size() - oldMaster.toBinaryData().size();
+            RETURN_IF_ERROR(errormap, checkQuota(owner, dataSize, storage));
+            response = storage->updatePersistentObject(oldMaster, master);
+        }
 
-    if (responseIsError(response))
-        return response;
+        if (responseIsError(response))
+            return response;
 
-    if (forRemoval)
-        storage->addToQuota(owner, - _delrec.toBinaryData().size());
-    else
         storage->addToQuota(owner, dataSize);
 
-    // replication might do a write not changing the head version
-    bool headVersionUpdated =
-        (!forCreation && _delrec.version() != master.version()) || forRemoval;
+    } else {
+        if (forRemoval) {
+            response = mEphemeralStorage->remove(master);
+            if (isNotification)
+                removeNotification(uuid);
+        } else if (forCreation) {
+            response = mEphemeralStorage->create(master);
+            if (isNotification)
+                createNotification(owner, master);
+        } else {
+            response = mEphemeralStorage->update(master);
+        }
+    }
 
-
-    // handle removing old schema, map, etc.
-    if (headVersionUpdated) {
-        QString oldType = _delrec.value(JsonDbString::kTypeStr).toString();
+    // handle schemata and indices
+    if (isVisibleWrite && writeMode != EphemeralObject) {
+        QString oldType = oldMaster.type();
         if (oldType == JsonDbString::kSchemaTypeStr)
-            removeSchema(_delrec.value("name").toString());
+            removeSchema(oldMaster.value("name").toString());
+        else if (oldType == kIndexTypeStr)
+            removeIndex(oldMaster, partition);
+
+        if (!forRemoval) {
+            if (objectType == JsonDbString::kSchemaTypeStr)
+                setSchema(master.value("name").toString(), object.value("schema").toObject());
+            else if (objectType == kIndexTypeStr)
+                addIndex(master, partition);
+        }
     }
 
-    // create new schema, map, etc.
-    if (!forRemoval && (forCreation || headVersionUpdated)) {
-        if (objectType == JsonDbString::kSchemaTypeStr)
-            setSchema(object.value("name").toString(), object.value("schema").toObject());
-        else if (objectType == kIndexTypeStr)
-            addIndex(master, partition);
+    if (!isVisibleWrite) {
+        // make sure, the actual version is returned, not the head version
+        QJsonObject result = response.value("result").toObject();
+        result.insert(JsonDbString::kVersionStr, versionWritten);
+        response.insert("result", result);
     }
 
-    if (forRemoval) {
-        if (objectType == kIndexTypeStr)
-            removeIndex(_delrec, partition);
-    }
-
-    // only notify if there is a visible change
-    // TODO: fix tests/benchmarks/jsondb-listmodel before re-enabling this
-    //    if (forCreation || headVersionUpdated)
-    if (!forRemoval)
-        checkNotifications(partition, object, action);
+    if (forCreation)
+        checkNotifications(partition, master, Notification::Create);
+    else if (forRemoval)
+        checkNotifications(partition, master, Notification::Delete);
     else
-        checkNotifications(partition, _delrec, action);
+        checkNotifications(partition, master, Notification::Update);
+
+    // method used to be non-const, so writing back
+    // TODO: fixme
+    object.insert(JsonDbString::kVersionStr, versionWritten);
 
     return response;
 }
@@ -1079,7 +1088,7 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
 */
 QJsonObject JsonDb::updateViewObject(const JsonDbOwner *owner, JsonDbObject &object, const QString &partition)
 {
-    return update(owner, object, partition, true);
+    return update(owner, object, partition, ViewObject);
 }
 
 
@@ -1095,43 +1104,16 @@ QJsonObject JsonDb::updateViewObject(const JsonDbOwner *owner, JsonDbObject &obj
 
 */
 
-QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object, const QString &partition, bool isViewObject)
+QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object, const QString &partition, WriteMode writeMode)
 {
-    QJsonObject responseMap, errormap;
-    QString uuid;
-    RETURN_IF_ERROR(errormap, checkUuidPresent(object, uuid));
-    QString objectType = object.value(JsonDbString::kTypeStr).toString();
-
-    // quick fix for the case when object only contains _uuid
-    // TODO: refactor
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    JsonDbObject delrec;
-    bool gotDelrec = false;
-    if (storage)
-        gotDelrec = storage->getObject(uuid, delrec, objectType);
-    if (!gotDelrec)
-        mEphemeralStorage->get(object.uuid(), &delrec);
-
-    // temporary fix for rejecting stale removes
-    // TODO: refactor update to properly handle stale removes
-    if (gRejectStaleUpdates && !delrec.isEmpty()
-            && object.value(JsonDbString::kVersionStr).toString() != delrec.value(JsonDbString::kVersionStr).toString()) {
-        if (gDebug)
-            qDebug() << "Stale remove detected - expected version:" << delrec.version() << object;
-        setError(errormap, JsonDbError::UpdatingStaleVersion, "Removing stale version of object. Expected version " + delrec.version());
-        return makeResponse(responseMap, errormap, false);
-    }
-
     JsonDbObject tombstone;
-    tombstone.insert(JsonDbString::kUuidStr, uuid);
+    tombstone.insert(JsonDbString::kUuidStr, object.uuid().toString());
+    tombstone.insert(JsonDbString::kVersionStr, object.version());
+    tombstone.insert(JsonDbString::kTypeStr, object.type());
     tombstone.insert(JsonDbString::kDeletedStr, true);
-    // Needed for access control
-    tombstone.insert(JsonDbString::kOwnerStr, delrec.value(JsonDbString::kOwnerStr));
-    if (delrec.contains(JsonDbString::kTypeStr))
-        tombstone.insert(JsonDbString::kTypeStr, delrec.value(JsonDbString::kTypeStr).toString());
-    if (delrec.contains(JsonDbString::kVersionStr))
-        tombstone.insert(JsonDbString::kVersionStr, delrec.value(JsonDbString::kVersionStr).toString());
-    return update(owner, tombstone, partition, isViewObject);
+    tombstone.insert(JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
+
+    return update(owner, tombstone, partition, writeMode);
 }
 
 /*!
@@ -1148,7 +1130,7 @@ QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object,
 
 QJsonObject JsonDb::removeViewObject(const JsonDbOwner *owner, JsonDbObject object, const QString &partition)
 {
-    return remove(owner, object, partition, true);
+    return remove(owner, object, partition, ViewObject);
 }
 
 GetObjectsResult JsonDb::getObjects(const QString &keyName, const QJsonValue &key, const QString &type, const QString &partition) const
@@ -1516,7 +1498,12 @@ QJsonObject JsonDb::checkUuidPresent(JsonDbObject object, QString &uuid)
 {
     if (!object.contains(JsonDbString::kUuidStr))
         return makeError(JsonDbError::MissingUUID, "Missing '_uuid' field in object");
-    uuid = object.value(JsonDbString::kUuidStr).toString();
+
+    QUuid id = object.uuid();
+    if (id.isNull())
+        return makeError(JsonDbError::MissingUUID, "'_uuid' must contain a valid UUID");
+
+    uuid = id.toString();
     return QJsonObject();
 }
 

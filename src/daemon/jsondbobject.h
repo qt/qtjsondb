@@ -68,9 +68,27 @@ public:
     QUuid uuid() const;
     QString version() const;
     QString type() const;
+    bool isDeleted() const;
 
     void generateUuid();
-    void computeVersion();
+    QString computeVersion();
+
+    bool updateVersionOptimistic(const JsonDbObject &other, QString *versionWritten);
+    bool updateVersionReplicating(const JsonDbObject & other);
+
+    bool operator <(const JsonDbObject &other) const;
+    bool isAncestorOf(const JsonDbObject &other) const;
+
+private:
+    bool populateMerge(QMap<JsonDbObject, bool> *documents, const QUuid &id, const JsonDbObject &source, bool validateSource = false, bool recurse = true) const;
+    void populateHistory(QJsonArray *history, const JsonDbObject &doc, bool includeCurrent) const;
+    QString tokenizeVersion(const QString &version, int *updateCount) const;
+    QString versionAsString(const int updateCount, const QString &hash) const;
+
+    bool computeVersion(const int oldUpdateCount, const QString& oldHash, int *newUpdateCount, QString *newHash) const;
+
+    bool isAncestorOf(const QJsonArray &history, const int updateCount, const QString &hash) const;
+    void addAncestor(QJsonArray *history, const int updateCount, const QString &hash) const;
 };
 
 
