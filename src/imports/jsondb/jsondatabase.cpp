@@ -48,6 +48,16 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+struct Uuid
+{
+    uint    data1;
+    ushort  data2;
+    ushort  data3;
+    uchar   data4[8];
+};
+
+static const Uuid JsonDbNamespace = {0x6ba7b810, 0x9dad, 0x11d1, { 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8} };
+
 /*!
     \qmlclass JsonDatabase
     \inqmlmodule QtJsonDb
@@ -129,19 +139,21 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback)
 }
 
 /*!
-    \qmlmethod QtJsonDb::JsonDatabase::uuidFromObject(object)
+    \qmlmethod QtJsonDb::JsonDatabase::uuidFromString(string)
 
-    Returns a new uuid that can be used to identify a given \a object.
+    Returns deterministic uuid that can be used to identify given \a identifier.
 
-    Note that the returned uuid might be unique on every invocation on the same
-    object, if the \a object doesn't have the \c{_id} property and there is no
-    schema.
+    The uuid is generated using QtJsonDb UUID namespace on a value of the
+    given \a identifier.
 */
 
-QString JsonDatabase::uuidFromObject(const QVariant &object)
+QString JsonDatabase::uuidFromString(const QString &identifier)
 {
-    QUuid objectid = JsonDbObject::uuidFromObject(object.toMap());
-    return objectid.toString();
+    const QUuid ns(JsonDbNamespace.data1, JsonDbNamespace.data2, JsonDbNamespace.data3,
+                   JsonDbNamespace.data4[0], JsonDbNamespace.data4[1], JsonDbNamespace.data4[2],
+                   JsonDbNamespace.data4[3], JsonDbNamespace.data4[4], JsonDbNamespace.data4[5],
+                   JsonDbNamespace.data4[6], JsonDbNamespace.data4[7]);
+    return QUuid::createUuidV3(ns, identifier).toString();
 }
 
 void JsonDatabase::dbResponse(int id, const QVariant &result)

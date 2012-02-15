@@ -60,7 +60,7 @@ public:
 
     Q_INVOKABLE JsonDbPartition* partition(const QString &partitionName);
     Q_INVOKABLE void listPartitions(const QJSValue &callback);
-    Q_INVOKABLE QString uuidFromObject(const QVariant &object);
+    Q_INVOKABLE QString uuidFromString(const QString &identifier);
 
 private Q_SLOTS:
     void dbResponse(int id, const QVariant &result);
