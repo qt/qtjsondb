@@ -1,23 +1,33 @@
 {
   "_type": "Capability",
   "name": "user",
-  "partition": "com.nokia.qtjsondb.User",
+  "partition": "com.example.System",
   "accessRules": {
     "rw": {
-      "read": [".*"],
-      "write": ["[?_type startsWith \"public.\"]", "[?_type startsWith \"%domain.\"]",
-                "[?_owner=\"%owner\"]"]
-    },
-    "setOwner": {
-      "setOwner": ["[?_type startsWith \"public.\"]", "[?_type startsWith \"%domain.\"]",
-                   "[?_owner=\"%owner\"]"]
+      "read": ["[?_type = \"Partition\"]"]
     }
   }
 }
+{
+    "_type": "Capability",
+    "name": "user",
+    "partition": "com.example.User",
+    "accessRules": {
+      "rw": {
+        "read": [".*"],
+        "write": ["[?_type startsWith \"public.\"]",
+                  "[?%owner startsWith %typeDomain]"]
+      },
+      "setOwner": {
+        "setOwner": ["[?_type startsWith \"public.\"]",
+                     "[?%owner startsWith %typeDomain]"]
+      }
+    }
+  }
 {
   "_type": "Capability",
   "name": "system",
-  "partition": "com.nokia.qtjsondb.Public",
+  "partition": "com.example.Public",
   "accessRules": {
     "rw": {
       "read": [".*"],
@@ -31,7 +41,7 @@
 {
   "_type": "Capability",
   "name": "user",
-  "partition": "com.nokia.qtjsondb.Ephemeral",
+  "partition": "com.example.Ephemeral",
   "accessRules": {
     "rw": {
       "read": [".*"],
@@ -45,16 +55,16 @@
 {
   "_type": "Capability",
   "name": "user",
-  "partition": "com.nokia.qtjsondb.Sdcard",
+  "partition": "com.example.Card",
   "accessRules": {
     "rw": {
       "read": [".*"],
-      "write": ["[?_type startsWith \"public.\"]", "[?_type startsWith \"%domain.\"]",
-                "[?_owner=\"%owner\"]"]
+      "write": ["[?_type startsWith \"public.\"]",
+                "[?%owner startsWith %typeDomain]"]
     },
     "setOwner": {
-      "setOwner": ["[?_type startsWith \"public.\"]", "[?_type startsWith \"%domain.\"]",
-                   "[?_owner=\"%owner\"]"]
+      "setOwner": ["[?_type startsWith \"public.\"]",
+                "[?%owner startsWith %typeDomain]"]
     }
   }
 }

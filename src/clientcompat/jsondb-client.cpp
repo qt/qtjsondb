@@ -693,7 +693,7 @@ int JsonDbClient::notify(NotifyTypes types, const QString &query,
         d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
     }
 
-    QVariantMap request = JsonDbConnection::makeCreateRequest(create, JsonDbString::kEphemeralPartitionName);
+    QVariantMap request = JsonDbConnection::makeCreateRequest(create);
     d->send(id, request);
 
     return id;
@@ -753,7 +753,7 @@ QString JsonDbClient::registerNotification(NotifyTypes types, const QString &que
         d->unprocessedNotifyCallbacks.insert(id, JsonDbClientPrivate::NotifyCallback());
     }
 
-    QVariantMap request = JsonDbConnection::makeUpdateRequest(create, JsonDbString::kEphemeralPartitionName);
+    QVariantMap request = JsonDbConnection::makeUpdateRequest(create);
     d->send(id, request);
 
     return uuid;
@@ -773,7 +773,7 @@ void JsonDbClient::unregisterNotification(const QString &notifyUuid)
     object.insert(JsonDbString::kUuidStr, notifyUuid);
 
     int id = d->connection->makeRequestId();
-    QVariantMap request = JsonDbConnection::makeRemoveRequest(object, JsonDbString::kEphemeralPartitionName);
+    QVariantMap request = JsonDbConnection::makeRemoveRequest(object);
     d->send(id, request);
 }
 

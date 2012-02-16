@@ -134,7 +134,7 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback)
         return;
     }
     QString query(QLatin1String("[?_type=\"Partition\"]"));
-    int id = jsonDb.query(query, 0, -1, QLatin1String("com.nokia.qtjsondb.System"));
+    int id = jsonDb.query(query, 0, -1);
     listCallbacks.insert(id, listCallback);
 }
 

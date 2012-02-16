@@ -11,7 +11,7 @@
  },
  {
     "_type": "_schemaType",
-    "name": "IndexedView",
+    "name": "com.test.IndexedView",
     "schema": {
         "type": "object",
         "extends": {"$ref": "View"}
@@ -19,24 +19,24 @@
  },
  {
      "_type": "Map",
-     "targetType": "IndexedView",
+     "targetType": "com.test.IndexedView",
      "map": {
-         "indextest": "function (o) { v = {'test3': {'nested': o.test2.nested}}; jsondb.emit(v); }"
+         "com.test.indextest": "function (o) { v = {'test3': {'nested': o.test2.nested}}; jsondb.emit(v); }"
      }
  },
  {
      "_type": "Index",
      "propertyName": "test3.nested",
      "propertyType": "string",
-     "objectType": "IndexedView"
+     "objectType": "com.test.IndexedView"
  },
  {
-    "_type": "indextest",
+    "_type": "com.test.indextest",
     "test1": "abc",
     "test2": {"nested": "123"}
  },
  {
-    "_type": "indextest",
+    "_type": "com.test.indextest",
     "test1": "def",
     "test2": {"nested": "456"}
  }

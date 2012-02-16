@@ -118,7 +118,7 @@ void TestJsonDbChangesSinceObject::initTestCase()
     QVariantMap item;
     item.insert("_type", "Partition");
     item.insert("name", "com.nokia.shared");
-    int id = mClient->create(item, QString("com.nokia.qtjsondb.System"));
+    int id = mClient->create(item);
     waitForResponse1(id);
 
 }

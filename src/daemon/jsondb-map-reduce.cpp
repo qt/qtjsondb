@@ -218,18 +218,20 @@ void JsonDb::updateView(const QString &viewType, const QString &partitionName)
 {
     if (viewType.isEmpty())
         return;
+    QString name = partitionName;
+    if (name.isEmpty()) name = mSystemPartitionName;
     QElapsedTimer timer;
     if (gPerformanceLog)
         timer.start();
-    JsonDbBtreeStorage *partition = findPartition(partitionName);
+    JsonDbBtreeStorage *partition = findPartition(name);
     ObjectTable *objectTable = partition->mainObjectTable();
     ObjectTable *targetTable = partition->findObjectTable(viewType);
     if ((objectTable == targetTable)
         || (objectTable->stateNumber() == targetTable->stateNumber()))
         return;
 
-    updateMap(viewType, partitionName);
-    updateReduce(viewType, partitionName);
+    updateMap(viewType, name);
+    updateReduce(viewType, name);
     if (gPerformanceLog)
         qDebug() << "updateView" << viewType << timer.elapsed() << "ms";
 }

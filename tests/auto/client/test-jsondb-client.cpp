@@ -134,7 +134,7 @@ private:
 };
 
 #ifndef DONT_START_SERVER
-static const char dbfileprefix[] = "test-jsondb-client-";
+static const char dbfileprefix[] = "test-jsondb-client";
 #endif
 
 class Handler : public QObject
@@ -248,14 +248,18 @@ void TestJsonDbClient::initTestCase()
         JsonDbObject capa_obj;
         capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
         capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
-        capa_obj.insert(QLatin1String("partition"), QLatin1String("com.nokia.qtjsondb.System"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String(dbfileprefix) + QLatin1String(".System"));
         QVariantMap access_rules;
         QVariantMap rw_rule;
         rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
         rw_rule.insert(QLatin1String("write"),
                           (QStringList() <<
                            QLatin1String("[?_type startsWith \"public.\"]") <<
-                           QLatin1String("[?%owner startsWith %typeDomain][?_owner startsWith %typeDomain]")));
+                           QLatin1String("[?%owner startsWith %typeDomain]") <<
+                           QLatin1String("[?%owner startsWith \"com.my.domain\"][?_type startsWith \"com.my.domain\"]") <<
+                           QLatin1String("[?_type = \"_schemaType\"]") <<
+                           QLatin1String("[?_type = \"Index\"]") <<
+                           QLatin1String("[?_type = \"Map\"]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         QVariantMap set_owner_rule;
         set_owner_rule.insert(QLatin1String("setOwner"),
@@ -271,7 +275,7 @@ void TestJsonDbClient::initTestCase()
         capa_obj.clear();
         capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
         capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
-        capa_obj.insert(QLatin1String("partition"), QLatin1String("com.nokia.qtjsondb.Ephemeral"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("Ephemeral"));
         access_rules.clear();
         rw_rule.clear();
         rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
@@ -279,7 +283,7 @@ void TestJsonDbClient::initTestCase()
                           (QStringList() <<
                            QLatin1String("[?_type=\"notification\"]") <<
                            QLatin1String("[?_type startsWith \"public.\"]") <<
-                           QLatin1String("[?%owner startsWith %typeDomain][?_owner startsWith %typeDomain]")));
+                           QLatin1String("[?%owner startsWith %typeDomain]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         capa_obj.insert(QLatin1String("accessRules"), access_rules);
         qDebug() << "Creating: " << capa_obj;
@@ -670,20 +674,20 @@ void TestJsonDbClient::index()
     QVariantMap result = mData.toMap();
 
     QVariantMap query;
-    query.insert("query", "[?_type=\"indextest\"][/test1]");
+    query.insert("query", "[?_type=\"com.test.indextest\"][/test1]");
     id = mClient->find(query);
     waitForResponse1(id);
     QVariantList answer = mData.toMap().value("data").toList();
     QCOMPARE(answer.size(), 2);
 
-    query.insert("query", "[?_type=\"indextest\"][/test2.nested]");
+    query.insert("query", "[?_type=\"com.test.indextest\"][/test2.nested]");
     id = mClient->find(query);
     waitForResponse1(id);
     QCOMPARE(mData.toMap().value("sortKeys").toList().at(0).toString(), QString::fromLatin1("test2.nested"));
     answer = mData.toMap().value("data").toList();
     QCOMPARE(answer.size(), 2);
 
-    query.insert("query", "[?_type=\"IndexedView\"][/test3.nested]");
+    query.insert("query", "[?_type=\"com.test.IndexedView\"][/test3.nested]");
     id = mClient->find(query);
     waitForResponse1(id);
     QCOMPARE(mData.toMap().value("sortKeys").toList().at(0).toString(), QString::fromLatin1("test3.nested"));
@@ -723,7 +727,7 @@ void TestJsonDbClient::notify()
     object.insert("_version", version);
     object.insert("name","test2");
     id = mClient->update(object);
-    waitForResponse4(id, -1, notifyUuid, 1);
+    waitForResponse4(-1, -1, notifyUuid, 1);
 
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
@@ -732,7 +736,7 @@ void TestJsonDbClient::notify()
 
     // Remove the notify-test object
     id = mClient->remove(object);
-    waitForResponse4(id, -1, notifyUuid, 1);
+    waitForResponse4(-1, -1, notifyUuid, 1);
 
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
@@ -755,7 +759,7 @@ void TestJsonDbClient::notifyViaCreate()
     notificationObject.insert("_type", "notification");
     notificationObject.insert("query", query);
     notificationObject.insert("actions", actions);
-    id = mClient->create(notificationObject, QLatin1String("com.nokia.qtjsondb.Ephemeral"));
+    id = mClient->create(notificationObject, QLatin1String("Ephemeral"));
     waitForResponse1(id);
     QVariantMap notifyObject = mData.toMap();
     QString notifyUuid = notifyObject.value("_uuid").toString();
@@ -796,7 +800,7 @@ void TestJsonDbClient::notifyViaCreate()
     QCOMPARE(n.mAction, QLatin1String("remove"));
 
     // Remove the notification object
-    id = mClient->remove(notifyObject, QLatin1String("com.nokia.qtjsondb.Ephemeral"));
+    id = mClient->remove(notifyObject, QLatin1String("Ephemeral"));
     waitForResponse1(id);
 }
 
@@ -814,8 +818,7 @@ void TestJsonDbClient::registerNotification()
     object.insert("_type","com.test.registerNotification");
     object.insert("name","test1");
     id = mClient->create(object);
-    qDebug() << "create id" << id;
-    waitForResponse4(-1, -1, notifyUuid, 1);
+    waitForResponse4(id, -1, notifyUuid, 1);
     QVariant uuid = mData.toMap().value("_uuid");
     QString version = mData.toMap().value("_version").toString();
 
@@ -1122,7 +1125,7 @@ void TestJsonDbClient::storageQuotas()
 
     // Create Security Object with storage quota
     QVariantMap item;
-    item.insert(JsonDbString::kTypeStr, "com.nokia.mp.core.Security");
+    item.insert(JsonDbString::kTypeStr, "Quota");
     struct passwd *pwd = getpwent ();
     item.insert(JsonDbString::kTokenStr, QString::fromAscii(pwd->pw_name));
     QVariantMap capability;
@@ -1265,8 +1268,8 @@ void TestJsonDbClient::connection_error(int id, int code, const QString &message
 void TestJsonDbClient::partition()
 {
     int id;
-    const QString firstPartitionName = "com.nokia.qtjsondb.autotest.Partition1";
-    const QString secondPartitionName = "com.nokia.qtjsondb.autotest.Partition2";
+    const QString firstPartitionName = "com.example.autotest.Partition1";
+    const QString secondPartitionName = "com.example.autotest.Partition2";
 
     QVariantMap item;
     item.insert(JsonDbString::kTypeStr, "Partition");

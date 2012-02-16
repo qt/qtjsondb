@@ -100,7 +100,8 @@ class JsonDb : public QObject
     Q_OBJECT
 
 public:
-    JsonDb( const QString& filename, QObject *parent=0 );
+    JsonDb( const QString &filePath, const QString &baseName, const QString &username,
+            QObject *parent=0 );
     ~JsonDb();
 
     bool open();
@@ -139,8 +140,10 @@ public:
 
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(), const QString &partition = QString()) const;
 
-    QString getTablePrefix();
-    void setTablePrefix(const QString &prefix);
+    QString ephemeralPartitionName() const { return mEphemeralPartitionName; }
+    QString setEphemeralPartitionName(const QString &name) { mEphemeralPartitionName = name; }
+    QString systemPartitionName() const { return mSystemPartitionName; }
+    QString setSystemPartitionName(const QString &name) { mSystemPartitionName = name; }
 
     bool compactOnClose() const { return mCompactOnClose; }
     void setCompactOnClose(bool compact) { mCompactOnClose = compact; }
@@ -153,9 +156,9 @@ public:
     static QJSValue toJSValue(const QJsonValue &v, QJSEngine *scriptEngine);
     static QJSValue toJSValue(const QJsonObject &object, QJSEngine *mScriptEngine);
 
-    void updateView(const QString &viewType, const QString &partitionName = JsonDbString::kSystemPartitionName);
+    void updateView(const QString &viewType, const QString &partitionName = QString());
 
-    QHash<QString, qint64> fileSizes(const QString &partitionName = JsonDbString::kSystemPartitionName) const;
+    QHash<QString, qint64> fileSizes(const QString &partitionName = QString()) const;
 
 protected:
     bool populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object,
@@ -232,6 +235,8 @@ protected:
     JsonDbEphemeralStorage *mEphemeralStorage;
     bool                  mOpen;
     QString               mFilePath;
+    QString               mSystemPartitionName;
+    QString               mEphemeralPartitionName;
     QString               mDatabaseId;
     SchemaManager         mSchemas;
     QMap<QString,Notification*> mNotificationMap;

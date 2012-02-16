@@ -155,8 +155,8 @@ void TestJsonDbListModel::initTestCase()
     // Create the shared Partitions
     QVariantMap item;
     item.insert("_type", "Partition");
-    item.insert("name", "com.nokia.shared.1");
-    int id = mClient->create(item, QString("com.nokia.qtjsondb.System"));
+    item.insert("name", "com.example.shared.1");
+    int id = mClient->create(item);
     waitForResponse1(id);
 
 }
@@ -173,7 +173,7 @@ QAbstractItemModel *TestJsonDbListModel::createModel()
         return 0;
     }
     newModel->component = new QDeclarativeComponent(newModel->engine);
-    newModel->component->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n JsonDb.JsonDbListModel {id: contactsModel; partition: JsonDb.Partition {name: \"com.nokia.shared.1\"}}", QUrl());
+    newModel->component->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n JsonDb.JsonDbListModel {id: contactsModel; partition: JsonDb.Partition {name: \"com.example.shared.1\"}}", QUrl());
     newModel->model = newModel->component->create();
     if (newModel->component->isError())
         qDebug() << newModel->component->errors();
@@ -226,7 +226,7 @@ void TestJsonDbListModel::createItem()
     QVariantMap item;
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
-    int id = mClient->create(item,  "com.nokia.shared.1");
+    int id = mClient->create(item,  "com.example.shared.1");
 
     waitForResponse1(id);
 
@@ -246,7 +246,7 @@ void TestJsonDbListModel::createItem()
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Baker");
     mItemsCreated = 0;
-    id = mClient->create(item, "com.nokia.shared.1");
+    id = mClient->create(item, "com.example.shared.1");
     waitForResponse1(id);
     if (!mItemsCreated)
         waitForExitOrTimeout();
@@ -261,7 +261,7 @@ void TestJsonDbListModel::updateItemClient()
     QVariantMap item;
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
-    int id = mClient->create(item, "com.nokia.shared.1");
+    int id = mClient->create(item, "com.example.shared.1");
     waitForResponse1(id);
 
     QAbstractItemModel *listModel = createModel();
@@ -281,7 +281,7 @@ void TestJsonDbListModel::updateItemClient()
     item.insert("name", "Baker");
 
     mWaitingForDataChange = true;
-    id = mClient->update(item, "com.nokia.shared.1");
+    id = mClient->update(item, "com.example.shared.1");
     waitForResponse1(id);
 
     while (mWaitingForDataChange)
@@ -302,7 +302,7 @@ void TestJsonDbListModel::updateItemSet()
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
     item.insert("phone", "123456789");
-    int id = mClient->create(item, "com.nokia.shared.1");
+    int id = mClient->create(item, "com.example.shared.1");
     waitForResponse1(id);
 
     QAbstractItemModel *listModel = createModel();
@@ -343,7 +343,7 @@ void TestJsonDbListModel::updateItemSetProperty()
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
     item.insert("phone", "123456789");
-    int id = mClient->create(item, "com.nokia.shared.1");
+    int id = mClient->create(item, "com.example.shared.1");
     waitForResponse1(id);
 
     QAbstractItemModel *listModel = createModel();
@@ -378,7 +378,7 @@ void TestJsonDbListModel::deleteItem()
     QVariantMap item;
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
-    int id = mClient->create(item, "com.nokia.shared.1");
+    int id = mClient->create(item, "com.example.shared.1");
     waitForResponse1(id);
 
     QAbstractItemModel *listModel = createModel();
@@ -394,7 +394,7 @@ void TestJsonDbListModel::deleteItem()
 
     item.insert("name", "Baker");
     mItemsCreated = 0;
-    id = mClient->create(item,"com.nokia.shared.1");
+    id = mClient->create(item,"com.example.shared.1");
     waitForResponse1(id);
     if (!mItemsCreated)
         waitForExitOrTimeout();
@@ -402,7 +402,7 @@ void TestJsonDbListModel::deleteItem()
 
     mWaitingForRowsRemoved = true;
     item.insert("_uuid", mLastUuid);
-    id = mClient->remove(item, "com.nokia.shared.1");
+    id = mClient->remove(item, "com.example.shared.1");
 
     waitForResponse1(id);
     while (mWaitingForRowsRemoved)
@@ -424,14 +424,14 @@ void TestJsonDbListModel::sortedQuery()
     index.insert("name", "number");
     index.insert("propertyName", "number");
     index.insert("propertyType", "number");
-    id = mClient->create(index, "com.nokia.shared.1");
+    id = mClient->create(index, "com.example.shared.1");
     waitForResponse1(id);
 
     for (int i = 0; i < 1000; i++) {
         QVariantMap item;
         item.insert("_type", "RandNumber");
         item.insert("number", i);
-        id = mClient->create(item, "com.nokia.shared.1");
+        id = mClient->create(item, "com.example.shared.1");
         waitForResponse1(id);
     }
 
@@ -467,7 +467,7 @@ void TestJsonDbListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", QString::number(i));
-        int id = mClient->create(item, "com.nokia.shared.1");
+        int id = mClient->create(item, "com.example.shared.1");
         waitForResponse1(id);
     }
 
@@ -496,7 +496,7 @@ void TestJsonDbListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "99");  // move it to the end
-        int id = mClient->update(item, "com.nokia.shared.1");
+        int id = mClient->update(item, "com.example.shared.1");
         waitForResponse1(id);
     }
 
@@ -516,7 +516,7 @@ void TestJsonDbListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "22");    // move it after "2"
-        int id = mClient->update(item, "com.nokia.shared.1");
+        int id = mClient->update(item, "com.example.shared.1");
         waitForResponse1(id);
     }
 
@@ -536,7 +536,7 @@ void TestJsonDbListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "0");    // move it to the beginning
-        int id = mClient->update(item, "com.nokia.shared.1");
+        int id = mClient->update(item, "com.example.shared.1");
         waitForResponse1(id);
     }
 
@@ -557,8 +557,8 @@ void TestJsonDbListModel::itemNotInCache()
     index.insert("name", "order");
     index.insert("propertyName", "order");
     index.insert("propertyType", "number");
-    //index.insert("partition", "com.nokia.shared.1");
-    int indexId = mClient->create(index, "com.nokia.shared.1");
+    //index.insert("partition", "com.example.shared.1");
+    int indexId = mClient->create(index, "com.example.shared.1");
     waitForResponse1(indexId);
 
     QVariantList itemList;
@@ -569,7 +569,7 @@ void TestJsonDbListModel::itemNotInCache()
         item.insert("order", i);
         itemList << item;
     }
-    int id = mClient->create(itemList, "com.nokia.shared.1");
+    int id = mClient->create(itemList, "com.example.shared.1");
     waitForResponse1(id);
 
     QAbstractItemModel *listModel = createModel();
@@ -599,7 +599,7 @@ void TestJsonDbListModel::roles()
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
     item.insert("phone", "123456789");
-    int id = mClient->create(item, "com.nokia.shared.1");
+    int id = mClient->create(item, "com.example.shared.1");
 
     waitForResponse1(id);
 
@@ -630,7 +630,7 @@ void TestJsonDbListModel::totalRowCount()
         QVariantMap item;
         item.insert("_type", __FUNCTION__);
         item.insert("order", i);
-        id = mClient->create(item, "com.nokia.shared.1");
+        id = mClient->create(item, "com.example.shared.1");
         waitForResponse1(id);
         insertedItems << mData;
     }
@@ -652,7 +652,7 @@ void TestJsonDbListModel::totalRowCount()
         QVariantMap item;
         item.insert("_type", __FUNCTION__);
         item.insert("order", i);
-        mClient->create(item,  "com.nokia.shared.1");
+        mClient->create(item,  "com.example.shared.1");
     }
 
     waitForItemsCreated(40);
@@ -666,7 +666,7 @@ void TestJsonDbListModel::totalRowCount()
     // Delete the first 10 items
     foreach (QVariant item, insertedItems) {
         mWaitingForRowsRemoved = true;
-        id = mClient->remove(item.toMap(), "com.nokia.shared.1");
+        id = mClient->remove(item.toMap(), "com.example.shared.1");
         while(mWaitingForRowsRemoved)
             mEventLoop.processEvents(QEventLoop::AllEvents);
     }
@@ -682,7 +682,7 @@ void TestJsonDbListModel::listProperty()
     QVariantList itemList = jsonData.toList();
     int id = 0;
     for (int i = 0; i < itemList.count(); i++) {
-        id = mClient->create(itemList[i].toMap(), "com.nokia.shared.1");
+        id = mClient->create(itemList[i].toMap(), "com.example.shared.1");
         waitForResponse1(id);
     }
 

@@ -623,7 +623,6 @@ void QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
     QJsonDbWriteRequest *request = new QJsonDbWriteRequest(q);
     request->setObjects(objects);
     request->QJsonDbRequest::d_func()->internal = true;
-    request->setPartition(JsonDbStrings::Partition::ephemeral());
     QObject::connect(request, SIGNAL(finished()), watcher, SLOT(_q_onFinished()));
     QObject::connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                      watcher, SLOT(_q_onError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
@@ -652,7 +651,6 @@ void QJsonDbConnectionPrivate::removeWatcher(QJsonDbWatcher *watcher)
     // This time we don't care about the response to that removal request.
     QJsonDbWriteRequest *request = new QJsonDbRemoveRequest(object);
     request->QJsonDbRequest::d_func()->internal = true;
-    request->setPartition(JsonDbStrings::Partition::ephemeral());
     // auto delete request after it's complete
     QObject::connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
     QObject::connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),

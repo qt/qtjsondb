@@ -1,10 +1,10 @@
 [
   {
-  "_type":"com.nokia.mp.social.ApplicationFeatures",
+  "_type":"com.example.social.ApplicationFeatures",
   "features":[
          {
           "feature":"provide Facebook",
-          "objectType":"com.nokia.mp.accounts.Account",
+          "objectType":"com.example.accounts.Account",
           "properties":[
                  {
                   "allowMultiple":false,
@@ -18,11 +18,11 @@
   "name":"Facebook"
   },
   {
-  "_type":"com.nokia.mp.social.ApplicationFeatures",
+  "_type":"com.example.social.ApplicationFeatures",
   "features":[
          {
           "feature":"provide Gmail",
-          "objectType":"com.nokia.mp.accounts.Account",
+          "objectType":"com.example.accounts.Account",
           "properties":[
                  {
                   "allowMultiple":false,

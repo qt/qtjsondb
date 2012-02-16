@@ -175,17 +175,17 @@ void TestJsonDb::removeDbFiles()
 
 void TestJsonDb::initTestCase()
 {
-    QCoreApplication::setOrganizationName("Nokia");
-    QCoreApplication::setOrganizationDomain("nrcc.noklab.com");
+    QCoreApplication::setOrganizationName("Example");
+    QCoreApplication::setOrganizationDomain("example.com");
     QCoreApplication::setApplicationName("TestJsonDb");
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
     gVerbose = false;
-    mJsonDb = new JsonDb(kFilename, this);
+    mJsonDb = new JsonDb(QString (), kFilename, QStringLiteral("com.example.JsonDbTest"), this);
     mJsonDb->open();
     mOwner = new JsonDbOwner(this);
-    mOwner->setOwnerId("com.noklab.nrcc.JsonDbTest");
+    mOwner->setOwnerId(QStringLiteral("com.example.JsonDbTest"));
 
     QFile contactsFile(":/daemon/json/largeContactsTest.json");
     QVERIFY(contactsFile.exists());
@@ -278,12 +278,12 @@ void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyTy
         index.insert(kPropertyTypeStr, propertyType);
     if (!objectType.isEmpty())
         index.insert(kObjectTypeStr, objectType);
-    QVERIFY(mJsonDb->addIndex(index, JsonDbString::kSystemPartitionName));
+    QVERIFY(mJsonDb->addIndex(index, mJsonDb->mSystemPartitionName));
 }
 
 void TestJsonDb::compact()
 {
-    mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->compact();
+    mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->compact();
 }
 
 void TestJsonDb::jsonArrayCreate()
@@ -455,7 +455,8 @@ void TestJsonDb::benchmarkParseQuery()
     QJsonObject bindings;
     bindings.insert("bar", QString("barValue"));
     QBENCHMARK {
-        JsonDbQuery::parse(query, bindings);
+        JsonDbQuery *jq = JsonDbQuery::parse(query, bindings);
+        delete jq;
     }
 }
 
@@ -564,7 +565,7 @@ void TestJsonDb::benchmarkParsedQuery()
         //QVariantList orderTerms = parseResult.value("orderTerms").toList();
         int limit = 1;
         int offset = 0;
-        JsonDbQueryResult queryResult = mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->queryPersistentObjects(mOwner, parsedQuery.data(), limit, offset);
+        JsonDbQueryResult queryResult = mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->queryPersistentObjects(mOwner, parsedQuery.data(), limit, offset);
         if (queryResult.data.size() != 1) {
             qDebug() << "result length" << queryResult.data.size();
             qDebug() << "item" << item;
@@ -1072,7 +1073,7 @@ void TestJsonDb::benchmarkCursorCount()
     QJsonObject bindings;
     foreach (QString query, queries) {
         QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
-        IndexQuery *indexQuery = mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->compileIndexQuery(mOwner, parsedQuery.data());
+        IndexQuery *indexQuery = mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->compileIndexQuery(mOwner, parsedQuery.data());
         int count = 0;
         //qDebug() << "query" << query;
         QBENCHMARK {

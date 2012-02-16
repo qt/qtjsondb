@@ -229,16 +229,16 @@ void TestJsonDbQueries::removeDbFiles()
 void TestJsonDbQueries::initTestCase()
 {
     qsrand(QDateTime::currentDateTime().toTime_t());
-    QCoreApplication::setOrganizationName("Nokia");
-    QCoreApplication::setOrganizationDomain("nrcc.noklab.com");
+    QCoreApplication::setOrganizationName("Example");
+    QCoreApplication::setOrganizationDomain("example.com");
     QCoreApplication::setApplicationName("testjsodbqueries");
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
     gVerbose = false;
-    mJsonDb = new JsonDb(kFilename, this);
+    mJsonDb = new JsonDb(QString(), kFilename, QStringLiteral("com.example.JsonDbTestQueries"), this);
     mOwner = new JsonDbOwner(this);
-    mOwner->setOwnerId("com.noklab.nrcc.JsonDbTestQueries");
+    mOwner->setOwnerId("com.example.JsonDbTestQueries");
     mJsonDb->open();
 
     QFile contactsFile(":/queries/dataset.json");

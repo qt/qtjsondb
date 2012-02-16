@@ -103,9 +103,6 @@ public:
     static const QString kTombstoneStr;
     static const QString kPartitionTypeStr;
     static const QString kPartitionStr;
-
-    static const QString kSystemPartitionName;
-    static const QString kEphemeralPartitionName;
 };
 
 QT_END_NAMESPACE_JSONDB

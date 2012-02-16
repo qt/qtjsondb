@@ -100,23 +100,20 @@ static void sendError( JsonStream *stream, JsonDbError::ErrorCode code,
 /*********************************************/
 static int jsondbdocumentid = qRegisterMetaType<JsonDbObject>("JsonDbObject");
 
-DBServer::DBServer(const QString &fileName, QObject *parent)
+DBServer::DBServer(const QString &filePath, const QString &baseName, QObject *parent)
     : QObject(parent),
       mTcpServerPort(0),
       mServer(NULL),
       mTcpServer(NULL),
       mJsonDb(NULL),
-      mFileName(fileName)
+      mFilePath(filePath),
+      mBaseName(baseName)
 {
-    mMasterToken = ::getenv("JSONDB_TOKEN");
-    DBG() << "Master JSON-DB token" << mMasterToken;
-
-    if (mFileName.isEmpty()) {
+    if (mFilePath.isEmpty()) {
         QDir defaultDir(QDir::homePath() + QDir::separator() + QLatin1String(".jsondb"));
         if (!defaultDir.exists())
             defaultDir.mkpath(defaultDir.path());
-        mFileName = defaultDir.path();
-        mFileName += QDir::separator() + QLatin1String("database.db");
+        mFilePath = defaultDir.path();
     }
 }
 
@@ -150,7 +147,23 @@ bool DBServer::start(bool compactOnClose)
     QElapsedTimer timer;
     if (gPerformanceLog)
         timer.start();
-    mJsonDb = new JsonDb(mFileName, this);
+
+    QString username;
+#if defined(Q_OS_UNIX)
+    struct passwd *pwdent = ::getpwent();
+    username = QString::fromLocal8Bit(pwdent->pw_name);
+#else
+    username = QStringLiteral("com.example.JsonDb");
+#endif
+    if (mBaseName.isEmpty()) {
+        int pos = username.lastIndexOf(QLatin1Char('.'));
+        if (pos > 1)
+            mBaseName = username.left(pos);
+        else
+            mBaseName = QStringLiteral("database");
+    }
+
+    mJsonDb = new JsonDb(mFilePath, mBaseName, username, this);
     mJsonDb->setCompactOnClose(compactOnClose);
     if (!connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
                  this, SLOT(notified(QString,JsonDbObject,QString)),
@@ -321,8 +334,7 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
         }
 
         // Read quota from security object
-        // TODO: rename to com.nokia.mt.core.Quota?
-        GetObjectsResult result = mJsonDb->getObjects(JsonDbString::kTypeStr, QString("com.nokia.mp.core.Security"));
+        GetObjectsResult result = mJsonDb->getObjects(JsonDbString::kTypeStr, QString("Quota"));
         JsonDbObjectList securityObjects;
         for (int i = 0; i < result.data.size(); i++) {
             JsonDbObject doc = result.data.at(i);
@@ -410,7 +422,7 @@ void DBServer::processCreate(JsonStream *stream, JsonDbOwner *owner, const QJson
         result = mJsonDb->create(owner, document, partitionName, writeMode);
         QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
         if (!uuid.isEmpty()
-              // && partitionName == JsonDbString::kEphemeralPartitionName ### TODO: uncomment me
+              // && partitionName == mJsonDb->mEphemeralPartitionName ### TODO: uncomment me
             && document.value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr) {
             if (stream->device() && mConnections.value(stream->device()) == stream)
                 mNotifications.insert(uuid, stream);
@@ -443,9 +455,14 @@ void DBServer::processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJson
         QJsonObject o = object.toObject();
         JsonDbObject document(o);
 
+        QString partition = partitionName;
+        // Always use ephemeral partition for notifications
+        if (document.value(JsonDbString::kTypeStr).toString() == JsonDbString::kNotificationTypeStr)
+            partition = mJsonDb->ephemeralPartitionName();
+
         // The user could be changing a _type='notification' object to some other type
         QString uuid = document.value(JsonDbString::kUuidStr).toString();
-        if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName)
+        if (!uuid.isEmpty() && partition == mJsonDb->ephemeralPartitionName())
             mNotifications.remove(uuid);
 
         result = mJsonDb->update(owner, document, partitionName, writeMode);
@@ -454,7 +471,7 @@ void DBServer::processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJson
                 && !result.value(JsonDbString::kErrorStr).toObject().size())
             qCritical() << "UPDATE:" << document << " Error Message : " << result.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString();
 
-        if (!uuid.isEmpty() && partitionName == JsonDbString::kEphemeralPartitionName &&
+        if (!uuid.isEmpty() && partition == mJsonDb->ephemeralPartitionName() &&
                 document.value(JsonDbString::kTypeStr) == JsonDbString::kNotificationTypeStr) {
             if (stream->device() && mConnections.value(stream->device()) == stream)
                 mNotifications.insert(uuid, stream);
@@ -721,7 +738,7 @@ void DBServer::removeConnection()
             QString notificationId = iter.key();
             QJsonObject notificationObject;
             notificationObject.insert(JsonDbString::kUuidStr, notificationId);
-            mJsonDb->remove(owner, notificationObject, JsonDbString::kEphemeralPartitionName);
+            mJsonDb->remove(owner, notificationObject, mJsonDb->ephemeralPartitionName());
             mNotifications.remove(notificationId);
         }
     }

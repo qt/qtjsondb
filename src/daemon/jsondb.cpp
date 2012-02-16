@@ -62,6 +62,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#ifdef Q_OS_UNIX
+#include <pwd.h>
+#endif
 
 #include "jsondb.h"
 #include "jsondb-proxy.h"
@@ -473,21 +476,22 @@ QJsonValue JsonDb::fromJSValue(const QJSValue &v)
     return QJsonValue(QJsonValue::Undefined);
 }
 
-JsonDb::JsonDb(const QString &path, QObject *parent)
+JsonDb::JsonDb(const QString &filePath, const QString &baseName, const QString &username, QObject *parent)
     : QObject(parent)
     , mOwner(0)
     , mOpen(false)
     , mCompactOnClose(false)
+    , mFilePath(filePath)
 {
-    QFileInfo fi(path);
-    if (fi.isDir())
-        mFilePath = fi.filePath();
-    mFilePath = fi.dir().path();
+    mSystemPartitionName = baseName+QStringLiteral(".System");
+    mEphemeralPartitionName = QStringLiteral("Ephemeral");
+    if (mFilePath.isEmpty()) mFilePath = QStringLiteral(".");
     if (mFilePath.at(mFilePath.size()-1) != QLatin1Char('/'))
         mFilePath += QLatin1Char('/');
+    qDebug () << mFilePath << mSystemPartitionName << mEphemeralPartitionName;
 
     mOwner = new JsonDbOwner(this);
-    mOwner->setOwnerId("com.nrcc.noklab.JsonDb");
+    mOwner->setOwnerId(username);
 }
 
 JsonDb::~JsonDb()
@@ -501,13 +505,13 @@ bool JsonDb::open()
     mEphemeralStorage = new JsonDbEphemeralStorage(this);
 
     // open system partition
-    QString systemFileName = mFilePath + JsonDbString::kSystemPartitionName + QLatin1String(".db");
-    JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(systemFileName, JsonDbString::kSystemPartitionName, this);
+    QString systemFileName = mFilePath + mSystemPartitionName + QLatin1String(".db");
+    JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(systemFileName, mSystemPartitionName, this);
     if (!storage->open()) {
         qDebug() << "Cannot open system partition at" << systemFileName;
         return false;
     }
-    mStorages.insert(JsonDbString::kSystemPartitionName, storage);
+    mStorages.insert(mSystemPartitionName, storage);
 
     // read partition information from the db
     QJsonObject result;
@@ -520,7 +524,7 @@ bool JsonDb::open()
         // make a system partition
         JsonDbObject partition;
         partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
-        partition.insert(QLatin1String("name"), JsonDbString::kSystemPartitionName);
+        partition.insert(QLatin1String("name"), mSystemPartitionName);
         result = storage->createPersistentObject(partition);
         if (responseIsError(result)) {
             qCritical() << "Cannot create a system partition";
@@ -533,7 +537,7 @@ bool JsonDb::open()
         QString filename = mFilePath + part.value(QLatin1String("file")).toString();
         QString name = part.value(QLatin1String("name")).toString();
 
-        if (name == JsonDbString::kSystemPartitionName)
+        if (name == mSystemPartitionName)
             continue;
 
         if (mStorages.contains(name)) {
@@ -654,7 +658,7 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
             return JsonDbQueryResult::makeErrorResponse(JsonDbError::MissingQuery, QString("Missing query: ") + parsedQuery->queryExplanation.join("\n"));
         }
 
-        if (partition == JsonDbString::kEphemeralPartitionName)
+        if (partition == mEphemeralPartitionName)
             return mEphemeralStorage->query(parsedQuery.data(), limit, offset);
 
         JsonDbBtreeStorage *storage = findPartition(partition);
@@ -854,14 +858,13 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         }
     }
 
-    QString partition = partition_.isEmpty() ? JsonDbString::kSystemPartitionName : partition_;
+    QString partition = partition_.isEmpty() ? mSystemPartitionName : partition_;
     bool isNotification = objectType == JsonDbString::kNotificationTypeStr;
 
-    if (writeMode != EphemeralObject && (isNotification || partition == JsonDbString::kEphemeralPartitionName))
+    if (writeMode != EphemeralObject && (isNotification || partition == mEphemeralPartitionName))
         writeMode = EphemeralObject;
     if (writeMode == EphemeralObject)
-        partition = JsonDbString::kEphemeralPartitionName;
-
+        partition = mEphemeralPartitionName;
 
     if (writeMode != ViewObject)
         RETURN_IF_ERROR(errormap, checkNaturalObjectType(object, objectType));
@@ -1152,7 +1155,7 @@ void JsonDb::checkNotifications(const QString &partition, JsonDbObject object, N
         if (mEagerViewSourceTypes.contains(objectType)) {
             const QSet<QString> &targetTypes = mEagerViewSourceTypes[objectType];
             for (QSet<QString>::const_iterator it = targetTypes.begin(); it != targetTypes.end(); ++it)
-                emit requestViewUpdate(*it, JsonDbString::kSystemPartitionName);
+                emit requestViewUpdate(*it, mSystemPartitionName);
         }
     }
     if (object.contains(JsonDbString::kUuidStr))
@@ -1245,7 +1248,7 @@ void JsonDb::updateSchemaIndexes(const QString &schemaName, QJsonObject object, 
             QString propertyType = (propertyInfo.contains("type") ? propertyInfo.value("type").toString() : "string");
             QStringList kpath = path;
             kpath << k;
-            JsonDbBtreeStorage *storage = findPartition(JsonDbString::kSystemPartitionName);
+            JsonDbBtreeStorage *storage = findPartition(mSystemPartitionName);
             storage->addIndexOnProperty(kpath.join("."), propertyType, schemaName);
         }
         if (propertyInfo.contains("properties")) {
@@ -1295,7 +1298,7 @@ void JsonDb::initSchemas()
     if (gVerbose) qDebug() << "initSchemas";
     {
         JsonDbObjectList schemas = getObjects(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr,
-                                                QString(), JsonDbString::kSystemPartitionName).data;
+                                                QString(), mSystemPartitionName).data;
         for (int i = 0; i < schemas.size(); ++i) {
             JsonDbObject schemaObject = schemas.at(i);
             QString schemaName = schemaObject.value("name").toString();
@@ -1382,7 +1385,7 @@ void JsonDb::setSchema(const QString &schemaName, QJsonObject schema)
         if (extendedSchemaName == JsonDbString::kViewTypeStr) {
             mViewTypes.insert(schemaName);
             //TODO fix call to findPartition
-            JsonDbBtreeStorage *storage = findPartition(JsonDbString::kSystemPartitionName);
+            JsonDbBtreeStorage *storage = findPartition(mSystemPartitionName);
             storage->addView(schemaName);
             if (gVerbose) qDebug() << "viewTypes" << mViewTypes;
         }
@@ -1489,7 +1492,7 @@ QJsonObject JsonDb::validateReduceObject(JsonDbObject reduce)
 
 QJsonObject JsonDb::checkPartitionPresent(const QString &partition)
 {
-    if (!mStorages.contains(partition) && partition != JsonDbString::kEphemeralPartitionName)
+    if (!mStorages.contains(partition) && partition != mEphemeralPartitionName)
         return makeError(JsonDbError::InvalidPartition, QString::fromLatin1("Unknown partition '%1'").arg(partition));
     return QJsonObject();
 }
@@ -1642,7 +1645,7 @@ const Notification *JsonDb::createNotification(const JsonDbOwner *owner, JsonDbO
     QJsonObject bindings = object.value("bindings").toObject();
     QString partition = object.value(JsonDbString::kPartitionStr).toString();
     if (partition.isEmpty())
-        partition = JsonDbString::kSystemPartitionName;
+        partition = mSystemPartitionName;
 
     Notification *n = new Notification(owner, uuid, query, actions, partition);
     JsonDbQuery *parsedQuery = JsonDbQuery::parse(query, bindings);
@@ -1737,7 +1740,7 @@ void JsonDb::updateEagerViewTypes(const QString &objectType)
 JsonDbBtreeStorage *JsonDb::findPartition(const QString &name) const
 {
     if (name.isEmpty())
-        return mStorages.value(JsonDbString::kSystemPartitionName, 0);
+        return mStorages.value(mSystemPartitionName, 0);
     return mStorages.value(name, 0);
 }
 
@@ -1771,7 +1774,7 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
     partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
     partition.insert(QLatin1String("name"), name);
     partition.insert(QLatin1String("file"), filename);
-    QJsonObject result = mStorages[JsonDbString::kSystemPartitionName]->createPersistentObject(partition);
+    QJsonObject result = mStorages[mSystemPartitionName]->createPersistentObject(partition);
     if (responseIsError(result))
         return result;
 
@@ -1788,7 +1791,7 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
     mStorages.insert(name, storage);
     initMap(name);
 
-    checkNotifications(JsonDbString::kSystemPartitionName, partition, Notification::Create);
+    checkNotifications(mSystemPartitionName, partition, Notification::Create);
 
     return result;
 }
@@ -1839,7 +1842,7 @@ QHash<QString, qint64> JsonDb::fileSizes(const QString &partitionName) const
 {
     QString name = partitionName;
     if (name.isEmpty())
-        name = JsonDbString::kSystemPartitionName;
+        name = mSystemPartitionName;
 
     JsonDbBtreeStorage *partition = findPartition(name);
     if (partition)

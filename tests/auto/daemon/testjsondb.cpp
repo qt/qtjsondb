@@ -315,15 +315,15 @@ void TestJsonDb::removeDbFiles()
 void TestJsonDb::initTestCase()
 {
     qsrand(QDateTime::currentDateTime().toTime_t());
-    QCoreApplication::setOrganizationName("Nokia");
-    QCoreApplication::setOrganizationDomain("nrcc.noklab.com");
+    QCoreApplication::setOrganizationName("Example");
+    QCoreApplication::setOrganizationDomain("example.com");
     QCoreApplication::setApplicationName("testjsondb");
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
-    mJsonDb = new JsonDb(kFilename, this);
+    mJsonDb = new JsonDb(QString (), kFilename, QStringLiteral("com.example.JsonDbTest"), this);
     mOwner = new JsonDbOwner(this);
-    mOwner->setOwnerId("com.noklab.nrcc.JsonDbTest");
+    mOwner->setOwnerId(QStringLiteral("com.example.JsonDbTest"));
 
     mJsonDb->open();
 }
@@ -356,7 +356,7 @@ void TestJsonDb::reopen()
         mJsonDb->close();
         delete mJsonDb;
 
-        mJsonDb = new JsonDb(kFilename, this);
+        mJsonDb = new JsonDb(QString (), kFilename, QStringLiteral("com.example.JsonDbTest"), this);
         mJsonDb->open();
 
         QJsonObject request;
@@ -425,7 +425,7 @@ void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyTy
         index.insert(kPropertyTypeStr, propertyType);
     if (!objectType.isEmpty())
         index.insert(kObjectTypeStr, objectType);
-    QVERIFY(mJsonDb->addIndex(index, JsonDbString::kSystemPartitionName));
+    QVERIFY(mJsonDb->addIndex(index, mJsonDb->mSystemPartitionName));
 }
 
 void TestJsonDb::computeVersion()
@@ -2403,7 +2403,7 @@ void TestJsonDb::reduceRemoval()
 
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii).toObject(),
-                                         JsonDbString::kSystemPartitionName));
+                                         mJsonDb->mSystemPartitionName));
     mJsonDb->removeIndex("MyContactCount");
 }
 
@@ -2467,7 +2467,7 @@ void TestJsonDb::reduceUpdate()
     verifyGoodResult(mJsonDb->remove(mOwner, reduce));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii).toObject(),
-                                         JsonDbString::kSystemPartitionName));
+                                         mJsonDb->mSystemPartitionName));
     verifyGoodResult(mJsonDb->remove(mOwner, schema));
     mJsonDb->removeIndex("MyContactCount");
 }
@@ -2785,7 +2785,7 @@ void TestJsonDb::addIndex()
 
     QJsonObject result = mJsonDb->create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
+    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
     mJsonDb->remove(mOwner, indexObject);
 }
 
@@ -3282,13 +3282,13 @@ void TestJsonDb::orderedFind2()
     if (order == "/") {
         if (!(names == orderedNames)
                 || !(names != disorderedNames))
-            mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->checkIndex(field);
+            mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->checkIndex(field);
         QVERIFY(names == orderedNames);
         QVERIFY(names != disorderedNames);
     } else {
         if (!(names != orderedNames)
                 || !(names == disorderedNames))
-            mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->checkIndex(field);
+            mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->checkIndex(field);
         QVERIFY(names != orderedNames);
         QVERIFY(names == disorderedNames);
     }
@@ -3877,7 +3877,7 @@ void TestJsonDb::partition()
     QJsonObject query;
     query.insert("query", QString("[?_type=\"partitiontest\"]"));
 
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query, JsonDbString::kSystemPartitionName);
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query, mJsonDb->mSystemPartitionName);
     verifyGoodResult(result);
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("foo").toString(), QLatin1String("bar"));
@@ -4120,10 +4120,10 @@ void TestJsonDb::indexQueryOnCommonValues()
 void TestJsonDb::removeIndexes()
 {
     addIndex("wacky_index");
-    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
+    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
 
     QVERIFY(mJsonDb->removeIndex("wacky_index"));
-    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
+    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
 
     JsonDbObject indexObject;
     indexObject.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
@@ -4133,7 +4133,7 @@ void TestJsonDb::removeIndexes()
 
     QJsonObject result = mJsonDb->create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") != 0);
+    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") != 0);
 
     indexObject2.insert(JsonDbString::kUuidStr, indexObject.value(JsonDbString::kUuidStr).toString());
 
@@ -4143,7 +4143,7 @@ void TestJsonDb::removeIndexes()
 
     result = mJsonDb->remove(mOwner, indexObject2);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition(JsonDbString::kSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") == 0);
+    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") == 0);
 }
 
 void TestJsonDb::setOwner()

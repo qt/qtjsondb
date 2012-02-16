@@ -52,7 +52,7 @@ Rectangle {
     }
     JsonDb.Partition {
         id: systemPartition
-        name: "com.nokia.qtjsondb.System"
+        name: "com.example.System"
 
     }
     JsonDb.Query {

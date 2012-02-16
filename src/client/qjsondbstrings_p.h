@@ -116,15 +116,7 @@ public:
     static inline const QString actionRemove() { return QStringLiteral("remove"); }
 };
 
-class Partition
-{
-public:
-    static inline const QString system() { return QStringLiteral("com.nokia.qtjsondb.System"); }
-    static inline const QString ephemeral() { return QStringLiteral("com.nokia.qtjsondb.Ephemeral"); }
-};
-
 } // namespace JsonDbStrings
-
 QT_END_NAMESPACE_JSONDB
 
 #endif // JSONDB_STRINGS_P_H

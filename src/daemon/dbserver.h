@@ -64,7 +64,7 @@ class DBServer : public QObject
 {
     Q_OBJECT
 public:
-    DBServer(const QString &fileName, QObject *parent = 0);
+    DBServer(const QString &fileName, const QString &baseName, QObject *parent = 0);
     void setTcpServerPort(quint16 port) { mTcpServerPort = port; }
     quint16 tcpServerPort() const { return mTcpServerPort; }
 
@@ -105,8 +105,8 @@ private:
     QMap<QIODevice*,JsonDbOwner*>    mOwners;
     QMap<QString,JsonStream *>       mNotifications; // maps notification Id to socket
     JsonDb                          *mJsonDb;
-    QString                          mMasterToken;
-    QString mFileName;
+    QString mFilePath; // Directory where database files shall be stored
+    QString mBaseName; // Prefix to use in database file names
 };
 
 QT_END_NAMESPACE_JSONDB

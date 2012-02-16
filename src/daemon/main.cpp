@@ -114,6 +114,8 @@ static void usage()
 {
     cout << "Usage: " << qPrintable(progname) << " [OPTIONS] [FILENAME]" << endl
          << endl
+         << "     -dbdir              Directory to use for database files. $HOME/.jsondb is the default." << endl
+         << "     -base-name          Basename/prefix to be used in database files. Username of the process is the default." << endl
 #ifdef Q_OS_LINUX
          << "     -daemon             Run as a daemon process" << endl
          << "     -sigstop            Send SIGSTOP to self when ready to notify upstart" << endl
@@ -132,9 +134,6 @@ static void usage()
          << "     -validate-schemas   Validate schemas of objects on create and update" << endl
          << "     -enforce-access-control " << endl
          << "     -limit megabytes" << endl
-         << endl
-         << "Arguments:" << endl
-         << "  FILENAME      If FILENAME not specified, use default in database.db in the current directory" << endl
          << endl;
     exit(0);
 }
@@ -168,6 +167,8 @@ int main(int argc, char * argv[])
     QCoreApplication::setApplicationVersion("1.0");
     QString arguments;
     QString pidFileName;
+    QString baseName;
+    QString filePath;
     quint16 port = 0;
     bool clear = false;
     rlim_t limit = 0;
@@ -230,6 +231,10 @@ int main(int argc, char * argv[])
         } else if (arg == "-performance-log") {
             gPerformanceLog = true;
 #endif
+        } else if (arg == "-base-name") {
+            baseName = args.takeFirst();
+        } else if (arg == "-dbdir") {
+            filePath = args.takeFirst();
         } else if (arg == "-log-file") {
             logFileName = args.takeFirst();
         } else {
@@ -250,9 +255,18 @@ int main(int argc, char * argv[])
         pidFile.close();
     }
 
-    if (args.size() == 1)
-        arguments = args.takeFirst();
-    else if (!args.isEmpty())
+    if (args.size() == 1) { // For backwards compatibility
+        filePath = args.takeFirst();
+        QFileInfo fi(filePath);
+        if (!fi.isDir()) {
+            filePath = fi.path();
+            if (QString::compare(fi.suffix(), QStringLiteral("db"), Qt::CaseInsensitive) == 0)
+                baseName = fi.completeBaseName();
+            else
+                baseName = fi.fileName();
+        }
+    }
+    if (!args.isEmpty())
         usage();
 
     if (!logFileName.isEmpty()) {
@@ -265,7 +279,7 @@ int main(int argc, char * argv[])
         qInstallMsgHandler(logMessageOutput);
     }
 
-    DBServer server(arguments);
+    DBServer server(filePath, baseName);
     if (port)
         server.setTcpServerPort(port);
     Signals handler;
