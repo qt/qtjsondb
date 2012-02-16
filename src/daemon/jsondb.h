@@ -59,7 +59,6 @@
 #include "jsondbquery.h"
 #include "jsondbbtreestorage.h"
 #include "jsondbstat.h"
-#include "jsondb-map-reduce.h"
 #include "notification.h"
 #include "schemamanager_p.h"
 
@@ -137,13 +136,14 @@ public:
     Q_INVOKABLE QJsonObject log(JsonDbOwner *owner, QJsonValue data);
 
     JsonDbOwner *owner() const { return mOwner; }
+    const JsonDbOwner *findOwner(const QString &ownerId) const;
 
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(), const QString &partition = QString()) const;
 
     QString ephemeralPartitionName() const { return mEphemeralPartitionName; }
-    QString setEphemeralPartitionName(const QString &name) { mEphemeralPartitionName = name; }
+    QString setEphemeralPartitionName(const QString &name) { mEphemeralPartitionName = name; return mEphemeralPartitionName; }
     QString systemPartitionName() const { return mSystemPartitionName; }
-    QString setSystemPartitionName(const QString &name) { mSystemPartitionName = name; }
+    QString setSystemPartitionName(const QString &name) { mSystemPartitionName = name; return mSystemPartitionName; }
 
     bool compactOnClose() const { return mCompactOnClose; }
     void setCompactOnClose(bool compact) { mCompactOnClose = compact; }
@@ -191,19 +191,6 @@ protected:
                      const QString &partition = QString());
     bool removeIndex(JsonDbObject indexObject, const QString &partition);
 
-    void initMap(const QString &partition);
-    void createMapDefinition(QJsonObject mapDefinition, bool firstTime, const QString &partition);
-    void removeMapDefinition(QJsonObject mapDefinition, const QString &partition);
-
-    void createReduceDefinition(QJsonObject reduceDefinition, bool firstTime, const QString &partition);
-    void removeReduceDefinition(QJsonObject reduceDefinition, const QString &partition);
-    void removeReduceDefinition(QJsonObject *def);
-
-    quint32 findUpdatedMapReduceDefinitions(JsonDbBtreeStorage *partition, const QString &definitionType, const QString &viewType, quint32 targetStateNumber,
-                                         QMap<QString, QJsonObject> &removedDefinitions, QMap<QString, QJsonObject> &addedDefinitions) const;
-
-    void updateMap(const QString &viewType, const QString &partitionName);
-    void updateReduce(const QString &viewType, const QString &partitionName);
     void updateEagerViewTypes(const QString &objectType);
 
     void checkNotifications(const QString &partition, JsonDbObject obj, Notification::Action action);
@@ -243,11 +230,8 @@ protected:
     QMultiMap<QString,Notification*> mKeyedNotifications;
     QSet<QString>             mViewTypes;
     QMap<QString,QSet<QString> > mEagerViewSourceTypes; // set of eager view types dependent on this source type
-    QMultiMap<QString,JsonDbMapDefinition*> mMapDefinitionsBySource; // maps map source type to view definition
-    QMultiMap<QString,JsonDbMapDefinition*> mMapDefinitionsByTarget; // maps map target type to view definition
-    QMultiMap<QString,JsonDbReduceDefinition*> mReduceDefinitionsBySource; // maps reduce source type to view definition
-    QMultiMap<QString,JsonDbReduceDefinition*> mReduceDefinitionsByTarget; // maps reduce target type to view definition
     QSet<QString>         mViewsUpdating;
+    QMap<QString,const JsonDbOwner*> mOwners;
     bool                  mCompactOnClose;
 
     friend class ::TestJsonDb;

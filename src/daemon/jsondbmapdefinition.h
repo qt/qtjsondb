@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_MAP_REDUCE_H
-#define JSONDB_MAP_REDUCE_H
+#ifndef MAP_DEFINITION_H
+#define MAP_DEFINITION_H
 
 #include <QJSEngine>
 #include <QStringList>
@@ -60,13 +60,14 @@ class JsonDb;
 class JsonDbOwner;
 class JsonDbJoinProxy;
 class JsonDbMapProxy;
+class JsonDbBtreeStorage;
 class ObjectTable;
 
 class JsonDbMapDefinition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbMapDefinition(JsonDb *mJsonDb, JsonDbOwner *mOwner, const QString &partition, QJsonObject mapDefinition, QObject *parent = 0);
+    JsonDbMapDefinition(JsonDb *mJsonDb, const JsonDbOwner *mOwner, const QString &partition, QJsonObject mapDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     const QStringList &sourceTypes() const { return mSourceTypes; }
@@ -75,6 +76,7 @@ public:
     QJsonObject definition() const { return mDefinition; }
     QJSValue mapFunction(const QString &sourceType) const;
     ObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
+    const JsonDbOwner *owner() const { return mOwner; }
 
     void initScriptEngine();
     void releaseScriptEngine();
@@ -89,7 +91,8 @@ public slots:
 private:
     JsonDb        *mJsonDb;
     QString        mPartition;
-    JsonDbOwner   *mOwner;
+    JsonDbBtreeStorage *mStorage;
+    const JsonDbOwner *mOwner;
     QJsonObject     mDefinition;
     QJSEngine     *mScriptEngine;
     JsonDbMapProxy *mMapProxy; // to be removed when old map/lookup converted to join/lookup
@@ -101,51 +104,6 @@ private:
     ObjectTable   *mTargetTable;
     QMap<QString,ObjectTable*> mSourceTables;
     QList<QString> mSourceUuids;
-};
-
-class JsonDbReduceDefinition : public QObject
-{
-    Q_OBJECT
-public:
-    JsonDbReduceDefinition(JsonDb *mJsonDb, JsonDbOwner *mOwner, const QString &partition, QJsonObject reduceDefinition, QObject *parent = 0);
-    QString uuid() const { return mUuid; }
-    QString targetType() const { return mTargetType; }
-    QString sourceType() const { return mSourceType; }
-    QString partition() const { return mPartition; }
-    QString sourceKeyName() const { return mSourceKeyName; }
-    QString targetKeyName() const { return mTargetKeyName; }
-    QString targetValueName() const { return mTargetValueName; }
-    // sourceKeyName split on .
-    QStringList sourceKeyNameList() const { return mSourceKeyNameList; }
-    bool isActive() const;
-    QJsonObject definition() const { return mDefinition; }
-    const QJSValue &addFunction() const { return mAddFunction; }
-    const QJSValue &subtractFunction() const { return mSubtractFunction; }
-
-    void initScriptEngine();
-    void releaseScriptEngine();
-    void updateObject(JsonDbObject before, JsonDbObject after);
-    QJsonValue addObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);
-    QJsonValue subtractObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);
-
-    void setError(const QString &errorMsg);
-
-private:
-    JsonDb        *mJsonDb;
-    JsonDbOwner   *mOwner;
-    QString        mPartition;
-    QJsonObject     mDefinition;
-    QJSEngine *mScriptEngine;
-    QJSValue   mAddFunction;
-    QJSValue   mSubtractFunction;
-    QString        mUuid;
-    QString        mTargetType;
-    QString        mSourceType;
-    QString        mTargetKeyName;
-    QString        mTargetValueName;
-    QString        mSourceKeyName;
-    // mSourceKeyName split on .
-    QStringList    mSourceKeyNameList;
 };
 
 QT_END_NAMESPACE_JSONDB

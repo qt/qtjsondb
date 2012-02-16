@@ -66,6 +66,7 @@
 #include "objecttable.h"
 #include "qbtreetxn.h"
 #include "qmanagedbtree.h"
+#include "jsondbview.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -118,8 +119,9 @@ JsonDbBtreeStorage::~JsonDbBtreeStorage()
 
 bool JsonDbBtreeStorage::close()
 {
-    foreach (ObjectTable *table, mViews.values()) {
-        delete table;
+    foreach (JsonDbView *view, mViews.values()) {
+        view->close();
+        delete view;
     }
     mViews.clear();
 
@@ -500,25 +502,24 @@ QJsonObject JsonDbBtreeStorage::createPersistentObject(JsonDbObject &object)
     return JsonDb::makeResponse( resultmap, errormap );
 }
 
-void JsonDbBtreeStorage::addView(const QString &viewType)
+JsonDbView *JsonDbBtreeStorage::addView(const QString &viewType)
 {
-    if (!mViews.contains(viewType)) {
-        ObjectTable *viewObjectTable = new ObjectTable(this);
-        QFileInfo fi(mFilename);
-        QString dirName = fi.dir().path();
-        QString baseName = fi.fileName();
-        baseName.replace(".db", "");
-        if (!viewObjectTable->open(QString("%1/%2-%3-View.db")
-                                   .arg(dirName)
-                                   .arg(baseName)
-                                   .arg(viewType),
-                                   QBtree::NoSync | QBtree::UseSyncMarker)) {
-            qCritical() << "viewDb->open" << viewObjectTable->errorMessage();
-            return;
-        }
-        mViews.insert(viewType, viewObjectTable);
-        viewObjectTable->addIndexOnProperty(JsonDbString::kUuidStr, "string", viewType);
-    }
+    JsonDbView *view = mViews.value(viewType);
+    if (view)
+        return view;
+
+    view = new JsonDbView(mJsonDb, this, viewType, this);
+    view->open();
+    mViews.insert(viewType, view);
+    return view;
+}
+
+void JsonDbBtreeStorage::removeView(const QString &viewType)
+{
+    JsonDbView *view = mViews.value(viewType);
+    view->close();
+    view->deleteLater();
+    mViews.remove(viewType);
 }
 
 void JsonDbBtreeStorage::updateView(const QString &objectType)
@@ -529,18 +530,18 @@ void JsonDbBtreeStorage::updateView(const QString &objectType)
     mJsonDb->updateView(objectType);
 }
 
-void JsonDbBtreeStorage::updateView(ObjectTable *objectTable)
+JsonDbView *JsonDbBtreeStorage::findView(const QString &objectType) const
 {
-    QString targetType = mViews.key(objectTable, QString());
-    // TODO partition name
-    if (!targetType.isEmpty())
-        mJsonDb->updateView(targetType);
+    if (mViews.contains(objectType))
+        return mViews.value(objectType);
+    else
+        return 0;
 }
 
 ObjectTable *JsonDbBtreeStorage::findObjectTable(const QString &objectType) const
 {
         if (mViews.contains(objectType))
-            return mViews.value(objectType);
+            return mViews.value(objectType)->objectTable();
         else
             return mObjectTable;
 }
@@ -621,8 +622,8 @@ void JsonDbBtreeStorage::timerEvent(QTimerEvent *event)
         mObjectTable->sync(ObjectTable::SyncIndexes);
 
         // sync the views
-        foreach (ObjectTable *view, mViews)
-            view->sync(ObjectTable::SyncObjectTable | ObjectTable::SyncIndexes);
+        foreach (JsonDbView *view, mViews)
+            view->objectTable()->sync(ObjectTable::SyncObjectTable | ObjectTable::SyncIndexes);
 
         killTimer(mIndexSyncTimerId);
         mIndexSyncTimerId = -1;
@@ -726,21 +727,27 @@ bool JsonDbBtreeStorage::getObject(const ObjectKey &objectKey, JsonDbObject &obj
     bool ok = table->get(objectKey, &object);
     if (ok)
         return ok;
-    QHash<QString,QPointer<ObjectTable> >::const_iterator it = mViews.begin();
+    QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
     for (; it != mViews.end(); ++it) {
-        bool ok = it.value()->get(objectKey, &object);
+        JsonDbView *view = it.value();
+        if (!view)
+            qDebug() << "no view";
+        if (!view->objectTable())
+            qDebug() << "no object table for view";
+        bool ok = view->objectTable()->get(objectKey, &object);
         if (ok)
             return ok;
     }
     return false;
 }
 
-GetObjectsResult JsonDbBtreeStorage::getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &_objectType)
+GetObjectsResult JsonDbBtreeStorage::getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &_objectType, bool updateViews)
 {
     const QString &objectType = (keyName == JsonDbString::kTypeStr) ? keyValue.toString() : _objectType;
     ObjectTable *table = findObjectTable(objectType);
 
-    updateView(objectType);
+    if (updateViews && (table != mObjectTable))
+        updateView(objectType);
     return table->getObjects(keyName, keyValue, objectType);
 }
 
@@ -822,10 +829,10 @@ bool JsonDbBtreeStorage::checkValidity()
 void JsonDbBtreeStorage::flushCaches()
 {
     mObjectTable->flushCaches();
-    for (QHash<QString,QPointer<ObjectTable> >::const_iterator it = mViews.begin();
+    for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
          it != mViews.end();
          ++it)
-        it.value()->flushCaches();
+        it.value()->reduceMemoryUsage();
 }
 
 void JsonDbBtreeStorage::initIndexes()
@@ -897,8 +904,6 @@ void JsonDbBtreeStorage::checkIndexConsistency(ObjectTable *objectTable, JsonDbI
             qCritical() << "   reverted index to state" << indexStateNumber;
         }
     }
-    if (indexStateNumber < objectTable->stateNumber())
-        updateIndex(objectTable, index);
 }
 
 QHash<QString, qint64> JsonDbBtreeStorage::fileSizes() const
@@ -911,9 +916,10 @@ QHash<QString, qint64> JsonDbBtreeStorage::fileSizes() const
             fileInfo << spec.index->bdb()->fileName();
     }
 
-    foreach (ObjectTable *view, mViews) {
-        fileInfo << view->bdb()->fileName();
-        foreach (const IndexSpec &spec, view->indexSpecs().values()) {
+    foreach (JsonDbView *view, mViews) {
+        ObjectTable *objectTable = view->objectTable();
+        fileInfo << objectTable->bdb()->fileName();
+        foreach (const IndexSpec &spec, objectTable->indexSpecs().values()) {
             if (spec.index->bdb())
                 fileInfo << spec.index->bdb()->fileName();
         }
@@ -1414,11 +1420,6 @@ void JsonDbBtreeStorage::compileOrQueryTerm(IndexQuery *indexQuery, const QueryT
     }
 }
 
-void JsonDbBtreeStorage::updateIndex(ObjectTable *table, JsonDbIndex *index)
-{
-    table->updateIndex(index);
-}
-
 IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query)
 {
     IndexQuery *indexQuery = 0;
@@ -1428,8 +1429,9 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
     const QList<OrderTerm> &orderTerms = query->orderTerms;
     const QList<OrQueryTerm> &orQueryTerms = query->queryTerms;
     QString indexCandidate;
-    ObjectTable *table = mObjectTable; //TODO fix me
     int indexedQueryTermCount = 0;
+    ObjectTable *table = mObjectTable; //TODO fix me
+    JsonDbView *view = 0;
     if (orQueryTerms.size()) {
         for (int i = 0; i < orQueryTerms.size(); i++) {
             const OrQueryTerm orQueryTerm = orQueryTerms[i];
@@ -1442,8 +1444,10 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
                 const QueryTerm &queryTerm = queryTerms[0];
 
                 if ((typeNames.size() == 1)
-                    && mViews.contains(typeNames.toList()[0]))
-                    table = mViews[typeNames.toList()[0]];
+                    && mViews.contains(typeNames.toList()[0])) {
+                    view = mViews[typeNames.toList()[0]];
+                    table = view->objectTable();
+                }
 
                 if (table->indexSpec(propertyName))
                     indexedQueryTermCount++;
@@ -1496,8 +1500,10 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         }
     }
     if ((typeNames.size() == 1)
-        && mViews.contains(typeNames.toList()[0]))
-        table = mViews[typeNames.toList()[0]];
+        && mViews.contains(typeNames.toList()[0])) {
+        view = mViews[typeNames.toList()[0]];
+        table = view->objectTable();
+    }
     if (!indexedQueryTermCount && !indexCandidate.isEmpty()) {
             if (gDebug)
                 qDebug() << "adding index" << indexCandidate;
@@ -1525,10 +1531,9 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         if (!indexQuery) {
             orderField = propertyName;
             const IndexSpec *indexSpec = table->indexSpec(propertyName);
-            updateView(table);
+            if (view)
+                view->updateView();
 
-            if (indexSpec->lazy)
-                updateIndex(table, indexSpec->index);
             indexQuery = IndexQuery::indexQuery(this, table, propertyName, indexSpec->propertyType,
                                                 owner, orderTerm.ascending);
         } else if (orderField != propertyName) {
@@ -1565,9 +1570,8 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
             if (!indexQuery && (propertyName != JsonDbString::kTypeStr) && table->indexSpec(propertyName)) {
                 orderField = propertyName;
                 const IndexSpec *indexSpec = table->indexSpec(propertyName);
-                updateView(table);
-                if (indexSpec->lazy)
-                    updateIndex(table, indexSpec->index);
+                if (view)
+                    view->updateView();
                 indexQuery = IndexQuery::indexQuery(this, table, propertyName, indexSpec->propertyType, owner);
             }
 
@@ -1585,18 +1589,18 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
         QString defaultIndex = JsonDbString::kUuidStr;
         if (typeNames.size()) {
             if ((typeNames.size() == 1)
-                && mViews.contains(typeNames.toList()[0]))
-                table = mViews[typeNames.toList()[0]];
-            else
+                && mViews.contains(typeNames.toList()[0])) {
+                view = mViews[typeNames.toList()[0]];
+                table = view->objectTable();
+            } else
                 defaultIndex = JsonDbString::kTypeStr;
         }
         const IndexSpec *indexSpec = table->indexSpec(defaultIndex);
 
         //qDebug() << "defaultIndex" << defaultIndex << "on table" << indexSpec->objectType;
 
-        updateView(table);
-        if (indexSpec->lazy)
-            updateIndex(table, indexSpec->index);
+        if (view)
+            view->updateView();
         indexQuery = IndexQuery::indexQuery(this, table, defaultIndex, indexSpec->propertyType, owner);
         if (typeNames.size() == 0)
             qCritical() << "searching all objects" << query->query;
@@ -1829,10 +1833,10 @@ void JsonDbBtreeStorage::checkIndex(const QString &propertyName)
 
 bool JsonDbBtreeStorage::compact()
 {
-    for (QHash<QString,QPointer<ObjectTable> >::const_iterator it = mViews.begin();
+    for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
          it != mViews.end();
          ++it) {
-        it.value()->compact();
+        it.value()->objectTable()->compact();
     }
     bool result = true;
     result &= mObjectTable->compact();
@@ -1842,10 +1846,10 @@ bool JsonDbBtreeStorage::compact()
 struct JsonDbStat JsonDbBtreeStorage::stat() const
 {
     JsonDbStat result;
-    for (QHash<QString,QPointer<ObjectTable> >::const_iterator it = mViews.begin();
+    for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
           it != mViews.end();
           ++it) {
-        result += it.value()->stat();
+        result += it.value()->objectTable()->stat();
      }
     result += mObjectTable->stat();
     return result;

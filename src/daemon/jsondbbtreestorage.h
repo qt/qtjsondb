@@ -62,12 +62,12 @@ QT_BEGIN_HEADER
 class TestJsonDb;
 class QManagedBtree;
 class QBtreeCursor;
-
 QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbOwner;
 class ObjectTable;
 class JsonDbIndex;
+class JsonDbView;
 
 extern const QString kDbidTypeStr;
 extern const QString kIndexTypeStr;
@@ -161,6 +161,7 @@ class JsonDbBtreeStorage : public QObject
 public:
     JsonDbBtreeStorage(const QString &filename, const QString &name, JsonDb *jsonDb);
     ~JsonDbBtreeStorage();
+    QString filename() const { return mFilename; }
     bool open();
     bool close();
     bool clear();
@@ -192,15 +193,18 @@ public:
     QJsonObject updatePersistentObject(const JsonDbObject& oldObject, const JsonDbObject& object);
     QJsonObject removePersistentObject(const JsonDbObject& oldObject, const JsonDbObject &tombStone );
 
-    void addView(const QString &viewType);
+    JsonDbView *addView(const QString &viewType);
     void removeView(const QString &viewType);
     ObjectTable *mainObjectTable() const { return mObjectTable; }
     ObjectTable *findObjectTable(const QString &objectType) const;
+    JsonDbView *findView(const QString &objectType) const;
+    void updateEagerViewTypes(const QString &viewType) const;
 
     bool getObject(const QString &uuid, JsonDbObject &object, const QString &objectType = QString()) const;
     bool getObject(const ObjectKey & objectKey, JsonDbObject &object, const QString &objectType = QString()) const;
 
-    GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString());
+    GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(),
+                                bool updateViews = true);
 
     QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
     void dumpIndexes(QString label);
@@ -217,14 +221,13 @@ public:
 
     QHash<QString, qint64> fileSizes() const;
 
+    void updateView(const QString &objectType);
+
 protected:
     void timerEvent(QTimerEvent *event);
 
     bool checkStateConsistency();
     void checkIndexConsistency(ObjectTable *table, JsonDbIndex *index);
-    void updateIndex(ObjectTable *table, JsonDbIndex *index);
-    void updateView(ObjectTable *table);
-    void updateView(const QString &objectType);
 
     IndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
     void compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm);
@@ -245,7 +248,7 @@ private:
     QString      mFilename;
     int          mTransactionDepth;
     bool         mTransactionOk;
-    QHash<QString,QPointer<ObjectTable> > mViews;
+    QHash<QString,QPointer<JsonDbView> > mViews;
     QRegExp      mWildCardPrefixRegExp;
     int          mMainSyncTimerId;
     int          mIndexSyncTimerId;

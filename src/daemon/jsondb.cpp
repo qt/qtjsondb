@@ -68,9 +68,9 @@
 
 #include "jsondb.h"
 #include "jsondb-proxy.h"
-#include "jsondb-map-reduce.h"
 #include "jsondbbtreestorage.h"
 #include "jsondbephemeralstorage.h"
+#include "jsondbview.h"
 #include "schemamanager_impl_p.h"
 #include "qsonobjecttypes_impl_p.h"
 
@@ -480,8 +480,8 @@ JsonDb::JsonDb(const QString &filePath, const QString &baseName, const QString &
     : QObject(parent)
     , mOwner(0)
     , mOpen(false)
-    , mCompactOnClose(false)
     , mFilePath(filePath)
+    , mCompactOnClose(false)
 {
     mSystemPartitionName = baseName+QStringLiteral(".System");
     mEphemeralPartitionName = QStringLiteral("Ephemeral");
@@ -557,15 +557,11 @@ bool JsonDb::open()
 
     mViewTypes.clear();
     mEagerViewSourceTypes.clear();
-    mMapDefinitionsBySource.clear();
-    mMapDefinitionsByTarget.clear();
-    mReduceDefinitionsBySource.clear();
-    mReduceDefinitionsByTarget.clear();
 
     initSchemas();
 
-    foreach (const QString &partition, mStorages.keys())
-        initMap(partition);
+    foreach (JsonDbBtreeStorage *storage, mStorages)
+        JsonDbView::initViews(storage, storage->name());
 
     mOpen = true;
     return true;
@@ -591,18 +587,11 @@ bool JsonDb::checkValidity()
  */
 void JsonDb::reduceMemoryUsage()
 {
-    for (QHash<QString, JsonDbBtreeStorage *>::const_iterator it = mStorages.begin();
-         it != mStorages.end(); ++it)
-        it.value()->flushCaches();
-    for (QMap<QString,JsonDbMapDefinition*>::const_iterator it = mMapDefinitionsByTarget.begin();
-         it != mMapDefinitionsByTarget.end();
-         ++it)
-        it.value()->releaseScriptEngine();
-    for (QMap<QString,JsonDbReduceDefinition*>::const_iterator it = mReduceDefinitionsByTarget.begin();
-         it != mReduceDefinitionsByTarget.end();
-         ++it)
-        it.value()->releaseScriptEngine();
-
+    for (QHash<QString, JsonDbBtreeStorage *>::iterator it = mStorages.begin();
+         it != mStorages.end(); ++it) {
+        JsonDbBtreeStorage *storage = it.value();
+        storage->flushCaches();
+    }
 }
 
 JsonDbStat JsonDb::stat() const
@@ -627,6 +616,16 @@ void JsonDb::close()
         }
     }
     mOpen = false;
+}
+
+const JsonDbOwner *JsonDb::findOwner(const QString &ownerId) const
+{
+    const JsonDbOwner *owner = mOwners.value(ownerId);
+    if (owner)
+        return owner;
+    else
+        // security hole
+        return mOwner;
 }
 
 JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const QString &partition)
@@ -1413,6 +1412,8 @@ void JsonDb::removeSchema(const QString &schemaName)
                 extendedSchemaName = extendsValue.toObject().value("$ref").toString();
             if (extendedSchemaName == JsonDbString::kViewTypeStr) {
                 mViewTypes.remove(schemaName);
+                JsonDbBtreeStorage *storage = findPartition(mSystemPartitionName);
+                storage->removeView(schemaName);
             }
         }
     }
@@ -1585,15 +1586,10 @@ QJsonObject JsonDb::checkCanRemoveSchema(JsonDbObject schema)
 
     // for View types, make sure no Maps or Reduces point at this type
     // the call to getObject will have updated the view, so pending Map or Reduce object removes will be forced
-    if (mMapDefinitionsByTarget.contains(schemaName)) {
+    JsonDbView *view = mStorages.value(mSystemPartitionName)->findView(schemaName);
+    if (view && view->sourceTypes().size()) {
       return makeError(JsonDbError::InvalidSchemaOperation,
-                       QString("A Map object with targetType of %2 exists. You cannot remove the schema")
-                       .arg(schemaName));
-    }
-
-    if (mReduceDefinitionsByTarget.contains(schemaName)) {
-      return makeError(JsonDbError::InvalidSchemaOperation,
-                       QString("A Reduce object with targetType of %2 exists. You cannot remove the schema")
+                       QString("A view with targetType of %2 exists. You cannot remove the schema")
                        .arg(schemaName));
     }
 
@@ -1713,24 +1709,11 @@ void JsonDb::removeNotification(const QString &uuid)
 
 void JsonDb::updateEagerViewTypes(const QString &objectType)
 {
-    for (QMap<QString,JsonDbMapDefinition*>::const_iterator it = mMapDefinitionsByTarget.find(objectType);
-         (it != mMapDefinitionsByTarget.end() && it.key() == objectType);
-         ++it) {
-        JsonDbMapDefinition *def = it.value();
-        const QStringList &sourceTypes = def->sourceTypes();
-        for (int i = 0; i < sourceTypes.size(); i++) {
-            const QString &sourceType = sourceTypes[i];
-            QSet<QString> &targetTypes = mEagerViewSourceTypes[sourceType];
-            targetTypes.insert(objectType);
-            // now recurse until we get to a non-view sourceType
-            updateEagerViewTypes(sourceType);
-        }
-    }
-    for (QMap<QString,JsonDbReduceDefinition*>::const_iterator it = mReduceDefinitionsByTarget.find(objectType);
-         (it != mReduceDefinitionsByTarget.end() && it.key() == objectType);
-         ++it) {
-        JsonDbReduceDefinition *def = it.value();
-        QString sourceType = def->sourceType();
+    JsonDbBtreeStorage *storage = findPartition(mSystemPartitionName);
+    JsonDbView *view = storage->findView(objectType);
+    if (!view)
+        return;
+    foreach (const QString sourceType, view->sourceTypes()) {
         QSet<QString> &targetTypes = mEagerViewSourceTypes[sourceType];
         targetTypes.insert(objectType);
         // now recurse until we get to a non-view sourceType
@@ -1790,7 +1773,7 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
         return makeResponse(resultmap, errormap);
     }
     mStorages.insert(name, storage);
-    initMap(name);
+    JsonDbView::initViews(storage, name);
 
     checkNotifications(mSystemPartitionName, partition, Notification::Create);
 
@@ -1829,6 +1812,16 @@ QJSValue JsonDb::toJSValue(const QJsonObject &object, QJSEngine *scriptEngine)
     for (QJsonObject::const_iterator it = object.begin(); it != object.end(); ++it)
         jsObject.setProperty(it.key(), toJSValue(it.value(), scriptEngine));
     return jsObject;
+}
+
+void JsonDb::updateView(const QString &viewType, const QString &partitionName)
+{
+    if (viewType.isEmpty())
+        return;
+    JsonDbBtreeStorage *partition = findPartition(partitionName);
+    JsonDbView *view = partition->findView(viewType);
+    if (view)
+        view->updateView();
 }
 
 QJsonObject JsonDb::log(JsonDbOwner *owner, QJsonValue data)
