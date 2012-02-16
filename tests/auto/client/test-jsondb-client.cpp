@@ -110,6 +110,9 @@ private slots:
     void changesSinceObject();
     void jsondbobject();
     void jsondbobject_uuidFromObject();
+#ifdef Q_OS_LINUX
+    void sigstop();
+#endif
 
     void connection_response(int, const QVariant&);
     void connection_error(int, int, const QString&);
@@ -1453,6 +1456,27 @@ void TestJsonDbClient::jsondbobject_uuidFromObject()
         QCOMPARE(uuid, uuid3);
     }
 }
+
+#ifdef Q_OS_LINUX
+void TestJsonDbClient::sigstop()
+{
+#ifdef DONT_START_SERVER
+    QSKIP("cannot test sigstop without starting server");
+#endif
+    QStringList argList = QStringList() << "-sigstop";
+    argList << QString::fromLatin1("sigstop.db");
+
+    QProcess *jsondb = launchJsonDbDaemon(JSONDB_DAEMON_BASE, QString("testjsondb_sigstop%1").arg(getpid()), argList);
+    int status;
+    ::waitpid(jsondb->pid(), &status, WUNTRACED);
+    QVERIFY(WIFSTOPPED(status));
+    ::kill(jsondb->pid(), SIGCONT);
+    ::waitpid(jsondb->pid(), &status, WCONTINUED);
+    QVERIFY(WIFCONTINUED(status));
+    ::kill(jsondb->pid(), SIGTERM);
+    ::waitpid(jsondb->pid(), &status, 0);
+}
+#endif
 
 QTEST_MAIN(TestJsonDbClient)
 

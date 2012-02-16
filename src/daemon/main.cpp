@@ -116,6 +116,7 @@ static void usage()
          << endl
 #ifdef Q_OS_LINUX
          << "     -daemon             Run as a daemon process" << endl
+         << "     -sigstop            Send SIGSTOP to self when ready to notify upstart" << endl
 #endif
          << "     -tcpPort port       Specify a TCP port to listen on" << endl
 #ifndef QT_NO_DEBUG_OUTPUT
@@ -180,6 +181,7 @@ int main(int argc, char * argv[])
     bool terminate = false;
     bool compactOnClose = false;
     bool detach = false;
+    bool sigstop = false;
 
     progname = args.takeFirst();
     while (args.size()) {
@@ -218,6 +220,8 @@ int main(int argc, char * argv[])
 #ifdef Q_OS_LINUX
         } else if ( arg == "-daemon" ) {
             detach = true;
+        } else if ( arg == "-sigstop" ) {
+            sigstop = true;
 #endif
         } else if (arg == "-validate-schemas") {
             gValidateSchemas = true;
@@ -243,6 +247,10 @@ int main(int argc, char * argv[])
             cout << "Unknown argument " << qPrintable(arg) << endl << endl;
             usage();
         }
+    }
+    if (detach && sigstop) {
+        qCritical() << "-daemon and -sigstop are incompatible";
+        usage();
     }
 
     if (!pidFileName.isEmpty()) {
@@ -315,6 +323,9 @@ int main(int argc, char * argv[])
     else
         sd_notify(0, "READY=1");
 #endif
-
+#ifdef Q_OS_LINUX
+    if (sigstop)
+        ::kill(::getpid(), SIGSTOP);
+#endif
     return app.exec();
 }
