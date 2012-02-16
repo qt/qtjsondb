@@ -132,7 +132,7 @@ void ModelCache::clear()
 
 int ModelCache::findPage(int pos)
 {
-    for (int i = 0; i< pages.count(); i++) {
+    for (int i = 0; i < pages.count(); i++) {
         if (pages[i]->hasIndex(pos))
             return i;
     }
@@ -141,13 +141,13 @@ int ModelCache::findPage(int pos)
 
 QVariantMap ModelCache::valueAtPage(int page, const QString &key)
 {
-    Q_ASSERT(page >= 0 && page <pages.count());
+    Q_ASSERT(page >= 0 && page < pages.count());
     return pages[page]->value(key);
 }
 
 bool ModelCache::hasValueAtPage(int page, const QString &key)
 {
-    Q_ASSERT(page >= 0 && page <pages.count());
+    Q_ASSERT(page >= 0 && page < pages.count());
     return pages[page]->hasValue(key);
 }
 
@@ -160,10 +160,10 @@ void ModelCache::splitPage(int page, const JsonDbModelIndexType &objectUuids)
     halfPage->count = count-(halfPage->index-pages[page]->index);
     pages[page]->count = count-halfPage->count;
     JsonDbModelIndexType::const_iterator begin = objectUuids.constBegin();
-    for (int i = halfPage->index; i< halfPage->index+halfPage->count; i++) {
+    for (int i = halfPage->index; i < halfPage->index+halfPage->count; i++) {
         // transfer the items to the new page
         const QString &key = (begin+i).value();
-        const QVariantMap& value = pages[page]->value(key);
+        const QVariantMap &value = pages[page]->value(key);
         halfPage->objects.insert(key, value);
         pages[page]->objects.remove(key);
     }
@@ -182,13 +182,13 @@ bool ModelCache::insert(int pos, const QString &key, const QVariantMap &value,
         pages.append(newPage);
     }
     int pagePos = -1;
-    for (int i = 0; i< pages.count(); i++) {
+    for (int i = 0; i < pages.count(); i++) {
         if (pages[i]->insert(pos, key, value)) {
             pagePos = i;
             break;
         }
     }
-    for (int i = 0; i< pages.count(); i++) {
+    for (int i = 0; i < pages.count(); i++) {
         // update starting index of all pages which
         // come after this position
         if (pages[i]->index > pos)
@@ -213,14 +213,14 @@ bool ModelCache::insert(int pos, const QString &key, const QVariantMap &value,
 int ModelCache::count()
 {
     int items = 0;
-    for (int i = 0; i< pages.count(); i++)
+    for (int i = 0; i < pages.count(); i++)
         items += pages[i]->count;
     return items;
 }
 
 bool ModelCache::update(const QString &key, const QVariantMap &value)
 {
-    for (int i = 0; i< pages.count(); i++) {
+    for (int i = 0; i < pages.count(); i++) {
         if (pages[i]->update(key, value))
             return true;
     }
@@ -237,7 +237,7 @@ bool ModelCache::remove(int pos, const QString &key)
             break;
         }
     }
-    for (int i = 0; i< pages.count(); i++) {
+    for (int i = 0; i < pages.count(); i++) {
         // update starting index of all pages which
         // come after this position
         if (pages[i]->index > pos)
@@ -248,7 +248,7 @@ bool ModelCache::remove(int pos, const QString &key)
 
 void ModelCache::dropPage(int page, int &index, int &count)
 {
-    Q_ASSERT(page<pages.count());
+    Q_ASSERT(page < pages.count());
     ModelPage *changedPage = pages.takeAt(page);
     index = changedPage->index;
     count = changedPage->count;
@@ -290,7 +290,7 @@ void ModelCache::addObjects(int index, const JsonDbModelIndexType &objectUuids,
     }
     JsonDbModelIndexType::const_iterator begin = objectUuids.constBegin();
     for (int i = 0; i < pagesToAdd; i++) {
-        int j = index +  (i *pageSize);
+        int j = index +  (i * pageSize);
         int maxIndexForPage = j + pageSize;
         ModelPage *newPage = new ModelPage();
         newPage->index = j;
@@ -331,7 +331,7 @@ int ModelCache::findPrefetchIndex(int pos, int lowWaterMark)
             if (checkFor(pages[page]->index -1, pageIndex)) {
                 return pageIndex;
             }
-        }else if ((pages[page]->index + pages[page]->count - pos) <= lowWaterMark) {
+        } else if ((pages[page]->index + pages[page]->count - pos) <= lowWaterMark) {
             // get the page after this item
             int pageIndex = -1;
             if (checkFor(pages[page]->index + pages[page]->count, pageIndex)) {
@@ -344,7 +344,7 @@ int ModelCache::findPrefetchIndex(int pos, int lowWaterMark)
 
 void ModelCache::setPageSize(int maxItems)
 {
-    //TODO make sure a pagesize between 25-100 and
+    //Make sure a pagesize between 25-100 and
     //there is more than one page
     pageSize = qMax(qMin(100, maxItems/4), 25);
     maxPages = qMax(maxItems/pageSize + ((maxItems % pageSize) ? 1 : 0), 2);

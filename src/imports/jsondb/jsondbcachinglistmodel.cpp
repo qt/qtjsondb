@@ -148,7 +148,7 @@ void JsonDbCachingListModelPrivate::updateItem(const QVariantMap &item, int part
 {
     Q_Q(JsonDbCachingListModel);
     QString uuid = item.value(QLatin1String("_uuid")).toString();
-    QMap<QString, SortingKey>::const_iterator keyIndex =  objectSortValues.constFind(uuid);
+    QMap<QString, SortingKey>::const_iterator keyIndex = objectSortValues.constFind(uuid);
     if (keyIndex != objectSortValues.constEnd()) {
         SortingKey key = keyIndex.value();
         SortingKey newKey(partitionIndex, item, ascendingOrders, orderPaths, partitionIndexDetails[0].spec);
@@ -254,18 +254,18 @@ void JsonDbCachingListModelPrivate::createObjectRequests(int startIndex, int max
 #endif
     JsonDbModelIndexNSize *indexNSizes = new JsonDbModelIndexNSize[partitionObjects.count()] ;
     JsonDbModelIndexType::const_iterator begin = objectUuids.constBegin();
-    for (int i = startIndex; i< startIndex+maxItems; i++) {
+    for (int i = startIndex; i < startIndex+maxItems; i++) {
         JsonDbModelIndexType::const_iterator itr =  begin+i;
         const SortingKey &key = itr.key();
         int index = key.partitionIndex();
         if (indexNSizes[index].index == -1) {
             indexNSizes[index].index = findIndexOf(partitionObjectUuids[index].constBegin(),
                                                    key, 0, partitionObjectUuids[index].count()-1);
-            Q_ASSERT(indexNSizes[index].index!= -1);
+            Q_ASSERT(indexNSizes[index].index != -1);
         }
         indexNSizes[index].count++;
     }
-    for (int i = 0; i<partitionObjects.count(); i++) {
+    for (int i = 0; i < partitionObjects.count(); i++) {
         RequestInfo &r = partitionObjectDetails[i];
         if (indexNSizes[i].count) {
             if (state != JsonDbCachingListModel::Querying) {
@@ -302,7 +302,7 @@ void JsonDbCachingListModelPrivate::verifyIndexSpec(const QVariant &v, int parti
     QVariantList items;
     if (m.contains(QLatin1String("data")))
         items = m.value(QLatin1String("data")).toList();
-    SortIndexSpec &indexSpec =partitionIndexDetails[partitionIndex].spec;
+    SortIndexSpec &indexSpec = partitionIndexDetails[partitionIndex].spec;
     QString propertyFunction;
     QString indexName;
     bool validIndex = false;
@@ -337,7 +337,7 @@ void JsonDbCachingListModelPrivate::verifyIndexSpec(const QVariant &v, int parti
         partitionIndexDetails[partitionIndex].valid = true;
         //Check if all index specs are supported.
         bool checkedAll = true;
-        for (int i = 0; i<partitionIndexDetails.count(); i++) {
+        for (int i = 0; i < partitionIndexDetails.count(); i++) {
             if (!partitionIndexDetails[i].valid) {
                 checkedAll = false;
                 break;
@@ -347,7 +347,7 @@ void JsonDbCachingListModelPrivate::verifyIndexSpec(const QVariant &v, int parti
             //Start fetching the keys.
             orderProperties[0] = indexSpec.propertyName;
             setQueryForSortKeys();
-            for (int i = 0; i<partitionKeyRequestDetails.count(); i++) {
+            for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
                 fetchPartitionKeys(i);
             }
         }
@@ -388,7 +388,7 @@ void JsonDbCachingListModelPrivate::fillKeys(const QVariant &v, int partitionInd
     // Check if requests from different partitions returned
     // all the results
     bool allRequestsFinished = true;
-    for (int i = 0; i<partitionKeyRequestDetails.count(); i++) {
+    for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
         if (partitionKeyRequestDetails[i].lastSize >= chunkSize*2 || partitionKeyRequestDetails[i].lastSize == -1) {
             allRequestsFinished = false;
             break;
@@ -441,7 +441,7 @@ void JsonDbCachingListModelPrivate::fillData(const QVariant &v, int partitionInd
     // Check if requests from different partitions returned
     // all the results
     bool allRequestsFinished = true;
-    for (int i = 0; i<partitionObjectDetails.count(); i++) {
+    for (int i = 0; i < partitionObjectDetails.count(); i++) {
         if (partitionObjectDetails[i].lastSize >= chunkSize || partitionObjectDetails[i].lastSize == -1) {
             allRequestsFinished = false;
             break;
@@ -458,8 +458,8 @@ void JsonDbCachingListModelPrivate::fillData(const QVariant &v, int partitionInd
         currentCacheRequest.clear();
         // send the update for missed items
         QList<int> pendingCacheMiss;
-        int changedFrom=-1, changedTo=-2;
-        for (int i = 0; i<cacheMiss.size(); i++) {
+        int changedFrom = -1, changedTo = -2;
+        for (int i = 0; i < cacheMiss.size(); i++) {
             if (cacheMiss[i] >= req.index &&
                 cacheMiss[i] < req.index + req.count) {
                 if (changedFrom >= 0 && cacheMiss[i] != changedTo+1) {
@@ -499,7 +499,7 @@ void JsonDbCachingListModelPrivate::fillData(const QVariant &v, int partitionInd
         // retrieved all elements
         state = JsonDbCachingListModel::Ready;
         emit q->stateChanged(state);
-        for (int i = 0; i<pendingNotifications.size(); i++) {
+        for (int i = 0; i < pendingNotifications.size(); i++) {
             const NotifyItem &pending = pendingNotifications[i];
             sendNotifications(pending.notifyUuid, pendingNotifications[i].item, pendingNotifications[i].action);
         }
@@ -521,16 +521,16 @@ void JsonDbCachingListModelPrivate::reset()
     Q_Q(JsonDbCachingListModel);
     q->beginResetModel();
     clearNotifications();
-    for (int i = 0; i<partitionObjectDetails.count(); i++) {
+    for (int i = 0; i < partitionObjectDetails.count(); i++) {
         partitionObjectDetails[i].clear();
     }
-    for (int i = 0; i<partitionKeyRequestDetails.count(); i++) {
+    for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
         partitionKeyRequestDetails[i].clear();
     }
-    for (int i = 0; i<partitionIndexDetails.count(); i++) {
+    for (int i = 0; i < partitionIndexDetails.count(); i++) {
         partitionIndexDetails[i].clear();
     }
-    for (int i = 0; i<partitionObjectUuids.count(); i++) {
+    for (int i = 0; i < partitionObjectUuids.count(); i++) {
         partitionObjectUuids[i].clear();
     }
 
@@ -571,7 +571,7 @@ void JsonDbCachingListModelPrivate::fetchIndexSpec(int index)
     if (checkForDefaultIndexTypes(index))
         return;
     if (state != JsonDbCachingListModel::Querying) {
-        state =  JsonDbCachingListModel::Querying;
+        state = JsonDbCachingListModel::Querying;
         emit q->stateChanged(state);
     }
     IndexInfo &r = partitionIndexDetails[index];
@@ -588,7 +588,7 @@ void JsonDbCachingListModelPrivate::fetchPartitionKeys(int index)
         return;
 
     if (state != JsonDbCachingListModel::Querying) {
-        state =  JsonDbCachingListModel::Querying;
+        state = JsonDbCachingListModel::Querying;
         emit q->stateChanged(state);
     }
     RequestInfo &r = partitionKeyRequestDetails[index];
@@ -607,11 +607,11 @@ void JsonDbCachingListModelPrivate::initializeModel(bool reset)
         objectCache.clear();
         objectUuids.clear();
         objectSortValues.clear();
-        for (int i = 0; i<partitionObjectUuids.count(); i++) {
+        for (int i = 0; i < partitionObjectUuids.count(); i++) {
             partitionObjectUuids[i].clear();
         }
     }
-    for (int i = 0; i<partitionObjects.count(); i++) {
+    for (int i = 0; i < partitionObjects.count(); i++) {
         fetchIndexSpec(i);
     }
 }
@@ -703,7 +703,7 @@ void JsonDbCachingListModelPrivate::clearNotification(int index)
 
 void JsonDbCachingListModelPrivate::clearNotifications()
 {
-    for (int i = 0; i<partitionObjects.count(); i++)
+    for (int i = 0; i < partitionObjects.count(); i++)
         clearNotification(i);
 }
 
@@ -724,7 +724,7 @@ void JsonDbCachingListModelPrivate::createOrUpdateNotification(int index)
 
 void JsonDbCachingListModelPrivate::createOrUpdateNotifications()
 {
-    for (int i = 0; i<partitionObjects.count(); i++) {
+    for (int i = 0; i < partitionObjects.count(); i++) {
         createOrUpdateNotification(i);
     }
 }
@@ -761,7 +761,7 @@ void JsonDbCachingListModelPrivate::setQueryForSortKeys()
     // Query to retrieve the sortKeys
     // TODO remove the "[= {}]" from query
     queryForSortKeys = query + QLatin1String("[= [ _uuid");
-    for (int i = 0; i<orderProperties.count() ; i++) {
+    for (int i = 0; i < orderProperties.count() ; i++) {
         queryForSortKeys += QLatin1String(", ") + orderProperties[i];
     }
     queryForSortKeys += QLatin1String("]]");
@@ -770,7 +770,7 @@ void JsonDbCachingListModelPrivate::setQueryForSortKeys()
 
 int JsonDbCachingListModelPrivate::indexOfKeyIndexSpecId(int requestId)
 {
-    for (int i = 0; i<partitionIndexDetails.count(); i++) {
+    for (int i = 0; i < partitionIndexDetails.count(); i++) {
         if (requestId == partitionIndexDetails[i].requestId)
             return i;
     }
@@ -779,7 +779,7 @@ int JsonDbCachingListModelPrivate::indexOfKeyIndexSpecId(int requestId)
 
 int JsonDbCachingListModelPrivate::indexOfKeyRequestId(int requestId)
 {
-    for (int i = 0; i<partitionKeyRequestDetails.count(); i++) {
+    for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
         if (requestId == partitionKeyRequestDetails[i].requestId)
             return i;
     }
@@ -788,7 +788,7 @@ int JsonDbCachingListModelPrivate::indexOfKeyRequestId(int requestId)
 
 int JsonDbCachingListModelPrivate::indexOfRequestId(int requestId)
 {
-    for (int i = 0; i<partitionObjectDetails.count(); i++) {
+    for (int i = 0; i < partitionObjectDetails.count(); i++) {
         if (requestId == partitionObjectDetails[i].requestId)
             return i;
     }
@@ -797,7 +797,7 @@ int JsonDbCachingListModelPrivate::indexOfRequestId(int requestId)
 
 int JsonDbCachingListModelPrivate::indexOfNotifyUUID(const QString& notifyUuid)
 {
-    for (int i = 0; i<partitionObjectDetails.count(); i++) {
+    for (int i = 0; i < partitionObjectDetails.count(); i++) {
         if (notifyUuid == partitionObjectDetails[i].notifyUuid)
             return i;
     }
@@ -875,7 +875,7 @@ void JsonDbCachingListModelPrivate::callGetCallback(int index, QJSValue callback
         return;
     }
     QVariant object = getItem(index);
-    JsonDbPartition*partition = getItemPartition(index);
+    JsonDbPartition *partition = getItemPartition(index);
     QJSValue result = g_declEngine->newObject();
     result.setProperty(QLatin1String("object"), g_declEngine->toScriptValue(object));
     result.setProperty(QLatin1String("partition"), g_declEngine->newQObject(partition));
@@ -1001,7 +1001,7 @@ void JsonDbCachingListModelPrivate::_q_verifyDefaultIndexType(int index)
     }
     //Check if all index specs are supported.
     bool checkedAll = true;
-    for (int i = 0; i<partitionIndexDetails.count(); i++) {
+    for (int i = 0; i < partitionIndexDetails.count(); i++) {
         if (!partitionIndexDetails[i].valid) {
             checkedAll = false;
             break;
@@ -1011,7 +1011,7 @@ void JsonDbCachingListModelPrivate::_q_verifyDefaultIndexType(int index)
         //Start fetching the keys.
         orderProperties[0] = indexSpec.propertyName;
         setQueryForSortKeys();
-        for (int i = 0; i<partitionKeyRequestDetails.count(); i++) {
+        for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
             fetchPartitionKeys(i);
         }
     }
