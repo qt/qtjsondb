@@ -119,6 +119,9 @@ public:
     QString variable() const { return mVariable; }
     void setVariable(const QString variable) { mVariable = variable; }
 
+    QString propertyVariable() const { return mPropertyVariable; }
+    void setPropertyVariable(const QString variable) { mPropertyVariable = variable; }
+
     QJsonValue value() const;
     void setValue(const QJsonValue &v) { mValue = v; }
     QRegExp &regExp() { return mRegExp; }
@@ -129,6 +132,7 @@ public:
     const JsonDbQuery *mQuery;
     QString mVariable;
     QString mPropertyName;
+    QString mPropertyVariable;
     QStringList mFieldPath;
     QString mOp;
     QString mJoinField;

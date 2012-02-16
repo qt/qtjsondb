@@ -295,7 +295,16 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
                 QueryTerm term(parsedQuery);
                 if (!joinField.isEmpty())
                     term.setJoinField(joinField);
-                term.setPropertyName(fieldSpec);
+                if (fieldSpec.startsWith(QChar('%'))) {
+                    const QString name = fieldSpec.mid(1);
+                    if (bindings.contains(name)) {
+                        QJsonValue val = bindings.value(name);
+                        parsedQuery->bind(name, val);
+                    }
+                    term.setPropertyVariable(name);
+                }
+                else
+                    term.setPropertyName(fieldSpec);
                 term.setOp(op);
                 if (op == "=~") {
                     QString tvs = tokenizer.pop();
@@ -503,9 +512,11 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 }
                 objectFieldValue = JsonDb::propertyLookup(joinedObject, term.fieldPath());
             } else {
-                objectFieldValue = JsonDb::propertyLookup(object, term.fieldPath());
+                if (term.propertyName().isEmpty())
+                    objectFieldValue = binding(term.propertyVariable());
+                else
+                    objectFieldValue = JsonDb::propertyLookup(object, term.fieldPath());
             }
-
             if ((op == "=") || (op == "==")) {
                 if (objectFieldValue == termValue)
                         matches = true;

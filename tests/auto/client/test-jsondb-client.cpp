@@ -252,7 +252,7 @@ void TestJsonDbClient::initTestCase()
         rw_rule.insert(QLatin1String("write"),
                           (QStringList() <<
                            QLatin1String("[?_type startsWith \"public.\"]") <<
-                           QLatin1String("[?_owner startsWith %typeDomain]")));
+                           QLatin1String("[?%owner startsWith %typeDomain][?_owner startsWith %typeDomain]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         QVariantMap set_owner_rule;
         set_owner_rule.insert(QLatin1String("setOwner"),
@@ -276,7 +276,7 @@ void TestJsonDbClient::initTestCase()
                           (QStringList() <<
                            QLatin1String("[?_type=\"notification\"]") <<
                            QLatin1String("[?_type startsWith \"public.\"]") <<
-                           QLatin1String("[?_owner startsWith %typeDomain]")));
+                           QLatin1String("[?%owner startsWith %typeDomain][?_owner startsWith %typeDomain]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         capa_obj.insert(QLatin1String("accessRules"), access_rules);
         qDebug() << "Creating: " << capa_obj;
@@ -289,6 +289,18 @@ void TestJsonDbClient::initTestCase()
         foo_obj.insert(QLatin1String("name"), QLatin1String("foo"));
         qDebug() << "Creating: " << foo_obj;
         id = mClient->create(foo_obj);
+        waitForResponse1(id);
+        QVERIFY(mData.toMap().contains("_uuid"));
+
+        QVariantMap query;
+        query.insert("query", "[?_type=\"com.test.bar.FooType\"]");
+        id = mClient->find(query);
+        waitForResponse1(id);
+        QVariantList resultList = mData.toMap().value("data").toList();
+        foo_obj = resultList.at(0).toMap();
+
+        foo_obj[QLatin1String("_owner")] = QLatin1String("com.test.bar.app");
+        id = mClient->update(foo_obj);
         waitForResponse1(id);
 
         // Add a schemaValidation tests object (must be done as root)
@@ -566,6 +578,13 @@ void TestJsonDbClient::update()
 
         id = mClient->update(item1);
         // Should fail because of access control (error code 13)
+        waitForResponse2(id, 13);
+
+        item1.insert(QLatin1String("_type"), QLatin1String("com.test.FooType"));
+
+        id = mClient->update(item1);
+        // Should fail because of access control (error code 13)
+        // The new _type is ok, but the old _type is not
         waitForResponse2(id, 13);
     }
 }

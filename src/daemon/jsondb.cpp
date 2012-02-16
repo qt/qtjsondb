@@ -882,19 +882,27 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
         return makeResponse(resultmap, errormap);
     }
+
+    RETURN_IF_ERROR(errormap, checkUuidPresent(object, uuid));
+    RETURN_IF_ERROR(errormap, checkTypePresent(object, objectType));
+
+    // For access control to work we need to read the _owner from the existing
+    // object.
     JsonDbObject updrec;
     bool gotUpdrec = false;
     if (storage)
         gotUpdrec = storage->getObject(uuid, updrec, object.value(JsonDbString::kTypeStr).toString());
     if (!gotUpdrec)
-        mEphemeralStorage->get(object.uuid(), &updrec);
+        gotUpdrec = mEphemeralStorage->get(object.uuid(), &updrec);
+
+    // Check if user could update the old object
+    if (gotUpdrec)
+        RETURN_IF_ERROR(errormap, checkAccessControl(owner, updrec, partition, "write"));
+
     if (!updrec.value(JsonDbString::kOwnerStr).toString().isEmpty())
         object.insert(JsonDbString::kOwnerStr, updrec.value(JsonDbString::kOwnerStr));
     else if (object.value(JsonDbString::kOwnerStr).toString().isEmpty())
         object.insert(JsonDbString::kOwnerStr, owner->ownerId());
-
-    RETURN_IF_ERROR(errormap, checkUuidPresent(object, uuid));
-    RETURN_IF_ERROR(errormap, checkTypePresent(object, objectType));
     if (!isViewObject)
         RETURN_IF_ERROR(errormap, checkNaturalObjectType(object, objectType));
     if (!forRemoval)
