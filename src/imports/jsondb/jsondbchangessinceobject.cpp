@@ -370,6 +370,12 @@ int JsonDbChangesSinceObject::start()
         qWarning("Component not ready");
         return -1;
     }
+    checkForReadyStatus();
+    if (!parametersReady()) {
+        qWarning("Missing properties");
+        return -1;
+    }
+
     if (jsondbChangesSince) {
         delete jsondbChangesSince;
     }
