@@ -285,7 +285,6 @@ void QJsonDbConnectionPrivate::handleRequestQueue()
         Q_ASSERT(request.data()->status() == QJsonDbRequest::Queued);
         QJsonDbRequestPrivate *drequest = request.data()->d_func();
         Q_ASSERT(drequest != 0);
-        drequest->setRequestId(++lastRequestId);
         drequest->setStatus(QJsonDbRequest::Sent);
         QJsonObject req = drequest->getRequest();
         if (!req.isEmpty()) {
@@ -507,6 +506,7 @@ bool QJsonDbConnection::send(QJsonDbRequest *request)
         d->pendingRequests.prepend(QWeakPointer<QJsonDbRequest>(request));
     else
         d->pendingRequests.append(QWeakPointer<QJsonDbRequest>(request));
+    drequest->setRequestId(++d->lastRequestId);
     if (d->status == QJsonDbConnection::Connected)
         d->handleRequestQueue();
     return true;
