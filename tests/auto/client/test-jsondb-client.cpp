@@ -97,6 +97,7 @@ private slots:
     void createList();
     void update();
     void find();
+    void index();
     void registerNotification();
     void notify();
     void notifyViaCreate();
@@ -235,8 +236,7 @@ void TestJsonDbClient::initTestCase()
 
 #ifndef DONT_START_SERVER
     QStringList arg_list = (QStringList()
-                            << "-validate-schemas"
-                            << "-debug");
+                            << "-validate-schemas");
     if (wasRoot)
         arg_list << "-enforce-access-control";
     arg_list << QString::fromLatin1(dbfileprefix);
@@ -652,6 +652,46 @@ void TestJsonDbClient::find()
     }
     QCOMPARE(answerNames, nameList);
 
+}
+
+void TestJsonDbClient::index()
+{
+    QFile dataFile(":/json/client/index-test.json");
+    dataFile.open(QIODevice::ReadOnly);
+    QByteArray json = dataFile.readAll();
+    dataFile.close();
+    JsonReader parser;
+    bool ok = parser.parse(json);
+    QVERIFY2(ok, parser.errorString().toLocal8Bit());
+    QVariantList data = parser.result().toList();
+
+    int id = mClient->create(data);
+    waitForResponse1(id);
+    QVariantMap result = mData.toMap();
+
+    QVariantMap query;
+    query.insert("query", "[?_type=\"indextest\"][/test1]");
+    id = mClient->find(query);
+    waitForResponse1(id);
+    QVariantList answer = mData.toMap().value("data").toList();
+    QCOMPARE(answer.size(), 2);
+
+    query.insert("query", "[?_type=\"indextest\"][/test2.nested]");
+    id = mClient->find(query);
+    waitForResponse1(id);
+    QCOMPARE(mData.toMap().value("sortKeys").toList().at(0).toString(), QString::fromLatin1("test2.nested"));
+    answer = mData.toMap().value("data").toList();
+    QCOMPARE(answer.size(), 2);
+
+    query.insert("query", "[?_type=\"IndexedView\"][/test3.nested]");
+    id = mClient->find(query);
+    waitForResponse1(id);
+    QCOMPARE(mData.toMap().value("sortKeys").toList().at(0).toString(), QString::fromLatin1("test3.nested"));
+    answer = mData.toMap().value("data").toList();
+    QCOMPARE(answer.size(), 2);
+
+    id = mClient->remove(result.value("data").toList());
+    waitForResponse1(id);
 }
 
 void TestJsonDbClient::notify()

@@ -1,0 +1,43 @@
+[
+ {
+    "_type": "Index",
+    "propertyName": "test1",
+    "propertyType": "string"
+ },
+ {
+    "_type": "Index",
+    "propertyName": "test2.nested",
+    "propertyType": "string"
+ },
+ {
+    "_type": "_schemaType",
+    "name": "IndexedView",
+    "schema": {
+        "type": "object",
+        "extends": {"$ref": "View"}
+    }
+ },
+ {
+     "_type": "Map",
+     "targetType": "IndexedView",
+     "map": {
+         "indextest": "function (o) { v = {'test3': {'nested': o.test2.nested}}; jsondb.emit(v); }"
+     }
+ },
+ {
+     "_type": "Index",
+     "propertyName": "test3.nested",
+     "propertyType": "string",
+     "objectType": "IndexedView"
+ },
+ {
+    "_type": "indextest",
+    "test1": "abc",
+    "test2": {"nested": "123"}
+ },
+ {
+    "_type": "indextest",
+    "test1": "def",
+    "test2": {"nested": "456"}
+ }
+]
