@@ -71,7 +71,6 @@ public:
     bool start(bool compactOnClose);
     bool socket();
     bool clear();
-    bool load(const QString &jsonFileName);
 
 public slots:
     void sigTerm();

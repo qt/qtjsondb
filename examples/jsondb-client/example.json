@@ -1,0 +1,32 @@
+[
+  {
+    "_type" : "MyContact",
+    "firstName" : "John",
+    "lastName" : "Smith",
+    "age" : 55
+  },
+  {
+    "_type" : "MyContact",
+    "firstName" : "Bob",
+    "lastName" : "Jones",
+    "age" : 32
+  },
+  {
+    "_type" : "MyContact",
+    "firstName" : "Sam",
+    "lastName" : "Johnson",
+    "age" : 28
+  },
+  {
+    "_type" : "MyContact",
+    "firstName" : "Jane",
+    "lastName" : "Smith",
+    "age" : 54
+  },
+  {
+    "_type" : "MyContact",
+    "firstName" : "Judy",
+    "lastName" : "Jones",
+    "age" : 34
+  }
+]

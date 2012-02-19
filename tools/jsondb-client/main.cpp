@@ -40,79 +40,95 @@
 ****************************************************************************/
 
 #include <QtCore>
+#include <QGuiApplication>
 #include <iostream>
 #include "client.h"
 
-QString progname;
-bool gDebug;
-
-/***************************************************************************/
-
 using namespace std;
 
-static void usage()
+static void usage(const QString &name, int exitCode = 0)
 {
-    cout << "Usage: " << qPrintable(progname) << " [OPTIONS] [command]" << endl
+    cout << "Usage: " << qPrintable(name) << " [OPTIONS] [command]" << endl
          << endl
          << "    -debug" << endl
-         << "    -load file.json     Load objects from a json file" << endl
+         << "    -load FILE     Load the specified .json or .qml file" << endl
+         << "    -terminate     Terminate after processing any -load parameters" << endl
          << endl
          << " where command is valid JsonDb command object" << endl;
-    exit(0);
+    exit(exitCode);
 }
 
 
 int main(int argc, char * argv[])
 {
-    QCoreApplication::setOrganizationName("Nokia");
-    QCoreApplication::setOrganizationDomain("nrcc.noklab.com");
-    QCoreApplication::setApplicationName("jclient");
-    QCoreApplication::setApplicationVersion("1.0");
+    // Hack to avoid making people specify a platform plugin.
+    // We only need QGuiApplication so that we can use QDeclarativeEngine.
+    bool platformSpecified = false;
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "-platform") == 0)
+            platformSpecified = true;
+    }
 
-    QCoreApplication app(argc, argv);
+    if (!platformSpecified)
+        setenv("QT_QPA_PLATFORM", "minimal", false);
+
+    QGuiApplication::setOrganizationName("Nokia");
+    QGuiApplication::setOrganizationDomain("qt.nokia.com");
+    QGuiApplication::setApplicationName("jclient");
+    QGuiApplication::setApplicationVersion("1.0");
+    QGuiApplication app(argc, argv);
+
     QStringList args = QCoreApplication::arguments();
-    QString loadFile;
+    qDebug() << "args: " << args;
+    QString progname = args.takeFirst();
+    QStringList command;
+    QStringList filesToLoad;
+    bool terminate = false;
+    bool debug = false;
 
-    progname = args.takeFirst();
+
     while (args.size()) {
-        QString arg = args.at(0);
-        if (!arg.startsWith("-"))
-            break;
-        args.removeFirst();
-        if ( arg == "-help")
-            usage();
-        else if ( arg == "-debug")
-            gDebug = true;
-        else if (arg == "-load") {
+        QString arg = args.takeFirst();
+        if (!arg.startsWith("-")) {
+            command << arg;
+            continue;
+        }
+
+        if (arg == QLatin1Literal("-help")) {
+            usage(progname);
+        } else if (arg == QLatin1Literal("-debug")) {
+            debug = true;
+        } else if (arg == QLatin1Literal("-load")) {
             if (args.isEmpty()) {
-                cout << "Invalid argument " << qPrintable(arg) << endl;
-                usage();
-                return 0;
+                cout << "Must specify a file to load" << endl;
+                usage(progname, 1);
             }
-            loadFile = args.at(0);
-            args.removeFirst();
+            filesToLoad << args.takeFirst();
+        } else if (arg == QLatin1Literal("-terminate")) {
+            terminate = true;
         } else {
             cout << "Unknown argument " << qPrintable(arg) << endl;
-            usage();
-            return 0;
+            usage(progname, 1);
         }
     }
 
     Client client;
+    QObject::connect(&client, SIGNAL(terminate()), &app, SLOT(quit()), Qt::QueuedConnection);
+    client.setTerminateOnCompleted(terminate);
+    client.setDebug(debug);
+
     if (!client.connectToServer())
-        return 0;
+        return 1;
 
-    bool interactive = !args.size();
-    if (!interactive)
-        QObject::connect(&client, SIGNAL(requestsProcessed()), &app, SLOT(quit()));
-
-    if (!loadFile.isEmpty()) {
-        client.loadJsonFile(loadFile);
-    } else if (!args.size()) {
-        client.interactiveMode();
+    if (!filesToLoad.isEmpty()) {
+        client.loadFiles(filesToLoad);
+    } else if (command.size()) {
+        client.setTerminateOnCompleted(true);
+        if (!client.processCommand(command.join(" ")))
+            return 1;
     } else {
-        if (!client.processCommand(args.join(" ")))
-            return 0;
+        client.interactiveMode();
     }
+
     return app.exec();
 }

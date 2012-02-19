@@ -47,6 +47,10 @@
 
 #include <histedit.h>
 
+QT_BEGIN_NAMESPACE
+class QDeclarativeEngine;
+QT_END_NAMESPACE
+
 class InputThread : public QThread {
     Q_OBJECT
 public:
@@ -78,10 +82,13 @@ public:
 
     bool connectToServer();
     void interactiveMode();
+    void loadFiles(const QStringList &files);
+
+    inline void setTerminateOnCompleted(bool terminate) { mTerminate = terminate; }
+    inline void setDebug(bool debug) { mDebug = debug; }
 
 public slots:
     bool processCommand(const QString &);  // true if we're waiting for a response
-    bool loadJsonFile(const QString &fileName);
 
 protected slots:
     void error(QtJsonDb::QJsonDbConnection::ErrorCode, const QString &message);
@@ -92,21 +99,35 @@ protected slots:
     void onNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode, const QString &);
 
     void onRequestFinished();
+    void onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
     void pushRequest(QtJsonDb::QJsonDbRequest *);
     void popRequest();
 
+    void fileLoadError();
+    void fileLoadSuccess();
+
 Q_SIGNALS:
-    void requestsProcessed();
+    void terminate();
 
 private:
     void usage();
 
+    void loadNextFile();
+    void loadJsonFile(const QString &jsonFile);
+    void loadQmlFile(const QString &qmlFile);
+#ifndef JSONDB_NO_DEPRECATED
+    void loadJavaScriptFile(const QString &jsFile);
+#endif
+
     QSocketNotifier *mNotifier;
-    QFile           *mInput;
     QtJsonDb::QJsonDbConnection *mConnection;
     QList<QtJsonDb::QJsonDbRequest *> mRequests;
     InputThread *mInputThread;
+    bool mTerminate;
+    bool mDebug;
+    QStringList mFilesToLoad;
+    QDeclarativeEngine *mEngine;
 };
 
 

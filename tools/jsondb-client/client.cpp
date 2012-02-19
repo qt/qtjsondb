@@ -40,12 +40,18 @@
 ****************************************************************************/
 
 #include "client.h"
+#ifndef QTJSONDB_NO_DEPRECATED
+#include "jsondbproxy.h"
+#endif
 
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 
-extern bool gDebug;
+#include <QDeclarativeComponent>
+#include <QDeclarativeEngine>
+
+QT_USE_NAMESPACE
 
 const char* InputThread::commands[] = { "changesSince",
                                         "create {\"",
@@ -198,8 +204,13 @@ void InputThread::async_print(const QString &message)
     el_set(el, EL_REFRESH);
 }
 
-Client::Client( QObject *parent )
-    : QObject(parent), mNotifier(NULL), mInputThread(NULL)
+Client::Client( QObject *parent ) :
+    QObject(parent)
+  , mNotifier(0)
+  , mInputThread(0)
+  , mTerminate(false)
+  , mDebug(false)
+  , mEngine(0)
 {
 }
 
@@ -303,6 +314,9 @@ void Client::statusChanged(QtJsonDb::QJsonDbConnection::Status)
 
 void Client::error(QtJsonDb::QJsonDbConnection::ErrorCode error, const QString &message)
 {
+    Q_UNUSED(error);
+    Q_UNUSED(message);
+
     switch (error) {
     case QtJsonDb::QJsonDbConnection::NoError:
         Q_ASSERT(false);
@@ -326,9 +340,12 @@ void Client::onRequestFinished()
             message += QLatin1String(",\n") + QJsonDocument(objects.at(i)).toJson().trimmed();
     }
     InputThread::print(message);
+}
 
-    if (!mInputThread)
-        QCoreApplication::exit(0);  // Non-interactive mode just stops
+
+void Client::onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
+{
+    InputThread::print(message);
 }
 
 void Client::pushRequest(QtJsonDb::QJsonDbRequest *request)
@@ -338,10 +355,9 @@ void Client::pushRequest(QtJsonDb::QJsonDbRequest *request)
 
 void Client::popRequest()
 {
-    QtJsonDb::QJsonDbRequest *request = mRequests.takeFirst();
-    delete request;
-    if (mRequests.isEmpty())
-        emit requestsProcessed();
+    mRequests.takeFirst()->deleteLater();
+    if (mRequests.isEmpty() && mTerminate)
+        emit terminate();
 }
 
 void Client::usage()
@@ -392,8 +408,6 @@ bool Client::processCommand(const QString &command)
         rest = command.mid(space+1).trimmed();
     }
 
-    gDebug = true;
-
     QString partition;
     if (rest.startsWith(QLatin1String("partition:"))) {
         partition = rest.left(rest.indexOf(' '));
@@ -420,14 +434,17 @@ bool Client::processCommand(const QString &command)
             }
             rest.truncate(idx+1);
         }
-        if (gDebug)
+        if (mDebug)
             qDebug() << "Sending query:" << rest;
+
         QtJsonDb::QJsonDbReadRequest *request = new QtJsonDb::QJsonDbReadRequest(this);
         request->setPartition(partition);
         request->setQuery(rest);
         request->setQueryLimit(limit);
         connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
         connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+        connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
         pushRequest(request);
         mConnection->send(request);
     } else if (cmd == "notify") {
@@ -451,7 +468,7 @@ bool Client::processCommand(const QString &command)
             actions |= action;
         }
         QString query = rest.mid(s+1).trimmed();
-        if (gDebug)
+        if (mDebug)
             qDebug() << "Creating notification:" << alist << ":" << query;
         QtJsonDb::QJsonDbWatcher *watcher = new QtJsonDb::QJsonDbWatcher(this);
         watcher->setPartition(partition);
@@ -470,15 +487,20 @@ bool Client::processCommand(const QString &command)
             usage();
             return false;
         }
-        if (gDebug)
+
+        if (mDebug)
             qDebug() << "Sending" << cmd << ":" << doc;
+
         QList<QJsonObject> objects;
         if (doc.isObject()) {
             objects.append(doc.object());
         } else {
-            foreach (const QJsonValue &value, doc.array())
-                objects.append(value.toObject());
+            foreach (const QJsonValue &value, doc.array()) {
+                if (value.isObject())
+                    objects.append(value.toObject());
+            }
         }
+
         QtJsonDb::QJsonDbWriteRequest *request = 0;
         if (cmd == "create")
             request = new QtJsonDb::QJsonDbCreateRequest(objects);
@@ -491,28 +513,12 @@ bool Client::processCommand(const QString &command)
         request->setPartition(partition);
         connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
         connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+        connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
         pushRequest(request);
         mConnection->send(request);
     } else if (cmd == "changesSince") {
-//        int stateNumber = 0;
-//        QStringList types;
-//        QStringList args = rest.split(" ");
-
-//        if (args.isEmpty()) {
-//            InputThread::print("Must specify the state number");
-//            usage();
-//            return false;
-//        }
-
-//        stateNumber = args.takeFirst().trimmed().toInt();
-
-//        if (!args.isEmpty())
-//            types = args;
-
-//        if (gDebug)
-//            qDebug() << "Sending changesSince: " << stateNumber << "types: " << types;
-
-//        mRequests << mConnection->changesSince(stateNumber, types, partition);
+        qWarning() << "Not yet supported";
     } else if (cmd == "connect") {
         mConnection->connectToServer();
     } else if (cmd == "disconnect") {
@@ -528,23 +534,157 @@ bool Client::processCommand(const QString &command)
     return true;
 }
 
-bool Client::loadJsonFile(const QString &fileName)
+void Client::loadFiles(const QStringList &files)
 {
-//    QFile file(fileName);
-//    if (!file.open(QFile::ReadOnly)) {
-//        if (gDebug)
-//            qDebug() << "Couldn't load file" << fileName;
-//        return false;
-//    }
-//    JsonReader parser;
-//    bool ok = parser.parse(file.readAll());
-//    file.close();
-//    if (!ok) {
-//        std::cout << "Unable to parse the content of the file" << qPrintable(fileName) << ":"
-//                  << qPrintable(parser.errorString()) << std::endl;
-//        return false;
-//    }
-//    QVariant arg = parser.result();
-//    mRequests << mConnection->create(arg);
-    return true;
+    mFilesToLoad = files;
+    loadNextFile();
 }
+
+void Client::fileLoadSuccess()
+{
+    // make sure it's a request so we don't accidently delete the declarative engine
+    QtJsonDb::QJsonDbRequest *request = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
+    if (request)
+        request->deleteLater();
+
+    qDebug() << "Successfully loaded:" << mFilesToLoad.takeFirst();
+    loadNextFile();
+}
+
+void Client::fileLoadError()
+{
+    // Could be a QJsonDbWriteRequest or a QTimer, either way it needs to be cleaned up
+    if (sender())
+        sender()->deleteLater();
+
+    qDebug() << "Error loading:" << mFilesToLoad.takeFirst();
+    loadNextFile();
+}
+
+void Client::loadNextFile()
+{
+    if (mFilesToLoad.isEmpty()) {
+        if (mTerminate)
+            emit terminate();
+        else
+            interactiveMode();
+        return;
+    }
+
+    QFileInfo info(mFilesToLoad.first());
+    if (info.suffix() == QLatin1Literal("json")) {
+        loadJsonFile(info.filePath());
+    } else if (info.suffix() == QLatin1Literal("qml")) {
+        loadQmlFile(info.filePath());
+#ifndef QTJSONDB_NO_DEPRECATED
+    } else if (info.suffix() == QLatin1Literal("js")) {
+        loadJavaScriptFile(info.filePath());
+#endif
+    } else {
+        qDebug() << "Unknown file type:" << mFilesToLoad.takeFirst();
+        loadNextFile();
+    }
+}
+
+void Client::loadJsonFile(const QString &jsonFile)
+{
+    QFile json(jsonFile);
+
+    if (!json.exists()) {
+        qDebug() << "File not found:" << jsonFile;
+        fileLoadError();
+        return;
+    }
+
+    json.open(QFile::ReadOnly);
+    QJsonDocument doc = QJsonDocument::fromJson(json.readAll());
+    json.close();
+
+    QList<QJsonObject> objects;
+    if (doc.isArray()) {
+        QJsonArray objectArray = doc.array();
+        for (QJsonArray::const_iterator it = objectArray.begin(); it != objectArray.end(); it++) {
+            QJsonValue val = *it;
+            if (val.isObject())
+                objects.append(val.toObject());
+        }
+    } else {
+        objects.append(doc.object());
+    }
+
+    QtJsonDb::QJsonDbCreateRequest *write = new QtJsonDb::QJsonDbCreateRequest(objects, this);
+    connect(write, SIGNAL(finished()), this, SLOT(fileLoadSuccess()));
+    connect(write, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(fileLoadError()));
+    mConnection->send(write);
+}
+
+void Client::loadQmlFile(const QString &qmlFile)
+{
+    QFile qml(qmlFile);
+
+    if (!qml.exists()) {
+        qDebug() << "File not found:" << qmlFile;
+        fileLoadError();
+        return;
+    }
+
+    if (!mEngine) {
+        mEngine = new QDeclarativeEngine(this);
+        connect(mEngine, SIGNAL(quit()), this, SLOT(fileLoadSuccess()));
+    }
+
+    qml.open(QFile::ReadOnly);
+    QDeclarativeComponent *component = new QDeclarativeComponent(mEngine, this);
+    component->setData(qml.readAll(), QUrl());
+    qml.close();
+
+    // Time the qml loading out after 10 seconds
+    QTimer *timeout = new QTimer(this);
+    timeout->setSingleShot(true);
+    connect(timeout, SIGNAL(timeout()), this, SLOT(fileLoadError()));
+    connect(mEngine, SIGNAL(quit()), timeout, SLOT(stop()));
+    timeout->start(10000);
+
+    QObject *created = component->create();
+    if (created) {
+        connect(mEngine, SIGNAL(quit()), component, SLOT(deleteLater()));
+        connect(mEngine, SIGNAL(quit()), created, SLOT(deleteLater()));
+        return;
+    }
+
+    fileLoadError();
+}
+
+#ifndef QTJSONDB_NO_DEPRECATED
+void Client::loadJavaScriptFile(const QString &jsFile)
+{
+    QFile js(jsFile);
+
+    if (!js.exists()) {
+        qDebug() << "File not found:" << jsFile;
+        fileLoadError();
+        return;
+    }
+
+    QJSEngine *scriptEngine = new QJSEngine(this);
+    QJSValue globalObject = scriptEngine->globalObject();
+    QJSValue proxy = scriptEngine->newQObject(new JsonDbProxy(mConnection, this));
+    globalObject.setProperty("jsondb", proxy);
+    globalObject.setProperty("console", proxy);
+
+    js.open(QFile::ReadOnly);
+    QJSValue sv = scriptEngine->evaluate(js.readAll(), jsFile);
+    scriptEngine->deleteLater();
+    js.close();
+
+    if (sv.isError()) {
+        qDebug() << sv.toString();
+        fileLoadError();
+        return;
+    }
+
+    fileLoadSuccess();
+}
+
+#endif

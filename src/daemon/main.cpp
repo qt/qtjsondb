@@ -127,9 +127,6 @@ static void usage()
          << "     -verbose" << endl
          << "     -clear              Clear the database on startup" << endl
          << "     -pid pidfilename" << endl
-         << "     -load file.json     Load objects from a json file" << endl
-         << "     -json" << endl
-         << "     -terminate          Terminate after loading files" << endl
          << "     -compact-on-exit    Compact database before exiting" << endl
          << "     -reject-stale-updates" << endl
          << "     -validate-schemas   Validate schemas of objects on create and update" << endl
@@ -170,7 +167,6 @@ int main(int argc, char * argv[])
     QCoreApplication::setApplicationName("jsondb");
     QCoreApplication::setApplicationVersion("1.0");
     QString arguments;
-    QStringList jsonFiles;
     QString pidFileName;
     quint16 port = 0;
     bool clear = false;
@@ -178,7 +174,6 @@ int main(int argc, char * argv[])
     QString logFileName;
     QCoreApplication app(argc, argv);
     QStringList args = QCoreApplication::arguments();
-    bool terminate = false;
     bool compactOnClose = false;
     bool detach = false;
     bool sigstop = false;
@@ -203,12 +198,6 @@ int main(int argc, char * argv[])
             if (!args.size())
                 usage();
             pidFileName = args.takeFirst();
-        } else if (arg == "-load") {
-            if (!args.size())
-                usage();
-            jsonFiles.append(args.takeFirst());
-        } else if (arg == "-terminate") {
-            terminate = true;
         } else if (arg == "-compact-on-exit") {
             compactOnClose = true;
 #ifndef QT_NO_DEBUG_OUTPUT
@@ -307,16 +296,6 @@ int main(int argc, char * argv[])
     if (!server.start(compactOnClose))
         return -2;
 
-    if (jsonFiles.size()) {
-        foreach (QString jsonFile, jsonFiles) {
-            bool ok = server.load(jsonFile);
-            if (!ok) {
-                qCritical() << "Failed to load" << jsonFile;
-            }
-        }
-    }
-    if (terminate)
-        return 0;
     if (detach)
         daemonize();
 #ifdef USE_SYSTEMD

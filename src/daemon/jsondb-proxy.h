@@ -52,30 +52,6 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbProxy : public QObject {
-    Q_OBJECT
-public:
-    JsonDbProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent=0 );
-    ~JsonDbProxy();
-
-    Q_SCRIPTABLE QVariantMap find(QVariantMap object);
-    Q_SCRIPTABLE QVariantMap create(QVariantMap object );
-    Q_SCRIPTABLE QVariantMap update(QVariantMap object );
-    Q_SCRIPTABLE QVariantMap remove(QVariantMap object );
-
-    Q_SCRIPTABLE QVariantMap notification(QString query, QStringList actions, QString script);
-
-    Q_SCRIPTABLE QVariantMap createList(QVariantList);
-    Q_SCRIPTABLE QVariantMap updateList(QVariantList);
-    Q_SCRIPTABLE QVariantMap removeList(QVariantList );
-
-    void setOwner(const JsonDbOwner *owner) { mOwner = owner; }
-
-private:
-    const JsonDbOwner *mOwner;
-    JsonDb      *mJsonDb;
-};
-
 class JsonDbMapProxy : public QObject {
     Q_OBJECT
 public:

@@ -127,7 +127,6 @@ public:
     Q_INVOKABLE QJsonObject log(JsonDbOwner *owner, QJsonValue data);
 
     JsonDbOwner *owner() const { return mOwner; }
-    bool load(const QString &jsonFileName);
 
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(), const QString &partition = QString()) const;
 
@@ -222,7 +221,6 @@ protected:
     JsonDbOwner *mOwner;
     QHash<QString, JsonDbBtreeStorage *> mStorages;
     JsonDbEphemeralStorage *mEphemeralStorage;
-    JsonDbProxy          *mJsonDbProxy;
     bool                  mOpen;
     QString               mFilePath;
     QString               mDatabaseId;

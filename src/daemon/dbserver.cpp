@@ -179,11 +179,6 @@ bool DBServer::clear()
     return mJsonDb->clear();
 }
 
-bool DBServer::load(const QString &jsonFileName)
-{
-    return mJsonDb->load(jsonFileName);
-}
-
 void DBServer::sigHUP()
 {
     DBG() << "SIGHUP received";
