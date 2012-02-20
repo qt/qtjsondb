@@ -11,5 +11,7 @@ DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
 include($$PWD/../../../src/daemon/daemon.pri)
 
+RESOURCES = queries.qrc
+
 SOURCES += \
     testjsondbqueries.cpp

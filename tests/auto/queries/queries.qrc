@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/queries">
+        <file>dataset.json</file>
+    </qresource>
+</RCC>

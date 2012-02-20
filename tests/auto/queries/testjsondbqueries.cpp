@@ -241,7 +241,7 @@ void TestJsonDbQueries::initTestCase()
     mOwner->setOwnerId("com.noklab.nrcc.JsonDbTestQueries");
     mJsonDb->open();
 
-    QFile contactsFile(findFile("dataset.json"));
+    QFile contactsFile(":/queries/dataset.json");
     QVERIFY2(contactsFile.exists(), "Err: dataset.json doesn't exist!");
 
     contactsFile.open(QIODevice::ReadOnly);
