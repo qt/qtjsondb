@@ -181,6 +181,19 @@ bool ObjectTable::compact()
     return mBdb->compact();
 }
 
+void ObjectTable::sync(ObjectTable::SyncFlags flags)
+{
+    if (flags & SyncObjectTable)
+        mBdb->btree()->sync();
+
+    if (flags & SyncIndexes) {
+        foreach (const IndexSpec &spec, mIndexes.values()) {
+            if (spec.index->bdb())
+                spec.index->bdb()->btree()->sync();
+        }
+    }
+}
+
 JsonDbStat ObjectTable::stat() const
 {
     JsonDbStat result;

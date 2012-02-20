@@ -51,6 +51,7 @@
 #include <QtAlgorithms>
 #include <QtEndian>
 #include <QStringBuilder>
+#include <QTimerEvent>
 #include <QMap>
 
 #include <fcntl.h>
@@ -95,7 +96,15 @@ JsonDbBtreeStorage::JsonDbBtreeStorage(const QString &filename, const QString &n
     , mFilename(filename)
     , mTransactionDepth(0)
     , mWildCardPrefixRegExp("([^*?\\[\\]\\\\]+).*")
+    , mMainSyncTimerId(-1)
+    , mIndexSyncTimerId(-1)
 {
+    mMainSyncInterval = qgetenv("JSONDB_SYNC_INTERVAL").toInt();
+    if (mMainSyncInterval < 1000)
+        mMainSyncInterval = 5000;
+    mIndexSyncInterval = qgetenv("JSONDB_INDEX_SYNC_INTERVAL").toInt();
+    if (mIndexSyncInterval < 1000)
+        mIndexSyncInterval = 12000;
 }
 
 JsonDbBtreeStorage::~JsonDbBtreeStorage()
@@ -561,6 +570,12 @@ bool JsonDbBtreeStorage::commitTransaction(quint32 stateNumber)
             }
         }
         mTableTransactions.clear();
+
+        if (mMainSyncTimerId == -1)
+            mMainSyncTimerId = startTimer(mMainSyncInterval, Qt::VeryCoarseTimer);
+        if (mIndexSyncTimerId == -1)
+            mIndexSyncTimerId = startTimer(mIndexSyncInterval, Qt::VeryCoarseTimer);
+
         return ret;
     }
     return true;
@@ -583,6 +598,35 @@ bool JsonDbBtreeStorage::abortTransaction()
         return ret;
     }
     return true;
+}
+
+void JsonDbBtreeStorage::timerEvent(QTimerEvent *event)
+{
+    if (mTransactionDepth)
+        return;
+
+    if (event->timerId() == mMainSyncTimerId) {
+        if (gDebug)
+            qDebug() << "Syncing main object table";
+
+        mObjectTable->sync(ObjectTable::SyncObjectTable);
+        killTimer(mMainSyncTimerId);
+        mMainSyncTimerId = -1;
+    } else if (event->timerId() == mIndexSyncTimerId) {
+
+        if (gDebug)
+            qDebug() << "Syncing indexes and views";
+
+        // sync the main object table's indexes
+        mObjectTable->sync(ObjectTable::SyncIndexes);
+
+        // sync the views
+        foreach (ObjectTable *view, mViews)
+            view->sync(ObjectTable::SyncObjectTable | ObjectTable::SyncIndexes);
+
+        killTimer(mIndexSyncTimerId);
+        mIndexSyncTimerId = -1;
+    }
 }
 
 QJsonObject JsonDbBtreeStorage::updatePersistentObject(const JsonDbObject &oldObject, const JsonDbObject &object)

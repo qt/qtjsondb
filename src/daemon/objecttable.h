@@ -109,6 +109,12 @@ class ObjectTable : public QObject
 {
     Q_OBJECT
 public:
+    enum SyncFlag {
+        SyncObjectTable = 0x1,
+        SyncIndexes = 0x2
+    };
+    Q_DECLARE_FLAGS(SyncFlags, SyncFlag)
+
     ObjectTable(JsonDbBtreeStorage *parent=0);
     ~ObjectTable();
 
@@ -120,6 +126,8 @@ public:
     bool commit(quint32);
     bool abort();
     bool compact();
+    void sync(SyncFlags flags);
+
     JsonDbStat stat() const;
     void flushCaches();
 
@@ -155,7 +163,6 @@ public:
 
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &objectType);
 
-
 private:
     JsonDbBtreeStorage *mStorage;
     QString             mFilename;
@@ -174,6 +181,7 @@ private:
 void makeStateKey(QByteArray &baStateKey, quint32 stateNumber);
 bool isStateKey(const QByteArray &baStateKey);
 
+Q_DECLARE_OPERATORS_FOR_FLAGS(ObjectTable::SyncFlags)
 
 QT_END_NAMESPACE_JSONDB
 

@@ -218,6 +218,8 @@ public:
     QHash<QString, qint64> fileSizes() const;
 
 protected:
+    void timerEvent(QTimerEvent *event);
+
     bool checkStateConsistency();
     void checkIndexConsistency(ObjectTable *table, JsonDbIndex *index);
     void updateIndex(ObjectTable *table, JsonDbIndex *index);
@@ -245,6 +247,10 @@ private:
     bool         mTransactionOk;
     QHash<QString,QPointer<ObjectTable> > mViews;
     QRegExp      mWildCardPrefixRegExp;
+    int          mMainSyncTimerId;
+    int          mIndexSyncTimerId;
+    int          mMainSyncInterval;
+    int          mIndexSyncInterval;
 
     friend class IndexQuery;
     friend class ObjectTable;

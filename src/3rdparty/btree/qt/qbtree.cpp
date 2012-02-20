@@ -52,14 +52,14 @@
 QBtree::QBtree()
     : mBtree(0), mCmp(0), mCacheSize(0), mFlags(0),
       mWrites(0), mReads(0), mHits(0),
-      mCommitCount(0), mAutoCompactRate(0), mAutoSyncRate(0)
+      mCommitCount(0), mAutoCompactRate(0)
 {
 }
 
 QBtree::QBtree(const QString &filename)
     : mFilename(filename), mBtree(0), mCmp(0), mCacheSize(0), mFlags(0),
       mWrites(0), mReads(0), mHits(0),
-      mCommitCount(0), mAutoCompactRate(0), mAutoSyncRate(0)
+      mCommitCount(0), mAutoCompactRate(0)
 {
 }
 
@@ -191,11 +191,6 @@ quint64 QBtree::count() const
     return stat->entries;
 }
 
-void QBtree::setAutoSyncRate(int rate)
-{
-    mAutoSyncRate = rate;
-}
-
 void QBtree::setAutoCompactRate(int rate)
 {
     mAutoCompactRate = rate;
@@ -241,18 +236,13 @@ bool QBtree::commit(QBtreeTxn *txn, quint32 tag)
     Q_ASSERT(txn->isReadWrite());
     Q_ASSERT(txn->handle());
 
-    unsigned int flags = (mAutoSyncRate && mCommitCount % mAutoSyncRate == 0)
-            ? BT_FORCE_MARKER
-            : 0;
-    bool needCompact = mAutoCompactRate && mCommitCount > mAutoCompactRate;
-
-    if (!btree_txn_commit(txn->handle(), tag, flags) == BT_SUCCESS)
+    if (!btree_txn_commit(txn->handle(), tag, 0) == BT_SUCCESS)
         return false;
 
     delete txn;
 
     mCommitCount++;
-    if (needCompact)
+    if (mAutoCompactRate && mCommitCount > mAutoCompactRate)
         compact();
 
     return true;

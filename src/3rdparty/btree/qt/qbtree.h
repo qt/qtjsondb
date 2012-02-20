@@ -94,12 +94,9 @@ public:
     void setCmpFunc(CmpFunc cmp);
     void setFileName(const QString &filename);
     void setFlags(DbFlags flags);
-    void setAutoSyncRate(int rate);
     void setAutoCompactRate(int rate);
     void setCacheSize(unsigned int cacheSize);
 
-    int autoSyncRate() const
-    { return mAutoSyncRate; }
     int autoCompactRate() const
     { return mAutoCompactRate; }
 
@@ -145,7 +142,6 @@ private:
 
     int mCommitCount;
     int mAutoCompactRate;
-    int mAutoSyncRate;
 
     Q_DISABLE_COPY(QBtree)
 };

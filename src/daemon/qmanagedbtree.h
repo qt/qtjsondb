@@ -93,8 +93,6 @@ public:
     { Q_ASSERT(mBtree); return mBtree->handle(); }
     void setAutoCompactRate(int rate) const
     { Q_ASSERT(mBtree); mBtree->setAutoCompactRate(rate); }
-    void setAutoSyncRate(int rate) const
-    { Q_ASSERT(mBtree); mBtree->setAutoSyncRate(rate); }
     void setCmpFunc(QBtree::CmpFunc cmp)
     { Q_ASSERT(mBtree); mBtree->setCmpFunc(cmp); }
     void setCacheSize(int size)
