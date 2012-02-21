@@ -73,7 +73,13 @@ public:
     QJsonDbConnectionPrivate(QJsonDbConnection *q);
 
     inline QString serverSocketName() const
-    { return socketName.isEmpty() ? QStringLiteral("qt5jsondb") : socketName; }
+    {
+        if (socketName.isEmpty()) {
+            QByteArray ba = qgetenv("JSONDB_SOCKET");
+            return ba.isEmpty() ? QStringLiteral("qt5jsondb") : QString::fromLatin1(ba.constData(), ba.size());
+        }
+        return socketName;
+    }
     inline bool shouldAutoReconnect() const
     { return autoReconnectEnabled && !explicitDisconnect; }
 
