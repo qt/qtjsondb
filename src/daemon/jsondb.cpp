@@ -929,7 +929,8 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
     else if (object.value(JsonDbString::kOwnerStr).toString().isEmpty())
         object.insert(JsonDbString::kOwnerStr, owner->ownerId());
 
-    RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, partition, "write"));
+    if (!forRemoval)
+        RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, partition, "write"));
 
     bool validWrite = false;
     QString versionWritten;
