@@ -320,7 +320,7 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
                 Q_ASSERT(false);
             watcher->d_func()->handleNotification(actionType, object);
         } else {
-            qWarning("QJsonDbConnection: received notification for unknown watcher");
+            // received notification for unknown watcher, just ignore it.
         }
     } else if (currentRequest) {
         QJsonDbRequestPrivate *drequest = currentRequest.data()->d_func();
