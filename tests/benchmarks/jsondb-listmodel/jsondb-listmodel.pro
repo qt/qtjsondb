@@ -1,7 +1,5 @@
 TEMPLATE = app
 TARGET = tst_bench_listmodel
-DEPENDPATH += .
-INCLUDEPATH += .
 
 QT = core network testlib gui declarative jsondbcompat-private
 CONFIG -= app_bundle
@@ -16,6 +14,5 @@ INCLUDEPATH += $$PWD/../../../src/imports/jsondb-listmodel
 HEADERS += $$PWD/../../../src/imports/jsondb-listmodel/jsondb-listmodel.h
 SOURCES += $$PWD/../../../src/imports/jsondb-listmodel/jsondb-listmodel.cpp
 
-# Input
 HEADERS += listmodel-benchmark.h
 SOURCES += listmodel-benchmark.cpp

@@ -1,7 +1,5 @@
 TEMPLATE = app
 TARGET = tst_bench_client
-DEPENDPATH += .
-INCLUDEPATH += .
 
 QT = core network testlib jsondb jsondbcompat-private
 
@@ -16,6 +14,5 @@ CONFIG -= app_bundle
 
 include($$PWD/../../shared/shared.pri)
 
-# Input
 HEADERS += client-benchmark.h
 SOURCES += client-benchmark.cpp
