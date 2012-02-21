@@ -314,6 +314,46 @@ void TestJsonDbCachingListModel::createItem()
     deleteModel(listModel);
 }
 
+// Populate model of 300 items two partitions.
+void TestJsonDbCachingListModel::createModelTwoPartitions()
+{
+    QVariantMap item;
+
+    for (int i=0; i < 300; i = i+2) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        int id = mClient->create(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+    }
+
+    for (int i=1; i < 300; i = i+2) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        int id = mClient->create(item, "com.nokia.shared.2");
+        waitForResponse1(id);
+    }
+
+    createIndex("name", "string");
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    // now start it working
+    QCOMPARE(listModel->rowCount(), 0);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 300);
+
+    deleteModel(listModel);
+}
+
+
 
 // Create an item and then update it.
 void TestJsonDbCachingListModel::updateItemClient()
@@ -334,8 +374,7 @@ void TestJsonDbCachingListModel::updateItemClient()
     // now start it working
     QCOMPARE(listModel->rowCount(), 0);
 
-    waitForStateOrTimeout(); // First state is Query
-    waitForStateOrTimeout(); // Second state is Ready
+    waitForStateOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
 
     getIndex(0);
@@ -374,8 +413,7 @@ void TestJsonDbCachingListModel::deleteItem()
     connectListModel(listModel);
 
     // now start it working
-    waitForStateOrTimeout(); // First state is Query
-    waitForStateOrTimeout(); // Second state is Ready
+    waitForStateOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
 
     item.insert("name", "Baker");
@@ -793,8 +831,7 @@ void TestJsonDbCachingListModel::totalRowCount()
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "order");
     listModel->setProperty("roleNames", roleNames);
 
-    waitForStateOrTimeout(); // First state is Query
-    waitForStateOrTimeout(); // Second state is Ready
+    waitForStateOrTimeout();
 
     QCOMPARE(listModel->rowCount(), 10);
 
@@ -946,8 +983,12 @@ void TestJsonDbCachingListModel::rowsMoved( const QModelIndex &parent, int start
 
 void TestJsonDbCachingListModel::stateChanged()
 {
-    mWaitingForStateChanged = false;
-    mEventLoop2.exit(0);
+    // only exit on ready state.
+    QAbstractListModel *model = qobject_cast<QAbstractListModel *>(sender());
+    if (model->property("state") == 2) {
+        mWaitingForStateChanged = false;
+        mEventLoop2.exit(0);
+    }
 }
 
 void TestJsonDbCachingListModel::waitForItemsCreated(int items)

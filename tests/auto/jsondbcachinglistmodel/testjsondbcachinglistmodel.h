@@ -108,6 +108,7 @@ private slots:
     void initTestCase();
     void cleanupTestCase();
     void createItem();
+    void createModelTwoPartitions();
     void updateItemClient();
     void deleteItem();
     void sortedQuery();
