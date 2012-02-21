@@ -533,7 +533,7 @@ bool QJsonDbConnection::cancel(QJsonDbRequest *request)
     case QJsonDbRequest::Finished:
     case QJsonDbRequest::Canceled:
         qWarning("QJsonDbConnection: cannot cancel request that was not added to connection.");
-        return true;
+        return false;
     case QJsonDbRequest::Sent:
     case QJsonDbRequest::Receiving:
         qWarning("QJsonDbConnection: cannot cancel request that was already sent.");
