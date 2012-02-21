@@ -573,7 +573,7 @@ bool JsonDb::open()
 bool JsonDb::clear()
 {
     bool fail = false;
-    foreach(JsonDbBtreeStorage *storage, mStorages)
+    foreach (JsonDbBtreeStorage *storage, mStorages)
         fail = !storage->clear() || fail;
     return !fail;
 }
@@ -581,7 +581,7 @@ bool JsonDb::clear()
 bool JsonDb::checkValidity()
 {
     bool fail = false;
-    foreach(JsonDbBtreeStorage *storage, mStorages)
+    foreach (JsonDbBtreeStorage *storage, mStorages)
         fail = !storage->checkValidity() || fail;
     return !fail;
 }

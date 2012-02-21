@@ -252,7 +252,7 @@ void TestJsonDb::cleanupTestCase()
 
 void TestJsonDb::cleanup()
 {
-    foreach(JsonDbBtreeStorage *storage, mJsonDb->mStorages)
+    foreach (JsonDbBtreeStorage *storage, mJsonDb->mStorages)
         QCOMPARE(storage->mTransactionDepth, 0);
     //QVERIFY(mJsonDb->checkValidity());
 }
