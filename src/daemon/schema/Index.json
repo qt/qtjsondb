@@ -1,6 +1,5 @@
 {
   "type": "object",
-  "primaryKey": ["_type", "propertyName", "name"],
   "properties": {
     "name": {
       "type": "string",
