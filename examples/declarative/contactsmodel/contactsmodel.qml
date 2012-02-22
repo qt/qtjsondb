@@ -50,7 +50,6 @@ Item {
 
     JsonDb.Partition {
         id: systemPartition
-        name: "com.example.System"
     }
 
     JsonDb.JsonDbSortingListModel {

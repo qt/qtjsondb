@@ -49,7 +49,6 @@ Rectangle {
 
     JsonDb.Partition {
         id: systemPartition
-        name: "com.example.System"
     }
 
     function createCallback(error, response)
