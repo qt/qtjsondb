@@ -280,7 +280,7 @@ void QJsonDbReadRequestPrivate::handleResponse(const QJsonObject &response)
     Q_Q(QJsonDbReadRequest);
 
     stateNumber = static_cast<quint32>(response.value(JsonDbStrings::Property::state()).toDouble());
-    sortKey = response.value(JsonDbStrings::Property::sortKey()).toString();
+    sortKey = response.value(JsonDbStrings::Property::sortKeys()).toArray().at(0).toString();
 
     setStatus(QJsonDbRequest::Receiving);
     emit q->started();

@@ -97,7 +97,7 @@ public:
     static inline const QString actions() { return QStringLiteral("actions"); }
     static inline const QString bindings() { return QStringLiteral("bindings"); }
     static inline const QString state() { return QStringLiteral("state"); }
-    static inline const QString sortKey() { return QStringLiteral("sortKey"); }
+    static inline const QString sortKeys() { return QStringLiteral("sortKeys"); }
     static inline const QString startingStateNumber() { return QStringLiteral("startingStateNumber"); }
     static inline const QString currentStateNumber() { return QStringLiteral("currentStateNumber"); }
 };
