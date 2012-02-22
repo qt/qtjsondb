@@ -1,12 +1,25 @@
-{
-  "_type": "Capability",
-  "name": "foobar",
-  "accessRules": {
-    "read": {
-      "read": ["[?_type=\"Contact\"]"]
+[
+    {
+        "_type": "_schemaType",
+        "name": "PrimaryKeyTest",
+        "schema": {
+            "type": "object",
+            "primaryKey": ["_type", "name"],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Name of the object"
+                }
+            }
+        }
     },
-    "write": {
-      "write": ["[?_type=\"Contact\"]"]
+    {
+        "_type": "PrimaryKeyTest",
+        "name": "foobar",
+        "otherStuff": {
+            "dataflow": {
+                "number": "6.847"
+            }
+        }
     }
-  }
-}
+]

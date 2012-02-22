@@ -1,6 +1,5 @@
 {
   "type": "object",
-    "primaryKey": ["_type", "name", "partition"],
   "properties": {
     "name": {
       "type": "string",

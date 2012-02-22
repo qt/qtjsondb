@@ -3642,9 +3642,13 @@ QJsonValue TestJsonDb::readJson(const QByteArray& json)
 
 void TestJsonDb::testPrimaryKey()
 {
-    JsonDbObject capability = readJsonFile(":/daemon/json/pk-capability.json").toObject();
+    QJsonArray objects = readJsonFile(":/daemon/json/pk-capability.json").toArray();
+    JsonDbObject schema = objects.at(0).toObject();
+    JsonDbObject capability = objects.at(1).toObject();
     JsonDbObject replay(capability);
 
+    QJsonObject result0 = mJsonDb->create(mOwner, schema);
+    verifyGoodResult(result0);
     QJsonObject result1 = mJsonDb->create(mOwner, capability);
     verifyGoodResult(result1);
 
