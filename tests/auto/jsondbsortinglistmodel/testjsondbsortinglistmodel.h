@@ -111,6 +111,11 @@ private slots:
     void checkUpdateNotification();
     void totalRowCount();
     void listProperty();
+    void twoPartitions();
+    void changeQuery();
+    void getQJSValue();
+    void indexOfUuid();
+    void queryLimit();
 
 private:
     void waitForExitOrTimeout();

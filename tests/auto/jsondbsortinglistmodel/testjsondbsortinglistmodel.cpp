@@ -82,6 +82,24 @@ QVariant get(QObject* object, int index, QString propertyName)
     return retVal;
 }
 
+QJSValue get(QObject* object, int index)
+{
+    QJSValue retVal;
+    QMetaObject::invokeMethod(object, "get", Qt::DirectConnection,
+                              Q_RETURN_ARG(QJSValue, retVal),
+                              Q_ARG(int, index));
+    return retVal;
+}
+
+int indexOf(QObject* object, const QString &uuid)
+{
+    int retVal;
+    QMetaObject::invokeMethod(object, "indexOf", Qt::DirectConnection,
+                              Q_RETURN_ARG(int, retVal),
+                              Q_ARG(QString, uuid));
+    return retVal;
+}
+
 TestJsonDbSortingListModel::TestJsonDbSortingListModel()
     : mWaitingForNotification(false), mWaitingForDataChange(false), mWaitingForRowsRemoved(false)
 {
@@ -253,6 +271,7 @@ void TestJsonDbSortingListModel::createItem()
 
     waitForStateOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
+    QCOMPARE(listModel->property("state").toInt(), 2);
 
     item.clear();
     item.insert("_type", __FUNCTION__);
@@ -361,6 +380,8 @@ void TestJsonDbSortingListModel::sortedQuery()
     listModel->setProperty("query", "[?_type=\"RandNumber\"]");
     waitForStateOrTimeout();
 
+    QCOMPARE(listModel->property("sortOrder").toString(), QString("[/number]"));
+
     QCOMPARE(listModel->rowCount(), 1000);
     for (int i = 0; i < 1000; i++)
         QCOMPARE(get(listModel, i,"number").toInt(), i);
@@ -420,7 +441,7 @@ void TestJsonDbSortingListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "99");  // move it to the end
-        int id = mClient->update(item, "com.nokia.shared.2");
+        mClient->update(item, "com.nokia.shared.2");
     }
     waitForItemChanged();
 
@@ -436,7 +457,7 @@ void TestJsonDbSortingListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "22");    // move it after "2"
-        int id = mClient->update(item, "com.nokia.shared.2");
+        mClient->update(item, "com.nokia.shared.2");
     }
     waitForItemChanged();
 
@@ -452,7 +473,7 @@ void TestJsonDbSortingListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "0");    // move it to the beginning
-        int id = mClient->update(item, "com.nokia.shared.2");
+        mClient->update(item, "com.nokia.shared.2");
     }
     waitForItemChanged();
 
@@ -776,6 +797,192 @@ void TestJsonDbSortingListModel::listProperty()
     QCOMPARE(get(listModel, 1, "_type").toString(), type);
     QCOMPARE(get(listModel, 1, "features[0].properties[0].description").toString(), QLatin1String("Gmail account provider"));
     QCOMPARE(get(listModel, 1, "features[0].supported[0]").toString(), QLatin1String("share"));
+
+    deleteModel(listModel);
+}
+
+
+// Populate model of 300 items two partitions.
+void TestJsonDbSortingListModel::twoPartitions()
+{
+    QVariantMap item;
+
+    for (int i=0; i < 300; i = i+2) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        int id = mClient->create(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+    }
+
+    for (int i=1; i < 300; i = i+2) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        int id = mClient->create(item, "com.nokia.shared.2");
+        waitForResponse1(id);
+    }
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("sortOrder", "[/name]");
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 300);
+    QCOMPARE(get(listModel, 0, "name").toString(), QString("Arnie_0"));
+    QCOMPARE(get(listModel, 1, "name").toString(), QString("Arnie_1"));
+    QCOMPARE(get(listModel, 2, "name").toString(), QString("Arnie_10"));
+    QCOMPARE(get(listModel, 3, "name").toString(), QString("Arnie_100"));
+
+    deleteModel(listModel);
+}
+
+void TestJsonDbSortingListModel::changeQuery()
+{
+    QVariantMap item;
+
+    for (int i=0; i < 10; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        int id = mClient->create(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+    }
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("sortOrder", "[/name]");
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 10);
+    QCOMPARE(listModel->property("query").toString(), QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    QCOMPARE(listModel->rowCount(), 10);
+    QCOMPARE(listModel->property("query").toString(), QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    listModel->setProperty("query", QString(""));
+
+    QCOMPARE(listModel->rowCount(), 0);
+    QCOMPARE(listModel->property("query").toString(), QString(""));
+
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 10);
+    QCOMPARE(listModel->property("query").toString(), QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    deleteModel(listModel);
+}
+
+void TestJsonDbSortingListModel::getQJSValue()
+{
+    QVariantMap item;
+
+    for (int i=0; i < 10; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        int id = mClient->create(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+    }
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("sortOrder", "[/name]");
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 10);
+    QCOMPARE(get(listModel, 0).property("object").property("name").toString(), QString("Arnie_0"));
+    QCOMPARE(get(listModel, 1).property("object").property("name").toString(), QString("Arnie_1"));
+
+    deleteModel(listModel);
+}
+
+
+void TestJsonDbSortingListModel::indexOfUuid()
+{
+    QVariantMap item;
+    item.insert("_type", __FUNCTION__);
+    item.insert("name", QString("Arnie_0"));
+    int id = mClient->create(item, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("sortOrder", "[/name]");
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 1);
+    QCOMPARE(get(listModel, 0, "name").toString(), QString("Arnie_0"));
+    QCOMPARE(indexOf(listModel, get(listModel, 0, "_uuid").toString()), 0);
+
+    item.insert("_type", __FUNCTION__);
+    item.insert("name", QString("Arnie_1"));
+    id = mClient->create(item, "com.nokia.shared.1");
+
+    waitForItemsCreated(1);
+
+    QCOMPARE(listModel->rowCount(), 2);
+    QCOMPARE(get(listModel, 1, "name").toString(), QString("Arnie_1"));
+    QCOMPARE(indexOf(listModel, get(listModel, 1, "_uuid").toString()), 1);
+    QCOMPARE(indexOf(listModel, "notValid"), -1);
+
+    deleteModel(listModel);
+}
+
+void TestJsonDbSortingListModel::queryLimit()
+{
+    QVariantMap item;
+
+    for (int i=0; i < 300; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        int id = mClient->create(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+    }
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("queryLimit", 100);
+    listModel->setProperty("sortOrder", "[/name]");
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 100);
+    QCOMPARE(listModel->property("overflow").toBool(), true);
+
+    listModel->setProperty("queryLimit", 500);
+
+    waitForStateOrTimeout();
+    QCOMPARE(listModel->rowCount(), 300);
+    QCOMPARE(listModel->property("overflow").toBool(), false);
 
     deleteModel(listModel);
 }
