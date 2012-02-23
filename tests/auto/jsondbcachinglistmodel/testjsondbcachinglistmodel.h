@@ -119,6 +119,7 @@ private slots:
     void listProperty();
     void changeQuery();
     void indexOfUuid();
+    void roleNames();
 
 private:
     void waitForExitOrTimeout();
