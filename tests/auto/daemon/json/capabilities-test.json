@@ -2,36 +2,45 @@
   {
     "_type": "Capability",
     "name": "contacts",
+    "partition": "all",
     "accessRules": {
-      "read": {
-	"read": ["[?_type=\"Contact\"]"]
-      },
-      "write": {
-	"write": ["[?_type=\"Contact\"]"]
+      "rw": {
+        "read": ["[?_type=\"Contact\"]"],
+        "write": ["[?_type=\"Contact\"]"]
       }
     }
   },
   {
     "_type": "Capability",
     "name": "email",
+    "partition": "all",
     "accessRules": {
-      "read": {
-	"read": ["[?_type=\"Email\"]"]
-      },
-      "write": {
-	"write": ["[?_type=\"Email\"]"]
+      "rw": {
+        "read": ["[?_type=\"Email\"]"],
+        "write": ["[?_type=\"Email\"]"]
       },
       "send": {
-	"write": ["[?_type=\"OutgoingEmail\"]"]
+        "write": ["[?_type=\"OutgoingEmail\"]"]
       }
     }
   },
-{
-  "_type": "CapabilitiesTest",
-  "identifier": "test1",
-  "capabilities": {
-    "email": ["send"],
-    "contacts": ["read", "write"]
+    {
+      "_type": "Capability",
+      "name": "own_domain",
+      "partition": "all",
+      "accessRules": {
+        "rw": {
+          "read": ["[?%owner startsWith %typeDomain]"],
+          "write": ["[?%owner startsWith %typeDomain]"]
+        }
+      }
+    },
+  {
+    "_type": "CapabilitiesTest",
+    "identifier": "test1",
+    "capabilities": {
+      "email": ["send"],
+      "contacts": ["rw"]
+    }
   }
-}
 ]

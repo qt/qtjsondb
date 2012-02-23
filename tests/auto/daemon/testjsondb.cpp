@@ -78,7 +78,7 @@ QT_END_NAMESPACE_JSONDB
 
 QT_USE_NAMESPACE_JSONDB
 
-static QString kContactStr = "com.noklab.nrcc.jsondb.unittest.contact";
+static QString kContactStr = "com.example.unittest.contact";
 
 /*
   Ensure that a good result object contains the correct fields
@@ -218,11 +218,8 @@ private slots:
     void capabilities();
     void allowAll();
 
-#ifdef TEST_ACCESS_CONTROL
     void testAccessControl();
     void testFindAccessControl();
-    void permissionsCleared();
-#endif
 
     void addIndex();
     void addSchema();
@@ -825,155 +822,181 @@ void TestJsonDb::allowAll()
  * Create an item and verify access control
  */
 
-#ifdef TEST_ACCESS_CONTROL
 void TestJsonDb::testAccessControl()
 {
-    QSet<QString> emptySet;
-    QSet<QString> myTypes;
-    myTypes.insert("create-test-type");
-    QSet<QString> otherTypes;
-    otherTypes.insert("other-test-type");
-    QSet<QString> myDomains;
-    myDomains.insert("my-domain");
-    QSet<QString> otherDomains;
-    otherDomains.insert("other-domain");
+    ScopedAssignment<bool> enforceAccessControl(gEnforceAccessControlPolicies, true);
+    QJsonObject contactsCapabilities;
+    QJsonArray value;
+    value.append (QLatin1String("rw"));
+    contactsCapabilities.insert (QLatin1String("contacts"), value);
+    mOwner->setAllowAll(false);
+    mOwner->setCapabilities(contactsCapabilities, mJsonDb);
 
-    QStringList ops = (QStringList() /* << "read" */ << "write");
-    for (int k = 0; k < ops.size(); k++) {
-        QString op = ops[k];
-        for (int i = 0; i < 4; i++) {
-            mOwner->setAllowedTypes(op, ((i % 2) == 0) ? myTypes : otherTypes);
-            mOwner->setProhibitedTypes(op, emptySet);
-            if (i >= 2)
-                mOwner->setProhibitedTypes(op, ((i % 2) == 0) ? otherTypes : myTypes);
+    JsonDbObject item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("create-test-type"));
+    item.insert("access-control-test", 22);
 
-            for (int j = 0; j < 4; j++) {
-                mOwner->setAllowedDomains(op, ((j % 2) == 0) ? myDomains : otherDomains);
-                mOwner->setProhibitedDomains(op, emptySet);
-                if (j >= 2)
-                    mOwner->setProhibitedDomains(op, ((j % 2) == 0) ? otherDomains : myDomains);
+    QJsonObject result = mJsonDb->create(mOwner, item);
 
-                QJsonValue item;
-                QString type = "create-test-type";
-                QString domain = "my-domain";
-                item.insert(JsonDbString::kTypeStr, type);
-                item.insert(JsonDbString::kDomainStr, domain);
-                item.insert("create-test", 22);
+    verifyErrorResult(result);
 
-                QJsonValue result = mJsonDb->create(mOwner, item);
+    item.remove(JsonDbString::kUuidStr);
+    item.insert(JsonDbString::kTypeStr, QLatin1String("Contact"));
+    item.insert("access-control-test", 23);
 
-                if ((mOwner->allowedDomains("write").isEmpty() || mOwner->allowedDomains("write").contains(domain))
-                    && !mOwner->prohibitedDomains("write").contains(domain)
-                    && (mOwner->allowedTypes("write").isEmpty() || mOwner->allowedTypes("write").contains(type))
-                    && !mOwner->prohibitedTypes("write").contains(type))
-                    verifyGoodResult(result);
-                else
-                    verifyErrorResult(result);
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
 
-                if (result.value(JsonDbString::kErrorStr).toObject().isEmpty()) {
-                    //if (op != "create")
-                    //item.insert(JsonDbString::kUuidStr, item.value(JsonDbString::kUuidStr));
-                    result = mJsonDb->update(mOwner, item);
-                    verifyGoodResult(result);
+    item.insert("access-control-test", 24);
+    result = mJsonDb->update(mOwner, item);
+    verifyGoodResult(result);
 
-                    result = mJsonDb->remove(mOwner, item);
-                    verifyGoodResult(result);
-                }
-            }
-        }
+    result = mJsonDb->remove(mOwner, item);
+    verifyGoodResult(result);
 
-        mOwner->setAllowedTypes(op, emptySet);
-        mOwner->setAllowedDomains(op, emptySet);
-        mOwner->setProhibitedTypes(op, emptySet);
-        mOwner->setProhibitedDomains(op, emptySet);
-    }
+    // Test some %owner and %typeDomain horror
+    // ---------------------------------------
+    mOwner->setAllowAll(true);
+
+    // Create an object for testing (failing) update & delete
+    mOwner->setOwnerId(QStringLiteral("test"));
+
+    item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.bar.FooType"));
+    item.insert("access-control-test", 25);
+
+    result = mJsonDb->create(mOwner, item);
+
+    QJsonValue uuid = item.value(JsonDbString::kUuidStr);
+
+    mOwner->setOwnerId(QStringLiteral("com.example.foo.App"));
+    QJsonObject ownDomainCapabilities;
+    while (!value.isEmpty())
+        value.removeLast();
+    value.append (QLatin1String("rw"));
+    ownDomainCapabilities.insert (QStringLiteral("own_domain"), value);
+    mOwner->setAllowAll(false);
+    mOwner->setCapabilities(ownDomainCapabilities, mJsonDb);
+
+    // Test that we can not create
+    item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.bar.FooType"));
+    item.insert("access-control-test", 26);
+
+    result = mJsonDb->create(mOwner, item);
+
+    verifyErrorResult(result);
+
+    // Test that we can not update
+    item.insert(JsonDbString::kUuidStr, uuid);
+    item.insert("access-control-test", 27);
+
+    result = mJsonDb->update(mOwner, item);
+    verifyErrorResult(result);
+
+    // .. or remove
+    item.insert(JsonDbString::kUuidStr, uuid);
+    result = mJsonDb->remove(mOwner, item);
+    verifyErrorResult(result);
+
+    // Positive tests
+    item.remove(JsonDbString::kUuidStr);
+    item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.FooType"));
+    item.insert("access-control-test", 28);
+
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    result = mJsonDb->remove(mOwner, item);
+    verifyGoodResult(result);
+
+    item.remove(JsonDbString::kUuidStr);
+    item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.FooType"));
+    item.insert("access-control-test", 29);
+
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item.insert("access-control-test", 30);
+    result = mJsonDb->update(mOwner, item);
+    verifyGoodResult(result);
+
+    result = mJsonDb->remove(mOwner, item);
+    verifyGoodResult(result);
 }
 
 void TestJsonDb::testFindAccessControl()
 {
-    QSet<QString> emptySet;
-    QSet<QString> myTypes;
-    myTypes.insert("create-test-type");
-    QSet<QString> otherTypes;
-    otherTypes.insert("other-test-type");
-    QSet<QString> myDomains;
-    myDomains.insert("my-domain");
-    QSet<QString> otherDomains;
-    otherDomains.insert("other-owner-id");
-
-    QJsonValue item;
-    item.insert(JsonDbString::kTypeStr, "create-test-type");
-    item.insert(JsonDbString::kDomainStr, "my-domain");
-    item.insert("create-test", 22);
-    QJsonValue result = mJsonDb->create(mOwner, item);
+    ScopedAssignment<bool> enforceAccessControl(gEnforceAccessControlPolicies, true);
+    mOwner->setAllowAll(true);
+    JsonDbObject item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("find-access-control-test-type"));
+    item.insert("find-access-control-test", 50);
+    JsonDbObject result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+    item.remove(JsonDbString::kUuidStr);
+    item.insert(JsonDbString::kTypeStr, QLatin1String("Contact"));
+    item.insert("find-access-control-test", 51);
+    result = mJsonDb->create(mOwner, item);
     verifyGoodResult(result);
 
+    QJsonObject contactsCapabilities;
+    QJsonArray value;
+    value.append (QLatin1String("rw"));
+    contactsCapabilities.insert (QStringLiteral("contacts"), value);
+    mOwner->setAllowAll(false);
+    mOwner->setCapabilities(contactsCapabilities, mJsonDb);
+
     QJsonObject request;
-    request.insert(JsonDbString::kQueryStr, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("create-test-type"));
+    request.insert(JsonDbString::kQueryStr, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("find-access-control-test-type"));
 
-    QStringList ops = (QStringList() << "read");
-    for (int k = 0; k < ops.size(); k++) {
-        QString op = ops[k];
-        for (int i = 0; i < 4; i++) {
-            mOwner->setAllowedTypes(op, ((i % 2) == 0) ? myTypes : otherTypes);
-            mOwner->setProhibitedTypes(op, emptySet);
-            if (i >= 2)
-                mOwner->setProhibitedTypes(op, ((i % 2) == 0) ? otherTypes : myTypes);
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+    verifyGoodQueryResult(queryResult);
 
-            for (int j = 0; j < 4; j++) {
-                mOwner->setAllowedDomains(op, ((j % 2) == 0) ? myDomains : otherDomains);
-                mOwner->setProhibitedDomains(op, emptySet);
-                if (j >= 2)
-                    mOwner->setProhibitedDomains(op, ((j % 2) == 0) ? otherDomains : myDomains);
+    QVERIFY(queryResult.length.toDouble() < 1);
 
-                JsonDbQueryResult queryResult= mJsonDb->find(mOwner, request);
-                //if (op != "create")
-                //item.insert(JsonDbString::kUuidStr, item.value(JsonDbString::kUuidStr));
-                if (op == "update")
-                    result = mJsonDb->update(mOwner, item);
-                if (op == "remove")
-                    result = mJsonDb->remove(mOwner, item);
-                verifyGoodQueryResult(queryResult);
-                QJsonValue map = result.value("result").toMap();
-                int length = (map.contains("length") ? map.value("length").toInt() : 0);
-                if (((i % 2) == 0) && ((j % 2) == 0)) {
-                    QVERIFY(map.contains("length"));
-                    QVERIFY(map.value("length").toInt() >= 1);
-                } else {
-                    QVERIFY(map.contains("length"));
-                    QCOMPARE(map.value("length").toInt(), 0);
-                }
-            }
-        }
+    request.insert(JsonDbString::kQueryStr, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("Contact"));
 
-        emptySet = QSet<QString>();
-        mOwner->setAllowedTypes(op, emptySet);
-        mOwner->setAllowedDomains(op, emptySet);
-        mOwner->setProhibitedTypes(op, emptySet);
-        mOwner->setProhibitedDomains(op, emptySet);
-    }
+    queryResult= mJsonDb->find(mOwner, request);
+    verifyGoodQueryResult(queryResult);
+
+    QVERIFY(queryResult.length.toDouble() > 0);
+
+    mOwner->setAllowAll(true);
+
+    item.remove(JsonDbString::kUuidStr);
+    item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.bar.FooType"));
+    item.insert("find-access-control-test", 55);
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item.remove(JsonDbString::kUuidStr);
+    item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.FooType"));
+    item.insert("find-access-control-test", 56);
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    mOwner->setOwnerId(QStringLiteral("com.example.foo.App"));
+    QJsonObject ownDomainCapabilities;
+    while (!value.isEmpty())
+        value.removeLast();
+    value.append (QLatin1String("rw"));
+    ownDomainCapabilities.insert (QLatin1String("own_domain"), value);
+    mOwner->setAllowAll(false);
+    mOwner->setCapabilities(ownDomainCapabilities, mJsonDb);
+
+    request.insert(JsonDbString::kQueryStr, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("com.example.foo.bar.FooType"));
+
+    queryResult = mJsonDb->find(mOwner, request);
+    verifyGoodQueryResult(queryResult);
+
+    QVERIFY(queryResult.length.toDouble() < 1);
+
+    request.insert(JsonDbString::kQueryStr, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("com.example.foo.FooType"));
+
+    queryResult= mJsonDb->find(mOwner, request);
+    verifyGoodQueryResult(queryResult);
+
+    QVERIFY(queryResult.length.toDouble() > 0);
 }
-
-void TestJsonDb::permissionsCleared()
-{
-    QStringList ops = (QStringList() << "find" << "create" << "update" << "remove");
-    for (int k = 0; k < ops.size(); k++) {
-        QString op = ops[k];
-        QSet<QString> emptySet;
-        mOwner->setAllowedTypes(op, emptySet);
-        mOwner->setAllowedDomains(op, emptySet);
-        mOwner->setProhibitedTypes(op, emptySet);
-        mOwner->setProhibitedDomains(op, emptySet);
-    }
-    for (int k = 0; k < ops.size(); k++) {
-        QString op = ops[k];
-        QCOMPARE(mOwner->allowedTypes(op).size(), 0);
-        QCOMPARE(mOwner->allowedDomains(op).size(), 0);
-        QCOMPARE(mOwner->prohibitedTypes(op).size(), 0);
-        QCOMPARE(mOwner->prohibitedDomains(op).size(), 0);
-    }
-}
-#endif
 
 /*
  * Insert an item and then update it.
@@ -3329,7 +3352,7 @@ void TestJsonDb::uuidJoin()
     addIndex("url");
     QString thumbnailUrl = "file:thumbnail.png";
     JsonDbObject thumbnail;
-    thumbnail.insert(JsonDbString::kTypeStr, QString("com.noklab.nrcc.jsondb.thumbnail"));
+    thumbnail.insert(JsonDbString::kTypeStr, QString("com.example.thumbnail"));
     thumbnail.insert("url", thumbnailUrl);
     mJsonDb->create(mOwner, thumbnail);
     QString thumbnailUuid = thumbnail.value("_uuid").toString();
@@ -4089,7 +4112,7 @@ void TestJsonDb::indexQueryOnCommonValues()
     for (int ii = 0; ii < mContactList.size(); ii++) {
         JsonDbObject data(mContactList.at(ii));
         JsonDbObject chaff;
-        chaff.insert(JsonDbString::kTypeStr, QString("com.noklab.nrcc.ContactChaff"));
+        chaff.insert(JsonDbString::kTypeStr, QString("com.example.ContactChaff"));
         QStringList skipKeys = (QStringList() << JsonDbString::kUuidStr << JsonDbString::kVersionStr << JsonDbString::kTypeStr);
         foreach (QString key, data.keys()) {
             if (!skipKeys.contains(key))
@@ -4169,7 +4192,7 @@ void TestJsonDb::setOwner()
     verifyGoodResult(result);
 
     JsonDbOwner *unauthOwner = new JsonDbOwner(this);
-    unauthOwner->setOwnerId("com.noklab.nrcc.OtherOwner");
+    unauthOwner->setOwnerId("com.example.OtherOwner");
     unauthOwner->setAllowAll(false);
     unauthOwner->setAllowedObjects(QLatin1String("all"), "write", (QStringList() << QLatin1String("[*]")));
     unauthOwner->setAllowedObjects(QLatin1String("all"), "read", (QStringList() << QLatin1String("[*]")));
