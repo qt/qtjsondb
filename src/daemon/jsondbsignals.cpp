@@ -44,11 +44,11 @@
 #include <unistd.h>
 #include <QSocketNotifier>
 #include <QDebug>
-#include "signals.h"
+#include "jsondbsignals.h"
 
-int Signals::sSigFD[2];
+int JsonDbSignals::sSigFD[2];
 
-Signals::Signals( QObject *parent )
+JsonDbSignals::JsonDbSignals( QObject *parent )
     : QObject(parent)
 {
     if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sSigFD))
@@ -58,12 +58,12 @@ Signals::Signals( QObject *parent )
     connect(mNotifier, SIGNAL(activated(int)), this, SLOT(handleSig()));
 }
 
-void Signals::start()
+void JsonDbSignals::start()
 {
     struct sigaction action;
 
     if (receivers(SIGNAL(sigTerm())) > 0) {
-	action.sa_handler = Signals::signalHandler;
+    action.sa_handler = JsonDbSignals::signalHandler;
 	sigemptyset(&action.sa_mask);
 	action.sa_flags = 0;
 	action.sa_flags |= SA_RESTART;
@@ -73,7 +73,7 @@ void Signals::start()
     }
 
     if (receivers(SIGNAL(sigHUP())) > 0) {
-	action.sa_handler = Signals::signalHandler;
+    action.sa_handler = JsonDbSignals::signalHandler;
 	sigemptyset(&action.sa_mask);
 	action.sa_flags = 0;
 	action.sa_flags |= SA_RESTART;
@@ -83,7 +83,7 @@ void Signals::start()
     }
 
     if (receivers(SIGNAL(sigINT())) > 0) {
-	action.sa_handler = Signals::signalHandler;
+    action.sa_handler = JsonDbSignals::signalHandler;
 	sigemptyset(&action.sa_mask);
 	action.sa_flags = 0;
 	action.sa_flags |= SA_RESTART;
@@ -93,13 +93,13 @@ void Signals::start()
     }
 }
 
-void Signals::signalHandler(int number)
+void JsonDbSignals::signalHandler(int number)
 {
     int tmp = number;
     ::write(sSigFD[0], &tmp, sizeof(tmp));
 }
 
-void Signals::handleSig()
+void JsonDbSignals::handleSig()
 {
     mNotifier->setEnabled(false);
     int tmp;

@@ -48,9 +48,9 @@
 
 #include "jsondb-strings.h"
 #include "jsondb.h"
-#include "jsondb-proxy.h"
+#include "jsondbproxy.h"
 #include "jsondbindex.h"
-#include "qmanagedbtree.h"
+#include "jsondbmanagedbtree.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -108,7 +108,7 @@ bool JsonDbIndex::open()
     if (mPropertyName == JsonDbString::kUuidStr)
         return true;
 
-    mBdb.reset(new QManagedBtree());
+    mBdb.reset(new JsonDbManagedBtree());
 
     if (mCacheSize)
         mBdb->setCacheSize(mCacheSize);
@@ -140,7 +140,7 @@ bool JsonDbIndex::exists() const
     return file.exists();
 }
 
-QManagedBtree *JsonDbIndex::bdb()
+JsonDbManagedBtree *JsonDbIndex::bdb()
 {
     if (!mBdb)
         open();
@@ -189,7 +189,7 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
         open();
     QList<QJsonValue> fieldValues = indexValues(object);
     bool inTransaction = mBdb->isWriteTxnActive();
-    QManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
+    JsonDbManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
         fieldValue = makeFieldValue(fieldValue, mPropertyType);
@@ -225,7 +225,7 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
         open();
     QList<QJsonValue> fieldValues = indexValues(object);
     bool inTransaction = mBdb->isWriteTxnActive();
-    QManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
+    JsonDbManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
         fieldValue = makeFieldValue(fieldValue, mPropertyType);
@@ -252,7 +252,7 @@ quint32 JsonDbIndex::stateNumber() const
     return mStateNumber;
 }
 
-QManagedBtreeTxn JsonDbIndex::begin()
+JsonDbManagedBtreeTxn JsonDbIndex::begin()
 {
     if (!mBdb)
         open();

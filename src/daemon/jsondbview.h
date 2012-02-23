@@ -55,25 +55,24 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDb;
 class JsonDbOwner;
-class JsonDbBtreeStorage;
-class ObjectTable;
+class JsonDbPartition;
+class JsonDbObjectTable;
 
 class JsonDbView : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbView(JsonDb *mJsonDb, JsonDbBtreeStorage *storage, const QString &viewType,
+    JsonDbView(JsonDb *mJsonDb, JsonDbPartition *partition, const QString &viewType,
                QObject *parent = 0);
     ~JsonDbView();
-    QString partition() const { return mPartition; }
-    JsonDbBtreeStorage *storage() const { return mStorage; }
-    ObjectTable *objectTable() const { return mObjectTable; }
+    JsonDbPartition *partition() const { return mPartition; }
+    JsonDbObjectTable *objectTable() const { return mObjectTable; }
     QStringList sourceTypes() const { return mSourceTypes; }
 
     void open();
     void close();
 
-    static void initViews(JsonDbBtreeStorage *storage, const QString &partition);
+    static void initViews(JsonDbPartition *partition, const QString &partitionName);
     void createJsonDbMapDefinition(QJsonObject mapDefinition, bool firstTime);
     void removeJsonDbMapDefinition(QJsonObject mapDefinition);
     void createJsonDbReduceDefinition(QJsonObject reduceDefinition, bool firstTime);
@@ -92,9 +91,8 @@ private:
     void updateSourceTypesList();
 private:
     JsonDb        *mJsonDb;
-    JsonDbBtreeStorage *mStorage;
-    ObjectTable   *mObjectTable;
-    QString        mPartition;
+    JsonDbPartition *mPartition;
+    JsonDbObjectTable   *mObjectTable;
     QString        mViewType;
     QStringList    mSourceTypes;
     QSet<JsonDbMapDefinition*> mJsonDbMapDefinitions;
@@ -108,4 +106,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif
+#endif // JSONDB_VIEW_H

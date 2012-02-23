@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JsonDbQuery_H
-#define JsonDbQuery_H
+#ifndef JSONDB_QUERY_H
+#define JSONDB_QUERY_H
 
 #include <QDebug>
 #include <QObject>
@@ -59,7 +59,7 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbBtreeStorage;
+class JsonDbPartition;
 
 class JsonDbQueryTokenizer {
 public:
@@ -180,7 +180,7 @@ public:
     QSet<QString> matchedTypes() const { return mMatchedTypes; }
     QJsonValue binding(const QString variable) const { return mBindings.value(variable); }
     void bind(QString variable, QJsonValue &binding) { mBindings[variable] = binding; }
-    bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbBtreeStorage *storage = 0) const;
+    bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbPartition *partition = 0) const;
 
     static QJsonValue parseJsonLiteral(const QString &json, QueryTerm *term, QJsonObject &bindings, bool *ok);
     static JsonDbQuery *parse(const QString &query, QJsonObject &bindings);
@@ -212,4 +212,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif
+#endif // JSONDB_QUERY_H

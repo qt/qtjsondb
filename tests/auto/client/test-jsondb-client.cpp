@@ -718,7 +718,7 @@ void TestJsonDbClient::notify()
     QString version = mData.toMap().value("_version").toString();
 
     QCOMPARE(mNotifications.size(), 1);
-    Notification n = mNotifications.takeFirst();
+    JsonDbTestNotification n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
     QCOMPARE(n.mAction, QString("create"));
 
@@ -774,7 +774,7 @@ void TestJsonDbClient::notifyViaCreate()
     QString version = mData.toMap().value("_version").toString();
 
     QCOMPARE(mNotifications.size(), 1);
-    Notification n = mNotifications.takeFirst();
+    JsonDbTestNotification n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
     QCOMPARE(n.mAction, QString("create"));
 
@@ -823,7 +823,7 @@ void TestJsonDbClient::registerNotification()
     QString version = mData.toMap().value("_version").toString();
 
     QCOMPARE(mNotifications.size(), 1);
-    Notification n = mNotifications.takeFirst();
+    JsonDbTestNotification n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
     QCOMPARE(n.mAction, QString("create"));
 
@@ -899,7 +899,7 @@ void TestJsonDbClient::notifyRemoveBatch()
 
     QCOMPARE(mNotifications.size(), count);
     while (mNotifications.length()) {
-        Notification n = mNotifications.takeFirst();
+        JsonDbTestNotification n = mNotifications.takeFirst();
         QCOMPARE(n.mNotifyUuid, notifyUuid);
         QCOMPARE(n.mAction, QLatin1String("remove"));
         QVariant uuid = n.mObject.toMap().value("_uuid");

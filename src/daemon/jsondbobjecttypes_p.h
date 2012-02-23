@@ -39,11 +39,10 @@
 **
 ****************************************************************************/
 
-#ifndef QSONOBJECTTYPES_P_H
-#define QSONOBJECTTYPES_P_H
+#ifndef JSONDB_OBJECTTYPES_P_H
+#define JSONDB_OBJECTTYPES_P_H
 
 #include "jsondb-global.h"
-
 #include "jsondb-strings.h"
 
 #include "schema-validation/object.h"
@@ -56,7 +55,7 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class SchemaManager;
+class JsonDbSchemaManager;
 
 /**
   \internal
@@ -163,7 +162,7 @@ public:
 
     class Service {
     public:
-        inline Service(SchemaManager *schemas);
+        inline Service(JsonDbSchemaManager *schemas);
         inline QJsonObject error() const;
 
         // interface
@@ -171,11 +170,11 @@ public:
         inline SchemaValidation::Schema<QJsonObjectTypes> loadSchema(const QString &schemaName);
 
     private:
-        SchemaManager *m_schemas;
+        JsonDbSchemaManager *m_schemas;
         QJsonObject m_errorMap;
     };
 };
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // QSONOBJECTTYPES_P_H
+#endif // JSONDB_OBJECTTYPES_P_H

@@ -67,12 +67,12 @@
 #endif
 
 #include "jsondb.h"
-#include "jsondb-proxy.h"
-#include "jsondbbtreestorage.h"
-#include "jsondbephemeralstorage.h"
+#include "jsondbproxy.h"
+#include "jsondbpartition.h"
+#include "jsondbephemeralpartition.h"
 #include "jsondbview.h"
-#include "schemamanager_impl_p.h"
-#include "qsonobjecttypes_impl_p.h"
+#include "jsondbschemamanager_impl_p.h"
+#include "jsondbobjecttypes_impl_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -229,15 +229,15 @@ QString JsonDb::createDatabaseId()
   This class should be optimized by a JsonDb subclass.
 */
 
-QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list, const QString &partition, WriteMode writeMode)
+QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list, const QString &partitionName, WriteMode writeMode)
 {
     int count = 0;
     QJsonArray resultList;
 
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    if (!storage) {
+    JsonDbPartition *partition = findPartition(partitionName);
+    if (!partition) {
         QJsonObject resultmap, errormap;
-        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partitionName));
         return makeResponse(resultmap, errormap);
     }
 
@@ -246,11 +246,11 @@ QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list,
     int size = list.size();
     int transactionSize = gTransactionSize ? gTransactionSize : size;
     for (int k = 0; k < size; k += transactionSize) {
-        WithTransaction lock(storage);
+        WithTransaction lock(partition);
         CHECK_LOCK_RETURN(lock, "createList");
         for (int i = k; i < qMin(k+transactionSize, size); ++i) {
             JsonDbObject o = list.at(i);
-            QJsonObject r = create(owner, o, partition, writeMode);
+            QJsonObject r = create(owner, o, partitionName, writeMode);
             stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
             if (responseIsError(r))
                 return r;
@@ -281,12 +281,12 @@ QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list,
   This class should be optimized by a JsonDb subclass.
 */
 
-QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list, const QString &partition, WriteMode writeMode)
+QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list, const QString &partitionName, WriteMode writeMode)
 {
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    if (!storage) {
+    JsonDbPartition *partition = findPartition(partitionName);
+    if (!partition) {
         QJsonObject resultmap, errormap;
-        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partitionName));
         return makeResponse(resultmap, errormap);
     }
 
@@ -297,11 +297,11 @@ QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list,
     int size = list.size();
     int transactionSize = gTransactionSize ? gTransactionSize : size;
     for (int k = 0; k < size; k += transactionSize) {
-        WithTransaction transaction(storage);
+        WithTransaction transaction(partition);
         CHECK_LOCK_RETURN(transaction, "updateList");
         for (int i = k; i < qMin(k+transactionSize, size); ++i) {
             JsonDbObject o = list.at(i);
-            QJsonObject r = update(owner, o, partition, writeMode);
+            QJsonObject r = update(owner, o, partitionName, writeMode);
             stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
             if (responseIsError(r))
                 return r;
@@ -331,12 +331,12 @@ QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list,
   This class should be optimized by a JsonDb subclass.
 */
 
-QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, const QString &partition, WriteMode writeMode)
+QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, const QString &partitionName, WriteMode writeMode)
 {
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    if (!storage) {
+    JsonDbPartition *partition = findPartition(partitionName);
+    if (!partition) {
         QJsonObject resultmap, errormap;
-        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partitionName));
         return makeResponse(resultmap, errormap);
     }
 
@@ -347,12 +347,12 @@ QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, 
     int size = list.size();
     int transactionSize = gTransactionSize ? gTransactionSize : size;
     for (int k = 0; k < size; k += transactionSize) {
-        WithTransaction transaction(storage);
+        WithTransaction transaction(partition);
         CHECK_LOCK_RETURN(transaction, "removeList");
         for (int i = k; i < qMin(k+transactionSize, size); ++i) {
             JsonDbObject o = list.at(i);
             QString uuid = o.value(JsonDbString::kUuidStr).toString();
-            QJsonObject r = remove(owner, o, partition, writeMode);
+            QJsonObject r = remove(owner, o, partitionName, writeMode);
             stateNumber = r.value(JsonDbString::kStateNumberStr).toDouble();
             QJsonObject error = r.value(JsonDbString::kErrorStr).toObject();
             if (!error.isEmpty()) {
@@ -380,12 +380,12 @@ QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, 
     return makeResponse(resultmap, errormap);
 }
 
-QJsonObject JsonDb::changesSince(const JsonDbOwner * /* owner */, QJsonObject object, const QString &partition)
+QJsonObject JsonDb::changesSince(const JsonDbOwner * /* owner */, QJsonObject object, const QString &partitionName)
 {
-    JsonDbBtreeStorage *storage = findPartition(partition);
-    if (!storage) {
+    JsonDbPartition *partition = findPartition(partitionName);
+    if (!partition) {
         QJsonObject resultmap, errormap;
-        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partitionName));
         return makeResponse(resultmap, errormap);
     }
 
@@ -395,9 +395,9 @@ QJsonObject JsonDb::changesSince(const JsonDbOwner * /* owner */, QJsonObject ob
         QJsonArray l = object.value(JsonDbString::kTypesStr).toArray();
         for (int i = 0; i < l.size(); i++)
             limitTypes.insert(l.at(i).toString());
-        return storage->changesSince(stateNumber, limitTypes);
+        return partition->changesSince(stateNumber, limitTypes);
     } else {
-        return storage->changesSince(stateNumber);
+        return partition->changesSince(stateNumber);
     }
 }
 
@@ -502,30 +502,30 @@ JsonDb::~JsonDb()
 bool JsonDb::open()
 {
     // init ephemeral partition
-    mEphemeralStorage = new JsonDbEphemeralStorage(this);
+    mEphemeralPartition = new JsonDbEphemeralPartition(this);
 
     // open system partition
     QString systemFileName = mFilePath + mSystemPartitionName + QLatin1String(".db");
-    JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(systemFileName, mSystemPartitionName, this);
-    if (!storage->open()) {
+    JsonDbPartition *partition = new JsonDbPartition(systemFileName, mSystemPartitionName, this);
+    if (!partition->open()) {
         qDebug() << "Cannot open system partition at" << systemFileName;
         return false;
     }
-    mStorages.insert(mSystemPartitionName, storage);
+    mPartitions.insert(mSystemPartitionName, partition);
 
     // read partition information from the db
     QJsonObject result;
-    JsonDbObjectList partitions = storage->getObjects(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr).data;
+    JsonDbObjectList partitions = partition->getObjects(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr).data;
     if (partitions.isEmpty()) {
-        WithTransaction transaction(storage);
-        ObjectTable *objectTable = storage->mainObjectTable();
+        WithTransaction transaction(partition);
+        JsonDbObjectTable *objectTable = partition->mainObjectTable();
         transaction.addObjectTable(objectTable);
 
         // make a system partition
-        JsonDbObject partition;
-        partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
-        partition.insert(QLatin1String("name"), mSystemPartitionName);
-        result = storage->createPersistentObject(partition);
+        JsonDbObject partitionDefinition;
+        partitionDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
+        partitionDefinition.insert(QLatin1String("name"), mSystemPartitionName);
+        result = partition->createPersistentObject(partitionDefinition);
         if (responseIsError(result)) {
             qCritical() << "Cannot create a system partition";
             return false;
@@ -540,19 +540,19 @@ bool JsonDb::open()
         if (name == mSystemPartitionName)
             continue;
 
-        if (mStorages.contains(name)) {
+        if (mPartitions.contains(name)) {
             qWarning() << "Duplicate partition found, ignoring" << name << "at" << filename;
             continue;
         }
 
-        JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(filename, name, this);
+        JsonDbPartition *partition = new JsonDbPartition(filename, name, this);
         if (gVerbose) qDebug() << "Opening partition" << name;
 
-        if (!storage->open()) {
+        if (!partition->open()) {
             qWarning() << "Failed to initialize partition" << name << "at" << filename;
             continue;
         }
-        mStorages.insert(name, storage);
+        mPartitions.insert(name, partition);
     }
 
     mViewTypes.clear();
@@ -560,8 +560,8 @@ bool JsonDb::open()
 
     initSchemas();
 
-    foreach (JsonDbBtreeStorage *storage, mStorages)
-        JsonDbView::initViews(storage, storage->name());
+    foreach (JsonDbPartition *partition, mPartitions)
+        JsonDbView::initViews(partition, partition->name());
 
     mOpen = true;
     return true;
@@ -569,16 +569,16 @@ bool JsonDb::open()
 bool JsonDb::clear()
 {
     bool fail = false;
-    foreach (JsonDbBtreeStorage *storage, mStorages)
-        fail = !storage->clear() || fail;
+    foreach (JsonDbPartition *partition, mPartitions)
+        fail = !partition->clear() || fail;
     return !fail;
 }
 
 bool JsonDb::checkValidity()
 {
     bool fail = false;
-    foreach (JsonDbBtreeStorage *storage, mStorages)
-        fail = !storage->checkValidity() || fail;
+    foreach (JsonDbPartition *partition, mPartitions)
+        fail = !partition->checkValidity() || fail;
     return !fail;
 }
 
@@ -587,32 +587,32 @@ bool JsonDb::checkValidity()
  */
 void JsonDb::reduceMemoryUsage()
 {
-    for (QHash<QString, JsonDbBtreeStorage *>::iterator it = mStorages.begin();
-         it != mStorages.end(); ++it) {
-        JsonDbBtreeStorage *storage = it.value();
-        storage->flushCaches();
+    for (QHash<QString, JsonDbPartition *>::iterator it = mPartitions.begin();
+         it != mPartitions.end(); ++it) {
+        JsonDbPartition *partition = it.value();
+        partition->flushCaches();
     }
 }
 
 JsonDbStat JsonDb::stat() const
 {
     JsonDbStat result;
-    foreach (JsonDbBtreeStorage *storage, mStorages)
-        result += storage->stat();
+    foreach (JsonDbPartition *partition, mPartitions)
+        result += partition->stat();
     return result;
 }
 
 void JsonDb::close()
 {
     if (mOpen) {
-        foreach (JsonDbBtreeStorage *storage, mStorages) {
-            JsonDbStat stat = storage->stat();
+        foreach (JsonDbPartition *partition, mPartitions) {
+            JsonDbStat stat = partition->stat();
             qDebug() << "Partition"
                      << "read" << stat.reads << "hits" << stat.hits << "writes" << stat.writes
-                     << storage->name();
+                     << partition->name();
             if (mCompactOnClose)
-                storage->compact();
-            storage->close();
+                partition->compact();
+            partition->close();
         }
     }
     mOpen = false;
@@ -628,7 +628,7 @@ const JsonDbOwner *JsonDb::findOwner(const QString &ownerId) const
         return mOwner;
 }
 
-JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const QString &partition)
+JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const QString &partitionName)
 {
 //    QElapsedTimer time;
 //    QJsonObject times;
@@ -657,12 +657,12 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
             return JsonDbQueryResult::makeErrorResponse(JsonDbError::MissingQuery, QString("Missing query: ") + parsedQuery->queryExplanation.join("\n"));
         }
 
-        if (partition == mEphemeralPartitionName)
-            return mEphemeralStorage->query(parsedQuery.data(), limit, offset);
+        if (partitionName == mEphemeralPartitionName)
+            return mEphemeralPartition->query(parsedQuery.data(), limit, offset);
 
-        JsonDbBtreeStorage *storage = findPartition(partition);
-        if (!storage) {
-            return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+        JsonDbPartition *partition = findPartition(partitionName);
+        if (!partition) {
+            return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partitionName));
         }
 
         QStringList explanation = parsedQuery->queryExplanation;
@@ -671,10 +671,10 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
         QStringList mapKeys = parsedQuery->mapKeyList;
 
         JsonDbQueryResult queryResult;
-        if (partition.isEmpty() && (mStorages.size() > 1))
-            queryResult = storage->queryPersistentObjects(owner, parsedQuery.data(), limit, offset, mStorages.values());
+        if (partitionName.isEmpty() && (mPartitions.size() > 1))
+            queryResult = partition->queryPersistentObjects(owner, parsedQuery.data(), limit, offset, mPartitions.values());
         else
-            queryResult = storage->queryPersistentObjects(owner, parsedQuery.data(), limit, offset);
+            queryResult = partition->queryPersistentObjects(owner, parsedQuery.data(), limit, offset);
         JsonDbObjectList results = queryResult.data;
         if (gDebug) {
             const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
@@ -750,7 +750,7 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
                                 baseObject = objectCache.value(uuid);
                             } else {
                                 ObjectKey objectKey(uuid);
-                                bool gotBaseObject = storage->getObject(objectKey, baseObject);
+                                bool gotBaseObject = partition->getObject(objectKey, baseObject);
                                 if (gotBaseObject)
                                     objectCache.insert(uuid, baseObject);
                             }
@@ -802,7 +802,7 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
 
 */
 
-QJsonObject JsonDb::create(const JsonDbOwner *owner, JsonDbObject& object, const QString &partition, WriteMode writeMode)
+QJsonObject JsonDb::create(const JsonDbOwner *owner, JsonDbObject& object, const QString &partitionName, WriteMode writeMode)
 {
     QJsonObject resultmap, errormap;
     if (object.contains(JsonDbString::kUuidStr)) {
@@ -810,15 +810,15 @@ QJsonObject JsonDb::create(const JsonDbOwner *owner, JsonDbObject& object, const
         return makeResponse(resultmap, errormap);
     }
 
-    populateIdBySchema(owner, object, partition);
+    populateIdBySchema(owner, object, partitionName);
     object.generateUuid();
 
-    return update(owner, object, partition, writeMode);
+    return update(owner, object, partitionName, writeMode);
 }
 
-QJsonObject JsonDb::createViewObject(const JsonDbOwner *owner, JsonDbObject& object, const QString &partition)
+QJsonObject JsonDb::createViewObject(const JsonDbOwner *owner, JsonDbObject& object, const QString &partitionName)
 {
-    return create(owner, object, partition, ViewObject);
+    return create(owner, object, partitionName, ViewObject);
 }
 
 
@@ -834,7 +834,7 @@ QJsonObject JsonDb::createViewObject(const JsonDbOwner *owner, JsonDbObject& obj
 
 */
 
-QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const QString &partition_, WriteMode writeMode)
+QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const QString &partitionName, WriteMode writeMode)
 {
     if (writeMode == DefaultWrite)
         writeMode = gRejectStaleUpdates ? OptimisticWrite : ForcedWrite;
@@ -850,31 +850,31 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         objectType = object.type();
         if (objectType.isEmpty()) {
             JsonDbObject testEphemeral;
-            if (mEphemeralStorage->get(uuid, &testEphemeral)) {
+            if (mEphemeralPartition->get(uuid, &testEphemeral)) {
                 objectType = testEphemeral.type();
                 writeMode = EphemeralObject;
             }
         }
     }
 
-    QString partition = partition_.isEmpty() ? mSystemPartitionName : partition_;
+    QString partitionId = partitionName.isEmpty() ? mSystemPartitionName : partitionName;
     bool isNotification = objectType == JsonDbString::kNotificationTypeStr;
 
-    if (writeMode != EphemeralObject && (isNotification || partition == mEphemeralPartitionName))
+    if (writeMode != EphemeralObject && (isNotification || partitionId == mEphemeralPartitionName))
         writeMode = EphemeralObject;
     if (writeMode == EphemeralObject)
-        partition = mEphemeralPartitionName;
+        partitionId = mEphemeralPartitionName;
 
     if (writeMode != ViewObject)
         RETURN_IF_ERROR(errormap, checkNaturalObjectType(object, objectType));
     if (!forRemoval)
         RETURN_IF_ERROR(errormap, validateSchema(objectType, object));
 
-    RETURN_IF_ERROR(errormap, checkPartitionPresent(partition));
+    RETURN_IF_ERROR(errormap, checkPartitionPresent(partitionId));
 
     // don't repopulate if deleting object, if it's a schema type then _id is altered.
     if (!forRemoval) {
-        if (populateIdBySchema(owner, object, partition)) {
+        if (populateIdBySchema(owner, object, partitionId)) {
             object.generateUuid();
 
             if (object.value(JsonDbString::kUuidStr).toString() != uuid) {
@@ -884,15 +884,15 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         }
     }
 
-    JsonDbBtreeStorage *storage = 0;
+    JsonDbPartition *partition = 0;
     WithTransaction transaction;
-    ObjectTable *objectTable = 0;
+    JsonDbObjectTable *objectTable = 0;
 
     JsonDbObject master;
     bool forCreation;
 
     if (writeMode == EphemeralObject) {
-        forCreation = !mEphemeralStorage->get(object.uuid(), &master);
+        forCreation = !mEphemeralPartition->get(object.uuid(), &master);
 
         // ensure this objects belongs to this connection so that other clients
         // cannot update / remove someone else's notifications
@@ -901,18 +901,18 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
             return makeResponse(resultmap, errormap);
         }
     } else {
-        storage = findPartition(partition);
-        if (!storage) {
-            setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partition));
+        partition = findPartition(partitionId);
+        if (!partition) {
+            setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partitionId));
             return makeResponse(resultmap, errormap);
         }
-        objectTable = storage->findObjectTable(objectType);
+        objectTable = partition->findObjectTable(objectType);
         if (writeMode != ViewObject) {
-            transaction.setStorage(storage);
+            transaction.setPartition(partition);
             transaction.addObjectTable(objectTable);
         }
 
-        forCreation = !storage->getObject(uuid, master, objectType);
+        forCreation = !partition->getObject(uuid, master, objectType);
     }
 
     if (writeMode != ReplicatedWrite && forCreation && forRemoval) {
@@ -921,7 +921,7 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
     }
 
     if (!forCreation)
-        RETURN_IF_ERROR(errormap, checkAccessControl(owner, master, partition, "write"));
+        RETURN_IF_ERROR(errormap, checkAccessControl(owner, master, partitionId, "write"));
 
     if (!master.value(JsonDbString::kOwnerStr).toString().isEmpty())
         object.insert(JsonDbString::kOwnerStr, master.value(JsonDbString::kOwnerStr));
@@ -929,7 +929,7 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         object.insert(JsonDbString::kOwnerStr, owner->ownerId());
 
     if (!forRemoval)
-        RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, partition, "write"));
+        RETURN_IF_ERROR(errormap, checkAccessControl(owner, object, partitionId, "write"));
 
     bool validWrite = false;
     QString versionWritten;
@@ -1011,33 +1011,33 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
 
         if (forCreation) {
             dataSize = master.toBinaryData().size();
-            RETURN_IF_ERROR(errormap, checkQuota(owner, dataSize, storage));
-            response = storage->createPersistentObject(master);
+            RETURN_IF_ERROR(errormap, checkQuota(owner, dataSize, partition));
+            response = partition->createPersistentObject(master);
         } else if (forRemoval) {
             dataSize = -oldMaster.toBinaryData().size();
-            response = storage->removePersistentObject(oldMaster, master);
+            response = partition->removePersistentObject(oldMaster, master);
         } else {
             dataSize = master.toBinaryData().size() - oldMaster.toBinaryData().size();
-            RETURN_IF_ERROR(errormap, checkQuota(owner, dataSize, storage));
-            response = storage->updatePersistentObject(oldMaster, master);
+            RETURN_IF_ERROR(errormap, checkQuota(owner, dataSize, partition));
+            response = partition->updatePersistentObject(oldMaster, master);
         }
 
         if (responseIsError(response))
             return response;
 
-        storage->addToQuota(owner, dataSize);
+        partition->addToQuota(owner, dataSize);
 
     } else {
         if (forRemoval) {
-            response = mEphemeralStorage->remove(master);
+            response = mEphemeralPartition->remove(master);
             if (isNotification)
                 removeNotification(uuid);
         } else if (forCreation) {
-            response = mEphemeralStorage->create(master);
+            response = mEphemeralPartition->create(master);
             if (isNotification)
                 createNotification(owner, master);
         } else {
-            response = mEphemeralStorage->update(master);
+            response = mEphemeralPartition->update(master);
         }
     }
 
@@ -1047,13 +1047,13 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         if (oldType == JsonDbString::kSchemaTypeStr)
             removeSchema(oldMaster.value("name").toString());
         else if (oldType == kIndexTypeStr)
-            removeIndex(oldMaster, partition);
+            removeIndex(oldMaster, partitionId);
 
         if (!forRemoval) {
             if (objectType == JsonDbString::kSchemaTypeStr)
                 setSchema(master.value("name").toString(), object.value("schema").toObject());
             else if (objectType == kIndexTypeStr)
-                addIndex(master, partition);
+                addIndex(master, partitionId);
         }
     }
 
@@ -1065,11 +1065,11 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
     }
 
     if (forCreation)
-        checkNotifications(partition, master, Notification::Create);
+        checkNotifications(partitionId, master, JsonDbNotification::Create);
     else if (forRemoval)
-        checkNotifications(partition, master, Notification::Delete);
+        checkNotifications(partitionId, master, JsonDbNotification::Delete);
     else
-        checkNotifications(partition, master, Notification::Update);
+        checkNotifications(partitionId, master, JsonDbNotification::Update);
 
     // method used to be non-const, so writing back
     // TODO: fixme
@@ -1089,9 +1089,9 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
   { "error": { "code": VALUE, "message": STRING }, "result": NULL }
 
 */
-QJsonObject JsonDb::updateViewObject(const JsonDbOwner *owner, JsonDbObject &object, const QString &partition)
+QJsonObject JsonDb::updateViewObject(const JsonDbOwner *owner, JsonDbObject &object, const QString &partitionName)
 {
-    return update(owner, object, partition, ViewObject);
+    return update(owner, object, partitionName, ViewObject);
 }
 
 
@@ -1107,7 +1107,7 @@ QJsonObject JsonDb::updateViewObject(const JsonDbOwner *owner, JsonDbObject &obj
 
 */
 
-QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object, const QString &partition, WriteMode writeMode)
+QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object, const QString &partitionName, WriteMode writeMode)
 {
     JsonDbObject tombstone;
     tombstone.insert(JsonDbString::kUuidStr, object.uuid().toString());
@@ -1116,7 +1116,7 @@ QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object,
     tombstone.insert(JsonDbString::kDeletedStr, true);
     tombstone.insert(JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
 
-    return update(owner, tombstone, partition, writeMode);
+    return update(owner, tombstone, partitionName, writeMode);
 }
 
 /*!
@@ -1131,20 +1131,20 @@ QJsonObject JsonDb::remove(const JsonDbOwner *owner, const JsonDbObject &object,
 
 */
 
-QJsonObject JsonDb::removeViewObject(const JsonDbOwner *owner, JsonDbObject object, const QString &partition)
+QJsonObject JsonDb::removeViewObject(const JsonDbOwner *owner, JsonDbObject object, const QString &partitionName)
 {
-    return remove(owner, object, partition, ViewObject);
+    return remove(owner, object, partitionName, ViewObject);
 }
 
-GetObjectsResult JsonDb::getObjects(const QString &keyName, const QJsonValue &key, const QString &type, const QString &partition) const
+GetObjectsResult JsonDb::getObjects(const QString &keyName, const QJsonValue &key, const QString &type, const QString &partitionName) const
 {
     const QString &objectType = (keyName == JsonDbString::kTypeStr) ? key.toString() : type;
-    if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->getObjects(keyName, key, objectType);
+    if (JsonDbPartition *partition = findPartition(partitionName))
+        return partition->getObjects(keyName, key, objectType);
     return GetObjectsResult();
 }
 
-void JsonDb::checkNotifications(const QString &partition, JsonDbObject object, Notification::Action action)
+void JsonDb::checkNotifications(const QString &partitionName, JsonDbObject object, JsonDbNotification::Action action)
 {
     //DBG() << object;
 
@@ -1165,26 +1165,25 @@ void JsonDb::checkNotifications(const QString &partition, JsonDbObject object, N
     QHash<QString, JsonDbObject> objectCache;
     for (int i = 0; i < notificationKeys.size(); i++) {
         QString key = notificationKeys[i];
-        QMultiMap<QString, Notification *>::const_iterator it = mKeyedNotifications.find(key);
+        QMultiMap<QString, JsonDbNotification *>::const_iterator it = mKeyedNotifications.find(key);
         while ((it != mKeyedNotifications.end()) && (it.key() == key)) {
-            Notification *n = it.value();
+            JsonDbNotification *n = it.value();
             DBG() << "Notification" << n->query() << n->actions();
-            if (n->partition() == partition && n->actions() & action ) {
+            if (n->partition() == partitionName && n->actions() & action) {
                 JsonDbObject r;
                 if (!n->query().isEmpty()) {
                     DBG() << "Checking notification" << n->query() << endl
                           << "    for object" << object;
                     JsonDbQuery *query  = n->parsedQuery();
-                    if (query->match(object, &objectCache, 0/*mStorage*/))
+                    if (query->match(object, &objectCache, 0))
                         r = object;
                     DBG() << "Got result" << r;
                 } else {
                     r = object;
                 }
                 if (!r.isEmpty()) {
-                    QString actionStr = ( action == Notification::Create ? JsonDbString::kCreateStr :
-                                          (action == Notification::Update ? JsonDbString::kUpdateStr :
-                                           JsonDbString::kRemoveStr ));
+                    QString actionStr = (action == JsonDbNotification::Create ? JsonDbString::kCreateStr :
+                                         (action == JsonDbNotification::Update ? JsonDbString::kUpdateStr : JsonDbString::kRemoveStr));
                     emit notified(n->uuid(), r, actionStr);
                 }
             }
@@ -1194,14 +1193,14 @@ void JsonDb::checkNotifications(const QString &partition, JsonDbObject object, N
     }
 }
 
-bool JsonDb::removeIndex(const QString &indexName, const QString &objectType, const QString &partition)
+bool JsonDb::removeIndex(const QString &indexName, const QString &objectType, const QString &partitionName)
 {
-    if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->removeIndex(indexName, objectType);
+    if (JsonDbPartition *partition = findPartition(partitionName))
+        return partition->removeIndex(indexName, objectType);
     return false;
 }
 
-bool JsonDb::addIndex(JsonDbObject indexObject, const QString &partition)
+bool JsonDb::addIndex(JsonDbObject indexObject, const QString &partitionName)
 {
     // For propertyFunction, the indexName has to be set by user. Else it can
     // default to propertyType.
@@ -1217,13 +1216,13 @@ bool JsonDb::addIndex(JsonDbObject indexObject, const QString &partition)
     if (indexName.isEmpty())
         indexName = propertyName;
 
-    if (JsonDbBtreeStorage *storage = findPartition(partition))
-        return storage->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
-    qWarning() << "addIndex" << "did not find partition" << partition;
+    if (JsonDbPartition *partition = findPartition(partitionName))
+        return partition->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
+    qWarning() << "addIndex" << "did not find partition" << partitionName;
     return false;
 }
 
-bool JsonDb::removeIndex(JsonDbObject indexObject, const QString &partition)
+bool JsonDb::removeIndex(JsonDbObject indexObject, const QString &partitionName)
 {
     QString indexName = indexObject.value(kNameStr).toString();
     QString propertyName = indexObject.value(kPropertyNameStr).toString();
@@ -1234,7 +1233,7 @@ bool JsonDb::removeIndex(JsonDbObject indexObject, const QString &partition)
 
     Q_ASSERT(!indexName.isEmpty());
 
-    return removeIndex(indexName, objectType, partition);
+    return removeIndex(indexName, objectType, partitionName);
 }
 
 void JsonDb::updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path)
@@ -1248,8 +1247,8 @@ void JsonDb::updateSchemaIndexes(const QString &schemaName, QJsonObject object, 
             QString propertyType = (propertyInfo.contains("type") ? propertyInfo.value("type").toString() : "string");
             QStringList kpath = path;
             kpath << k;
-            JsonDbBtreeStorage *storage = findPartition(mSystemPartitionName);
-            storage->addIndexOnProperty(kpath.join("."), propertyType, schemaName);
+            JsonDbPartition *partition = findPartition(mSystemPartitionName);
+            partition->addIndexOnProperty(kpath.join("."), propertyType, schemaName);
         }
         if (propertyInfo.contains("properties")) {
             updateSchemaIndexes(schemaName, propertyInfo, path + (QStringList() << k));
@@ -1258,12 +1257,12 @@ void JsonDb::updateSchemaIndexes(const QString &schemaName, QJsonObject object, 
 }
 
 bool JsonDb::populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object,
-                                const QString &partition)
+                                const QString &partitionName)
 {
     // minimize inserts
     if (!object.contains(JsonDbString::kOwnerStr)
         || ((object.value(JsonDbString::kOwnerStr).toString() != owner->ownerId())
-            && !owner->isAllowed(object, partition, "setOwner")))
+            && !owner->isAllowed(object, partitionName, "setOwner")))
         object.insert(JsonDbString::kOwnerStr, owner->ownerId());
 
     QString objectType = object.value(JsonDbString::kTypeStr).toString();
@@ -1385,8 +1384,8 @@ void JsonDb::setSchema(const QString &schemaName, QJsonObject schema)
         if (extendedSchemaName == JsonDbString::kViewTypeStr) {
             mViewTypes.insert(schemaName);
             //TODO fix call to findPartition
-            JsonDbBtreeStorage *storage = findPartition(mSystemPartitionName);
-            storage->addView(schemaName);
+            JsonDbPartition *partition = findPartition(mSystemPartitionName);
+            partition->addView(schemaName);
             if (gVerbose) qDebug() << "viewTypes" << mViewTypes;
         }
     }
@@ -1412,8 +1411,8 @@ void JsonDb::removeSchema(const QString &schemaName)
                 extendedSchemaName = extendsValue.toObject().value("$ref").toString();
             if (extendedSchemaName == JsonDbString::kViewTypeStr) {
                 mViewTypes.remove(schemaName);
-                JsonDbBtreeStorage *storage = findPartition(mSystemPartitionName);
-                storage->removeView(schemaName);
+                JsonDbPartition *partition = findPartition(mSystemPartitionName);
+                partition->removeView(schemaName);
             }
         }
     }
@@ -1492,10 +1491,10 @@ QJsonObject JsonDb::validateReduceObject(JsonDbObject reduce)
     return QJsonObject();
 }
 
-QJsonObject JsonDb::checkPartitionPresent(const QString &partition)
+QJsonObject JsonDb::checkPartitionPresent(const QString &partitionName)
 {
-    if (!mStorages.contains(partition) && partition != mEphemeralPartitionName)
-        return makeError(JsonDbError::InvalidPartition, QString::fromLatin1("Unknown partition '%1'").arg(partition));
+    if (!mPartitions.contains(partitionName) && partitionName != mEphemeralPartitionName)
+        return makeError(JsonDbError::InvalidPartition, QString::fromLatin1("Unknown partition '%1'").arg(partitionName));
     return QJsonObject();
 }
 
@@ -1533,14 +1532,14 @@ QJsonObject JsonDb::checkNaturalObjectType(JsonDbObject object, QString &type)
 }
 
 QJsonObject JsonDb::checkAccessControl(const JsonDbOwner *owner, JsonDbObject object,
-                                   const QString &partition, const QString &op)
+                                   const QString &partitionName, const QString &op)
 {
-    if (!owner->isAllowed(object, partition, op))
+    if (!owner->isAllowed(object, partitionName, op))
         return makeError(JsonDbError::OperationNotPermitted, "Access denied");
     return QJsonObject();
 }
 
-QJsonObject JsonDb::checkQuota(const JsonDbOwner *owner, int size, JsonDbBtreeStorage *partition)
+QJsonObject JsonDb::checkQuota(const JsonDbOwner *owner, int size, JsonDbPartition *partition)
 {
     if (!partition->checkQuota(owner, size))
         return makeError(JsonDbError::QuotaExceeded, "Quota exceeded.");
@@ -1586,7 +1585,7 @@ QJsonObject JsonDb::checkCanRemoveSchema(JsonDbObject schema)
 
     // for View types, make sure no Maps or Reduces point at this type
     // the call to getObject will have updated the view, so pending Map or Reduce object removes will be forced
-    JsonDbView *view = mStorages.value(mSystemPartitionName)->findView(schemaName);
+    JsonDbView *view = mPartitions.value(mSystemPartitionName)->findView(schemaName);
     if (view && view->sourceTypes().size()) {
       return makeError(JsonDbError::InvalidSchemaOperation,
                        QString("A view with targetType of %2 exists. You cannot remove the schema")
@@ -1634,7 +1633,7 @@ QJsonObject JsonDb::validateAddIndex(const JsonDbObject &newIndex, const JsonDbO
     return QJsonObject();
 }
 
-const Notification *JsonDb::createNotification(const JsonDbOwner *owner, JsonDbObject object)
+const JsonDbNotification *JsonDb::createNotification(const JsonDbOwner *owner, JsonDbObject object)
 {
     QString        uuid = object.value(JsonDbString::kUuidStr).toString();
     QStringList actions = QVariant(object.value(JsonDbString::kActionsStr).toArray().toVariantList()).toStringList();
@@ -1644,7 +1643,7 @@ const Notification *JsonDb::createNotification(const JsonDbOwner *owner, JsonDbO
     if (partition.isEmpty())
         partition = mSystemPartitionName;
 
-    Notification *n = new Notification(owner, uuid, query, actions, partition);
+    JsonDbNotification *n = new JsonDbNotification(owner, uuid, query, actions, partition);
     JsonDbQuery *parsedQuery = JsonDbQuery::parse(query, bindings);
     n->setCompiledQuery(parsedQuery);
     const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
@@ -1681,7 +1680,7 @@ const Notification *JsonDb::createNotification(const JsonDbOwner *owner, JsonDbO
 void JsonDb::removeNotification(const QString &uuid)
 {
     if (mNotificationMap.contains(uuid)) {
-        Notification *n = mNotificationMap.value(uuid);
+        JsonDbNotification *n = mNotificationMap.value(uuid);
         mNotificationMap.remove(uuid);
         const JsonDbQuery *parsedQuery = n->parsedQuery();
         const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
@@ -1709,8 +1708,8 @@ void JsonDb::removeNotification(const QString &uuid)
 
 void JsonDb::updateEagerViewTypes(const QString &objectType)
 {
-    JsonDbBtreeStorage *storage = findPartition(mSystemPartitionName);
-    JsonDbView *view = storage->findView(objectType);
+    JsonDbPartition *partition = findPartition(mSystemPartitionName);
+    JsonDbView *view = partition->findView(objectType);
     if (!view)
         return;
     foreach (const QString sourceType, view->sourceTypes()) {
@@ -1721,17 +1720,17 @@ void JsonDb::updateEagerViewTypes(const QString &objectType)
     }
 }
 
-JsonDbBtreeStorage *JsonDb::findPartition(const QString &name) const
+JsonDbPartition *JsonDb::findPartition(const QString &name) const
 {
     if (name.isEmpty())
-        return mStorages.value(mSystemPartitionName, 0);
-    return mStorages.value(name, 0);
+        return mPartitions.value(mSystemPartitionName, 0);
+    return mPartitions.value(name, 0);
 }
 
 QJsonObject JsonDb::createPartition(const JsonDbObject &object)
 {
     QString name = object.value("name").toString();
-    if (mStorages.contains(name)) {
+    if (mPartitions.contains(name)) {
         QJsonObject resultmap, errormap;
         setError(errormap, JsonDbError::InvalidPartition, QString("Already have a partition with a given name '%1'").arg(name));
         return makeResponse(resultmap, errormap);
@@ -1754,28 +1753,28 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
 
     QString filename = name + QLatin1String(".db");
 
-    JsonDbObject partition;
-    partition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
-    partition.insert(QLatin1String("name"), name);
-    partition.insert(QLatin1String("file"), filename);
-    QJsonObject result = mStorages[mSystemPartitionName]->createPersistentObject(partition);
+    JsonDbObject partitionDefinition;
+    partitionDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
+    partitionDefinition.insert(QLatin1String("name"), name);
+    partitionDefinition.insert(QLatin1String("file"), filename);
+    QJsonObject result = mPartitions[mSystemPartitionName]->createPersistentObject(partitionDefinition);
     if (responseIsError(result))
         return result;
 
     filename = mFilePath + filename;
-    JsonDbBtreeStorage *storage = new JsonDbBtreeStorage(filename, name, this);
+    JsonDbPartition *partition = new JsonDbPartition(filename, name, this);
     if (gVerbose) qDebug() << "Opening partition" << name;
 
-    if (!storage->open()) {
+    if (!partition->open()) {
         qWarning() << "Failed to initialize partition" << name << "at" << filename;
         QJsonObject resultmap, errormap;
         setError(errormap, JsonDbError::InvalidPartition, QString("Cannot initialize a partition '%1'").arg(name));
         return makeResponse(resultmap, errormap);
     }
-    mStorages.insert(name, storage);
-    JsonDbView::initViews(storage, name);
+    mPartitions.insert(name, partition);
+    JsonDbView::initViews(partition, name);
 
-    checkNotifications(mSystemPartitionName, partition, Notification::Create);
+    checkNotifications(mSystemPartitionName, partitionDefinition, JsonDbNotification::Create);
 
     return result;
 }
@@ -1818,7 +1817,7 @@ void JsonDb::updateView(const QString &viewType, const QString &partitionName)
 {
     if (viewType.isEmpty())
         return;
-    JsonDbBtreeStorage *partition = findPartition(partitionName);
+    JsonDbPartition *partition = findPartition(partitionName);
     JsonDbView *view = partition->findView(viewType);
     if (view)
         view->updateView();
@@ -1838,7 +1837,7 @@ QHash<QString, qint64> JsonDb::fileSizes(const QString &partitionName) const
     if (name.isEmpty())
         name = mSystemPartitionName;
 
-    JsonDbBtreeStorage *partition = findPartition(name);
+    JsonDbPartition *partition = findPartition(name);
     if (partition)
         return partition->fileSizes();
 

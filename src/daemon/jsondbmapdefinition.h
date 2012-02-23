@@ -39,13 +39,15 @@
 **
 ****************************************************************************/
 
-#ifndef MAP_DEFINITION_H
-#define MAP_DEFINITION_H
+#ifndef JSONDB_MAP_DEFINITION_H
+#define JSONDB_MAP_DEFINITION_H
 
 #include <QJSEngine>
 #include <QStringList>
 
 #include "jsondb-global.h"
+#include "jsondbpartition.h"
+
 #include <qjsonarray.h>
 #include <qjsonobject.h>
 #include <qjsonvalue.h>
@@ -60,22 +62,21 @@ class JsonDb;
 class JsonDbOwner;
 class JsonDbJoinProxy;
 class JsonDbMapProxy;
-class JsonDbBtreeStorage;
-class ObjectTable;
+class JsonDbObjectTable;
 
 class JsonDbMapDefinition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbMapDefinition(JsonDb *mJsonDb, const JsonDbOwner *mOwner, const QString &partition, QJsonObject mapDefinition, QObject *parent = 0);
+    JsonDbMapDefinition(JsonDb *mJsonDb, const JsonDbOwner *mOwner, JsonDbPartition *partition, QJsonObject mapDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     const QStringList &sourceTypes() const { return mSourceTypes; }
-    QString partition() const { return mPartition; }
+    QString partitionName() const { return mPartition->name(); }
     bool isActive() const;
     QJsonObject definition() const { return mDefinition; }
     QJSValue mapFunction(const QString &sourceType) const;
-    ObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
+    JsonDbObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
     const JsonDbOwner *owner() const { return mOwner; }
 
     void initScriptEngine();
@@ -90,8 +91,7 @@ public slots:
 
 private:
     JsonDb        *mJsonDb;
-    QString        mPartition;
-    JsonDbBtreeStorage *mStorage;
+    JsonDbPartition *mPartition;
     const JsonDbOwner *mOwner;
     QJsonObject     mDefinition;
     QJSEngine     *mScriptEngine;
@@ -101,8 +101,8 @@ private:
     QString        mUuid;
     QString        mTargetType;
     QStringList    mSourceTypes;
-    ObjectTable   *mTargetTable;
-    QMap<QString,ObjectTable*> mSourceTables;
+    JsonDbObjectTable   *mTargetTable;
+    QMap<QString,JsonDbObjectTable *> mSourceTables;
     QList<QString> mSourceUuids;
 };
 
@@ -110,4 +110,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif
+#endif // JSONDB_MAP_DEFINITION_H

@@ -39,28 +39,28 @@
 **
 ****************************************************************************/
 
-#ifndef QMANAGEDBTREE_H
-#define QMANAGEDBTREE_H
+#ifndef JSONDB_MANAGED_BTREE_H
+#define JSONDB_MANAGED_BTREE_H
 
 #include <QMap>
 #include <QSet>
 #include "qbtree.h"
-#include "qmanagedbtreetxn.h"
+#include "jsondbmanagedbtreetxn.h"
 
 class QBtree;
 
-class QManagedBtree
+class JsonDbManagedBtree
 {
 public:
-    QManagedBtree();
-    ~QManagedBtree();
+    JsonDbManagedBtree();
+    ~JsonDbManagedBtree();
 
     bool open(const QString &filename, QBtree::DbFlags flags = QBtree::Default);
     void close();
 
-    QManagedBtreeTxn beginRead(quint32 tag);
-    QManagedBtreeTxn beginRead();
-    QManagedBtreeTxn beginWrite();
+    JsonDbManagedBtreeTxn beginRead(quint32 tag);
+    JsonDbManagedBtreeTxn beginRead();
+    JsonDbManagedBtreeTxn beginWrite();
 
     bool isWriteTxnActive() const
     { return mWriter.txn != NULL; }
@@ -69,7 +69,7 @@ public:
     bool numActiveReadTxns() const
     { return mReaders.size() > 0; }
 
-    QManagedBtreeTxn existingWriteTxn();
+    JsonDbManagedBtreeTxn existingWriteTxn();
 
     bool putOne(const QByteArray &key, const QByteArray &value);
     bool getOne(const QByteArray &key, QByteArray *value);
@@ -102,16 +102,16 @@ public:
     QBtree::Stat stat() const;
 
 private:
-    friend class QManagedBtreeTxn;
-    void remove(QManagedBtreeTxn *txn);
-    void add(QManagedBtreeTxn *txn);
+    friend class JsonDbManagedBtreeTxn;
+    void remove(JsonDbManagedBtreeTxn *txn);
+    void add(JsonDbManagedBtreeTxn *txn);
 
-    bool commit(QManagedBtreeTxn *txn, quint32 tag);
-    void abort(QManagedBtreeTxn *txn);
+    bool commit(JsonDbManagedBtreeTxn *txn, quint32 tag);
+    void abort(JsonDbManagedBtreeTxn *txn);
 
     struct RefedTxn {
         QBtreeTxn *txn;
-        QSet<QManagedBtreeTxn* > clients;
+        QSet<JsonDbManagedBtreeTxn* > clients;
     };
     typedef QMap<quint32, RefedTxn> RefedTxnMap;
 
@@ -119,7 +119,7 @@ private:
     RefedTxn mWriter;
     RefedTxnMap mReaders;
 
-    QManagedBtree(const QManagedBtree&);
+    JsonDbManagedBtree(const JsonDbManagedBtree&);
 };
 
-#endif // QMANAGEDBTREE_H
+#endif // JSONDB_MANAGED_BTREE_H

@@ -42,7 +42,7 @@
 #include <QMap>
 #include <QDebug>
 
-#include "jsondb-response.h"
+#include "jsondbresponse.h"
 #include "jsondb-strings.h"
 #include <qjsonobject.h>
 #include <qjsonvalue.h>

@@ -94,10 +94,10 @@ QT_USE_NAMESPACE_JSONDB
 #define waitForResponse3(id, code, notificationId) waitForResponse(mEventLoop, this, id, code, notificationId, 0)
 #define waitForResponse4(id, code, notificationId, count) waitForResponse(mEventLoop, this, id, code, notificationId, count)
 
-class Notification
+class JsonDbTestNotification
 {
 public:
-    Notification(const QString &notifyUuid, const QVariant &object, const QString &action)
+    JsonDbTestNotification(const QString &notifyUuid, const QVariant &object, const QString &action)
         : mNotifyUuid(notifyUuid), mObject(object), mAction(action) {}
 
     QString  mNotifyUuid;
@@ -139,7 +139,7 @@ public:
     QVariant mId, mData, mNotificationId;
     QString mLastUuid;
     int mNotificationWaitCount;
-    QList<Notification> mNotifications;
+    QList<JsonDbTestNotification> mNotifications;
     quint32 mClientTimeout;
     QElapsedTimer mElapsedTimer;
 
@@ -156,7 +156,7 @@ protected slots:
         case QT_PREPEND_NAMESPACE_JSONDB(JsonDbClient)::NotifyRemove: action = QLatin1String("remove"); break;
         }
 
-        mNotifications << Notification(notifyUuid, notification.object(), action);
+        mNotifications << JsonDbTestNotification(notifyUuid, notification.object(), action);
         mNotificationWaitCount -= 1;
         if (mId.isValid() && !mNotificationWaitCount)
             mEventLoop.quit();

@@ -5,51 +5,51 @@ DEFINES += $$quote(QT_BEGIN_MOC_NAMESPACE=\"QT_USE_NAMESPACE QT_USE_NAMESPACE_JS
 
 RESOURCES = $$PWD/jsondb.qrc
 HEADERS += \
-    $$PWD/jsondb-owner.h \
-    $$PWD/jsondb-proxy.h \
-    $$PWD/jsondb-response.h \
+    $$PWD/jsondbowner.h \
+    $$PWD/jsondbproxy.h \
+    $$PWD/jsondbresponse.h \
     $$PWD/jsondb.h \
-    $$PWD/jsondbephemeralstorage.h \
+    $$PWD/jsondbephemeralpartition.h \
     $$PWD/jsondbindex.h \
     $$PWD/jsondbobject.h \
-    $$PWD/jsondbbtreestorage.h \
+    $$PWD/jsondbpartition.h \
     $$PWD/jsondbquery.h \
     $$PWD/jsondbstat.h \
     $$PWD/jsondbview.h \
     $$PWD/jsondbmapdefinition.h \
-    $$PWD/notification.h \
-    $$PWD/objectkey.h \
-    $$PWD/objecttable.h \
-    $$PWD/qmanagedbtree.h \
-    $$PWD/qmanagedbtreetxn.h \
-    $$PWD/qsonobjecttypes_impl_p.h \
-    $$PWD/qsonobjecttypes_p.h \
+    $$PWD/jsondbnotification.h \
+    $$PWD/jsondbobjectkey.h \
+    $$PWD/jsondbobjecttable.h \
+    $$PWD/jsondbmanagedbtree.h \
+    $$PWD/jsondbmanagedbtreetxn.h \
+    $$PWD/jsondbobjecttypes_impl_p.h \
+    $$PWD/jsondbobjecttypes_p.h \
     $$PWD/jsondbreducedefinition.h \
     $$PWD/schema-validation/checkpoints.h \
     $$PWD/schema-validation/object.h \
-    $$PWD/schemamanager_impl_p.h \
-    $$PWD/schemamanager_p.h \
-    $$PWD/signals.h
+    $$PWD/jsondbschemamanager_impl_p.h \
+    $$PWD/jsondbschemamanager_p.h \
+    $$PWD/jsondbsignals.h
 
 HEADERS += $$QSONCONVERSION_HEADERS
 
 SOURCES += \
-    $$PWD/jsondb-owner.cpp \
-    $$PWD/jsondb-proxy.cpp \
-    $$PWD/jsondb-response.cpp \
+    $$PWD/jsondbowner.cpp \
+    $$PWD/jsondbproxy.cpp \
+    $$PWD/jsondbresponse.cpp \
     $$PWD/jsondb.cpp \
-    $$PWD/jsondbephemeralstorage.cpp \
+    $$PWD/jsondbephemeralpartition.cpp \
     $$PWD/jsondbindex.cpp \
     $$PWD/jsondbobject.cpp \
-    $$PWD/jsondbbtreestorage.cpp \
+    $$PWD/jsondbpartition.cpp \
     $$PWD/jsondbquery.cpp \
     $$PWD/jsondbview.cpp \
     $$PWD/jsondbmapdefinition.cpp \
-    $$PWD/notification.cpp \
-    $$PWD/objecttable.cpp \
-    $$PWD/qmanagedbtree.cpp \
-    $$PWD/qmanagedbtreetxn.cpp \
+    $$PWD/jsondbnotification.cpp \
+    $$PWD/jsondbobjecttable.cpp \
+    $$PWD/jsondbmanagedbtree.cpp \
+    $$PWD/jsondbmanagedbtreetxn.cpp \
     $$PWD/jsondbreducedefinition.cpp \
-    $$PWD/signals.cpp
+    $$PWD/jsondbsignals.cpp
 
 SOURCES += $$QSONCONVERSION_SOURCES

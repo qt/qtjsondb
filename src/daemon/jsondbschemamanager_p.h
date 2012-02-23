@@ -39,48 +39,40 @@
 **
 ****************************************************************************/
 
-#ifndef NOTIFICATION_H
-#define NOTIFICATION_H
-
-#include <QObject>
-#include <QJSValue>
+#ifndef JSONDB_SCHEMA_MANAGER_P_H
+#define JSONDB_SCHEMA_MANAGER_P_H
 
 #include "jsondb-global.h"
 
-QT_BEGIN_HEADER
+#include <QtCore/qstring.h>
+#include <QtCore/qpair.h>
+#include <QtCore/qmap.h>
+
+#include "schema-validation/object.h"
+#include "jsondbobjecttypes_p.h"
+#include "jsondbobject.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbOwner;
-class JsonDbQuery;
-class Notification {
+//FIXME This can have better performance
+class JsonDbSchemaManager
+{
 public:
-    enum Action { None = 0x0000, Create = 0x0001, Update = 0x0002, Delete = 0x0004 };
-    Q_DECLARE_FLAGS(Actions, Action)
+    inline bool contains(const QString &name) const;
+    inline QJsonObject value(const QString &name) const;
+    inline SchemaValidation::Schema<QJsonObjectTypes> schema(const QString &name, QJsonObjectTypes::Service *service);
+    inline QJsonObject take(const QString &name);
+    inline QJsonObject insert(const QString &name, QJsonObject &schema);
 
-    Notification(const JsonDbOwner *owner, const QString &uuid, const QString &query, QStringList actions, const QString &partition);
-    ~Notification();
+    inline QJsonObject validate(const QString &schemaName, JsonDbObject object);
 
-    const JsonDbOwner *owner() const { return mOwner; }
-    const QString&  uuid() const { return mUuid; }
-    const QString&  query() const { return mQuery; }
-    Actions         actions() const { return mActions; }
-    JsonDbQuery *parsedQuery() { return mCompiledQuery; }
-    void            setCompiledQuery(JsonDbQuery *parsedQuery) { mCompiledQuery = parsedQuery; }
-    const QString & partition() const { return mPartition; }
 private:
-    const JsonDbOwner *mOwner;
-    QString       mUuid;
-    QString       mQuery;
-    JsonDbQuery *mCompiledQuery;
-    Actions       mActions;
-    QString       mPartition;
-};
+    typedef QPair<QJsonObject, SchemaValidation::Schema<QJsonObjectTypes> > QJsonObjectSchemaPair;
+    inline QJsonObject ensureCompiled(const QString &schemaName, QJsonObjectSchemaPair *pair, QJsonObjectTypes::Service *service);
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(Notification::Actions)
+    QMap<QString, QJsonObjectSchemaPair> m_schemas;
+};
 
 QT_END_NAMESPACE_JSONDB
 
-QT_END_HEADER
-
-#endif
+#endif // JSONDB_SCHEMA_MANAGER_P_H

@@ -50,7 +50,7 @@
 #include "json.h"
 
 #include "jsondb.h"
-#include "jsondbbtreestorage.h"
+#include "jsondbpartition.h"
 #include "jsondbindex.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
@@ -252,8 +252,8 @@ void TestJsonDb::cleanupTestCase()
 
 void TestJsonDb::cleanup()
 {
-    foreach (JsonDbBtreeStorage *storage, mJsonDb->mStorages)
-        QCOMPARE(storage->mTransactionDepth, 0);
+    foreach (JsonDbPartition *partition, mJsonDb->mPartitions)
+        QCOMPARE(partition->mTransactionDepth, 0);
     //QVERIFY(mJsonDb->checkValidity());
 }
 
@@ -519,7 +519,6 @@ void TestJsonDb::benchmarkForwardKeyCmp()
     for (int ii = 0; ii < mContactList.size(); ii++) {
         JsonDbObject object = mContactList.at(ii);
         QString typeName = object.value(JsonDbString::kTypeStr).toString();
-    //int typeNumber = ((JsonDbBtreeStorage *)mJsonDb->mStorage)->getTypeNumber(typeName);
         QJsonValue fullname(object.value("fullname"));
         QByteArray key = makeForwardKey(fullname, ObjectKey());
         keys.append(key);

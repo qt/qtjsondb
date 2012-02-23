@@ -39,43 +39,66 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDBEPHEMERALSTORAGE_H
-#define JSONDBEPHEMERALSTORAGE_H
+#ifndef JSONDB_OBJECT_KEY_H
+#define JSONDB_OBJECT_KEY_H
 
-#include <QUuid>
-#include <QMap>
-#include <QObject>
-#include <qjsonobject.h>
-#include "jsondbobject.h"
-#include "jsondbquery.h"
+#include <qbytearray.h>
+#include <qendian.h>
+#include <qdebug.h>
+#include <quuid.h>
+
+#include "jsondb-global.h"
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbQuery;
-
-class JsonDbEphemeralStorage : public QObject
+class ObjectKey
 {
-    Q_OBJECT
 public:
-    JsonDbEphemeralStorage(QObject *parent = 0);
+    QUuid key;  // object uuid
 
-    bool get(const QUuid &uuid, JsonDbObject *result) const;
+    ObjectKey() {}
+    ObjectKey(const QUuid &uuid) : key(uuid) {}
+    ObjectKey(const QByteArray &uuid) : key(QUuid::fromRfc4122(uuid)) {}
+    inline bool isNull() const { return key.isNull(); }
 
-    QJsonObject create(JsonDbObject &);
-    QJsonObject update(JsonDbObject &);
-    QJsonObject remove(const JsonDbObject &);
+    inline QByteArray toByteArray() const
+    {
+        return key.toRfc4122();
+    }
+    inline bool operator==(const ObjectKey &rhs) const
+    { return key == rhs.key; }
 
-    JsonDbQueryResult query(const JsonDbQuery *query, int limit = -1, int offset = 0) const;
-
-private:
-    typedef QMap<QUuid, JsonDbObject> ObjectMap;
-    ObjectMap mObjects;
+    inline bool operator < (const ObjectKey &rhs) const
+    { return key < rhs.key; }
 };
+
+inline QDebug &operator<<(QDebug &qdb, const ObjectKey &objectKey)
+{
+    qdb << objectKey.key.toString();
+    return qdb;
+}
 
 QT_END_NAMESPACE_JSONDB
 
+QT_BEGIN_NAMESPACE
+
+template <> inline void qToBigEndian(QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) src, uchar *dest)
+{
+    //TODO: improve me
+    QByteArray key = src.key.toRfc4122();
+    memcpy(dest, key.constData(), key.size());
+}
+template <> inline QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) qFromBigEndian(const uchar *src)
+{
+    QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) key;
+    key.key = QUuid::fromRfc4122(QByteArray::fromRawData((const char *)src, 16));
+    return key;
+}
+
+QT_END_NAMESPACE
+
 QT_END_HEADER
 
-#endif // JSONDBEPHEMERALSTORAGE_H
+#endif // JSONDB_OBJECT_KEY_H

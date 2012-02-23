@@ -3,7 +3,7 @@
 ** Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/
 **
-** This file is part of the QtAddOn.JsonDb module of the Qt Toolkit.
+** This file is part of the FOO module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** GNU Lesser General Public License Usage
@@ -39,66 +39,60 @@
 **
 ****************************************************************************/
 
-#ifndef OBJECT_KEY_H
-#define OBJECT_KEY_H
+#ifndef JSONDB_MANAGED_BTREE_TXN_H
+#define JSONDB_MANAGED_BTREE_TXN_H
 
-#include <qbytearray.h>
-#include <qendian.h>
-#include <qdebug.h>
-#include <quuid.h>
 
-#include "jsondb-global.h"
+class QBtree;
+class QBtreeTxn;
+class JsonDbManagedBtree;
 
-QT_BEGIN_HEADER
-
-QT_BEGIN_NAMESPACE_JSONDB
-
-class ObjectKey
+class JsonDbManagedBtreeTxn
 {
 public:
-    QUuid key;  // object uuid
+    JsonDbManagedBtreeTxn();
+    ~JsonDbManagedBtreeTxn();
+    JsonDbManagedBtreeTxn(const JsonDbManagedBtreeTxn &other);
+    JsonDbManagedBtreeTxn &operator = (const JsonDbManagedBtreeTxn &other);
 
-    ObjectKey() {}
-    ObjectKey(const QUuid &uuid) : key(uuid) {}
-    ObjectKey(const QByteArray &uuid) : key(QUuid::fromRfc4122(uuid)) {}
-    inline bool isNull() const { return key.isNull(); }
+    bool isValid() const { return mTxn != NULL; }
+    bool operator == (const JsonDbManagedBtreeTxn &rhs) const
+    { return mTxn == rhs.mTxn; }
+    bool operator != (const JsonDbManagedBtreeTxn &rhs) const
+    { return mTxn != rhs.mTxn; }
 
-    inline QByteArray toByteArray() const
-    {
-        return key.toRfc4122();
+    bool get(const QByteArray &baKey, QByteArray *baValue) const;
+    bool put(const QByteArray &baKey, const QByteArray &baValue);
+    bool remove(const QByteArray &baKey);
+
+    bool commit(quint32 tag);
+    void abort();
+
+    const QBtreeTxn *txn() const { return mTxn; }
+    const JsonDbManagedBtree *btree() const { return mBtree; }
+
+    const QString errorMessage() const;
+
+    quint32 tag() const { return mTag; }
+    bool isReadOnly() const { return mIsRead; }
+
+private:
+    friend class JsonDbManagedBtree;
+    void reset(JsonDbManagedBtree *mbtree, QBtreeTxn *txn);
+    JsonDbManagedBtreeTxn(JsonDbManagedBtree *mbtree, QBtreeTxn *txn);
+
+    QBtreeTxn *mTxn;
+    JsonDbManagedBtree *mBtree;
+    quint32 mTag;
+    bool mIsRead;
+
+    typedef void (JsonDbManagedBtreeTxn::*SafeBool)() const;
+    void noBoolComparisons () const {}
+public:
+    operator SafeBool() const {
+        return isValid() ? &JsonDbManagedBtreeTxn::noBoolComparisons : 0;
     }
-    inline bool operator==(const ObjectKey &rhs) const
-    { return key == rhs.key; }
-
-    inline bool operator < (const ObjectKey &rhs) const
-    { return key < rhs.key; }
 };
 
-inline QDebug &operator<<(QDebug &qdb, const ObjectKey &objectKey)
-{
-    qdb << objectKey.key.toString();
-    return qdb;
-}
 
-QT_END_NAMESPACE_JSONDB
-
-QT_BEGIN_NAMESPACE
-
-template <> inline void qToBigEndian(QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) src, uchar *dest)
-{
-    //TODO: improve me
-    QByteArray key = src.key.toRfc4122();
-    memcpy(dest, key.constData(), key.size());
-}
-template <> inline QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) qFromBigEndian(const uchar *src)
-{
-    QT_PREPEND_NAMESPACE_JSONDB(ObjectKey) key;
-    key.key = QUuid::fromRfc4122(QByteArray::fromRawData((const char *)src, 16));
-    return key;
-}
-
-QT_END_NAMESPACE
-
-QT_END_HEADER
-
-#endif // OBJECT_KEY_H
+#endif // JSONDB_MANAGED_BTREE_TXN_H

@@ -46,7 +46,7 @@
 
 #include "jsondb-strings.h"
 #include "jsondb.h"
-#include "jsondbbtreestorage.h"
+#include "jsondbpartition.h"
 #include "jsondbquery.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -483,7 +483,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
     return parsedQuery;
 }
 
-bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbBtreeStorage *storage) const
+bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbPartition *partition) const
 {
     for (int i = 0; i < queryTerms.size(); i++) {
         const OrQueryTerm &orQueryTerm = queryTerms[i];
@@ -504,9 +504,9 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                     QString uuidValue = JsonDb::propertyLookup(joinedObject, joinPaths[j]).toString();
                     if (objectCache && objectCache->contains(uuidValue))
                         joinedObject = objectCache->value(uuidValue);
-                    else if (storage) {
+                    else if (partition) {
                         ObjectKey objectKey(uuidValue);
-                        storage->getObject(objectKey, joinedObject);
+                        partition->getObject(objectKey, joinedObject);
                         if (objectCache) objectCache->insert(uuidValue, joinedObject);
                     }
                 }

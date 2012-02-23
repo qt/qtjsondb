@@ -41,32 +41,32 @@
 
 #include <QDebug>
 #include "qbtreetxn.h"
-#include "qmanagedbtree.h"
-#include "qmanagedbtreetxn.h"
+#include "jsondbmanagedbtree.h"
+#include "jsondbmanagedbtreetxn.h"
 
-QManagedBtreeTxn::QManagedBtreeTxn()
+JsonDbManagedBtreeTxn::JsonDbManagedBtreeTxn()
     : mTxn(0), mBtree(0), mTag(0), mIsRead(false)
 {
 }
 
-QManagedBtreeTxn::~QManagedBtreeTxn()
+JsonDbManagedBtreeTxn::~JsonDbManagedBtreeTxn()
 {
     reset(0, 0);
 }
 
-QManagedBtreeTxn::QManagedBtreeTxn(QManagedBtree *mbtree, QBtreeTxn *txn)
+JsonDbManagedBtreeTxn::JsonDbManagedBtreeTxn(JsonDbManagedBtree *mbtree, QBtreeTxn *txn)
     : mTxn(0), mBtree(0), mTag(0), mIsRead(false)
 {
     reset(mbtree, txn);
 }
 
-QManagedBtreeTxn::QManagedBtreeTxn(const QManagedBtreeTxn &other)
+JsonDbManagedBtreeTxn::JsonDbManagedBtreeTxn(const JsonDbManagedBtreeTxn &other)
     : mTxn(0), mBtree(0), mTag(0), mIsRead(false)
 {
     reset(other.mBtree, other.mTxn);
 }
 
-QManagedBtreeTxn &QManagedBtreeTxn::operator = (const QManagedBtreeTxn &other)
+JsonDbManagedBtreeTxn &JsonDbManagedBtreeTxn::operator = (const JsonDbManagedBtreeTxn &other)
 {
     if (this == &other)
         return *this;
@@ -74,47 +74,47 @@ QManagedBtreeTxn &QManagedBtreeTxn::operator = (const QManagedBtreeTxn &other)
     return *this;
 }
 
-bool QManagedBtreeTxn::get(const QByteArray &baKey, QByteArray *baValue) const
+bool JsonDbManagedBtreeTxn::get(const QByteArray &baKey, QByteArray *baValue) const
 {
     Q_ASSERT(mTxn);
     return mTxn->get(baKey, baValue);
 }
 
-bool QManagedBtreeTxn::put(const QByteArray &baKey, const QByteArray &baValue)
+bool JsonDbManagedBtreeTxn::put(const QByteArray &baKey, const QByteArray &baValue)
 {
     Q_ASSERT(mTxn);
     return mTxn->put(baKey, baValue);
 }
 
-bool QManagedBtreeTxn::remove(const QByteArray &baKey)
+bool JsonDbManagedBtreeTxn::remove(const QByteArray &baKey)
 {
     Q_ASSERT(mTxn);
     return mTxn->remove(baKey);
 }
 
-bool QManagedBtreeTxn::commit(quint32 tag)
+bool JsonDbManagedBtreeTxn::commit(quint32 tag)
 {
     Q_ASSERT(mTxn);
     if (mTxn->isReadOnly()) {
-        qWarning() << "QManagedBtreeTxn::commit: commit on read only txn doesn't make sense. Aborting.";
+        qWarning() << "JsonDbManagedBtreeTxn::commit: commit on read only txn doesn't make sense. Aborting.";
         mBtree->abort(this);
         return true;
     }
     return mBtree->commit(this, tag);
 }
 
-void QManagedBtreeTxn::abort()
+void JsonDbManagedBtreeTxn::abort()
 {
     Q_ASSERT(mTxn);
     mBtree->abort(this);
 }
 
-const QString QManagedBtreeTxn::errorMessage() const
+const QString JsonDbManagedBtreeTxn::errorMessage() const
 {
     return mBtree->errorMessage();
 }
 
-void QManagedBtreeTxn::reset(QManagedBtree *mbtree, QBtreeTxn *txn)
+void JsonDbManagedBtreeTxn::reset(JsonDbManagedBtree *mbtree, QBtreeTxn *txn)
 {
     if (mTxn && mBtree) {
         mBtree->remove(this);

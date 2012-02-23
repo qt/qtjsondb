@@ -39,12 +39,12 @@
 **
 ****************************************************************************/
 
-#ifndef QSONOBJECTTYPES_IMPL_P_H
-#define QSONOBJECTTYPES_IMPL_P_H
+#ifndef JSONDB_OBJECTTYPES_IMPL_P_H
+#define JSONDB_OBJECTTYPES_IMPL_P_H
 
 #include "jsondb-global.h"
-#include "qsonobjecttypes_p.h"
-#include "schemamanager_p.h"
+#include "jsondbobjecttypes_p.h"
+#include "jsondbschemamanager_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -327,7 +327,7 @@ inline QJsonObjectTypes::Value QJsonObjectTypes::Object::property(const QJsonObj
 
 inline QList<QJsonObjectTypes::Key> QJsonObjectTypes::Object::propertyNames() const { return QJsonObject::keys(); }
 
-inline QJsonObjectTypes::Service::Service(SchemaManager *schemas)
+inline QJsonObjectTypes::Service::Service(JsonDbSchemaManager *schemas)
     : m_schemas(schemas)
 {}
 
@@ -349,4 +349,4 @@ inline SchemaValidation::Schema<QJsonObjectTypes> QJsonObjectTypes::Service::loa
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // QSONOBJECTTYPES_IMPL_P_H
+#endif // JSONDB_OBJECTTYPES_IMPL_P_H

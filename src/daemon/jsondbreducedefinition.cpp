@@ -49,30 +49,29 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "jsondbbtreestorage.h"
+#include "jsondbpartition.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
 #include "json.h"
 
 #include "jsondb.h"
-#include "jsondb-proxy.h"
-#include "objecttable.h"
+#include "jsondbproxy.h"
+#include "jsondbobjecttable.h"
 #include "jsondbreducedefinition.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, const JsonDbOwner *owner, const QString &partition,
+JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, const JsonDbOwner *owner, JsonDbPartition *partition,
                                    QJsonObject definition, QObject *parent)
     : QObject(parent)
     , mJsonDb(jsonDb)
     , mOwner(owner)
     , mPartition(partition)
-    , mStorage(jsonDb->findPartition(partition))
     , mDefinition(definition)
     , mScriptEngine(0)
     , mUuid(mDefinition.value(JsonDbString::kUuidStr).toString())
     , mTargetType(mDefinition.value("targetType").toString())
-    , mTargetTable(mStorage->findObjectTable(mTargetType))
+    , mTargetTable(mPartition->findObjectTable(mTargetType))
     , mSourceType(mDefinition.value("sourceType").toString())
     , mTargetKeyName(mDefinition.contains("targetKeyName") ? mDefinition.value("targetKeyName").toString() : QString("key"))
     , mTargetValueName(mDefinition.contains("targetValueName") ? mDefinition.value("targetValueName").toString() : QString("value"))
@@ -170,7 +169,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
         // and now the value is undefined
         if (value.isUndefined()) {
             // then remove it
-            res = mJsonDb->removeViewObject(mOwner, previousObject, mPartition);
+            res = mJsonDb->removeViewObject(mOwner, previousObject, mPartition->name());
         } else {
             //otherwise update it
             JsonDbObject reduced(value.toObject());
@@ -181,7 +180,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
                          previousObject.value(JsonDbString::kVersionStr));
             reduced.insert(mTargetKeyName, keyValue);
             reduced.insert("_reduceUuid", mUuid);
-            res = mJsonDb->updateViewObject(mOwner, reduced, mPartition);
+            res = mJsonDb->updateViewObject(mOwner, reduced, mPartition->name());
         }
     } else {
         // otherwise create the new object
@@ -189,7 +188,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
         reduced.insert(JsonDbString::kTypeStr, mTargetType);
         reduced.insert(mTargetKeyName, keyValue);
         reduced.insert("_reduceUuid", mUuid);
-        res = mJsonDb->createViewObject(mOwner, reduced, mPartition);
+        res = mJsonDb->createViewObject(mOwner, reduced, mPartition->name());
     }
 
     if (JsonDb::responseIsError(res))
@@ -255,14 +254,14 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
 {
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
-    if (JsonDbBtreeStorage *storage = mJsonDb->findPartition(mPartition)) {
-        WithTransaction transaction(storage, "JsonDbReduceDefinition::setError");
-        ObjectTable *objectTable = storage->findObjectTable(JsonDbString::kReduceTypeStr);
+    if (JsonDbPartition *partition = mJsonDb->findPartition(mPartition->name())) {
+        WithTransaction transaction(partition, "JsonDbReduceDefinition::setError");
+        JsonDbObjectTable *objectTable = partition->findObjectTable(JsonDbString::kReduceTypeStr);
         transaction.addObjectTable(objectTable);
         JsonDbObject doc(mDefinition);
         JsonDbObject _delrec;
-        storage->getObject(mUuid, _delrec, JsonDbString::kReduceTypeStr);
-        storage->updatePersistentObject(_delrec, doc);
+        partition->getObject(mUuid, _delrec, JsonDbString::kReduceTypeStr);
+        partition->updatePersistentObject(_delrec, doc);
         transaction.commit();
     }
 }

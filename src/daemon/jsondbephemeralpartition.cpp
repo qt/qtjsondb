@@ -39,26 +39,25 @@
 **
 ****************************************************************************/
 
-#include "jsondbephemeralstorage.h"
+#include "jsondbephemeralpartition.h"
 
 #include "jsondb.h"
+#include "jsondbobject.h"
 #include "jsondbquery.h"
+#include "jsondbresponse.h"
 #include "jsondb-error.h"
-#include "jsondb-response.h"
 #include "jsondb-strings.h"
 
 #include <qjsonobject.h>
 
-#include "jsondbobject.h"
-
 QT_BEGIN_NAMESPACE_JSONDB
 
-JsonDbEphemeralStorage::JsonDbEphemeralStorage(QObject *parent)
+JsonDbEphemeralPartition::JsonDbEphemeralPartition(QObject *parent)
     : QObject(parent)
 {
 }
 
-bool JsonDbEphemeralStorage::get(const QUuid &uuid, JsonDbObject *result) const
+bool JsonDbEphemeralPartition::get(const QUuid &uuid, JsonDbObject *result) const
 {
     ObjectMap::const_iterator it = mObjects.find(uuid);
     if (it == mObjects.end())
@@ -68,7 +67,7 @@ bool JsonDbEphemeralStorage::get(const QUuid &uuid, JsonDbObject *result) const
     return true;
 }
 
-QJsonObject JsonDbEphemeralStorage::create(JsonDbObject &object)
+QJsonObject JsonDbEphemeralPartition::create(JsonDbObject &object)
 {
     if (!object.contains(JsonDbString::kUuidStr)) {
         object.generateUuid();
@@ -91,7 +90,7 @@ QJsonObject JsonDbEphemeralStorage::create(JsonDbObject &object)
     return JsonDbResponse::makeResponse(resultmap);
 }
 
-QJsonObject JsonDbEphemeralStorage::update(JsonDbObject &object)
+QJsonObject JsonDbEphemeralPartition::update(JsonDbObject &object)
 {
     QJsonObject resultmap;
 
@@ -105,7 +104,7 @@ QJsonObject JsonDbEphemeralStorage::update(JsonDbObject &object)
     return JsonDbResponse::makeResponse(resultmap);
 }
 
-QJsonObject JsonDbEphemeralStorage::remove(const JsonDbObject &object)
+QJsonObject JsonDbEphemeralPartition::remove(const JsonDbObject &object)
 {
     QUuid uuid = object.uuid();
 
@@ -125,7 +124,7 @@ QJsonObject JsonDbEphemeralStorage::remove(const JsonDbObject &object)
     return JsonDbResponse::makeResponse(resultmap);
 }
 
-JsonDbQueryResult JsonDbEphemeralStorage::query(const JsonDbQuery *query, int limit, int offset) const
+JsonDbQueryResult JsonDbEphemeralPartition::query(const JsonDbQuery *query, int limit, int offset) const
 {
     if (!query->orderTerms.isEmpty())
         return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,

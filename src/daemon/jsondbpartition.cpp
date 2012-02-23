@@ -61,11 +61,11 @@
 #include "jsondb.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
-#include "jsondbbtreestorage.h"
+#include "jsondbpartition.h"
 #include "jsondbindex.h"
-#include "objecttable.h"
+#include "jsondbobjecttable.h"
 #include "qbtreetxn.h"
-#include "qmanagedbtree.h"
+#include "jsondbmanagedbtree.h"
 #include "jsondbview.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -89,7 +89,7 @@ const QString kDatabaseSchemaVersionStr("databaseSchemaVersion");
 const QString kPropertyFunctionStr("propertyFunction");
 const QString gDatabaseSchemaVersion = "0.2";
 
-JsonDbBtreeStorage::JsonDbBtreeStorage(const QString &filename, const QString &name, JsonDb *jsonDb)
+JsonDbPartition::JsonDbPartition(const QString &filename, const QString &name, JsonDb *jsonDb)
     : QObject(jsonDb)
     , mJsonDb(jsonDb)
     , mObjectTable(0)
@@ -108,16 +108,16 @@ JsonDbBtreeStorage::JsonDbBtreeStorage(const QString &filename, const QString &n
         mIndexSyncInterval = 12000;
 }
 
-JsonDbBtreeStorage::~JsonDbBtreeStorage()
+JsonDbPartition::~JsonDbPartition()
 {
     if (mTransactionDepth) {
-        qCritical() << "JsonDbBtreeStorage::~JsonDbBtreeStorage"
+        qCritical() << "JsonDbBtreePartition::~JsonDbBtreePartition"
                     << "closing while transaction open" << "mTransactionDepth" << mTransactionDepth;
     }
     close();
 }
 
-bool JsonDbBtreeStorage::close()
+bool JsonDbPartition::close()
 {
     foreach (JsonDbView *view, mViews.values()) {
         view->close();
@@ -131,13 +131,13 @@ bool JsonDbBtreeStorage::close()
     return true;
 }
 
-bool JsonDbBtreeStorage::open()
+bool JsonDbPartition::open()
 {
     DBG() << "JsonDbBtree::open" << mPartitionName << mFilename;
 
     QFileInfo fi(mFilename);
 
-    mObjectTable = new ObjectTable(this);
+    mObjectTable = new JsonDbObjectTable(this);
 
     mObjectTable->open(mFilename, QBtree::NoSync | QBtree::UseSyncMarker);
 
@@ -147,7 +147,7 @@ bool JsonDbBtreeStorage::open()
         basename.chop(3);
 
     if (!checkStateConsistency()) {
-        qCritical() << "JsonDbBtreeStorage::open()" << "Unable to recover database";
+        qCritical() << "JsonDbBtreePartition::open()" << "Unable to recover database";
         return false;
     }
 
@@ -191,7 +191,7 @@ bool JsonDbBtreeStorage::open()
     return true;
 }
 
-bool JsonDbBtreeStorage::clear()
+bool JsonDbPartition::clear()
 {
     if (mObjectTable->bdb()) {
         qCritical() << "Cannot clear database while it is open.";
@@ -469,7 +469,7 @@ void forwardValueSplit(const QByteArray &forwardValue, ObjectKey &objectKey)
     objectKey = qFromBigEndian<ObjectKey>(&data[0]);
 }
 
-QJsonObject JsonDbBtreeStorage::createPersistentObject(JsonDbObject &object)
+QJsonObject JsonDbPartition::createPersistentObject(JsonDbObject &object)
 {
     QJsonObject resultmap, errormap;
 
@@ -483,7 +483,7 @@ QJsonObject JsonDbBtreeStorage::createPersistentObject(JsonDbObject &object)
     QString objectType = object.value(JsonDbString::kTypeStr).toString();
 
     ObjectKey objectKey(object.value(JsonDbString::kUuidStr).toString());
-    ObjectTable *table = findObjectTable(objectType);
+    JsonDbObjectTable *table = findObjectTable(objectType);
 
     bool ok = table->put(objectKey, object);
     if (!ok) {
@@ -502,7 +502,7 @@ QJsonObject JsonDbBtreeStorage::createPersistentObject(JsonDbObject &object)
     return JsonDb::makeResponse( resultmap, errormap );
 }
 
-JsonDbView *JsonDbBtreeStorage::addView(const QString &viewType)
+JsonDbView *JsonDbPartition::addView(const QString &viewType)
 {
     JsonDbView *view = mViews.value(viewType);
     if (view)
@@ -514,7 +514,7 @@ JsonDbView *JsonDbBtreeStorage::addView(const QString &viewType)
     return view;
 }
 
-void JsonDbBtreeStorage::removeView(const QString &viewType)
+void JsonDbPartition::removeView(const QString &viewType)
 {
     JsonDbView *view = mViews.value(viewType);
     view->close();
@@ -522,7 +522,7 @@ void JsonDbBtreeStorage::removeView(const QString &viewType)
     mViews.remove(viewType);
 }
 
-void JsonDbBtreeStorage::updateView(const QString &objectType)
+void JsonDbPartition::updateView(const QString &objectType)
 {
     if (!mViews.contains(objectType))
         return;
@@ -530,7 +530,7 @@ void JsonDbBtreeStorage::updateView(const QString &objectType)
     mJsonDb->updateView(objectType);
 }
 
-JsonDbView *JsonDbBtreeStorage::findView(const QString &objectType) const
+JsonDbView *JsonDbPartition::findView(const QString &objectType) const
 {
     if (mViews.contains(objectType))
         return mViews.value(objectType);
@@ -538,7 +538,7 @@ JsonDbView *JsonDbBtreeStorage::findView(const QString &objectType) const
         return 0;
 }
 
-ObjectTable *JsonDbBtreeStorage::findObjectTable(const QString &objectType) const
+JsonDbObjectTable *JsonDbPartition::findObjectTable(const QString &objectType) const
 {
         if (mViews.contains(objectType))
             return mViews.value(objectType)->objectTable();
@@ -546,7 +546,7 @@ ObjectTable *JsonDbBtreeStorage::findObjectTable(const QString &objectType) cons
             return mObjectTable;
 }
 
-bool JsonDbBtreeStorage::beginTransaction()
+bool JsonDbPartition::beginTransaction()
 {
     if (mTransactionDepth++ == 0) {
         Q_ASSERT(mTableTransactions.isEmpty());
@@ -554,7 +554,7 @@ bool JsonDbBtreeStorage::beginTransaction()
     return true;
 }
 
-bool JsonDbBtreeStorage::commitTransaction(quint32 stateNumber)
+bool JsonDbPartition::commitTransaction(quint32 stateNumber)
 {
     if (--mTransactionDepth == 0) {
         bool ret = true;
@@ -564,7 +564,7 @@ bool JsonDbBtreeStorage::commitTransaction(quint32 stateNumber)
             nextStateNumber = mTableTransactions.at(0)->stateNumber() + 1;
 
         for (int i = 0; i < mTableTransactions.size(); i++) {
-            ObjectTable *table = mTableTransactions.at(i);
+            JsonDbObjectTable *table = mTableTransactions.at(i);
             if (!table->commit(nextStateNumber)) {
                 qCritical() << __FILE__ << __LINE__ << "Failed to commit transaction on object table";
                 ret = false;
@@ -582,14 +582,14 @@ bool JsonDbBtreeStorage::commitTransaction(quint32 stateNumber)
     return true;
 }
 
-bool JsonDbBtreeStorage::abortTransaction()
+bool JsonDbPartition::abortTransaction()
 {
     if (--mTransactionDepth == 0) {
-        if (gVerbose) qDebug() << "JsonDbBtreeStorage::abortTransaction()";
+        if (gVerbose) qDebug() << "JsonDbBtreePartition::abortTransaction()";
         bool ret = true;
 
         for (int i = 0; i < mTableTransactions.size(); i++) {
-            ObjectTable *table = mTableTransactions.at(i);
+            JsonDbObjectTable *table = mTableTransactions.at(i);
             if (!table->abort()) {
                 qCritical() << __FILE__ << __LINE__ << "Failed to abort transaction";
                 ret = false;
@@ -601,7 +601,7 @@ bool JsonDbBtreeStorage::abortTransaction()
     return true;
 }
 
-void JsonDbBtreeStorage::timerEvent(QTimerEvent *event)
+void JsonDbPartition::timerEvent(QTimerEvent *event)
 {
     if (mTransactionDepth)
         return;
@@ -610,7 +610,7 @@ void JsonDbBtreeStorage::timerEvent(QTimerEvent *event)
         if (gDebug)
             qDebug() << "Syncing main object table";
 
-        mObjectTable->sync(ObjectTable::SyncObjectTable);
+        mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
         killTimer(mMainSyncTimerId);
         mMainSyncTimerId = -1;
     } else if (event->timerId() == mIndexSyncTimerId) {
@@ -619,25 +619,25 @@ void JsonDbBtreeStorage::timerEvent(QTimerEvent *event)
             qDebug() << "Syncing indexes and views";
 
         // sync the main object table's indexes
-        mObjectTable->sync(ObjectTable::SyncIndexes);
+        mObjectTable->sync(JsonDbObjectTable::SyncIndexes);
 
         // sync the views
         foreach (JsonDbView *view, mViews)
-            view->objectTable()->sync(ObjectTable::SyncObjectTable | ObjectTable::SyncIndexes);
+            view->objectTable()->sync(JsonDbObjectTable::SyncObjectTable | JsonDbObjectTable::SyncIndexes);
 
         killTimer(mIndexSyncTimerId);
         mIndexSyncTimerId = -1;
     }
 }
 
-QJsonObject JsonDbBtreeStorage::updatePersistentObject(const JsonDbObject &oldObject, const JsonDbObject &object)
+QJsonObject JsonDbPartition::updatePersistentObject(const JsonDbObject &oldObject, const JsonDbObject &object)
 {
     QJsonObject resultmap, errormap;
 
     QString uuid = object.value(JsonDbString::kUuidStr).toString();
     QString version = object.value(JsonDbString::kVersionStr).toString();
     QString objectType = object.value(JsonDbString::kTypeStr).toString();
-    ObjectTable *table = findObjectTable(objectType);
+    JsonDbObjectTable *table = findObjectTable(objectType);
     ObjectKey objectKey(uuid);
 
     objectKey = ObjectKey(object.value(JsonDbString::kUuidStr).toString());
@@ -669,7 +669,7 @@ QJsonObject JsonDbBtreeStorage::updatePersistentObject(const JsonDbObject &oldOb
     return JsonDb::makeResponse( resultmap, errormap );
 }
 
-QJsonObject JsonDbBtreeStorage::removePersistentObject(const JsonDbObject &oldObject, const JsonDbObject &ts)
+QJsonObject JsonDbPartition::removePersistentObject(const JsonDbObject &oldObject, const JsonDbObject &ts)
 {
     if (gDebug) qDebug() << "removePersistentObject" << endl << oldObject << endl << "    tombstone" << ts;
 
@@ -678,7 +678,7 @@ QJsonObject JsonDbBtreeStorage::removePersistentObject(const JsonDbObject &oldOb
     QString version = oldObject.value(JsonDbString::kVersionStr).toString();
     QString objectType = oldObject.value(JsonDbString::kTypeStr).toString();
 
-    ObjectTable *table = findObjectTable(objectType);
+    JsonDbObjectTable *table = findObjectTable(objectType);
 
     ObjectKey objectKey(uuid);
 
@@ -714,15 +714,15 @@ QJsonObject JsonDbBtreeStorage::removePersistentObject(const JsonDbObject &oldOb
     return result;
 }
 
-bool JsonDbBtreeStorage::getObject(const QString &uuid, JsonDbObject &object, const QString &objectType) const
+bool JsonDbPartition::getObject(const QString &uuid, JsonDbObject &object, const QString &objectType) const
 {
     ObjectKey objectKey(uuid);
     return getObject(objectKey, object, objectType);
 }
 
-bool JsonDbBtreeStorage::getObject(const ObjectKey &objectKey, JsonDbObject &object, const QString &objectType) const
+bool JsonDbPartition::getObject(const ObjectKey &objectKey, JsonDbObject &object, const QString &objectType) const
 {
-    ObjectTable *table = findObjectTable(objectType);
+    JsonDbObjectTable *table = findObjectTable(objectType);
 
     bool ok = table->get(objectKey, &object);
     if (ok)
@@ -741,24 +741,24 @@ bool JsonDbBtreeStorage::getObject(const ObjectKey &objectKey, JsonDbObject &obj
     return false;
 }
 
-GetObjectsResult JsonDbBtreeStorage::getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &_objectType, bool updateViews)
+GetObjectsResult JsonDbPartition::getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &_objectType, bool updateViews)
 {
     const QString &objectType = (keyName == JsonDbString::kTypeStr) ? keyValue.toString() : _objectType;
-    ObjectTable *table = findObjectTable(objectType);
+    JsonDbObjectTable *table = findObjectTable(objectType);
 
     if (updateViews && (table != mObjectTable))
         updateView(objectType);
     return table->getObjects(keyName, keyValue, objectType);
 }
 
-QJsonObject JsonDbBtreeStorage::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
+QJsonObject JsonDbPartition::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
 {
-    ObjectTable *objectTable = 0;
+    JsonDbObjectTable *objectTable = 0;
     if (!limitTypes.size())
         objectTable = mObjectTable;
     else
         foreach (const QString &limitType, limitTypes) {
-            ObjectTable *ot = findObjectTable(limitType);
+            JsonDbObjectTable *ot = findObjectTable(limitType);
             qDebug() << "changesSince" << limitType << QString::number((long long)ot, 16);
             if (!objectTable)
                 objectTable = ot;
@@ -771,11 +771,11 @@ QJsonObject JsonDbBtreeStorage::changesSince(quint32 stateNumber, const QSet<QSt
     return objectTable->changesSince(stateNumber, limitTypes);
 }
 
-bool JsonDbBtreeStorage::checkValidity()
+bool JsonDbPartition::checkValidity()
 {
     bool noErrors = true;
 #if 0
-    if (gVerboseCheckValidity) qDebug() << "JsonDbBtreeStorage::checkValidity {";
+    if (gVerboseCheckValidity) qDebug() << "JsonDbBtreePartition::checkValidity {";
     QMap<quint32, QString> keyUuids; // objectKey -> uuid
     QMap<QString, quint32> uuidKeys; // objectKey -> uuid
     QMap<QString, QJsonValue> objects; // uuid -> object
@@ -821,12 +821,12 @@ bool JsonDbBtreeStorage::checkValidity()
                 noErrors = false;
         }
     }
-    if (gVerboseCheckValidity) qDebug() << "} JsonDbBtreeStorage::checkValidity done";
+    if (gVerboseCheckValidity) qDebug() << "} JsonDbBtreePartition::checkValidity done";
 #endif
     return noErrors;
 }
 
-void JsonDbBtreeStorage::flushCaches()
+void JsonDbPartition::flushCaches()
 {
     mObjectTable->flushCaches();
     for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
@@ -835,7 +835,7 @@ void JsonDbBtreeStorage::flushCaches()
         it.value()->reduceMemoryUsage();
 }
 
-void JsonDbBtreeStorage::initIndexes()
+void JsonDbPartition::initIndexes()
 {
     QByteArray baPropertyName;
     QByteArray baIndexObject;
@@ -854,40 +854,40 @@ void JsonDbBtreeStorage::initIndexes()
             QString objectType = indexObject.value(kObjectTypeStr).toString();
             QString propertyFunction = indexObject.value(kPropertyFunctionStr).toString();
 
-            ObjectTable *table = findObjectTable(objectType);
+            JsonDbObjectTable *table = findObjectTable(objectType);
             table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
         }
     }
 }
 
-bool JsonDbBtreeStorage::addIndex(const QString &indexName, const QString &propertyName,
+bool JsonDbPartition::addIndex(const QString &indexName, const QString &propertyName,
                                   const QString &propertyType, const QString &objectType, const QString &propertyFunction)
 {
     Q_ASSERT(!indexName.isEmpty());
-    //qDebug() << "JsonDbBtreeStorage::addIndex" << propertyName << objectType;
-    ObjectTable *table = findObjectTable(objectType);
+    //qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
+    JsonDbObjectTable *table = findObjectTable(objectType);
     const IndexSpec *indexSpec = table->indexSpec(indexName);
     if (indexSpec)
         return true;
-    //if (gVerbose) qDebug() << "JsonDbBtreeStorage::addIndex" << propertyName << objectType;
+    //if (gVerbose) qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
     return table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
 }
 
-bool JsonDbBtreeStorage::removeIndex(const QString &indexName, const QString &objectType)
+bool JsonDbPartition::removeIndex(const QString &indexName, const QString &objectType)
 {
-    ObjectTable *table = findObjectTable(objectType);
+    JsonDbObjectTable *table = findObjectTable(objectType);
     const IndexSpec *indexSpec = table->indexSpec(indexName);
     if (!indexSpec)
         return false;
     return table->removeIndex(indexName);
 }
 
-bool JsonDbBtreeStorage::checkStateConsistency()
+bool JsonDbPartition::checkStateConsistency()
 {
     return true;
 }
 
-void JsonDbBtreeStorage::checkIndexConsistency(ObjectTable *objectTable, JsonDbIndex *index)
+void JsonDbPartition::checkIndexConsistency(JsonDbObjectTable *objectTable, JsonDbIndex *index)
 {
     quint32 indexStateNumber = index->bdb()->tag();
     quint32 objectStateNumber = objectTable->stateNumber();
@@ -906,7 +906,7 @@ void JsonDbBtreeStorage::checkIndexConsistency(ObjectTable *objectTable, JsonDbI
     }
 }
 
-QHash<QString, qint64> JsonDbBtreeStorage::fileSizes() const
+QHash<QString, qint64> JsonDbPartition::fileSizes() const
 {
     QList<QFileInfo> fileInfo;
     fileInfo << mObjectTable->bdb()->fileName();
@@ -917,7 +917,7 @@ QHash<QString, qint64> JsonDbBtreeStorage::fileSizes() const
     }
 
     foreach (JsonDbView *view, mViews) {
-        ObjectTable *objectTable = view->objectTable();
+        JsonDbObjectTable *objectTable = view->objectTable();
         fileInfo << objectTable->bdb()->fileName();
         foreach (const IndexSpec &spec, objectTable->indexSpecs().values()) {
             if (spec.index->bdb())
@@ -933,25 +933,25 @@ QHash<QString, qint64> JsonDbBtreeStorage::fileSizes() const
 
 static bool sDebugQuery = (::getenv("JSONDB_DEBUG_QUERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_QUERY")) == "true") : false);
 
-IndexQuery *IndexQuery::indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table,
+IndexQuery *IndexQuery::indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                                    const QString &propertyName, const QString &propertyType,
                                    const JsonDbOwner *owner, bool ascending)
 {
     if (propertyName == JsonDbString::kUuidStr)
-        return new UuidQuery(storage, table, propertyName, owner, ascending);
+        return new UuidQuery(partition, table, propertyName, owner, ascending);
     else
-        return new IndexQuery(storage, table, propertyName, propertyType, owner, ascending);
+        return new IndexQuery(partition, table, propertyName, propertyType, owner, ascending);
 }
 
-UuidQuery::UuidQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending)
-    : IndexQuery(storage, table, propertyName, QString(), owner, ascending)
+UuidQuery::UuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending)
+    : IndexQuery(partition, table, propertyName, QString(), owner, ascending)
 {
 }
 
-IndexQuery::IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table,
+IndexQuery::IndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                        const QString &propertyName, const QString &propertyType,
                        const JsonDbOwner *owner, bool ascending)
-    : mStorage(storage)
+    : mPartition(partition)
     , mObjectTable(table)
     , mBdbIndex(0)
     , mCursor(0)
@@ -988,7 +988,7 @@ IndexQuery::~IndexQuery()
 
 QString IndexQuery::partition() const
 {
-    return mStorage->name();
+    return mPartition->name();
 }
 
 quint32 IndexQuery::stateNumber() const
@@ -1177,7 +1177,7 @@ JsonDbObject IndexQuery::first()
             continue;
         if (sDebugQuery) qDebug() << "mTypeName" << mTypeNames << "!contains" << object << "->" << object.value(JsonDbString::kTypeStr);
 
-        if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mStorage))
+        if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mPartition))
             continue;
 
         if (sDebugQuery) qDebug() << "IndexQuery::first()" << "returning objectKey" << objectKey;
@@ -1212,7 +1212,7 @@ JsonDbObject IndexQuery::next()
 
         if (sDebugQuery) qDebug() << "IndexQuery::next()" << "objectKey" << objectKey;
 
-        if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mStorage))
+        if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mPartition))
             continue;
 
         return object;
@@ -1362,7 +1362,7 @@ private:
     QRegExp mRegExp;
 };
 
-void JsonDbBtreeStorage::compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm)
+void JsonDbPartition::compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm)
 {
     QString op = queryTerm.op();
     QJsonValue fieldValue = queryTerm.value();
@@ -1420,7 +1420,7 @@ void JsonDbBtreeStorage::compileOrQueryTerm(IndexQuery *indexQuery, const QueryT
     }
 }
 
-IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query)
+IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query)
 {
     IndexQuery *indexQuery = 0;
     JsonDbQuery *residualQuery = new JsonDbQuery();
@@ -1430,7 +1430,7 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
     const QList<OrQueryTerm> &orQueryTerms = query->queryTerms;
     QString indexCandidate;
     int indexedQueryTermCount = 0;
-    ObjectTable *table = mObjectTable; //TODO fix me
+    JsonDbObjectTable *table = mObjectTable; //TODO fix me
     JsonDbView *view = 0;
     if (orQueryTerms.size()) {
         for (int i = 0; i < orQueryTerms.size(); i++) {
@@ -1625,7 +1625,7 @@ IndexQuery *JsonDbBtreeStorage::compileIndexQuery(const JsonDbOwner *owner, cons
     return indexQuery;
 }
 
-void JsonDbBtreeStorage::doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
+void JsonDbPartition::doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
                                       IndexQuery *indexQuery)
 {
     if (sDebugQuery) qDebug() << "doIndexQuery" << "limit" << limit << "offset" << offset;
@@ -1669,7 +1669,7 @@ static int findMinHead(QList<JsonDbObject> &heads, QStringList path, bool ascend
     return minIndex;
 }
 
-void JsonDbBtreeStorage::doMultiIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
+void JsonDbPartition::doMultiIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
                                            const QList<IndexQuery *> &indexQueries)
 {
     Q_ASSERT(indexQueries.size());
@@ -1732,21 +1732,21 @@ void JsonDbBtreeStorage::doMultiIndexQuery(const JsonDbOwner *owner, JsonDbObjec
     }
 }
 
-bool JsonDbBtreeStorage::checkQuota(const JsonDbOwner *owner, int size) const
+bool JsonDbPartition::checkQuota(const JsonDbOwner *owner, int size) const
 {
     Q_UNUSED(owner);
     Q_UNUSED(size);
     return true;
 }
 
-bool JsonDbBtreeStorage::addToQuota(const JsonDbOwner *owner, int size)
+bool JsonDbPartition::addToQuota(const JsonDbOwner *owner, int size)
 {
     Q_UNUSED(owner);
     Q_UNUSED(size);
     return true;
 }
 
-JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
+JsonDbQueryResult JsonDbPartition::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
 {
     JsonDbObjectList results;
     JsonDbObjectList joinedResults;
@@ -1784,7 +1784,7 @@ JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *
     return result;
 }
 
-JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset, QList<JsonDbBtreeStorage *> partitions)
+JsonDbQueryResult JsonDbPartition::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset, QList<JsonDbPartition *> partitions)
 {
     Q_ASSERT(partitions.size());
     JsonDbObjectList results;
@@ -1824,14 +1824,14 @@ JsonDbQueryResult JsonDbBtreeStorage::queryPersistentObjects(const JsonDbOwner *
     return result;
 }
 
-void JsonDbBtreeStorage::checkIndex(const QString &propertyName)
+void JsonDbPartition::checkIndex(const QString &propertyName)
 {
 // TODO
     if (mObjectTable->indexSpec(propertyName))
         mObjectTable->indexSpec(propertyName)->index->checkIndex();
 }
 
-bool JsonDbBtreeStorage::compact()
+bool JsonDbPartition::compact()
 {
     for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
          it != mViews.end();
@@ -1843,7 +1843,7 @@ bool JsonDbBtreeStorage::compact()
     return result;
 }
 
-struct JsonDbStat JsonDbBtreeStorage::stat() const
+struct JsonDbStat JsonDbPartition::stat() const
 {
     JsonDbStat result;
     for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
@@ -1855,11 +1855,11 @@ struct JsonDbStat JsonDbBtreeStorage::stat() const
     return result;
 }
 
-QString JsonDbBtreeStorage::name() const
+QString JsonDbPartition::name() const
 {
     return mPartitionName;
 }
-void JsonDbBtreeStorage::setName(const QString &name)
+void JsonDbPartition::setName(const QString &name)
 {
     mPartitionName = name;
 }
@@ -1879,7 +1879,7 @@ bool sortableGreaterThan(const QJsonSortable &a, const QJsonSortable &b)
     return greaterThan(a.key, b.key);
 }
 
-void JsonDbBtreeStorage::sortValues(const JsonDbQuery *parsedQuery, JsonDbObjectList &results, JsonDbObjectList &joinedResults)
+void JsonDbPartition::sortValues(const JsonDbQuery *parsedQuery, JsonDbObjectList &results, JsonDbObjectList &joinedResults)
 {
     const QList<OrderTerm> &orderTerms = parsedQuery->orderTerms;
     if (!orderTerms.size() || (results.size() < 2))
@@ -1921,13 +1921,13 @@ void JsonDbBtreeStorage::sortValues(const JsonDbQuery *parsedQuery, JsonDbObject
     }
 }
 
-bool WithTransaction::addObjectTable(ObjectTable *table)
+bool WithTransaction::addObjectTable(JsonDbObjectTable *table)
 {
-    if (!mStorage)
+    if (!mPartition)
         return false;
-    if (!mStorage->mTableTransactions.contains(table)) {
+    if (!mPartition->mTableTransactions.contains(table)) {
         bool ok = table->begin();
-        mStorage->mTableTransactions.append(table);
+        mPartition->mTableTransactions.append(table);
         return ok;
     }
     return true;

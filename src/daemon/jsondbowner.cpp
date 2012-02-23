@@ -39,7 +39,7 @@
 **
 ****************************************************************************/
 
-#include "jsondb-owner.h"
+#include "jsondbowner.h"
 #include "jsondb.h"
 #include "jsondb-strings.h"
 #include <qdebug.h>

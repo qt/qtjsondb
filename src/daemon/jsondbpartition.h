@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_BTREE_H
-#define JSONDB_BTREE_H
+#ifndef JSONDB_PARTITION_H
+#define JSONDB_PARTITION_H
 
 #include <QStringList>
 #include <QRegExp>
@@ -50,22 +50,21 @@
 #include <QPointer>
 
 #include "jsondb.h"
+#include "jsondbmanagedbtreetxn.h"
+#include "jsondbobjectkey.h"
+#include "jsondbowner.h"
 #include "jsondbstat.h"
-#include "jsondb-owner.h"
 #include "qbtree.h"
-
-#include "objectkey.h"
-#include "qmanagedbtreetxn.h"
 
 QT_BEGIN_HEADER
 
 class TestJsonDb;
-class QManagedBtree;
+class JsonDbManagedBtree;
 class QBtreeCursor;
 QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbOwner;
-class ObjectTable;
+class JsonDbObjectTable;
 class JsonDbIndex;
 class JsonDbView;
 
@@ -92,16 +91,16 @@ bool greaterThan(const QJsonValue &a, const QJsonValue &b);
 
 class IndexQuery {
 protected:
-    IndexQuery(JsonDbBtreeStorage *storage, ObjectTable *table,
+    IndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                const QString &propertyName, const QString &propertyType,
                const JsonDbOwner *owner, bool ascending = true);
 public:
-    static IndexQuery *indexQuery(JsonDbBtreeStorage *storage, ObjectTable *table,
+    static IndexQuery *indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                                   const QString &propertyName, const QString &propertyType,
                                   const JsonDbOwner *owner, bool ascending = true);
     ~IndexQuery();
 
-    ObjectTable *objectTable() const { return mObjectTable; }
+    JsonDbObjectTable *objectTable() const { return mObjectTable; }
     QString partition() const;
     void addConstraint(QueryConstraint *qc) { mQueryConstraints.append(qc); }
     bool ascending() const { return mAscending; }
@@ -126,9 +125,9 @@ protected:
     virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
 
 protected:
-    JsonDbBtreeStorage *mStorage;
-    ObjectTable   *mObjectTable;
-    QManagedBtree *mBdbIndex;
+    JsonDbPartition *mPartition;
+    JsonDbObjectTable   *mObjectTable;
+    JsonDbManagedBtree *mBdbIndex;
     QBtreeCursor  *mCursor;
     const JsonDbOwner *mOwner;
     QJsonValue      mMin, mMax;
@@ -147,7 +146,7 @@ protected:
 
 class UuidQuery : public IndexQuery {
 protected:
-    UuidQuery(JsonDbBtreeStorage *storage, ObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
+    UuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
     virtual bool seekToStart(QJsonValue &fieldValue);
     virtual bool seekToNext(QJsonValue &fieldValue);
     virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
@@ -155,12 +154,12 @@ protected:
     friend class IndexQuery;
 };
 
-class JsonDbBtreeStorage : public QObject
+class JsonDbPartition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbBtreeStorage(const QString &filename, const QString &name, JsonDb *jsonDb);
-    ~JsonDbBtreeStorage();
+    JsonDbPartition(const QString &filename, const QString &name, JsonDb *jsonDb);
+    ~JsonDbPartition();
     QString filename() const { return mFilename; }
     bool open();
     bool close();
@@ -188,15 +187,15 @@ public:
 
     JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
     JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset,
-                                             QList<JsonDbBtreeStorage *> partitions);
+                                             QList<JsonDbPartition *> partitions);
     QJsonObject createPersistentObject(JsonDbObject & );
     QJsonObject updatePersistentObject(const JsonDbObject& oldObject, const JsonDbObject& object);
     QJsonObject removePersistentObject(const JsonDbObject& oldObject, const JsonDbObject &tombStone );
 
     JsonDbView *addView(const QString &viewType);
     void removeView(const QString &viewType);
-    ObjectTable *mainObjectTable() const { return mObjectTable; }
-    ObjectTable *findObjectTable(const QString &objectType) const;
+    JsonDbObjectTable *mainObjectTable() const { return mObjectTable; }
+    JsonDbObjectTable *findObjectTable(const QString &objectType) const;
     JsonDbView *findView(const QString &objectType) const;
     void updateEagerViewTypes(const QString &viewType) const;
 
@@ -227,7 +226,7 @@ protected:
     void timerEvent(QTimerEvent *event);
 
     bool checkStateConsistency();
-    void checkIndexConsistency(ObjectTable *table, JsonDbIndex *index);
+    void checkIndexConsistency(JsonDbObjectTable *table, JsonDbIndex *index);
 
     IndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
     void compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm);
@@ -241,8 +240,8 @@ protected:
 
 private:
     JsonDb          *mJsonDb;
-    ObjectTable     *mObjectTable;
-    QVector<ObjectTable *> mTableTransactions;
+    JsonDbObjectTable     *mObjectTable;
+    QVector<JsonDbObjectTable *> mTableTransactions;
 
     QString      mPartitionName;
     QString      mFilename;
@@ -256,7 +255,7 @@ private:
     int          mIndexSyncInterval;
 
     friend class IndexQuery;
-    friend class ObjectTable;
+    friend class JsonDbObjectTable;
     friend class JsonDbMapDefinition;
     friend class WithTransaction;
     friend class ::TestJsonDb;
@@ -264,47 +263,46 @@ private:
 
 class WithTransaction {
 public:
-    WithTransaction(JsonDbBtreeStorage *storage=0, QString name=QString())
-        : mStorage(0)
+    WithTransaction(JsonDbPartition *partition=0, QString name=QString())
+        : mPartition(0)
     {
         Q_UNUSED(name)
-        //qDebug() << "WithTransaction" << "depth" << mStorage->mTransactionDepth << name;
-        if (storage)
-            setStorage(storage);
+        if (partition)
+            setPartition(partition);
     }
 
     ~WithTransaction()
     {
-        if (mStorage)
-            mStorage->commitTransaction();
+        if (mPartition)
+            mPartition->commitTransaction();
     }
 
-    void setStorage(JsonDbBtreeStorage *storage)
+    void setPartition(JsonDbPartition *partition)
     {
-        Q_ASSERT(!mStorage);
-        mStorage = storage;
-        if (!mStorage->beginTransaction())
-            mStorage = 0;
+        Q_ASSERT(!mPartition);
+        mPartition = partition;
+        if (!mPartition->beginTransaction())
+            mPartition = 0;
     }
-    bool hasBegin() { return mStorage; }
-    bool addObjectTable(ObjectTable *table);
+    bool hasBegin() { return mPartition; }
+    bool addObjectTable(JsonDbObjectTable *table);
 
     void abort()
     {
-        if (mStorage)
-            mStorage->abortTransaction();
-        mStorage = 0;
+        if (mPartition)
+            mPartition->abortTransaction();
+        mPartition = 0;
     }
 
     void commit(quint32 stateNumber = 0)
     {
-        if (mStorage)
-            mStorage->commitTransaction(stateNumber);
-        mStorage = 0;
+        if (mPartition)
+            mPartition->commitTransaction(stateNumber);
+        mPartition = 0;
     }
 
 private:
-    JsonDbBtreeStorage *mStorage;
+    JsonDbPartition *mPartition;
 };
 
 #define CHECK_LOCK(lock, context) \
@@ -343,4 +341,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif /* JSONDB_H */
+#endif // JSONDB_PARTITION_H

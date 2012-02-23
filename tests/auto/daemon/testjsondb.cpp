@@ -53,9 +53,9 @@
 #include "jsondb.h"
 
 #include "jsondb.h"
-#include "qmanagedbtree.h"
-#include "objecttable.h"
-#include "jsondbbtreestorage.h"
+#include "jsondbmanagedbtree.h"
+#include "jsondbobjecttable.h"
+#include "jsondbpartition.h"
 #include "jsondbindex.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
@@ -285,7 +285,7 @@ private:
 
 private:
     JsonDb *mJsonDb;
-    JsonDbBtreeStorage *mJsonDbStorage;
+    JsonDbPartition *mJsonDbPartition;
     QStringList mNotificationsReceived;
     QList<JsonDbObject> mContactList;
     JsonDbOwner *mOwner;
@@ -298,7 +298,7 @@ const QString kReplica2Name = QString("replica2");
 const QStringList kReplicaNames = (QStringList() << kReplica1Name << kReplica2Name);
 
 TestJsonDb::TestJsonDb()
-    : mJsonDb(NULL), mJsonDbStorage(0), mOwner(0)
+    : mJsonDb(NULL), mJsonDbPartition(0), mOwner(0)
 {
 }
 
@@ -340,8 +340,8 @@ void TestJsonDb::cleanupTestCase()
 
 void TestJsonDb::cleanup()
 {
-    foreach (JsonDbBtreeStorage *storage, mJsonDb->mStorages)
-        QCOMPARE(storage->mTransactionDepth, 0);
+    foreach (JsonDbPartition *partition, mJsonDb->mPartitions)
+        QCOMPARE(partition->mTransactionDepth, 0);
 }
 
 void TestJsonDb::reopen()
@@ -4248,7 +4248,7 @@ void TestJsonDb::managedBtree()
     const QByteArray k3("baz");
 
     QFile::remove(mdbname);
-    QManagedBtree *mdb = new QManagedBtree;
+    JsonDbManagedBtree *mdb = new JsonDbManagedBtree;
     if (!mdb->open(mdbname, QBtree::NoSync))
         Q_ASSERT(false);
 
@@ -4256,9 +4256,9 @@ void TestJsonDb::managedBtree()
         char c = 'a' + i;
         QByteArray value(&c, 1);
 
-        QManagedBtreeTxn txn1 = mdb->beginWrite();
-        QManagedBtreeTxn txn2 = mdb->beginWrite();
-        QManagedBtreeTxn txn3 = mdb->beginWrite();
+        JsonDbManagedBtreeTxn txn1 = mdb->beginWrite();
+        JsonDbManagedBtreeTxn txn2 = mdb->beginWrite();
+        JsonDbManagedBtreeTxn txn3 = mdb->beginWrite();
         QVERIFY(txn1 && txn2 && txn3);
 
         QVERIFY(txn1.put(k1, value));
@@ -4272,9 +4272,9 @@ void TestJsonDb::managedBtree()
     for (int i = 0; i < numtags; ++i) {
         QByteArray value;
 
-        QManagedBtreeTxn txn1 = mdb->beginRead(i);
-        QManagedBtreeTxn txn2 = mdb->beginRead(i);
-        QManagedBtreeTxn txn3 = mdb->beginRead(i);
+        JsonDbManagedBtreeTxn txn1 = mdb->beginRead(i);
+        JsonDbManagedBtreeTxn txn2 = mdb->beginRead(i);
+        JsonDbManagedBtreeTxn txn3 = mdb->beginRead(i);
         QVERIFY(txn1 && txn2 && txn3);
 
         QVERIFY(txn1.get(k1, &value));

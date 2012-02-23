@@ -47,7 +47,7 @@
 #include <QAbstractSocket>
 
 #include "jsonstream.h"
-#include "notification.h"
+#include "jsondbnotification.h"
 #include "jsondb.h"
 
 QT_BEGIN_HEADER

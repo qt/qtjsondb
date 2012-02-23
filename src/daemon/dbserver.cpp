@@ -48,7 +48,7 @@
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
 #include "jsondb.h"
-#include "jsondbbtreestorage.h"
+#include "jsondbpartition.h"
 #include "dbserver.h"
 
 #ifdef Q_OS_UNIX

@@ -39,82 +39,43 @@
 **
 ****************************************************************************/
 
-#include "jsondb-proxy.h"
-#include "jsondb-strings.h"
+#ifndef JSONDB_EPHEMERAL_PARTITION_H
+#define JSONDB_EPHEMERAL_PARTITION_H
+
+#include <QUuid>
+#include <QMap>
+#include <QObject>
+#include <qjsonobject.h>
+#include "jsondbobject.h"
+#include "jsondbquery.h"
+
+QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-extern bool gDebug;
+class JsonDbQuery;
 
-JsonDbMapProxy::JsonDbMapProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
-  : QObject(parent)
-  , mOwner(owner)
-  , mJsonDb(jsonDb)
+class JsonDbEphemeralPartition : public QObject
 {
-}
-JsonDbMapProxy::~JsonDbMapProxy()
-{
-}
+    Q_OBJECT
+public:
+    JsonDbEphemeralPartition(QObject *parent = 0);
 
-void JsonDbMapProxy::emitViewObject(const QString &key, const QJSValue &v)
-{
-    QJSValue object = v.engine()->newObject();
-    object.setProperty("key", key);
-    object.setProperty("value", v);
-    emit viewObjectEmitted(object);
-}
+    bool get(const QUuid &uuid, JsonDbObject *result) const;
 
-void JsonDbMapProxy::lookup(const QString &key, const QJSValue &value, const QJSValue &context)
-{
-    QJSValue query = value.engine()->newObject();
-    query.setProperty("index", key);
-    query.setProperty("value", value);
+    QJsonObject create(JsonDbObject &);
+    QJsonObject update(JsonDbObject &);
+    QJsonObject remove(const JsonDbObject &);
 
-    emit lookupRequested(query, context);
-}
+    JsonDbQueryResult query(const JsonDbQuery *query, int limit = -1, int offset = 0) const;
 
-void JsonDbMapProxy::lookupWithType(const QString &key, const QJSValue &value, const QJSValue &objectType, const QJSValue &context)
-{
-    QJSValue query = value.engine()->newObject();
-    query.setProperty("index", key);
-    query.setProperty("value", value);
-    query.setProperty("objectType", objectType);
-    emit lookupRequested(query, context);
-}
-
-JsonDbJoinProxy::JsonDbJoinProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
-  : QObject(parent)
-  , mOwner(owner)
-  , mJsonDb(jsonDb)
-{
-}
-JsonDbJoinProxy::~JsonDbJoinProxy()
-{
-}
-
-void JsonDbJoinProxy::create(const QJSValue &v)
-{
-    emit viewObjectEmitted(v);
-}
-
-void JsonDbJoinProxy::lookup(const QJSValue &spec, const QJSValue &context)
-{
-    emit lookupRequested(spec, context);
-}
-
-Console::Console()
-{
-}
-
-void Console::log(const QString &s)
-{
-    qDebug() << s;
-}
-
-void Console::debug(const QString &s)
-{
-//    if (gDebug)
-        qDebug() << s;
-}
+private:
+    typedef QMap<QUuid, JsonDbObject> ObjectMap;
+    ObjectMap mObjects;
+};
 
 QT_END_NAMESPACE_JSONDB
+
+QT_END_HEADER
+
+#endif // JSONDB_EPHEMERAL_PARTITION_H

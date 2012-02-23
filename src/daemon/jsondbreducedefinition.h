@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef REDUCE_DEFINITION_H
-#define REDUCE_DEFINITION_H
+#ifndef JSONDB_REDUCE_DEFINITION_H
+#define JSONDB_REDUCE_DEFINITION_H
 
 #include <QJSEngine>
 #include <QStringList>
@@ -60,18 +60,17 @@ class JsonDb;
 class JsonDbOwner;
 class JsonDbJoinProxy;
 class JsonDbMapProxy;
-class JsonDbBtreeStorage;
-class ObjectTable;
+class JsonDbPartition;
+class JsonDbObjectTable;
 
 class JsonDbReduceDefinition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbReduceDefinition(JsonDb *mJsonDb, const JsonDbOwner *mOwner, const QString &partition, QJsonObject reduceDefinition, QObject *parent = 0);
+    JsonDbReduceDefinition(JsonDb *mJsonDb, const JsonDbOwner *mOwner, JsonDbPartition *partition, QJsonObject reduceDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     QString sourceType() const { return mSourceType; }
-    QString partition() const { return mPartition; }
     QString sourceKeyName() const { return mSourceKeyName; }
     QString targetKeyName() const { return mTargetKeyName; }
     QString targetValueName() const { return mTargetValueName; }
@@ -94,15 +93,14 @@ public:
 private:
     JsonDb        *mJsonDb;
     const JsonDbOwner *mOwner;
-    QString        mPartition;
-    JsonDbBtreeStorage *mStorage;
+    JsonDbPartition *mPartition;
     QJsonObject    mDefinition;
     QJSEngine *mScriptEngine;
     QJSValue   mAddFunction;
     QJSValue   mSubtractFunction;
     QString        mUuid;
     QString        mTargetType;
-    ObjectTable   *mTargetTable;
+    JsonDbObjectTable   *mTargetTable;
     QString        mSourceType;
     QString        mTargetKeyName;
     QString        mTargetValueName;
@@ -115,4 +113,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif
+#endif // JSONDB_REDUCE_DEFINITION_H

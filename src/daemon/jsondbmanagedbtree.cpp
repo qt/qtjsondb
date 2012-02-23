@@ -45,43 +45,43 @@
 #include "btree.h"
 #include "qbtree.h"
 #include "qbtreetxn.h"
-#include "qmanagedbtree.h"
-#include "qmanagedbtreetxn.h"
+#include "jsondbmanagedbtree.h"
+#include "jsondbmanagedbtreetxn.h"
 #include "jsondb-global.h"
 
 // Every gCompactRate commits, compact the btree. Do not compact if zero.
 int gCompactRate = qgetenv("JSONDB_COMPACT_RATE").size() ? ::atoi(qgetenv("JSONDB_COMPACT_RATE")) : 1000;
 
-QManagedBtree::QManagedBtree()
+JsonDbManagedBtree::JsonDbManagedBtree()
     : mBtree(new QBtree())
 {
     mWriter.txn = 0;
     mBtree->setAutoCompactRate(gCompactRate);
     }
 
-QManagedBtree::~QManagedBtree()
+JsonDbManagedBtree::~JsonDbManagedBtree()
 {
     close();
     delete mBtree;
 }
 
-bool QManagedBtree::open(const QString &filename, QBtree::DbFlags flags)
+bool JsonDbManagedBtree::open(const QString &filename, QBtree::DbFlags flags)
 {
     mBtree->setFileName(filename);
     mBtree->setFlags(flags);
     return mBtree->open();
 }
 
-void QManagedBtree::close()
+void JsonDbManagedBtree::close()
 {
     Q_ASSERT(mBtree);
     if (mWriter.clients.size()) {
-        qWarning() << "~QManagedBtree::close" << "write txn still in progress. Aborting.";
+        qWarning() << "~JsonDbManagedBtree::close" << "write txn still in progress. Aborting.";
         mWriter.txn->abort();
     }
 
     if (mReaders.size()) {
-        qWarning() << "~QManagedBtree::close" << "read txns still in progress. Aborting.";
+        qWarning() << "~JsonDbManagedBtree::close" << "read txns still in progress. Aborting.";
         foreach(RefedTxn rtxn, mReaders)
             rtxn.txn->abort();
     }
@@ -92,76 +92,76 @@ void QManagedBtree::close()
     mBtree->close();;
 }
 
-QManagedBtreeTxn QManagedBtree::beginRead(quint32 tag)
+JsonDbManagedBtreeTxn JsonDbManagedBtree::beginRead(quint32 tag)
 {
     Q_ASSERT(mBtree);
 
     RefedTxnMap::iterator it = mReaders.find(tag);
     if (it != mReaders.end())
-        return QManagedBtreeTxn(this, it.value().txn);
+        return JsonDbManagedBtreeTxn(this, it.value().txn);
 
     QBtreeTxn *btxn = mBtree->beginRead(tag);
 
     if (!btxn)
-        return QManagedBtreeTxn();
+        return JsonDbManagedBtreeTxn();
 
     RefedTxn rtxn;
     rtxn.txn = btxn;
-    rtxn.clients = QSet<QManagedBtreeTxn *>();
+    rtxn.clients = QSet<JsonDbManagedBtreeTxn *>();
     mReaders.insert(tag, rtxn);
 
-    return QManagedBtreeTxn(this, btxn);
+    return JsonDbManagedBtreeTxn(this, btxn);
 }
 
-QManagedBtreeTxn QManagedBtree::beginRead()
+JsonDbManagedBtreeTxn JsonDbManagedBtree::beginRead()
 {
     Q_ASSERT(mBtree);
     quint32 tag = mBtree->tag();
     return beginRead(tag);
 }
 
-QManagedBtreeTxn QManagedBtree::beginWrite()
+JsonDbManagedBtreeTxn JsonDbManagedBtree::beginWrite()
 {
     Q_ASSERT(mBtree);
 
     if (mWriter.txn) {
-        qWarning() << "QManagedBtree::beginWrite:" << "write still in progress. Retrieving exiting writer";
+        qWarning() << "JsonDbManagedBtree::beginWrite:" << "write still in progress. Retrieving exiting writer";
         return existingWriteTxn();
     }
 
     QBtreeTxn *btxn = mBtree->beginReadWrite();
 
     if (!btxn)
-        return QManagedBtreeTxn();
+        return JsonDbManagedBtreeTxn();
 
     Q_ASSERT(mWriter.txn == 0);
     Q_ASSERT(mWriter.clients.empty());
     mWriter.txn = btxn;
     mWriter.clients.clear();
 
-    return QManagedBtreeTxn(this, btxn);
+    return JsonDbManagedBtreeTxn(this, btxn);
 }
 
-bool QManagedBtree::isReadTxnActive(quint32 tag) const
+bool JsonDbManagedBtree::isReadTxnActive(quint32 tag) const
 {
     Q_ASSERT(mBtree);
     return mReaders.find(tag) != mReaders.end();
 }
 
-bool QManagedBtree::isReadTxnActive() const
+bool JsonDbManagedBtree::isReadTxnActive() const
 {
     Q_ASSERT(mBtree);
     return isReadTxnActive(mBtree->tag());
 }
 
-QManagedBtreeTxn QManagedBtree::existingWriteTxn()
+JsonDbManagedBtreeTxn JsonDbManagedBtree::existingWriteTxn()
 {
     if (!mWriter.txn)
-        return QManagedBtreeTxn();
-    return QManagedBtreeTxn(this, mWriter.txn);
+        return JsonDbManagedBtreeTxn();
+    return JsonDbManagedBtreeTxn(this, mWriter.txn);
 }
 
-bool QManagedBtree::commit(QManagedBtreeTxn *txn, quint32 tag)
+bool JsonDbManagedBtree::commit(JsonDbManagedBtreeTxn *txn, quint32 tag)
 {
     // Only commit on writes
     Q_ASSERT(txn);
@@ -173,7 +173,7 @@ bool QManagedBtree::commit(QManagedBtreeTxn *txn, quint32 tag)
     return ok;
 }
 
-void QManagedBtree::abort(QManagedBtreeTxn *txn)
+void JsonDbManagedBtree::abort(JsonDbManagedBtreeTxn *txn)
 {
     Q_ASSERT(txn);
     QBtreeTxn *btxn = 0;
@@ -194,10 +194,10 @@ void QManagedBtree::abort(QManagedBtreeTxn *txn)
     remove(txn);
 }
 
-void QManagedBtree::remove(QManagedBtreeTxn *txn)
+void JsonDbManagedBtree::remove(JsonDbManagedBtreeTxn *txn)
 {
     // Internal btree txn should be either commited or aborted at this point
-    // If it's not then it's just QManagedBtreeTxn's dtor being a tease.
+    // If it's not then it's just JsonDbManagedBtreeTxn's dtor being a tease.
     if (!txn->isReadOnly()) {
         if (mWriter.txn) { // commit/abort not called
             if (mWriter.clients.size() > 1) {
@@ -207,12 +207,12 @@ void QManagedBtree::remove(QManagedBtreeTxn *txn)
                 return;
             }
             if (mWriter.clients.size() == 1) {
-                qWarning() << "QManagedBtree::remove:" << "single write txn uncommited. Aborting.";
+                qWarning() << "JsonDbManagedBtree::remove:" << "single write txn uncommited. Aborting.";
                 mWriter.txn->abort();
             }
         }
         Q_ASSERT(!btree_get_txn(mBtree->handle()));
-        foreach(QManagedBtreeTxn *client, mWriter.clients) { // tell clients
+        foreach (JsonDbManagedBtreeTxn *client, mWriter.clients) { // tell clients
             client->mTxn = 0;
             client->mBtree = 0;
         }
@@ -233,7 +233,7 @@ void QManagedBtree::remove(QManagedBtreeTxn *txn)
     }
 }
 
-void QManagedBtree::add(QManagedBtreeTxn *txn)
+void JsonDbManagedBtree::add(JsonDbManagedBtreeTxn *txn)
 {
     Q_ASSERT(txn && txn->txn());
     if (txn->txn()->isReadWrite()) {
@@ -248,46 +248,46 @@ void QManagedBtree::add(QManagedBtreeTxn *txn)
     }
 }
 
-bool QManagedBtree::putOne(const QByteArray &key, const QByteArray &value)
+bool JsonDbManagedBtree::putOne(const QByteArray &key, const QByteArray &value)
 {
     bool inTransaction = isWriteTxnActive();
-    QManagedBtreeTxn txn = inTransaction ? existingWriteTxn() : beginWrite();
+    JsonDbManagedBtreeTxn txn = inTransaction ? existingWriteTxn() : beginWrite();
     bool ok = txn.put(key, value);
     if (!inTransaction) {
-        qWarning() << "QManagedBtree::putOne" << "auto commiting tag 0";
+        qWarning() << "JsonDbManagedBtree::putOne" << "auto commiting tag 0";
         ok &= txn.commit(0);
     }
     return ok;
 }
 
-bool QManagedBtree::getOne(const QByteArray &key, QByteArray *value)
+bool JsonDbManagedBtree::getOne(const QByteArray &key, QByteArray *value)
 {
     bool inTransaction = isWriteTxnActive();
-    QManagedBtreeTxn txn = inTransaction ? existingWriteTxn() : beginRead();
+    JsonDbManagedBtreeTxn txn = inTransaction ? existingWriteTxn() : beginRead();
     bool ok = txn.get(key, value);
     if (!inTransaction)
         txn.abort();
     return ok;
 }
 
-bool QManagedBtree::removeOne(const QByteArray &key)
+bool JsonDbManagedBtree::removeOne(const QByteArray &key)
 {
     bool inTransaction = isWriteTxnActive();
-    QManagedBtreeTxn txn = inTransaction ? existingWriteTxn() : beginWrite();
+    JsonDbManagedBtreeTxn txn = inTransaction ? existingWriteTxn() : beginWrite();
     bool ok = txn.remove(key);
     if (!inTransaction){
-        qWarning() << "QManagedBtree::removeOne" << "auto commiting tag 0";
+        qWarning() << "JsonDbManagedBtree::removeOne" << "auto commiting tag 0";
         ok &= txn.commit(0);
     }
     return ok;
 }
 
-QString QManagedBtree::errorMessage() const
+QString JsonDbManagedBtree::errorMessage() const
 {
-    return QString("QManagedBtree: %1, %2").arg(mBtree->fileName(), strerror(errno));
+    return QString("JsonDbManagedBtree: %1, %2").arg(mBtree->fileName(), strerror(errno));
 }
 
-bool QManagedBtree::clearData()
+bool JsonDbManagedBtree::clearData()
 {
     Q_ASSERT(numActiveReadTxns() == 0 && isWriteTxnActive() == false);
     close();
@@ -295,7 +295,7 @@ bool QManagedBtree::clearData()
     return mBtree->open();
 }
 
-QBtree::Stat QManagedBtree::stat() const
+QBtree::Stat JsonDbManagedBtree::stat() const
 {
     if (mBtree)
         return mBtree->stat();

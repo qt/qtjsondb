@@ -50,29 +50,28 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "jsondbbtreestorage.h"
+#include "jsondbpartition.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
 #include "json.h"
 
 #include "jsondb.h"
-#include "jsondb-proxy.h"
-#include "objecttable.h"
+#include "jsondbproxy.h"
+#include "jsondbobjecttable.h"
 #include "jsondbmapdefinition.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, const JsonDbOwner *owner, const QString &partition, QJsonObject definition, QObject *parent)
+JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, const JsonDbOwner *owner, JsonDbPartition *partition, QJsonObject definition, QObject *parent)
     : QObject(parent)
     , mJsonDb(jsonDb)
     , mPartition(partition)
-    , mStorage(jsonDb->findPartition(partition))
     , mOwner(owner)
     , mDefinition(definition)
     , mScriptEngine(0)
     , mUuid(definition.value(JsonDbString::kUuidStr).toString())
     , mTargetType(definition.value("targetType").toString())
-    , mTargetTable(mStorage->findObjectTable(mTargetType))
+    , mTargetTable(mPartition->findObjectTable(mTargetType))
 {
 }
 
@@ -101,7 +100,7 @@ void JsonDbMapDefinition::initScriptEngine()
                 setError( "Unable to parse map function: " + mapFunction.toString());
             mMapFunctions[sourceType] = mapFunction;
 
-            mSourceTables[sourceType] = mJsonDb->findPartition(mPartition)->findObjectTable(sourceType);
+            mSourceTables[sourceType] = mJsonDb->findPartition(mPartition->name())->findObjectTable(sourceType);
         }
 
         mJoinProxy = new JsonDbJoinProxy(mOwner, mJsonDb, this);
@@ -127,7 +126,7 @@ void JsonDbMapDefinition::initScriptEngine()
             setError( "Unable to parse map function: " + mapFunction.toString());
         mMapFunctions[sourceType] = mapFunction;
 
-        mSourceTables[sourceType] = mJsonDb->findPartition(mPartition)->findObjectTable(sourceType);
+        mSourceTables[sourceType] = mJsonDb->findPartition(mPartition->name())->findObjectTable(sourceType);
         mSourceTypes.append(sourceType);
 
         mMapProxy = new JsonDbMapProxy(mOwner, mJsonDb, this);
@@ -187,7 +186,7 @@ void JsonDbMapDefinition::unmapObject(const JsonDbObject &object)
         JsonDbObject dependentObject = dependentObjects.at(i);
         if (dependentObject.value(JsonDbString::kTypeStr).toString() != mTargetType)
             continue;
-        mJsonDb->removeViewObject(mOwner, dependentObject, mPartition);
+        mJsonDb->removeViewObject(mOwner, dependentObject, mPartition->name());
     }
 }
 
@@ -210,7 +209,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
     QString findKey = query.property("index").toString();
     QJSValue findValue = query.property("value");
     GetObjectsResult getObjectResponse =
-        mStorage->getObjects(findKey, JsonDb::fromJSValue(findValue), objectType, false);
+        mPartition->getObjects(findKey, JsonDb::fromJSValue(findValue), objectType, false);
     if (!getObjectResponse.error.isNull()) {
         if (gVerbose)
             qDebug() << "lookupRequested" << mSourceTypes << mTargetType
@@ -244,7 +243,7 @@ void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
         sourceUuids.append(str);
     newItem.insert("_sourceUuids", sourceUuids);
 
-    QJsonObject res = mJsonDb->createViewObject(mOwner, newItem, mPartition);
+    QJsonObject res = mJsonDb->createViewObject(mOwner, newItem, mPartition->name());
     if (JsonDb::responseIsError(res))
         setError("Error executing map function during emitViewObject: " +
                  res.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString());
@@ -259,14 +258,14 @@ void JsonDbMapDefinition::setError(const QString &errorMsg)
 {
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
-    if (JsonDbBtreeStorage *storage = mJsonDb->findPartition(mPartition)) {
-        WithTransaction transaction(storage, "JsonDbMapDefinition::setError");
-        ObjectTable *objectTable = storage->findObjectTable(JsonDbString::kMapTypeStr);
+    if (JsonDbPartition *partition = mJsonDb->findPartition(mPartition->name())) {
+        WithTransaction transaction(partition, "JsonDbMapDefinition::setError");
+        JsonDbObjectTable *objectTable = partition->findObjectTable(JsonDbString::kMapTypeStr);
         transaction.addObjectTable(objectTable);
         JsonDbObject doc(mDefinition);
         JsonDbObject _delrec;
-        storage->getObject(mUuid, _delrec, JsonDbString::kMapTypeStr);
-        storage->updatePersistentObject(_delrec, doc);
+        partition->getObject(mUuid, _delrec, JsonDbString::kMapTypeStr);
+        partition->updatePersistentObject(_delrec, doc);
         transaction.commit();
     }
 }

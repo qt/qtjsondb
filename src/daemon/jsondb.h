@@ -57,10 +57,10 @@
 
 #include "jsondbobject.h"
 #include "jsondbquery.h"
-#include "jsondbbtreestorage.h"
+#include "jsondbpartition.h"
 #include "jsondbstat.h"
-#include "notification.h"
-#include "schemamanager_p.h"
+#include "jsondbnotification.h"
+#include "jsondbschemamanager_p.h"
 
 QT_BEGIN_HEADER
 
@@ -90,9 +90,9 @@ extern const QString kStateStr;
 
 class JsonDbProxy;
 class JsonDbQuery;
-class ObjectTable;
-class JsonDbBtreeStorage;
-class JsonDbEphemeralStorage;
+class JsonDbObjectTable;
+class JsonDbPartition;
+class JsonDbEphemeralPartition;
 
 class JsonDb : public QObject
 {
@@ -119,26 +119,26 @@ public:
         EphemeralObject     // internal for ephemeral, just likely go away in future refactor
     };
 
-    JsonDbQueryResult find(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
-    QJsonObject create(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
-    QJsonObject update(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
-    QJsonObject remove(const JsonDbOwner *owner, const JsonDbObject&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
+    JsonDbQueryResult find(const JsonDbOwner *owner, QJsonObject object, const QString &partitionName = QString());
+    QJsonObject create(const JsonDbOwner *owner, JsonDbObject&, const QString &partitionName = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject update(const JsonDbOwner *owner, JsonDbObject&, const QString &partitionName = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject remove(const JsonDbOwner *owner, const JsonDbObject&, const QString &partitionName = QString(), WriteMode writeMode = DefaultWrite);
 
-    QJsonObject createList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
-    QJsonObject updateList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
-    QJsonObject removeList(const JsonDbOwner *owner, JsonDbObjectList, const QString &partition = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject createList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partitionName = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject updateList(const JsonDbOwner *owner, JsonDbObjectList&, const QString &partitionName = QString(), WriteMode writeMode = DefaultWrite);
+    QJsonObject removeList(const JsonDbOwner *owner, JsonDbObjectList, const QString &partitionName = QString(), WriteMode writeMode = DefaultWrite);
 
-    QJsonObject createViewObject(const JsonDbOwner *owner, JsonDbObject &, const QString &partition = QString());
-    QJsonObject updateViewObject(const JsonDbOwner *owner, JsonDbObject&, const QString &partition = QString());
-    QJsonObject removeViewObject(const JsonDbOwner *owner, JsonDbObject, const QString &partition = QString());
+    QJsonObject createViewObject(const JsonDbOwner *owner, JsonDbObject &, const QString &partitionName = QString());
+    QJsonObject updateViewObject(const JsonDbOwner *owner, JsonDbObject&, const QString &partitionName = QString());
+    QJsonObject removeViewObject(const JsonDbOwner *owner, JsonDbObject, const QString &partitionName = QString());
 
-    QJsonObject changesSince(const JsonDbOwner *owner, QJsonObject object, const QString &partition = QString());
+    QJsonObject changesSince(const JsonDbOwner *owner, QJsonObject object, const QString &partitionName = QString());
     Q_INVOKABLE QJsonObject log(JsonDbOwner *owner, QJsonValue data);
 
     JsonDbOwner *owner() const { return mOwner; }
     const JsonDbOwner *findOwner(const QString &ownerId) const;
 
-    GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(), const QString &partition = QString()) const;
+    GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(), const QString &partitionName = QString()) const;
 
     QString ephemeralPartitionName() const { return mEphemeralPartitionName; }
     QString setEphemeralPartitionName(const QString &name) { mEphemeralPartitionName = name; return mEphemeralPartitionName; }
@@ -162,7 +162,7 @@ public:
 
 protected:
     bool populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object,
-                            const QString &partition);
+                            const QString &partitionName);
 
     void initSchemas();
     void updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path=QStringList());
@@ -172,30 +172,30 @@ protected:
     QJsonObject validateSchema(const QString &schemaName, JsonDbObject object);
     QJsonObject validateMapObject(JsonDbObject map);
     QJsonObject validateReduceObject(JsonDbObject reduce);
-    QJsonObject checkPartitionPresent(const QString &partition);
+    QJsonObject checkPartitionPresent(const QString &partitionName);
     QJsonObject checkUuidPresent(JsonDbObject object, QString &uuid);
     QJsonObject checkTypePresent(JsonDbObject, QString &type);
     QJsonObject checkNaturalObjectType(JsonDbObject object, QString &type);
     QJsonObject checkAccessControl(const JsonDbOwner *owner, JsonDbObject object,
-                                   const QString &partition, const QString &op);
-    QJsonObject checkQuota(const JsonDbOwner *owner, int size, JsonDbBtreeStorage *partition);
+                                   const QString &partitionName, const QString &op);
+    QJsonObject checkQuota(const JsonDbOwner *owner, int size, JsonDbPartition *partition);
     QJsonObject checkCanAddSchema(JsonDbObject schema, JsonDbObject oldSchema = QJsonObject());
     QJsonObject checkCanRemoveSchema(JsonDbObject schema);
     QJsonObject validateAddIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex) const;
 
     enum Action { Create, Remove };
 
-    bool addIndex(JsonDbObject indexObject, const QString &partition);
+    bool addIndex(JsonDbObject indexObject, const QString &partitionName);
     bool removeIndex(const QString &indexName,
                      const QString &objectType = QString(),
                      const QString &partition = QString());
-    bool removeIndex(JsonDbObject indexObject, const QString &partition);
+    bool removeIndex(JsonDbObject indexObject, const QString &partitionName);
 
     void updateEagerViewTypes(const QString &objectType);
 
-    void checkNotifications(const QString &partition, JsonDbObject obj, Notification::Action action);
+    void checkNotifications(const QString &partitionName, JsonDbObject obj, JsonDbNotification::Action action);
 
-    const Notification *createNotification(const JsonDbOwner *owner, JsonDbObject object);
+    const JsonDbNotification *createNotification(const JsonDbOwner *owner, JsonDbObject object);
     void removeNotification(const QString &uuid);
 
     QString filePath() const { return mFilePath; }
@@ -209,25 +209,25 @@ protected:
     static QString uuidhex(uint data, int digits);
     static QString createDatabaseId();
 
-    JsonDbBtreeStorage *findPartition(const QString &name) const;
+    JsonDbPartition *findPartition(const QString &name) const;
     QJsonObject createPartition(const JsonDbObject &object);
 
 Q_SIGNALS:
     void notified(const QString &id, JsonDbObject, const QString &action);
-    void requestViewUpdate(QString viewType, QString partition);
+    void requestViewUpdate(QString viewType, QString partitionName);
 
 protected:
     JsonDbOwner *mOwner;
-    QHash<QString, JsonDbBtreeStorage *> mStorages;
-    JsonDbEphemeralStorage *mEphemeralStorage;
+    QHash<QString, JsonDbPartition *> mPartitions;
+    JsonDbEphemeralPartition *mEphemeralPartition;
     bool                  mOpen;
     QString               mFilePath;
     QString               mSystemPartitionName;
     QString               mEphemeralPartitionName;
     QString               mDatabaseId;
-    SchemaManager         mSchemas;
-    QMap<QString,Notification*> mNotificationMap;
-    QMultiMap<QString,Notification*> mKeyedNotifications;
+    JsonDbSchemaManager   mSchemas;
+    QMap<QString, JsonDbNotification *> mNotificationMap;
+    QMultiMap<QString, JsonDbNotification *> mKeyedNotifications;
     QSet<QString>             mViewTypes;
     QMap<QString,QSet<QString> > mEagerViewSourceTypes; // set of eager view types dependent on this source type
     QSet<QString>         mViewsUpdating;
@@ -236,11 +236,11 @@ protected:
 
     friend class ::TestJsonDb;
     friend class ::TestJsonDbQueries;
-    friend class JsonDbBtreeStorage;
+    friend class JsonDbPartition;
     friend class JsonDbMapDefinition;
     friend class JsonDbReduceDefinition;
     friend class JsonDbQuery;
-    friend class ObjectTable;
+    friend class JsonDbObjectTable;
     friend class JsonDbQueryResult;
 };
 
@@ -248,4 +248,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif /* JSONDB_H */
+#endif // JSONDB_H

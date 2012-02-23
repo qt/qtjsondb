@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef SIGNALS_H
-#define SIGNALS_H
+#ifndef JSONDB_SIGNALS_H
+#define JSONDB_SIGNALS_H
 
 #include "jsondb-global.h"
 #include <QObject>
@@ -51,11 +51,11 @@ QT_BEGIN_NAMESPACE
 class QSocketNotifier;
 QT_END_NAMESPACE
 
-class Signals : public QObject
+class JsonDbSignals : public QObject
 {
     Q_OBJECT
 public:
-    Signals( QObject *parent = 0);
+    JsonDbSignals( QObject *parent = 0);
     void start();
 
     static void signalHandler(int unused);
@@ -75,4 +75,4 @@ private:
 
 QT_END_HEADER
 
-#endif // SIGNALS_H
+#endif // JSONDB_SIGNALS_H

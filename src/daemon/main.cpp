@@ -50,7 +50,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "signals.h"
+#include "jsondbsignals.h"
 #include "dbserver.h"
 
 #ifdef USE_SYSTEMD
@@ -282,7 +282,7 @@ int main(int argc, char * argv[])
     DBServer server(filePath, baseName);
     if (port)
         server.setTcpServerPort(port);
-    Signals handler;
+    JsonDbSignals handler;
     QObject::connect(&handler, SIGNAL(sigTerm()), &server, SLOT(sigTerm()));
     QObject::connect(&handler, SIGNAL(sigHUP()), &server, SLOT(sigHUP()));
     QObject::connect(&handler, SIGNAL(sigINT()), &server, SLOT(sigINT()));

@@ -39,43 +39,43 @@
 **
 ****************************************************************************/
 
-#ifndef SCHEMAMANAGER_IMPL_P_H
-#define SCHEMAMANAGER_IMPL_P_H
+#ifndef JSONDB_SCHEMA_MANAGER_IMPL_P_H
+#define JSONDB_SCHEMA_MANAGER_IMPL_P_H
 
-#include "schemamanager_p.h"
+#include "jsondbschemamanager_p.h"
 #include "schema-validation/object.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-bool SchemaManager::contains(const QString &name) const
+bool JsonDbSchemaManager::contains(const QString &name) const
 {
     return m_schemas.contains(name);
 }
 
-QJsonObject SchemaManager::value(const QString &name) const
+QJsonObject JsonDbSchemaManager::value(const QString &name) const
 {
     return m_schemas.value(name).first;
 }
 
-SchemaValidation::Schema<QJsonObjectTypes> SchemaManager::schema(const QString &schemaName, QJsonObjectTypes::Service *service)
+SchemaValidation::Schema<QJsonObjectTypes> JsonDbSchemaManager::schema(const QString &schemaName, QJsonObjectTypes::Service *service)
 {
     QJsonObjectSchemaPair schemaPair = m_schemas.value(schemaName);
     ensureCompiled(schemaName, &schemaPair, service);
     return schemaPair.second;
 }
 
-QJsonObject SchemaManager::take(const QString &name)
+QJsonObject JsonDbSchemaManager::take(const QString &name)
 {
     return m_schemas.take(name).first;
 }
 
-QJsonObject SchemaManager::insert(const QString &name, QJsonObject &schema)
+QJsonObject JsonDbSchemaManager::insert(const QString &name, QJsonObject &schema)
 {
     m_schemas.insert(name, qMakePair(schema, SchemaValidation::Schema<QJsonObjectTypes>()));
     return QJsonObject();
 }
 
-inline QJsonObject SchemaManager::ensureCompiled(const QString &schemaName, QJsonObjectSchemaPair *pair, QJsonObjectTypes::Service *callbacks)
+inline QJsonObject JsonDbSchemaManager::ensureCompiled(const QString &schemaName, QJsonObjectSchemaPair *pair, QJsonObjectTypes::Service *callbacks)
 {
     SchemaValidation::Schema<QJsonObjectTypes> schema(pair->second);
     if (!schema.isValid()) {
@@ -89,7 +89,7 @@ inline QJsonObject SchemaManager::ensureCompiled(const QString &schemaName, QJso
     return QJsonObject();
 }
 
-inline QJsonObject SchemaManager::validate(const QString &schemaName, JsonDbObject object)
+inline QJsonObject JsonDbSchemaManager::validate(const QString &schemaName, JsonDbObject object)
 {
     if (!contains(schemaName))
         return QJsonObject();
@@ -105,4 +105,4 @@ inline QJsonObject SchemaManager::validate(const QString &schemaName, JsonDbObje
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // SCHEMAMANAGER_IMPL_P_H
+#endif // JSONDB_SCHEMA_MANAGER_IMPL_P_H

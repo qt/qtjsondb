@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef OBJECT_TABLE_H
-#define OBJECT_TABLE_H
+#ifndef JSONDB_OBJECT_TABLE_H
+#define JSONDB_OBJECT_TABLE_H
 
 #include <QObject>
 #include <QHash>
@@ -48,27 +48,27 @@
 #include <QPair>
 #include <QtEndian>
 
-#include "objectkey.h"
+#include "jsondbobjectkey.h"
+#include "jsondbmanagedbtreetxn.h"
 #include "qbtree.h"
-#include "qmanagedbtreetxn.h"
 
 #include <qjsonarray.h>
 #include <qjsonobject.h>
 #include <qjsonvalue.h>
 
 #include <jsondbobject.h>
-#include "jsondbbtreestorage.h"
+#include "jsondbpartition.h"
 
 QT_BEGIN_HEADER
 
-class QManagedBtree;
+class JsonDbManagedBtree;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
 extern int gCacheSize;
 
 class IndexSpec;
-class JsonDbBtreeStorage;
+class JsonDbPartition;
 class JsonDbIndex;
 
 struct ObjectChange
@@ -105,7 +105,7 @@ inline QDebug &operator<<(QDebug &qdb, const ObjectChange &oc)
 }
 
 
-class ObjectTable : public QObject
+class JsonDbObjectTable : public QObject
 {
     Q_OBJECT
 public:
@@ -115,13 +115,13 @@ public:
     };
     Q_DECLARE_FLAGS(SyncFlags, SyncFlag)
 
-    ObjectTable(JsonDbBtreeStorage *parent=0);
-    ~ObjectTable();
+    JsonDbObjectTable(JsonDbPartition *parent=0);
+    ~JsonDbObjectTable();
 
     QString filename() const { return mFilename; }
     bool open(const QString &filename, QBtree::DbFlags flags);
     void close();
-    QManagedBtree *bdb() const { return mBdb; }
+    JsonDbManagedBtree *bdb() const { return mBdb; }
     bool begin();
     bool commit(quint32);
     bool abort();
@@ -164,12 +164,12 @@ public:
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &objectType);
 
 private:
-    JsonDbBtreeStorage *mStorage;
+    JsonDbPartition *mPartition;
     QString             mFilename;
-    QManagedBtree      *mBdb;
-    QManagedBtreeTxn    mWriteTxn;
+    JsonDbManagedBtree      *mBdb;
+    JsonDbManagedBtreeTxn    mWriteTxn;
     QHash<QString,IndexSpec> mIndexes; // indexed by full path, e.g., _type or _name.first
-    QVector<QManagedBtreeTxn> mBdbTransactions;
+    QVector<JsonDbManagedBtreeTxn> mBdbTransactions;
 
     quint32 mStateNumber;
 
@@ -181,10 +181,10 @@ private:
 void makeStateKey(QByteArray &baStateKey, quint32 stateNumber);
 bool isStateKey(const QByteArray &baStateKey);
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(ObjectTable::SyncFlags)
+Q_DECLARE_OPERATORS_FOR_FLAGS(JsonDbObjectTable::SyncFlags)
 
 QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif
+#endif // JSONDB_OBJECT_TABLE_H

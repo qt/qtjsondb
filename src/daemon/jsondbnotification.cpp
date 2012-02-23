@@ -3,7 +3,7 @@
 ** Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/
 **
-** This file is part of the FOO module of the Qt Toolkit.
+** This file is part of the QtAddOn.JsonDb module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** GNU Lesser General Public License Usage
@@ -39,60 +39,43 @@
 **
 ****************************************************************************/
 
-#ifndef QMANAGEDBTREETXN_H
-#define QMANAGEDBTREETXN_H
+#include <QDebug>
+#include <QList>
+#include <QMap>
+#include <QVariantList>
+#include <QString>
 
+#include "jsondb.h"
+#include "jsondbnotification.h"
+#include "jsondb-strings.h"
 
-class QBtree;
-class QBtreeTxn;
-class QManagedBtree;
+QT_BEGIN_NAMESPACE_JSONDB
 
-class QManagedBtreeTxn
+static QMap<QString, JsonDbNotification*> sNotificationMap;
+
+JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, const QString &uuid, const QString& query,
+                           QStringList actions, const QString &partition)
+    : mOwner(owner)
+    , mUuid(uuid)
+    , mQuery(query)
+    , mActions(None)
+    , mPartition(partition)
 {
-public:
-    QManagedBtreeTxn();
-    ~QManagedBtreeTxn();
-    QManagedBtreeTxn(const QManagedBtreeTxn &other);
-    QManagedBtreeTxn &operator = (const QManagedBtreeTxn &other);
-
-    bool isValid() const { return mTxn != NULL; }
-    bool operator == (const QManagedBtreeTxn &rhs) const
-    { return mTxn == rhs.mTxn; }
-    bool operator != (const QManagedBtreeTxn &rhs) const
-    { return mTxn != rhs.mTxn; }
-
-    bool get(const QByteArray &baKey, QByteArray *baValue) const;
-    bool put(const QByteArray &baKey, const QByteArray &baValue);
-    bool remove(const QByteArray &baKey);
-
-    bool commit(quint32 tag);
-    void abort();
-
-    const QBtreeTxn *txn() const { return mTxn; }
-    const QManagedBtree *btree() const { return mBtree; }
-
-    const QString errorMessage() const;
-
-    quint32 tag() const { return mTag; }
-    bool isReadOnly() const { return mIsRead; }
-
-private:
-    friend class QManagedBtree;
-    void reset(QManagedBtree *mbtree, QBtreeTxn *txn);
-    QManagedBtreeTxn(QManagedBtree *mbtree, QBtreeTxn *txn);
-
-    QBtreeTxn *mTxn;
-    QManagedBtree *mBtree;
-    quint32 mTag;
-    bool mIsRead;
-
-    typedef void (QManagedBtreeTxn::*SafeBool)() const;
-    void noBoolComparisons () const {}
-public:
-    operator SafeBool() const {
-        return isValid() ? &QManagedBtreeTxn::noBoolComparisons : 0;
+    foreach (QString s, actions) {
+        if (s == JsonDbString::kCreateStr)
+            mActions |= Create;
+        else if (s == JsonDbString::kUpdateStr)
+            mActions |= Update;
+        else if ((s == "delete") || (s == JsonDbString::kRemoveStr))
+            mActions |= Delete;
     }
-};
+}
+JsonDbNotification::~JsonDbNotification()
+{
+    if (mCompiledQuery) {
+        delete mCompiledQuery;
+        mCompiledQuery = 0;
+    }
+}
 
-
-#endif // QMANAGEDBTREETXN_H
+QT_END_NAMESPACE_JSONDB

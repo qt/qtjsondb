@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDBOBJECT_H
-#define JSONDBOBJECT_H
+#ifndef JSONDB_OBJECT_H
+#define JSONDB_OBJECT_H
 
 #include <QUuid>
 #include <QDebug>
@@ -104,4 +104,4 @@ struct GetObjectsResult
 QT_ADDON_JSONDB_END_NAMESPACE
 QT_END_HEADER
 
-#endif // QJSONDBOBJECT.H
+#endif // JSONDB_OBJECT_H

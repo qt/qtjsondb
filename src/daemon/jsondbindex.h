@@ -54,17 +54,17 @@
 #include "jsondbobject.h"
 
 #include "jsondb-global.h"
-#include "objectkey.h"
-#include "qmanagedbtreetxn.h"
+#include "jsondbobjectkey.h"
+#include "jsondbmanagedbtreetxn.h"
 #include "qbtreecursor.h"
 
 QT_BEGIN_HEADER
 
-class QManagedBtree;
+class JsonDbManagedBtree;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbBtreeStorage;
+class JsonDbPartition;
 
 class JsonDbIndex : public QObject
 {
@@ -78,7 +78,7 @@ public:
     QStringList fieldPath() const { return mPath; }
     QString propertyType() const { return mPropertyType; }
 
-    QManagedBtree *bdb();
+    JsonDbManagedBtree *bdb();
 
     bool setPropertyFunction(const QString &propertyFunction);
     void indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
@@ -86,16 +86,12 @@ public:
 
     quint32 stateNumber() const;
 
-    QManagedBtreeTxn begin();
+    JsonDbManagedBtreeTxn begin();
     bool commit(quint32);
     bool abort();
     bool clearData();
 
     void checkIndex();
-//    bool checkValidity(const QMap<QString, QJsonValue> &objects,
-//                       const QMap<quint32, QString> &keyUuids,
-//                       const QMap<QString, quint32> &uuidKeys,
-//                       JsonDbBtreeStorage *storage);
     void setCacheSize(quint32 cacheSize);
     bool open();
     void close();
@@ -113,11 +109,11 @@ private:
     QStringList mPath;
     QString mPropertyType;
     quint32 mStateNumber;
-    QScopedPointer<QManagedBtree> mBdb;
+    QScopedPointer<JsonDbManagedBtree> mBdb;
     QJSEngine *mScriptEngine;
     QJSValue   mPropertyFunction;
     QList<QJsonValue> mFieldValues;
-    QManagedBtreeTxn mWriteTxn;
+    JsonDbManagedBtreeTxn mWriteTxn;
     quint32 mCacheSize;
 };
 
@@ -158,4 +154,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif
+#endif // JSONDB_INDEX_H

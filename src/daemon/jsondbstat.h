@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDBSTAT_H
-#define JSONDBSTAT_H
+#ifndef JSONDB_STAT_H
+#define JSONDB_STAT_H
 
 QT_BEGIN_HEADER
 
@@ -74,4 +74,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif
+#endif // JSONDB_STAT_H

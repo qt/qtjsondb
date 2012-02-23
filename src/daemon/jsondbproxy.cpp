@@ -39,69 +39,82 @@
 **
 ****************************************************************************/
 
-#ifndef JsonDbProxy_H
-#define JsonDbProxy_H
-
-#include <QObject>
-#include <QMultiMap>
-#include <QJSValue>
-
-#include "jsondb.h"
-
-QT_BEGIN_HEADER
+#include "jsondbproxy.h"
+#include "jsondb-strings.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbMapProxy : public QObject {
-    Q_OBJECT
-public:
-    JsonDbMapProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent=0 );
-    ~JsonDbMapProxy();
+extern bool gDebug;
 
-    Q_SCRIPTABLE void emitViewObject(const QString &key, const QJSValue &value );
-    Q_SCRIPTABLE void lookup(const QString &key, const QJSValue &value, const QJSValue &context );
-    Q_SCRIPTABLE void lookupWithType(const QString &key, const QJSValue &value, const QJSValue &objectType, const QJSValue &context);
+JsonDbMapProxy::JsonDbMapProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
+  : QObject(parent)
+  , mOwner(owner)
+  , mJsonDb(jsonDb)
+{
+}
+JsonDbMapProxy::~JsonDbMapProxy()
+{
+}
 
-    void setOwner(const JsonDbOwner *owner) { mOwner = owner; }
+void JsonDbMapProxy::emitViewObject(const QString &key, const QJSValue &v)
+{
+    QJSValue object = v.engine()->newObject();
+    object.setProperty("key", key);
+    object.setProperty("value", v);
+    emit viewObjectEmitted(object);
+}
 
- signals:
-    void viewObjectEmitted(const QJSValue &);
-    // to be removed when all map/lookup are converted to join/lookup
-    void lookupRequested(const QJSValue &, const QJSValue &);
-private:
-    const JsonDbOwner *mOwner;
-    JsonDb      *mJsonDb;
-};
+void JsonDbMapProxy::lookup(const QString &key, const QJSValue &value, const QJSValue &context)
+{
+    QJSValue query = value.engine()->newObject();
+    query.setProperty("index", key);
+    query.setProperty("value", value);
 
-class JsonDbJoinProxy : public QObject {
-    Q_OBJECT
-public:
-    JsonDbJoinProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent=0 );
-    ~JsonDbJoinProxy();
+    emit lookupRequested(query, context);
+}
 
-    Q_SCRIPTABLE void create(const QJSValue &value );
-    Q_SCRIPTABLE void lookup(const QJSValue &spec, const QJSValue &context );
+void JsonDbMapProxy::lookupWithType(const QString &key, const QJSValue &value, const QJSValue &objectType, const QJSValue &context)
+{
+    QJSValue query = value.engine()->newObject();
+    query.setProperty("index", key);
+    query.setProperty("value", value);
+    query.setProperty("objectType", objectType);
+    emit lookupRequested(query, context);
+}
 
-    void setOwner(const JsonDbOwner *owner) { mOwner = owner; }
+JsonDbJoinProxy::JsonDbJoinProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
+  : QObject(parent)
+  , mOwner(owner)
+  , mJsonDb(jsonDb)
+{
+}
+JsonDbJoinProxy::~JsonDbJoinProxy()
+{
+}
 
- signals:
-    void viewObjectEmitted(const QJSValue &);
-    void lookupRequested(const QJSValue &, const QJSValue &);
-private:
-    const JsonDbOwner *mOwner;
-    JsonDb      *mJsonDb;
-};
+void JsonDbJoinProxy::create(const QJSValue &v)
+{
+    emit viewObjectEmitted(v);
+}
 
-class Console : public QObject {
-    Q_OBJECT
-public:
-    Console();
-    Q_SCRIPTABLE void log(const QString &string);
-    Q_SCRIPTABLE void debug(const QString &string);
-};
+void JsonDbJoinProxy::lookup(const QJSValue &spec, const QJSValue &context)
+{
+    emit lookupRequested(spec, context);
+}
+
+Console::Console()
+{
+}
+
+void Console::log(const QString &s)
+{
+    qDebug() << s;
+}
+
+void Console::debug(const QString &s)
+{
+//    if (gDebug)
+        qDebug() << s;
+}
 
 QT_END_NAMESPACE_JSONDB
-
-QT_END_HEADER
-
-#endif
