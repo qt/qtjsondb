@@ -81,6 +81,10 @@ public:
     static inline const QString errorCode() { return QStringLiteral("code"); }
     static inline const QString errorMessage() { return QStringLiteral("message"); }
     static inline const QString types() { return QStringLiteral("types"); }
+    static inline const QString conflictResolutionMode() { return QStringLiteral("conflictResolutionMode"); }
+    static inline const QString rejectStale() { return QStringLiteral("rejectStale"); }
+    static inline const QString replace() { return QStringLiteral("replace"); }
+    static inline const QString merge() { return QStringLiteral("merge"); }
 };
 
 class Property

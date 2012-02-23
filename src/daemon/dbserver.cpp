@@ -659,11 +659,11 @@ void DBServer::receiveMessage(const QJsonObject &message)
         JsonDb::WriteMode writeMode = JsonDb::DefaultWrite;
         QString writeModeRequested = message.value(QStringLiteral("writeMode")).toString();
 
-        if (writeModeRequested == QStringLiteral("optimistic"))
+        if (writeModeRequested == QLatin1String("rejectStale"))
             writeMode = JsonDb::OptimisticWrite;
-        else if (writeModeRequested == QStringLiteral("forced"))
+        else if (writeModeRequested == QLatin1String("replace"))
             writeMode = JsonDb::ForcedWrite;
-        else if (writeModeRequested == QStringLiteral("replicated"))
+        else if (writeModeRequested == QLatin1String("merge"))
             writeMode = JsonDb::ReplicatedWrite;
 
         if (action == JsonDbString::kUpdateStr)

@@ -72,6 +72,7 @@ public:
     void handleError(int, const QString &);
 
     QList<QJsonObject> objects;
+    QJsonDbWriteRequest::ConflictResolutionMode conflictResolutionMode;
 
     // response data
     quint32 stateNumber;

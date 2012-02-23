@@ -56,6 +56,7 @@ class Q_JSONDB_EXPORT QJsonDbWriteRequest : public QJsonDbRequest
 {
     Q_OBJECT
     Q_PROPERTY(QList<QJsonObject> objects READ objects WRITE setObjects)
+    Q_PROPERTY(QJsonDbWriteRequest::ConflictResolutionMode conflictResolutionMode READ conflictResolutionMode WRITE setConflictResolutionMode)
 
     Q_PROPERTY(quint32 stateNumber READ stateNumber)
 
@@ -68,8 +69,17 @@ public:
         MissingObject = QJsonDbRequest::MissingObject
     };
 
+    enum ConflictResolutionMode {
+        RejectStale = 0,
+        Replace = 1
+        //Merge = 2
+    };
+
     void setObjects(const QList<QJsonObject> &);
     QList<QJsonObject> objects() const;
+
+    void setConflictResolutionMode(ConflictResolutionMode mode);
+    ConflictResolutionMode conflictResolutionMode() const;
 
     // read request results. Data is only available after started() was emitted.
     quint32 stateNumber() const;

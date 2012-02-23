@@ -92,9 +92,40 @@ QT_BEGIN_NAMESPACE_JSONDB
 
     \sa error(), QJsonDbRequest::ErrorCode
 */
+/*!
+    \enum QJsonDbWriteRequest::ConflictResolutionMode
+
+    This enum describes the conflict resolution mode that is used for write requests.
+
+    \value RejectStale Object updates that do not have consecutive versions are
+    rejected. This is the default mode.
+
+    \value Replace Forcefully updates the object even if there is another
+    version in the database.
+
+    Each object in the database is identified by UUID (which is stored in
+    \c{_uuid} property) and each change to the object is identified by object
+    version (which is stored in \c{_version} property). The version field
+    contains the update counter and identifier for this object version. This
+    enum specifies how to treat object updates that happen "at the same time"
+    on the same object.
+
+    For example lets assume there is object "{123}" with version "1-abc" in the
+    database. Assume there are two clients A and B both reading and writing
+    from the database, and both clients read object "{123}" and got object with
+    version "1-abc". When client A updates the object from version "1-abc" to
+    "2-def", and then client B attempts to update his object from version
+    "1-abc" to "2-xyz", jsondb detects stale update which is rejected by
+    default.
+
+    However if the client B sets the conflict resolution mode to
+    QJsonDbWriteRequest::Replace, the write will be accepted and object version
+    "3-xyz" will be put into the database, effectively forcefully replacing
+    existing object.
+*/
 
 QJsonDbWriteRequestPrivate::QJsonDbWriteRequestPrivate(QJsonDbWriteRequest *q)
-    : QJsonDbRequestPrivate(q)
+    : QJsonDbRequestPrivate(q), conflictResolutionMode(QJsonDbWriteRequest::RejectStale)
 {
 }
 
@@ -132,6 +163,27 @@ QList<QJsonObject> QJsonDbWriteRequest::objects() const
 }
 
 /*!
+    \property QJsonDbWriteRequest::conflictResolutionMode
+
+    \brief defines the conflict handling mode.
+
+    In case when writing to the database results in an update that is not based
+    on the same version of the object that is stored in the database, this
+    property specifies the conflict handling mode.
+*/
+void QJsonDbWriteRequest::setConflictResolutionMode(QJsonDbWriteRequest::ConflictResolutionMode mode)
+{
+    Q_D(QJsonDbWriteRequest);
+    d->conflictResolutionMode = mode;
+}
+
+QJsonDbWriteRequest::ConflictResolutionMode QJsonDbWriteRequest::conflictResolutionMode() const
+{
+    Q_D(const QJsonDbWriteRequest);
+    return d->conflictResolutionMode;
+}
+
+/*!
     \property QJsonDbWriteRequest::stateNumber
 
     Returns a database state number that the write request was executed on.
@@ -159,6 +211,17 @@ QJsonObject QJsonDbWriteRequestPrivate::getRequest() const
         foreach (const QJsonObject &obj, objects)
             array.append(obj);
         request.insert(JsonDbStrings::Protocol::object(), array);
+    }
+    switch (conflictResolutionMode) {
+    case QJsonDbWriteRequest::RejectStale:
+        request.insert(JsonDbStrings::Protocol::conflictResolutionMode(), JsonDbStrings::Protocol::rejectStale());
+        break;
+    case QJsonDbWriteRequest::Replace:
+        request.insert(JsonDbStrings::Protocol::conflictResolutionMode(), JsonDbStrings::Protocol::replace());
+        break;
+    case 2: // internal type Merge
+        request.insert(JsonDbStrings::Protocol::conflictResolutionMode(), JsonDbStrings::Protocol::merge());
+        break;
     }
     request.insert(JsonDbStrings::Protocol::partition(), partition);
     request.insert(JsonDbStrings::Protocol::requestId(), requestId);
