@@ -117,6 +117,8 @@ private slots:
     void checkUpdateNotification();
     void totalRowCount();
     void listProperty();
+    void changeQuery();
+    void indexOfUuid();
 
 private:
     void waitForExitOrTimeout();

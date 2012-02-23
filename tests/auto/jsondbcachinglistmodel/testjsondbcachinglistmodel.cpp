@@ -253,6 +253,15 @@ void TestJsonDbCachingListModel::getIndex(int index)
         waitForCallback();
 }
 
+int indexOf(QObject* object, const QString &uuid)
+{
+    int retVal;
+    QMetaObject::invokeMethod(object, "indexOf", Qt::DirectConnection,
+                              Q_RETURN_ARG(int, retVal),
+                              Q_ARG(QString, uuid));
+    return retVal;
+}
+
 void TestJsonDbCachingListModel::createIndex(const QString &property, const QString &propertyType)
 {
     QVariantMap item;
@@ -931,6 +940,92 @@ void TestJsonDbCachingListModel::listProperty()
     deleteModel(listModel);
 }
 
+void TestJsonDbCachingListModel::changeQuery()
+{
+    QVariantMap item;
+
+    for (int i=0; i < 10; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        int id = mClient->create(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+    }
+
+    createIndex("name", "string");
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("sortOrder", "[/name]");
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 10);
+    QCOMPARE(listModel->property("query").toString(), QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    QCOMPARE(listModel->rowCount(), 10);
+    QCOMPARE(listModel->property("query").toString(), QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    listModel->setProperty("query", QString(""));
+
+    QCOMPARE(listModel->rowCount(), 0);
+    QCOMPARE(listModel->property("query").toString(), QString(""));
+
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 10);
+    QCOMPARE(listModel->property("query").toString(), QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    deleteModel(listModel);
+}
+
+void TestJsonDbCachingListModel::indexOfUuid()
+{
+    QVariantMap item;
+    item.insert("_type", __FUNCTION__);
+    item.insert("name", QString("Arnie_0"));
+    int id = mClient->create(item, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    createIndex("name", "string");
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("sortOrder", "[/name]");
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 1);
+    getIndex(0);
+    QCOMPARE(callbackResponse.toMap().value("name").toString(), QString("Arnie_0"));
+    QCOMPARE(indexOf(listModel, callbackResponse.toMap().value("_uuid").toString()), 0);
+
+    item.insert("_type", __FUNCTION__);
+    item.insert("name", QString("Arnie_1"));
+    id = mClient->create(item, "com.nokia.shared.1");
+
+    waitForItemsCreated(1);
+
+    QCOMPARE(listModel->rowCount(), 2);
+    getIndex(1);
+    QCOMPARE(callbackResponse.toMap().value("name").toString(), QString("Arnie_1"));
+    QCOMPARE(indexOf(listModel, callbackResponse.toMap().value("_uuid").toString()), 1);
+    QCOMPARE(indexOf(listModel, "notValid"), -1);
+
+    deleteModel(listModel);
+}
 
 QStringList TestJsonDbCachingListModel::getOrderValues(QAbstractListModel *listModel)
 {
