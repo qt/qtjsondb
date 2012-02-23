@@ -115,6 +115,12 @@ bool JsonDbObjectTable::begin()
     return mWriteTxn;
 }
 
+void JsonDbObjectTable::begin(JsonDbIndex *index)
+{
+    if (!index->bdb()->isWriteTxnActive())
+        mBdbTransactions.append(index->begin());
+}
+
 bool JsonDbObjectTable::commit(quint32 tag)
 {
     Q_ASSERT(mWriteTxn);
@@ -183,8 +189,15 @@ void JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
 
     if (flags & SyncIndexes) {
         foreach (const IndexSpec &spec, mIndexes.values()) {
-            if (spec.index->bdb())
+            JsonDbIndex *index = spec.index;
+            if (index->bdb()) {
+                quint32 stateNumber = index->stateNumber();
+                if (stateNumber != mStateNumber) {
+                    index->begin();
+                    index->commit(mStateNumber);
+                }
                 spec.index->bdb()->btree()->sync();
+            }
         }
     }
 }
@@ -364,9 +377,6 @@ void JsonDbObjectTable::indexObject(const ObjectKey &objectKey, JsonDbObject obj
             continue;
         if (indexSpec.lazy)
             continue;
-        if (!indexSpec.index->bdb()->isWriteTxnActive()) {
-            mBdbTransactions.append(indexSpec.index->begin());
-        }
         indexSpec.index->indexObject(objectKey, object, stateNumber);
     }
 }
@@ -387,9 +397,6 @@ void JsonDbObjectTable::deindexObject(const ObjectKey &objectKey, JsonDbObject o
             continue;
         if (indexSpec.lazy)
             continue;
-        if (!indexSpec.index->bdb()->isWriteTxnActive()) {
-            mBdbTransactions.append(indexSpec.index->begin());
-        }
         indexSpec.index->deindexObject(objectKey, object, stateNumber);
     }
 }

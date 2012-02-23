@@ -52,12 +52,14 @@
 #include "jsondbindex.h"
 #include "jsondbmanagedbtree.h"
 #include "jsondbsettings.h"
+#include "jsondbobjecttable.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
 JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
-                         const QString &propertyType, QObject *parent)
-    : QObject(parent)
+                         const QString &propertyType, JsonDbObjectTable *objectTable)
+    : QObject(objectTable)
+    , mObjectTable(objectTable)
     , mPropertyName(propertyName)
     , mPath(propertyName.split('.'))
     , mPropertyType(propertyType)
@@ -184,12 +186,16 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
 
     Q_ASSERT(!object.contains(JsonDbString::kDeletedStr)
              && !object.value(JsonDbString::kDeletedStr).toBool());
+    QList<QJsonValue> fieldValues = indexValues(object);
+    if (!fieldValues.size())
+        return;
     bool ok;
     if (!mBdb)
         open();
-    QList<QJsonValue> fieldValues = indexValues(object);
     bool inTransaction = mBdb->isWriteTxnActive();
-    JsonDbManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
+    if (!inTransaction)
+        mObjectTable->begin(this);
+    JsonDbManagedBtreeTxn txn = mBdb->existingWriteTxn();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
         fieldValue = makeFieldValue(fieldValue, mPropertyType);
@@ -206,8 +212,6 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
         ok = txn.put(forwardKey, forwardValue);
         if (!ok) qCritical() << __FUNCTION__ << "putting fowardIndex" << mBdb->errorMessage();
     }
-    if (!inTransaction)
-        txn.commit(stateNumber);
     if (jsondbSettings->debug() && (stateNumber < mStateNumber))
         qDebug() << "JsonDbIndex::indexObject" << "stale update" << stateNumber << mStateNumber << mFileName;
     mStateNumber = qMax(stateNumber, mStateNumber);
@@ -224,8 +228,12 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
     if (!mBdb)
         open();
     QList<QJsonValue> fieldValues = indexValues(object);
+    if (!fieldValues.size())
+        return;
     bool inTransaction = mBdb->isWriteTxnActive();
-    JsonDbManagedBtreeTxn txn = inTransaction ? mBdb->existingWriteTxn() : mBdb->beginWrite();
+    if (!inTransaction)
+        mObjectTable->begin(this);
+    JsonDbManagedBtreeTxn txn = mBdb->existingWriteTxn();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
         fieldValue = makeFieldValue(fieldValue, mPropertyType);
@@ -240,8 +248,6 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
     }
     if (jsondbSettings->verbose() && (stateNumber < mStateNumber))
         qDebug() << "JsonDbIndex::deindexObject" << "stale update" << stateNumber << mStateNumber << mFileName;
-    if (!inTransaction)
-        txn.commit(stateNumber);
 #ifdef CHECK_INDEX_ORDERING
     checkIndex();
 #endif

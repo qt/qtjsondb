@@ -64,13 +64,14 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbManagedBtree;
 class JsonDbPartition;
+class JsonDbObjectTable;
 
 class JsonDbIndex : public QObject
 {
     Q_OBJECT
 public:
     JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
-                const QString &propertyType = 0, QObject *parent = 0);
+                const QString &propertyType, JsonDbObjectTable *objectTable);
     ~JsonDbIndex();
 
     QString propertyName() const { return mPropertyName; }
@@ -103,6 +104,7 @@ private slots:
     void propertyValueEmitted(QJSValue);
 
 private:
+    JsonDbObjectTable *mObjectTable;
     QString mFileName;
     QString mPropertyName;
     QStringList mPath;

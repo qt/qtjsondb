@@ -120,6 +120,7 @@ public:
     void close();
     JsonDbManagedBtree *bdb() const { return mBdb; }
     bool begin();
+    void begin(JsonDbIndex *btree);
     bool commit(quint32);
     bool abort();
     bool compact();
