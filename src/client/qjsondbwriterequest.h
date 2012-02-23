@@ -81,6 +81,7 @@ private:
 
 class Q_JSONDB_EXPORT QJsonDbCreateRequest : public QJsonDbWriteRequest
 {
+    Q_OBJECT
 public:
     QJsonDbCreateRequest(const QJsonObject &object, QObject *parent = 0);
     QJsonDbCreateRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
@@ -88,6 +89,7 @@ public:
 
 class Q_JSONDB_EXPORT QJsonDbUpdateRequest : public QJsonDbWriteRequest
 {
+    Q_OBJECT
 public:
     QJsonDbUpdateRequest(const QJsonObject &object, QObject *parent = 0);
     QJsonDbUpdateRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
@@ -95,6 +97,7 @@ public:
 
 class Q_JSONDB_EXPORT QJsonDbRemoveRequest : public QJsonDbWriteRequest
 {
+    Q_OBJECT
 public:
     QJsonDbRemoveRequest(const QJsonObject &object, QObject *parent = 0);
     QJsonDbRemoveRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
