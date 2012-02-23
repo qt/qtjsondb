@@ -190,6 +190,8 @@ public:
     QJsonObject updatePersistentObject(const JsonDbObject& oldObject, const JsonDbObject& object);
     QJsonObject removePersistentObject(const JsonDbObject& oldObject, const JsonDbObject &tombStone );
 
+    QJsonObject flush();
+
     JsonDbView *addView(const QString &viewType);
     void removeView(const QString &viewType);
     JsonDbObjectTable *mainObjectTable() const { return mObjectTable; }

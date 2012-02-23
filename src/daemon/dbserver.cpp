@@ -621,6 +621,13 @@ void DBServer::processToken(JsonStream *stream, const QJsonValue &object, int id
     stream->send(result);
 }
 
+void DBServer::processFlush(JsonStream *stream, JsonDbOwner *owner, const QString &partition, int id)
+{
+    QJsonObject result = mJsonDb->flush(owner, partition);
+    result.insert(JsonDbString::kIdStr, id);
+    stream->send(result);
+}
+
 void DBServer::receiveMessage(const QJsonObject &message)
 {
     JsonStream *stream = qobject_cast<JsonStream *>(sender());
@@ -678,6 +685,8 @@ void DBServer::receiveMessage(const QJsonObject &message)
         processToken(stream, object, id);
     } else if (action == JsonDbString::kChangesSinceStr) {
         processChangesSince(stream, owner, object, id, partitionName);
+    } else if (action == JsonDbString::kFlushStr) {
+        processFlush(stream, owner, partitionName, id);
     } else {
         const QMetaObject *mo = mJsonDb->metaObject();
         QJsonObject result;

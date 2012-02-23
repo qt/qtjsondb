@@ -30,6 +30,8 @@ HEADERS += \
     qjsondbwriterequest_p.h \
     qjsondbwriterequest.h \
     qjsondbauthrequest_p.h \
+    qjsondbflushrequest_p_p.h \
+    qjsondbflushrequest_p.h \
     qjsondbwatcher_p.h \
     qjsondbwatcher.h \
     qjsondbobject.h
@@ -40,6 +42,7 @@ SOURCES += \
     qjsondbreadrequest.cpp \
     qjsondbwriterequest.cpp \
     qjsondbauthrequest.cpp \
+    qjsondbflushrequest_p.cpp \
     qjsondbwatcher.cpp \
     qjsondbobject.cpp
 

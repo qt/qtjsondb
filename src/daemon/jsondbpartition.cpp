@@ -600,6 +600,16 @@ bool JsonDbPartition::abortTransaction()
     return true;
 }
 
+QJsonObject JsonDbPartition::flush()
+{
+    mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
+
+    QJsonObject resultmap, errormap;
+    resultmap.insert(JsonDbString::kStateNumberStr, (int)mObjectTable->stateNumber());
+    return JsonDb::makeResponse(resultmap, errormap);
+}
+
+
 void JsonDbPartition::timerEvent(QTimerEvent *event)
 {
     if (mTransactionDepth)

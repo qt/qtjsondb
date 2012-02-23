@@ -88,6 +88,7 @@ const QString JsonDbString::kRemoveStr   = QString::fromLatin1("remove");
 const QString JsonDbString::kSchemaStr   = QString::fromLatin1("schema");
 const QString JsonDbString::kUpdateStr   = QString::fromLatin1("update");
 const QString JsonDbString::kTokenStr    = QString::fromLatin1("token");
+const QString JsonDbString::kFlushStr    = QString::fromLatin1("flush");
 const QString JsonDbString::kSettingsStr    = QString::fromLatin1("settings");
 const QString JsonDbString::kViewTypeStr = QString::fromLatin1("View");
 const QString JsonDbString::kChangesSinceStr = QString::fromLatin1("changesSince");

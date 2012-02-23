@@ -118,6 +118,8 @@ public:
     QJsonObject changesSince(const JsonDbOwner *owner, QJsonObject object, const QString &partitionName = QString());
     Q_INVOKABLE QJsonObject log(JsonDbOwner *owner, QJsonValue data);
 
+    QJsonObject flush(const JsonDbOwner *owner, const QString &partition);
+
     JsonDbOwner *owner() const { return mOwner; }
     const JsonDbOwner *findOwner(const QString &ownerId) const;
 

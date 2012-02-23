@@ -383,6 +383,19 @@ QJsonObject JsonDb::changesSince(const JsonDbOwner * /* owner */, QJsonObject ob
     }
 }
 
+QJsonObject JsonDb::flush(const JsonDbOwner *owner, const QString &partitionName)
+{
+    Q_UNUSED(owner);
+    JsonDbPartition *partition = findPartition(partitionName);
+    if (!partition) {
+        QJsonObject resultmap, errormap;
+        setError(errormap, JsonDbError::InvalidPartition, QString("Invalid partition '%1'").arg(partitionName));
+        return makeResponse(resultmap, errormap);
+    }
+
+    return partition->flush();
+}
+
 QJsonValue JsonDb::propertyLookup(QJsonObject v, const QString &path)
 {
     return propertyLookup(v, path.split('.'));

@@ -94,6 +94,7 @@ private:
     void processRemove(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName, JsonDb::WriteMode writeMode);
     void processToken(JsonStream *stream, const QJsonValue &object, int id);
     void processChangesSince(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName);
+    void processFlush(JsonStream *stream, JsonDbOwner *owner, const QString &partition, int id);
 
     JsonDbOwner *getOwner( JsonStream *stream);
     JsonDbOwner *createDummyOwner( JsonStream *stream);

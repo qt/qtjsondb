@@ -94,6 +94,7 @@ public:
     static const QString kVersionStr;
     static const QString kViewTypeStr;
     static const QString kTokenStr;
+    static const QString kFlushStr;
     static const QString kSettingsStr;
     static const QString kChangesSinceStr;
     static const QString kStateNumberStr;
