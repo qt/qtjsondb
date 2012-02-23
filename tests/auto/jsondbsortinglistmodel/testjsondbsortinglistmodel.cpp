@@ -978,11 +978,56 @@ void TestJsonDbSortingListModel::queryLimit()
     QCOMPARE(listModel->rowCount(), 100);
     QCOMPARE(listModel->property("overflow").toBool(), true);
 
+    listModel->setProperty("queryLimit", 100);
+    QCOMPARE(listModel->rowCount(), 100);
+    QCOMPARE(listModel->property("overflow").toBool(), true);
+
     listModel->setProperty("queryLimit", 500);
 
     waitForStateOrTimeout();
     QCOMPARE(listModel->rowCount(), 300);
     QCOMPARE(listModel->property("overflow").toBool(), false);
+
+    deleteModel(listModel);
+}
+
+void TestJsonDbSortingListModel::roleNames()
+{
+    QVariantMap item;
+
+    item.insert("_type", __FUNCTION__);
+    item.insert("name", QString("Arnie"));
+    item.insert("friend", QString("Bert"));
+    int id = mClient->create(item, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "friend");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    waitForStateOrTimeout();
+
+    QCOMPARE(listModel->rowCount(), 1);
+
+    QVariant names = listModel->property("roleNames");
+    QVariantMap roles = names.toMap();
+    for (QVariantMap::const_iterator it = roles.begin(); it != roles.end(); ++it) {
+        QCOMPARE(roleNames.contains(it.key()), true);
+    }
+
+    // insert again this time usa the map to insert
+    listModel->setProperty("roleNames", names);
+
+    names = listModel->property("roleNames");
+    roles = names.toMap();
+    for (QVariantMap::const_iterator it = roles.begin(); it != roles.end(); ++it) {
+        QCOMPARE(roleNames.contains(it.key()), true);
+    }
 
     deleteModel(listModel);
 }

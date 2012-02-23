@@ -116,6 +116,7 @@ private slots:
     void getQJSValue();
     void indexOfUuid();
     void queryLimit();
+    void roleNames();
 
 private:
     void waitForExitOrTimeout();
