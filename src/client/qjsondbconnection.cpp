@@ -327,10 +327,10 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
         }
     } else if (currentRequest) {
         QJsonDbRequestPrivate *drequest = currentRequest.data()->d_func();
-        currentRequest.clear();
         int requestId = static_cast<int>(object.value(JsonDbStrings::Protocol::requestId()).toDouble());
-        Q_ASSERT(requestId == drequest->requestId);
-        Q_UNUSED(requestId);
+        if (requestId != drequest->requestId)
+            return;
+        currentRequest.clear();
         QJsonValue result = object.value(JsonDbStrings::Protocol::result());
         if (result.isObject()) {
             drequest->handleResponse(result.toObject());
@@ -345,7 +345,6 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
         }
         handleRequestQueue();
     } else {
-        qWarning("QJsonDbConnection: got a response to already deleted request object");
         handleRequestQueue();
     }
 }
