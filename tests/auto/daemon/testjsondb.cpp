@@ -3931,27 +3931,11 @@ void TestJsonDb::partition()
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("foo").toString(), QLatin1String("asd"));
 
+    // defaults to system partition
     queryResult = mJsonDb->find(mOwner, query);
     verifyGoodResult(result);
-    QCOMPARE(queryResult.data.size(), 2);
-    QStringList values = (QStringList() << QLatin1String("asd") << QLatin1String("bar"));
-    QVERIFY(values.contains(queryResult.data.at(0).value("foo").toString()));
-    QVERIFY(values.contains(queryResult.data.at(1).value("foo").toString()));
-
-    query.insert("query", QString("[?_type=\"partitiontest\"][/foo]"));
-    queryResult = mJsonDb->find(mOwner, query);
-    verifyGoodResult(result);
-    QCOMPARE(queryResult.data.size(), 2);
-    QVERIFY(queryResult.data.at(0).value("foo").toString()
-            < queryResult.data.at(1).value("foo").toString());
-
-    query.insert("query", QString("[?_type=\"partitiontest\"][\\foo]"));
-    queryResult = mJsonDb->find(mOwner, query);
-    verifyGoodResult(result);
-    QCOMPARE(queryResult.data.size(), 2);
-    QVERIFY(queryResult.data.at(0).value("foo").toString()
-            > queryResult.data.at(1).value("foo").toString());
-
+    QCOMPARE(queryResult.data.size(), 1);
+    QCOMPARE(queryResult.data.at(0).value("foo").toString(), QLatin1String("bar"));
 }
 
 void TestJsonDb::arrayIndexQuery()

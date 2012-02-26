@@ -186,8 +186,6 @@ public:
     bool addToQuota(const JsonDbOwner *owner, int size);
 
     JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
-    JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset,
-                                             QList<JsonDbPartition *> partitions);
     QJsonObject createPersistentObject(JsonDbObject & );
     QJsonObject updatePersistentObject(const JsonDbObject& oldObject, const JsonDbObject& object);
     QJsonObject removePersistentObject(const JsonDbObject& oldObject, const JsonDbObject &tombStone );

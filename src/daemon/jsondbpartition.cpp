@@ -1737,46 +1737,6 @@ JsonDbQueryResult JsonDbPartition::queryPersistentObjects(const JsonDbOwner *own
     return result;
 }
 
-JsonDbQueryResult JsonDbPartition::queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset, QList<JsonDbPartition *> partitions)
-{
-    Q_ASSERT(partitions.size());
-    JsonDbObjectList results;
-    JsonDbObjectList joinedResults;
-
-    QElapsedTimer time;
-    time.start();
-    QList<IndexQuery *> indexQueries;
-    for (int i = 0; i < partitions.size(); i++)
-        indexQueries.append(partitions[i]->compileIndexQuery(owner, query));
-
-    int elapsedToCompile = time.elapsed();
-    doMultiIndexQuery(owner, results, limit, offset, indexQueries);
-    int elapsedToQuery = time.elapsed();
-
-    int length = results.size();
-    JsonDbQuery *residualQuery = indexQueries[0]->residualQuery();
-    if (residualQuery && residualQuery->orderTerms.size()) {
-        if (jsondbSettings->verbose()) qDebug() << "queryPersistentObjects" << "sorting";
-        sortValues(residualQuery, results, joinedResults);
-    }
-
-    QJsonArray sortKeys;
-    sortKeys.append(indexQueries[0]->propertyName());
-
-    for (int i = 0; i < indexQueries.size(); i++)
-        delete indexQueries[i];
-
-    JsonDbQueryResult result;
-    result.length = length;
-    result.offset = offset;
-    result.data = results;
-    result.sortKeys = sortKeys;
-    int elapsedToDone = time.elapsed();
-    if (jsondbSettings->verbose())
-        qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query->query;
-    return result;
-}
-
 void JsonDbPartition::checkIndex(const QString &propertyName)
 {
 // TODO

@@ -645,11 +645,7 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
         QStringList mapExpressions = parsedQuery->mapExpressionList;
         QStringList mapKeys = parsedQuery->mapKeyList;
 
-        JsonDbQueryResult queryResult;
-        if (partitionName.isEmpty() && (mPartitions.size() > 1))
-            queryResult = partition->queryPersistentObjects(owner, parsedQuery.data(), limit, offset, mPartitions.values());
-        else
-            queryResult = partition->queryPersistentObjects(owner, parsedQuery.data(), limit, offset);
+        JsonDbQueryResult queryResult = partition->queryPersistentObjects(owner, parsedQuery.data(), limit, offset);
         JsonDbObjectList results = queryResult.data;
         if (jsondbSettings->debug()) {
             const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
