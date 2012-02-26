@@ -42,9 +42,15 @@
 #ifndef JSONDB_MANAGED_BTREE_TXN_H
 #define JSONDB_MANAGED_BTREE_TXN_H
 
+#include "jsondb-global.h"
+
+QT_BEGIN_HEADER
 
 class QBtree;
 class QBtreeTxn;
+
+QT_BEGIN_NAMESPACE_JSONDB
+
 class JsonDbManagedBtree;
 
 class JsonDbManagedBtreeTxn
@@ -94,5 +100,8 @@ public:
     }
 };
 
+QT_END_NAMESPACE_JSONDB
+
+QT_END_HEADER
 
 #endif // JSONDB_MANAGED_BTREE_TXN_H

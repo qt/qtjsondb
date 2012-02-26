@@ -60,10 +60,9 @@
 
 QT_BEGIN_HEADER
 
-class JsonDbManagedBtree;
-
 QT_BEGIN_NAMESPACE_JSONDB
 
+class JsonDbManagedBtree;
 class JsonDbPartition;
 
 class JsonDbIndex : public QObject

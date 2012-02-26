@@ -47,7 +47,11 @@
 #include "qbtree.h"
 #include "jsondbmanagedbtreetxn.h"
 
+QT_BEGIN_HEADER
+
 class QBtree;
+
+QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbManagedBtree
 {
@@ -121,5 +125,9 @@ private:
 
     JsonDbManagedBtree(const JsonDbManagedBtree&);
 };
+
+QT_END_NAMESPACE_JSONDB
+
+QT_END_HEADER
 
 #endif // JSONDB_MANAGED_BTREE_H

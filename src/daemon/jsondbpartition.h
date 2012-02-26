@@ -59,10 +59,11 @@
 QT_BEGIN_HEADER
 
 class TestJsonDb;
-class JsonDbManagedBtree;
 class QBtreeCursor;
+
 QT_BEGIN_NAMESPACE_JSONDB
 
+class JsonDbManagedBtree;
 class JsonDbOwner;
 class JsonDbObjectTable;
 class JsonDbIndex;

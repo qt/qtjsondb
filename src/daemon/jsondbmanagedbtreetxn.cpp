@@ -44,6 +44,8 @@
 #include "jsondbmanagedbtree.h"
 #include "jsondbmanagedbtreetxn.h"
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 JsonDbManagedBtreeTxn::JsonDbManagedBtreeTxn()
     : mTxn(0), mBtree(0), mTag(0), mIsRead(false)
 {
@@ -131,3 +133,5 @@ void JsonDbManagedBtreeTxn::reset(JsonDbManagedBtree *mbtree, QBtreeTxn *txn)
         mbtree->add(this);
     }
 }
+
+QT_END_NAMESPACE_JSONDB

@@ -50,11 +50,13 @@
 #include "jsondbsettings.h"
 #include "jsondb-global.h"
 
+QT_BEGIN_NAMESPACE_JSONDB
+
 JsonDbManagedBtree::JsonDbManagedBtree()
     : mBtree(new QBtree())
 {
     mWriter.txn = 0;
-    mBtree->setAutoCompactRate(QT_PREPEND_NAMESPACE_JSONDB(jsondbSettings)->compactRate());
+    mBtree->setAutoCompactRate(jsondbSettings->compactRate());
 }
 
 JsonDbManagedBtree::~JsonDbManagedBtree()
@@ -300,3 +302,5 @@ QBtree::Stat JsonDbManagedBtree::stat() const
     else
       return QBtree::Stat();
 }
+
+QT_END_NAMESPACE_JSONDB
