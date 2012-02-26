@@ -271,4 +271,38 @@ void JsonDbMapDefinition::setError(const QString &errorMsg)
     }
 }
 
+bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, const QSet<QString> &viewTypes, QString &message)
+{
+    message.clear();
+    QString targetType = map.value("targetType").toString();
+
+    if (targetType.isEmpty()) {
+        message = QLatin1Literal("targetType property for Map not specified");
+    } else if (!viewTypes.contains(targetType)) {
+        message = QLatin1Literal("targetType must be of a type that extends View");
+    } else if (map.contains("join")) {
+        QJsonObject sourceFunctions = map.value("join").toObject();
+        if (sourceFunctions.isEmpty())
+            message = QLatin1Literal("sourceTypes and functions for Map with join not specified");
+
+        foreach (const QString &sourceType, sourceFunctions.keys()) {
+            if (sourceFunctions.value(sourceType).toString().isEmpty())
+                message = QString("join function for source type '%1' not specified for Map").arg(sourceType);
+        }
+
+        if (map.contains("map"))
+            message = QLatin1Literal("Map 'join' and 'map' options are mutually exclusive");
+        else if (map.contains("sourceType"))
+            message = QLatin1Literal("Map 'join' and 'sourceType' options are mutually exclusive");
+    } else {
+        QJsonValue mapValue = map.value("map");
+        if (map.value("sourceType").toString().isEmpty() && !mapValue.isObject())
+            message = QLatin1String("sourceType property for Map not specified");
+        else if (!mapValue.isString() && !mapValue.isObject())
+            message = QLatin1String("map function for Map not specified");
+    }
+
+    return message.isEmpty();
+}
+
 QT_END_NAMESPACE_JSONDB

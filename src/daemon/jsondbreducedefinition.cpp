@@ -266,4 +266,26 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
     }
 }
 
+bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, const QSet<QString> viewTypes, QString &message)
+{
+    message.clear();
+    QString targetType = reduce.value("targetType").toString();
+    QString sourceType = reduce.value("sourceType").toString();
+
+    if (targetType.isEmpty())
+        message = QLatin1Literal("targetType property for Reduce not specified");
+    else if (!viewTypes.contains(targetType))
+        message = QLatin1Literal("targetType must be of a type that extends View");
+    else if (sourceType.isEmpty())
+        message = QLatin1Literal("sourceType property for Reduce not specified");
+    else if (reduce.value("sourceKeyName").toString().isEmpty())
+        message = QLatin1Literal("sourceKeyName property for Reduce not specified");
+    else if (reduce.value("add").toString().isEmpty())
+        message = QLatin1Literal("add function for Reduce not specified");
+    else if (reduce.value("subtract").toString().isEmpty())
+        message = QLatin1Literal("subtract function for Reduce not specified");
+
+    return message.isEmpty();
+}
+
 QT_END_NAMESPACE_JSONDB

@@ -153,8 +153,6 @@ protected:
     void removeSchema(const QString &schemaName);
 
     QJsonObject validateSchema(const QString &schemaName, JsonDbObject object);
-    QJsonObject validateMapObject(JsonDbObject map);
-    QJsonObject validateReduceObject(JsonDbObject reduce);
     QJsonObject checkPartitionPresent(const QString &partitionName);
     QJsonObject checkUuidPresent(JsonDbObject object, QString &uuid);
     QJsonObject checkTypePresent(JsonDbObject, QString &type);
@@ -185,7 +183,7 @@ protected:
 
     static void setError( QJsonObject& map, int code, const QString &message );
     static QJsonObject makeError(int code, const QString &message);
-    static QJsonObject makeResponse( QJsonObject& resultmap, QJsonObject& errormap, bool silent = false );
+    static QJsonObject makeResponse(const QJsonObject& resultmap, const QJsonObject& errormap, bool silent = false);
     static QJsonObject makeErrorResponse(QJsonObject &resultmap, int code, const QString &message, bool silent = false );
     static bool responseIsError( QJsonObject responseMap );
 

@@ -103,7 +103,7 @@ QJsonObject JsonDb::makeError(int code, const QString &message)
     return map;
 }
 
-QJsonObject JsonDb::makeResponse( QJsonObject& resultmap, QJsonObject& errormap, bool silent )
+QJsonObject JsonDb::makeResponse(const QJsonObject& resultmap, const QJsonObject& errormap, bool silent)
 {
     QJsonObject map;
     if (jsondbSettings->verbose() && !silent && !errormap.isEmpty()) {
@@ -960,14 +960,17 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
     }
 
     // TODO: ephemeral objects?
+    QString errorMsg;
     if (isVisibleWrite && !forRemoval) {
         // validate the new object
         if (objectType == JsonDbString::kSchemaTypeStr)
             RETURN_IF_ERROR(errormap, checkCanAddSchema(master, oldMaster));
-        else if (objectType == JsonDbString::kMapTypeStr)
-            RETURN_IF_ERROR(errormap, validateMapObject(master));
-        else if (objectType == JsonDbString::kReduceTypeStr)
-            RETURN_IF_ERROR(errormap, validateReduceObject(master));
+        else if (objectType == JsonDbString::kMapTypeStr &&
+                 !JsonDbMapDefinition::validateDefinition(master, mViewTypes, errorMsg))
+            return makeResponse(resultmap, makeError(JsonDbError::InvalidMap, errorMsg));
+        else if (objectType == JsonDbString::kReduceTypeStr &&
+                 !JsonDbReduceDefinition::validateDefinition(master, mViewTypes, errorMsg))
+            return makeResponse(resultmap, makeError(JsonDbError::InvalidReduce, errorMsg));
         else if (!forRemoval && objectType == kIndexTypeStr)
             RETURN_IF_ERROR(errormap, validateAddIndex(master, oldMaster));
     }
@@ -1403,65 +1406,6 @@ QJsonObject JsonDb::validateSchema(const QString &schemaName, JsonDbObject objec
         qDebug() << "Schema validation error: " << result.value(JsonDbString::kMessageStr).toString() << object;
 
     return result;
-}
-
-QJsonObject JsonDb::validateMapObject(JsonDbObject map)
-{
-    QString targetType = map.value("targetType").toString();
-
-    if (map.value(JsonDbString::kDeletedStr).toBool())
-        return QJsonObject();
-    if (targetType.isEmpty())
-        return makeError(JsonDbError::InvalidMap, "targetType property for Map not specified");
-    if (!mViewTypes.contains(targetType))
-        return makeError(JsonDbError::InvalidMap, "targetType must be of a type that extends View");
-    if (map.contains("join")) {
-        QJsonObject sourceFunctions = map.value("join").toObject();
-        if (sourceFunctions.isEmpty())
-            return makeError(JsonDbError::InvalidMap, "sourceTypes and functions for Map with join not specified");
-        QStringList sourceTypes = sourceFunctions.keys();
-        for (int i = 0; i < sourceTypes.size(); i++)
-            if (sourceFunctions.value(sourceTypes[i]).toString().isEmpty())
-                return makeError(JsonDbError::InvalidMap,
-                                 QString("join function for source type '%1' not specified for Map")
-                                 .arg(sourceTypes[i]));
-        if (map.contains("map"))
-            return makeError(JsonDbError::InvalidMap, "Map 'join' and 'map' options are mutually exclusive");
-        if (map.contains("sourceType"))
-            return makeError(JsonDbError::InvalidMap, "Map 'join' and 'sourceType' options are mutually exclusive");
-
-    } else {
-        QJsonValue mapValue = map.value("map");
-        if (map.value("sourceType").toString().isEmpty() && !mapValue.isObject())
-            return makeError(JsonDbError::InvalidMap, "sourceType property for Map not specified");
-        if (!mapValue.isString() && !mapValue.isObject())
-            return makeError(JsonDbError::InvalidMap, "map function for Map not specified");
-    }
-
-    return QJsonObject();
-}
-
-QJsonObject JsonDb::validateReduceObject(JsonDbObject reduce)
-{
-    QString targetType = reduce.value("targetType").toString();
-    QString sourceType = reduce.value("sourceType").toString();
-
-    if (reduce.value(JsonDbString::kDeletedStr).toBool())
-        return QJsonObject();
-    if (targetType.isEmpty())
-        return makeError(JsonDbError::InvalidReduce, "targetType property for Reduce not specified");
-    if (!mViewTypes.contains(targetType))
-        return makeError(JsonDbError::InvalidReduce, "targetType must be of a type that extends View");
-    if (sourceType.isEmpty())
-        return makeError(JsonDbError::InvalidReduce, "sourceType property for Reduce not specified");
-    if (reduce.value("sourceKeyName").toString().isEmpty())
-        return makeError(JsonDbError::InvalidReduce, "sourceKeyName property for Reduce not specified");
-    if (reduce.value("add").toString().isEmpty())
-        return makeError(JsonDbError::InvalidReduce, "add function for Reduce not specified");
-    if (reduce.value("subtract").toString().isEmpty())
-        return makeError(JsonDbError::InvalidReduce, "subtract function for Reduce not specified");
-
-    return QJsonObject();
 }
 
 QJsonObject JsonDb::checkPartitionPresent(const QString &partitionName)
