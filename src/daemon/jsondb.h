@@ -188,7 +188,7 @@ protected:
     static QJsonObject makeResponse( QJsonObject& resultmap, QJsonObject& errormap, bool silent = false );
     static QJsonObject makeErrorResponse(QJsonObject &resultmap, int code, const QString &message, bool silent = false );
     static bool responseIsError( QJsonObject responseMap );
-//    static bool responseIsGood( QJsonObject responseMap );
+
     static QString uuidhex(uint data, int digits);
     static QString createDatabaseId();
 

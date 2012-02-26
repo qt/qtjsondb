@@ -209,9 +209,6 @@ public:
     QString name() const;
     void setName(const QString &name);
 
-    QString getTablePrefix();
-    void setTablePrefix(const QString &prefix);
-
     void checkIndex(const QString &propertyName);
     bool compact();
     struct JsonDbStat stat() const;

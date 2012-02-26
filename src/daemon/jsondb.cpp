@@ -605,9 +605,6 @@ const JsonDbOwner *JsonDb::findOwner(const QString &ownerId) const
 
 JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const QString &partitionName)
 {
-//    QElapsedTimer time;
-//    QJsonObject times;
-//    time.start();
     QJsonObject resultmap, errormap;
     JsonDbQueryResult result;
 
@@ -624,9 +621,7 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
     else if ( query.isEmpty() )
         setError( errormap, JsonDbError::MissingQuery, "Missing query string");
     else {
-//        times.insert("time0 before parse", time.elapsed());
         QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
-//        times.insert("time1 after parse", time.elapsed());
 
         if (!parsedQuery->queryTerms.size() && !parsedQuery->orderTerms.size()) {
             return JsonDbQueryResult::makeErrorResponse(JsonDbError::MissingQuery, QString("Missing query: ") + parsedQuery->queryExplanation.join("\n"));
