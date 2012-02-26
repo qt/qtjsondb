@@ -65,8 +65,6 @@ class JsonDbManagedBtree;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-extern int gCacheSize;
-
 class IndexSpec;
 class JsonDbPartition;
 class JsonDbIndex;

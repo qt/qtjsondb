@@ -47,17 +47,15 @@
 #include "qbtreetxn.h"
 #include "jsondbmanagedbtree.h"
 #include "jsondbmanagedbtreetxn.h"
+#include "jsondbsettings.h"
 #include "jsondb-global.h"
-
-// Every gCompactRate commits, compact the btree. Do not compact if zero.
-int gCompactRate = qgetenv("JSONDB_COMPACT_RATE").size() ? ::atoi(qgetenv("JSONDB_COMPACT_RATE")) : 1000;
 
 JsonDbManagedBtree::JsonDbManagedBtree()
     : mBtree(new QBtree())
 {
     mWriter.txn = 0;
-    mBtree->setAutoCompactRate(gCompactRate);
-    }
+    mBtree->setAutoCompactRate(QT_PREPEND_NAMESPACE_JSONDB(jsondbSettings)->compactRate());
+}
 
 JsonDbManagedBtree::~JsonDbManagedBtree()
 {

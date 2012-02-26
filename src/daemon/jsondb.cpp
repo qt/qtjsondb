@@ -70,34 +70,16 @@
 #include "jsondbproxy.h"
 #include "jsondbpartition.h"
 #include "jsondbephemeralpartition.h"
+#include "jsondbsettings.h"
 #include "jsondbview.h"
 #include "jsondbschemamanager_impl_p.h"
 #include "jsondbobjecttypes_impl_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-bool gUseQsonInDb = true;
-bool gUseJsonInDb = false;
-bool gValidateSchemas = (::getenv("JSONDB_VALIDATE_SCHEMAS") ? (QLatin1String(::getenv("JSONDB_VALIDATE_SCHEMAS")) == "true") : false);
-bool gRejectStaleUpdates = (::getenv("JSONDB_REJECT_STALE_UPDATES") ? (QLatin1String(::getenv("JSONDB_REJECT_STALE_UPDATES")) == "true") : false);
-bool gVerbose = (::getenv("JSONDB_VERBOSE") ? (QLatin1String(::getenv("JSONDB_VERBOSE")) == "true") : false);
-bool gShowErrors = (::getenv("JSONDB_SHOW_ERRORS") ? (QLatin1String(::getenv("JSONDB_SHOW_ERRORS")) == "true") : false);
-#ifndef QT_NO_DEBUG_OUTPUT
-bool gDebug = (::getenv("JSONDB_DEBUG") ? (QLatin1String(::getenv("JSONDB_DEBUG")) == "true") : false);
-bool gDebugRecovery = (::getenv("JSONDB_DEBUG_RECOVERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_RECOVERY")) == "true") : false);
-bool gPerformanceLog = (::getenv("JSONDB_PERFORMANCE_LOG") ? (QLatin1String(::getenv("JSONDB_PERFORMANCE_LOG")) == "true") : false);
-#endif
-int gTransactionSize = ::getenv("JSONDB_TRANSACTION_SIZE") ? ::atoi(::getenv("JSONDB_TRANSACTION_SIZE")) : 100;
-
 const QString kSortKeysStr = QLatin1String("sortKeys");
 const QString kStateStr = QLatin1String("state");
 const QString kIdStr = QLatin1String("_id");
-
-#ifndef QT_NO_DEBUG_OUTPUT
-#define DBG() if (gDebug) qDebug() << Q_FUNC_INFO
-#else
-#define DBG() if (0) qDebug() << Q_FUNC_INFO
-#endif
 
 #define RETURN_IF_ERROR(errmap, toCheck) \
     ({ \
@@ -124,7 +106,7 @@ QJsonObject JsonDb::makeError(int code, const QString &message)
 QJsonObject JsonDb::makeResponse( QJsonObject& resultmap, QJsonObject& errormap, bool silent )
 {
     QJsonObject map;
-    if (gVerbose && !silent && !errormap.isEmpty()) {
+    if (jsondbSettings->verbose() && !silent && !errormap.isEmpty()) {
         qCritical() << errormap;
     }
     if (!resultmap.isEmpty())
@@ -244,7 +226,7 @@ QJsonObject JsonDb::createList(const JsonDbOwner *owner, JsonDbObjectList& list,
     quint32 stateNumber = 0;
 
     int size = list.size();
-    int transactionSize = gTransactionSize ? gTransactionSize : size;
+    int transactionSize = jsondbSettings->transactionSize() ? jsondbSettings->transactionSize() : size;
     for (int k = 0; k < size; k += transactionSize) {
         WithTransaction lock(partition);
         CHECK_LOCK_RETURN(lock, "createList");
@@ -295,7 +277,7 @@ QJsonObject JsonDb::updateList(const JsonDbOwner *owner, JsonDbObjectList& list,
     quint32 stateNumber = 0;
 
     int size = list.size();
-    int transactionSize = gTransactionSize ? gTransactionSize : size;
+    int transactionSize = jsondbSettings->transactionSize() ? jsondbSettings->transactionSize() : size;
     for (int k = 0; k < size; k += transactionSize) {
         WithTransaction transaction(partition);
         CHECK_LOCK_RETURN(transaction, "updateList");
@@ -345,7 +327,7 @@ QJsonObject JsonDb::removeList(const JsonDbOwner *owner, JsonDbObjectList list, 
     QJsonArray removedList, errorsList;
 
     int size = list.size();
-    int transactionSize = gTransactionSize ? gTransactionSize : size;
+    int transactionSize = jsondbSettings->transactionSize() ? jsondbSettings->transactionSize() : size;
     for (int k = 0; k < size; k += transactionSize) {
         WithTransaction transaction(partition);
         CHECK_LOCK_RETURN(transaction, "removeList");
@@ -546,7 +528,8 @@ bool JsonDb::open()
         }
 
         JsonDbPartition *partition = new JsonDbPartition(filename, name, this);
-        if (gVerbose) qDebug() << "Opening partition" << name;
+        if (jsondbSettings->verbose())
+            qDebug() << "Opening partition" << name;
 
         if (!partition->open()) {
             qWarning() << "Failed to initialize partition" << name << "at" << filename;
@@ -676,28 +659,29 @@ JsonDbQueryResult JsonDb::find(const JsonDbOwner *owner, QJsonObject obj, const 
         else
             queryResult = partition->queryPersistentObjects(owner, parsedQuery.data(), limit, offset);
         JsonDbObjectList results = queryResult.data;
-        if (gDebug) {
+        if (jsondbSettings->debug()) {
             const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
             for (int i = 0; i < orQueryTerms.size(); i++) {
                 const OrQueryTerm &orQueryTerm = orQueryTerms[i];
                 foreach (const QueryTerm &queryTerm, orQueryTerm.terms()) {
-                    if (gVerbose) {
+                    if (jsondbSettings->verbose())
                         qDebug() << __FILE__ << __LINE__
                                  << (QString("    %1%4%5 %2 %3    ")
                                      .arg(queryTerm.propertyName())
                                      .arg(queryTerm.op())
                                      .arg(JsonWriter().toString(queryTerm.value().toVariant()))
                                      .arg(queryTerm.joinField().size() ? "->" : "").arg(queryTerm.joinField()));
-                    }
                 }
             }
             QList<OrderTerm> &orderTerms = parsedQuery->orderTerms;
             for (int i = 0; i < orderTerms.size(); i++) {
                 const OrderTerm &orderTerm = orderTerms[i];
-                if (gVerbose) qDebug() << __FILE__ << __LINE__ << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending ? "ascending" : "descending");
+                if (jsondbSettings->verbose())
+                    qDebug() << __FILE__ << __LINE__ << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending ? "ascending" : "descending");
             }
         }
-        DBG() << endl
+        if (jsondbSettings->debug())
+            qDebug() << endl
 #if 0
               << "  orderTerms: " << serializer.serialize(orderTerms) << endl
               << "  queryTerms: " << serializer.serialize(queryTerms) << endl
@@ -837,7 +821,7 @@ QJsonObject JsonDb::createViewObject(const JsonDbOwner *owner, JsonDbObject& obj
 QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const QString &partitionName, WriteMode writeMode)
 {
     if (writeMode == DefaultWrite)
-        writeMode = gRejectStaleUpdates ? OptimisticWrite : ForcedWrite;
+        writeMode = jsondbSettings->rejectStaleUpdates() ? OptimisticWrite : ForcedWrite;
 
     QJsonObject resultmap, errormap;
     QString uuid, objectType;
@@ -964,7 +948,7 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         if (writeMode == ReplicatedWrite) {
             setError(errormap, JsonDbError::InvalidRequest, "Replication has reject your update for sanity reasons");
         } else {
-            if (gDebug)
+            if (jsondbSettings->debug())
                 qDebug() << "Stale update detected - expected version:" << oldMaster.version() << object;
             setError( errormap, JsonDbError::UpdatingStaleVersion, "Updating stale version of object. Expected version " + oldMaster.version() + ", is " + versionWritten);
         }
@@ -1168,16 +1152,19 @@ void JsonDb::checkNotifications(const QString &partitionName, JsonDbObject objec
         QMultiMap<QString, JsonDbNotification *>::const_iterator it = mKeyedNotifications.find(key);
         while ((it != mKeyedNotifications.end()) && (it.key() == key)) {
             JsonDbNotification *n = it.value();
-            DBG() << "Notification" << n->query() << n->actions();
+            if (jsondbSettings->debug())
+                qDebug() << "Notification" << n->query() << n->actions();
             if (n->partition() == partitionName && n->actions() & action) {
                 JsonDbObject r;
                 if (!n->query().isEmpty()) {
-                    DBG() << "Checking notification" << n->query() << endl
-                          << "    for object" << object;
+                    if (jsondbSettings->debug())
+                        qDebug() << "Checking notification" << n->query() << endl
+                                 << "    for object" << object;
                     JsonDbQuery *query  = n->parsedQuery();
                     if (query->match(object, &objectCache, 0))
                         r = object;
-                    DBG() << "Got result" << r;
+                    if (jsondbSettings->debug())
+                        qDebug() << "Got result" << r;
                 } else {
                     r = object;
                 }
@@ -1294,7 +1281,8 @@ bool JsonDb::populateIdBySchema(const JsonDbOwner *owner, JsonDbObject &object,
 
 void JsonDb::initSchemas()
 {
-    if (gVerbose) qDebug() << "initSchemas";
+    if (jsondbSettings->verbose())
+        qDebug() << "initSchemas";
     {
         JsonDbObjectList schemas = getObjects(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr,
                                                 QString(), mSystemPartitionName).data;
@@ -1346,7 +1334,7 @@ void JsonDb::initSchemas()
         GetObjectsResult getObjectResponse = getObjects("name", name, "Capability");
         int count = getObjectResponse.data.size();
         if (!count) {
-            if (gVerbose)
+            if (jsondbSettings->verbose())
                 qDebug() << "Creating capability" << capability;
             create(mOwner, capability);
         } else {
@@ -1361,7 +1349,7 @@ void JsonDb::initSchemas()
 
 void JsonDb::setSchema(const QString &schemaName, QJsonObject schema)
 {
-    if (gVerbose)
+    if (jsondbSettings->verbose())
         qDebug() << "setSchema" << schemaName << schema;
     QJsonObject errors = mSchemas.insert(schemaName, schema);
 
@@ -1386,7 +1374,8 @@ void JsonDb::setSchema(const QString &schemaName, QJsonObject schema)
             //TODO fix call to findPartition
             JsonDbPartition *partition = findPartition(mSystemPartitionName);
             partition->addView(schemaName);
-            if (gVerbose) qDebug() << "viewTypes" << mViewTypes;
+            if (jsondbSettings->verbose())
+                qDebug() << "viewTypes" << mViewTypes;
         }
     }
     if (schema.contains("properties"))
@@ -1395,7 +1384,7 @@ void JsonDb::setSchema(const QString &schemaName, QJsonObject schema)
 
 void JsonDb::removeSchema(const QString &schemaName)
 {
-    if (gVerbose)
+    if (jsondbSettings->verbose())
         qDebug() << "removeSchema" << schemaName;
 
     if (mSchemas.contains(schemaName)) {
@@ -1420,13 +1409,14 @@ void JsonDb::removeSchema(const QString &schemaName)
 
 QJsonObject JsonDb::validateSchema(const QString &schemaName, JsonDbObject object)
 {
-    if (!gValidateSchemas) {
-        DBG() << "Not validating schemas";
+    if (!jsondbSettings->validateSchemas()) {
+        if (jsondbSettings->debug())
+            qDebug() << "Not validating schemas";
         return QJsonObject();
     }
 
     QJsonObject result = mSchemas.validate(schemaName, object);
-    if (gDebug && !result.value(JsonDbString::kCodeStr).isNull())
+    if (jsondbSettings->debug() && !result.value(JsonDbString::kCodeStr).isNull())
         qDebug() << "Schema validation error: " << result.value(JsonDbString::kMessageStr).toString() << object;
 
     return result;
@@ -1763,7 +1753,8 @@ QJsonObject JsonDb::createPartition(const JsonDbObject &object)
 
     filename = mFilePath + filename;
     JsonDbPartition *partition = new JsonDbPartition(filename, name, this);
-    if (gVerbose) qDebug() << "Opening partition" << name;
+    if (jsondbSettings->verbose())
+        qDebug() << "Opening partition" << name;
 
     if (!partition->open()) {
         qWarning() << "Failed to initialize partition" << name << "at" << filename;
@@ -1826,7 +1817,7 @@ void JsonDb::updateView(const QString &viewType, const QString &partitionName)
 QJsonObject JsonDb::log(JsonDbOwner *owner, QJsonValue data)
 {
     Q_UNUSED(owner);
-    if (gDebug || gPerformanceLog)
+    if (jsondbSettings->debug() || jsondbSettings->performanceLog())
         qDebug() << data.toObject().value(JsonDbString::kMessageStr).toString();
     return QJsonObject();
 }

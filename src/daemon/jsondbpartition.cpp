@@ -66,18 +66,10 @@
 #include "jsondbobjecttable.h"
 #include "qbtreetxn.h"
 #include "jsondbmanagedbtree.h"
+#include "jsondbsettings.h"
 #include "jsondbview.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-//#define QT_NO_DEBUG_OUTPUT
-#ifndef QT_NO_DEBUG_OUTPUT
-extern bool gDebug;
-#define DBG() if (gDebug) qDebug() << Q_FUNC_INFO << __LINE__
-#else
-#define DBG() if (0) qDebug() << Q_FUNC_INFO
-#endif
-bool gVerboseCheckValidity = false;
 
 const QString kDbidTypeStr("DatabaseId");
 const QString kIndexTypeStr("Index");
@@ -100,10 +92,10 @@ JsonDbPartition::JsonDbPartition(const QString &filename, const QString &name, J
     , mMainSyncTimerId(-1)
     , mIndexSyncTimerId(-1)
 {
-    mMainSyncInterval = qgetenv("JSONDB_SYNC_INTERVAL").toInt();
+    mMainSyncInterval = jsondbSettings->syncInterval();
     if (mMainSyncInterval < 1000)
         mMainSyncInterval = 5000;
-    mIndexSyncInterval = qgetenv("JSONDB_INDEX_SYNC_INTERVAL").toInt();
+    mIndexSyncInterval = jsondbSettings->indexSyncInterval();
     if (mIndexSyncInterval < 1000)
         mIndexSyncInterval = 12000;
 }
@@ -133,7 +125,8 @@ bool JsonDbPartition::close()
 
 bool JsonDbPartition::open()
 {
-    DBG() << "JsonDbBtree::open" << mPartitionName << mFilename;
+    if (jsondbSettings->debug())
+        qDebug() << "JsonDbBtree::open" << mPartitionName << mFilename;
 
     QFileInfo fi(mFilename);
 
@@ -162,7 +155,8 @@ bool JsonDbPartition::open()
         QString partitionName = object.value("name").toString();
         if (partitionName != mPartitionName || !object.contains(kDatabaseSchemaVersionStr)
             || object.value(kDatabaseSchemaVersionStr).toString() != gDatabaseSchemaVersion) {
-            if (gVerbose) qDebug() << "Rebuilding database metadata";
+            if (jsondbSettings->verbose())
+                qDebug() << "Rebuilding database metadata";
             rebuildingDatabaseMetadata = true;
         }
     }
@@ -184,7 +178,8 @@ bool JsonDbPartition::open()
         Q_ASSERT(!JsonDb::responseIsError(result));
         commitTransaction();
     }
-    if (gVerbose) qDebug() << "partition" << mPartitionName << "id" << partitionId;
+    if (jsondbSettings->verbose())
+        qDebug() << "partition" << mPartitionName << "id" << partitionId;
 
     initIndexes();
 
@@ -203,7 +198,7 @@ bool JsonDbPartition::clear()
     QDir dir(fi.absolutePath());
     QStringList lst = dir.entryList(filters);
     foreach (const QString &fileName, lst) {
-        if (gVerbose)
+        if (jsondbSettings->verbose())
             qDebug() << "removing" << fileName;
         if (!dir.remove(fileName)) {
             qCritical() << "Failed to remove" << fileName;
@@ -559,7 +554,10 @@ bool JsonDbPartition::commitTransaction(quint32 stateNumber)
     if (--mTransactionDepth == 0) {
         bool ret = true;
         quint32 nextStateNumber = stateNumber ? stateNumber : (mObjectTable->stateNumber() + 1);
-        if (gDebug) qDebug() << "commitTransaction" << stateNumber;
+
+        if (jsondbSettings->debug())
+            qDebug() << "commitTransaction" << stateNumber;
+
         if (!stateNumber && (mTableTransactions.size() == 1))
             nextStateNumber = mTableTransactions.at(0)->stateNumber() + 1;
 
@@ -585,7 +583,8 @@ bool JsonDbPartition::commitTransaction(quint32 stateNumber)
 bool JsonDbPartition::abortTransaction()
 {
     if (--mTransactionDepth == 0) {
-        if (gVerbose) qDebug() << "JsonDbBtreePartition::abortTransaction()";
+        if (jsondbSettings->verbose())
+            qDebug() << "JsonDbBtreePartition::abortTransaction()";
         bool ret = true;
 
         for (int i = 0; i < mTableTransactions.size(); i++) {
@@ -607,7 +606,7 @@ void JsonDbPartition::timerEvent(QTimerEvent *event)
         return;
 
     if (event->timerId() == mMainSyncTimerId) {
-        if (gDebug)
+        if (jsondbSettings->debug())
             qDebug() << "Syncing main object table";
 
         mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
@@ -615,7 +614,7 @@ void JsonDbPartition::timerEvent(QTimerEvent *event)
         mMainSyncTimerId = -1;
     } else if (event->timerId() == mIndexSyncTimerId) {
 
-        if (gDebug)
+        if (jsondbSettings->debug())
             qDebug() << "Syncing indexes and views";
 
         // sync the main object table's indexes
@@ -650,7 +649,8 @@ QJsonObject JsonDbPartition::updatePersistentObject(const JsonDbObject &oldObjec
                                          table->errorMessage());
     }
 
-    if (gDebug) qDebug() << "updateObject" << objectKey << endl << object << endl << oldObject;
+    if (jsondbSettings->debug())
+        qDebug() << "updateObject" << objectKey << endl << object << endl << oldObject;
 
     quint32 stateNumber;
     if (!oldObject.isEmpty()) {
@@ -671,7 +671,8 @@ QJsonObject JsonDbPartition::updatePersistentObject(const JsonDbObject &oldObjec
 
 QJsonObject JsonDbPartition::removePersistentObject(const JsonDbObject &oldObject, const JsonDbObject &ts)
 {
-    if (gDebug) qDebug() << "removePersistentObject" << endl << oldObject << endl << "    tombstone" << ts;
+    if (jsondbSettings->debug())
+        qDebug() << "removePersistentObject" << endl << oldObject << endl << "    tombstone" << ts;
 
     QJsonObject resultmap, errormap;
     QString uuid = oldObject.value(JsonDbString::kUuidStr).toString();
@@ -845,7 +846,8 @@ void JsonDbPartition::initIndexes()
 
     GetObjectsResult getObjectsResult = mObjectTable->getObjects(JsonDbString::kTypeStr, kIndexTypeStr, kIndexTypeStr);
     foreach (const QJsonObject indexObject, getObjectsResult.data) {
-        if (gVerbose) qDebug() << "initIndexes" << "index" << indexObject;
+        if (jsondbSettings->verbose())
+            qDebug() << "initIndexes" << "index" << indexObject;
         QString indexObjectType = indexObject.value(JsonDbString::kTypeStr).toString();
         if (indexObjectType == kIndexTypeStr) {
             QString indexName = indexObject.value(kNameStr).toString();
@@ -931,7 +933,7 @@ QHash<QString, qint64> JsonDbPartition::fileSizes() const
     return result;
 }
 
-static bool sDebugQuery = (::getenv("JSONDB_DEBUG_QUERY") ? (QLatin1String(::getenv("JSONDB_DEBUG_QUERY")) == "true") : false);
+static bool sDebugQuery = jsondbSettings->debugQuery();
 
 IndexQuery *IndexQuery::indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                                    const QString &propertyName, const QString &propertyType,
@@ -1393,7 +1395,8 @@ void JsonDbPartition::compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm
             if ((syntax == QRegExp::Wildcard)
                 && mWildCardPrefixRegExp.exactMatch(pattern)) {
                 prefix = mWildCardPrefixRegExp.cap(1);
-                if (gDebug) qDebug() << "wildcard regexp prefix" << pattern << prefix;
+                if (jsondbSettings->debug())
+                    qDebug() << "wildcard regexp prefix" << pattern << prefix;
             }
             indexQuery->setMin(prefix);
             indexQuery->setMax(prefix);
@@ -1505,7 +1508,7 @@ IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const J
         table = view->objectTable();
     }
     if (!indexedQueryTermCount && !indexCandidate.isEmpty()) {
-            if (gDebug)
+            if (jsondbSettings->debug())
                 qDebug() << "adding index" << indexCandidate;
             //TODO: remove this
             table->addIndexOnProperty(indexCandidate);
@@ -1515,14 +1518,17 @@ IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const J
         const OrderTerm &orderTerm = orderTerms[i];
         QString propertyName = orderTerm.propertyName;
         if (!table->indexSpec(propertyName)) {
-            if (gVerbose || gPerformanceLog) qDebug() << "Unindexed sort term" << propertyName << orderTerm.ascending;
+            if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
+                qDebug() << "Unindexed sort term" << propertyName << orderTerm.ascending;
             if (0) {
-                if (gVerbose) qDebug() << "adding index for sort term" << propertyName;
+                if (jsondbSettings->verbose())
+                    qDebug() << "adding index for sort term" << propertyName;
                 Q_ASSERT(table);
                 //TODO: remove this
                 table->addIndexOnProperty(propertyName);
                 Q_ASSERT(table->indexSpec(propertyName));
-                if (gVerbose) qDebug() << "done adding index" << propertyName;
+                if (jsondbSettings->verbose())
+                    qDebug() << "done adding index" << propertyName;
             } else {
                 residualQuery->orderTerms.append(orderTerm);
                 continue;
@@ -1562,7 +1568,8 @@ IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const J
             if (!table->indexSpec(propertyName)
                 || (indexQuery
                     && (propertyName != orderField))) {
-                if (gVerbose || gDebug) qDebug() << "residual query term" << propertyName << "orderField" << orderField;
+                if (jsondbSettings->verbose() || jsondbSettings->debug())
+                    qDebug() << "residual query term" << propertyName << "orderField" << orderField;
                 residualQuery->queryTerms.append(queryTerm);
                 continue;
             }
@@ -1762,7 +1769,8 @@ JsonDbQueryResult JsonDbPartition::queryPersistentObjects(const JsonDbOwner *own
     int length = results.size();
     JsonDbQuery *residualQuery = indexQuery->residualQuery();
     if (residualQuery && residualQuery->orderTerms.size()) {
-        if (gVerbose) qDebug() << "queryPersistentObjects" << "sorting";
+        if (jsondbSettings->verbose())
+            qDebug() << "queryPersistentObjects" << "sorting";
         sortValues(residualQuery, results, joinedResults);
     }
 
@@ -1779,7 +1787,7 @@ JsonDbQueryResult JsonDbPartition::queryPersistentObjects(const JsonDbOwner *own
     result.state = (qint32)stateNumber;
     result.sortKeys = sortKeys;
     int elapsedToDone = time.elapsed();
-    if (gVerbose)
+    if (jsondbSettings->verbose())
         qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query->query;
     return result;
 }
@@ -1803,7 +1811,7 @@ JsonDbQueryResult JsonDbPartition::queryPersistentObjects(const JsonDbOwner *own
     int length = results.size();
     JsonDbQuery *residualQuery = indexQueries[0]->residualQuery();
     if (residualQuery && residualQuery->orderTerms.size()) {
-        if (gVerbose) qDebug() << "queryPersistentObjects" << "sorting";
+        if (jsondbSettings->verbose()) qDebug() << "queryPersistentObjects" << "sorting";
         sortValues(residualQuery, results, joinedResults);
     }
 
@@ -1819,7 +1827,7 @@ JsonDbQueryResult JsonDbPartition::queryPersistentObjects(const JsonDbOwner *own
     result.data = results;
     result.sortKeys = sortKeys;
     int elapsedToDone = time.elapsed();
-    if (gVerbose)
+    if (jsondbSettings->verbose())
         qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query->query;
     return result;
 }

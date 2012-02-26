@@ -43,13 +43,12 @@
 #include <QDebug>
 
 #include "jsondbresponse.h"
+#include "jsondbsettings.h"
 #include "jsondb-strings.h"
 #include <qjsonobject.h>
 #include <qjsonvalue.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-extern bool gVerbose;
 
 void JsonDbResponse::setError(QJsonObject &map, int code, const QString &message)
 {
@@ -67,7 +66,7 @@ QJsonObject JsonDbResponse::makeError(int code, const QString &message)
 QJsonObject JsonDbResponse::makeResponse(QJsonObject &resultmap, QJsonObject &errormap, bool silent)
 {
     QJsonObject map;
-    if (gVerbose && !silent && !errormap.isEmpty()) {
+    if (jsondbSettings->debug() && !silent && !errormap.isEmpty()) {
         qCritical() << errormap;
     }
     if (!resultmap.isEmpty())

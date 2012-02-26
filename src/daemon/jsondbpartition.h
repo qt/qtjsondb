@@ -253,7 +253,6 @@ private:
     int          mIndexSyncTimerId;
     int          mMainSyncInterval;
     int          mIndexSyncInterval;
-
     friend class IndexQuery;
     friend class JsonDbObjectTable;
     friend class JsonDbMapDefinition;

@@ -41,12 +41,11 @@
 
 #include "jsondbowner.h"
 #include "jsondb.h"
+#include "jsondbsettings.h"
 #include "jsondb-strings.h"
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-bool gEnforceAccessControlPolicies = false;
 
 JsonDbOwner::JsonDbOwner( QObject *parent )
     : QObject(parent), mStorageQuota(-1), mAllowAll(false)
@@ -112,7 +111,7 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *
             setAllowedObjects(partition, op, allowedObjects.value(op).toList());
         }
     }
-    if (gVerbose) {
+    if (jsondbSettings->verbose()) {
         qDebug() << "setCapabilities" << mOwnerId;
         qDebug() << mAllowedObjects << endl;
     }
@@ -121,7 +120,7 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *
 bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
                             const QString &op) const
 {
-    if (mAllowAll || !gEnforceAccessControlPolicies)
+    if (mAllowAll || !jsondbSettings->enforceAccessControl())
         return true;
 
     QString _type = object[QLatin1String("_type")].toString();

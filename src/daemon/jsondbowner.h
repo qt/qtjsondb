@@ -57,8 +57,6 @@ class TestJsonDb;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-extern bool gEnforceAccessControlPolicies;
-
 class JsonDb;
 
 class JsonDbOwner : public QObject

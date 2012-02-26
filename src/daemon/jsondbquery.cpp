@@ -48,15 +48,9 @@
 #include "jsondb.h"
 #include "jsondbpartition.h"
 #include "jsondbquery.h"
+#include "jsondbsettings.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-#ifndef QT_NO_DEBUG_OUTPUT
-extern bool gDebug;
-#define DBG() if (gDebug) qDebug() << Q_FUNC_INFO
-#else
-#define DBG() if (0) qDebug() << Q_FUNC_INFO
-#endif
 
 struct TokenClassInitializer { QChar c; JsonDbQueryTokenizer::TokenClass tokenClass;};
 static TokenClassInitializer sTokenClasses[] = {
@@ -194,6 +188,12 @@ QJsonValue QueryTerm::value() const
         return mValue;
 }
 
+JsonDbQuery::JsonDbQuery(const QList<OrQueryTerm> &qt, const QList<OrderTerm> &ot) :
+    queryTerms(qt)
+  , orderTerms(ot)
+{
+}
+
 JsonDbQuery::~JsonDbQuery()
 {
     queryTerms.clear();
@@ -328,8 +328,10 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
                         }
                     } while ((eor > 0) && (tvs[eor-1] == '\\'));
                     QString modifiers = tvs.mid(eor+1,tvs.size()-eor-2);
-                    if (gDebug) qDebug() << "modifiers" << modifiers;
-                    if (gDebug) qDebug() << "regexp" << tvs.mid(2, eor-2);
+                    if (jsondbSettings->debug()) {
+                        qDebug() << "modifiers" << modifiers;
+                        qDebug() << "regexp" << tvs.mid(2, eor-2);
+                    }
                     if (modifiers.contains('w'))
                         term.regExp().setPatternSyntax(QRegExp::Wildcard);
                     if (modifiers.contains('i'))
@@ -419,7 +421,8 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
                     }
                 }
             }
-            if (gDebug) qDebug() << "isListObject" << isListObject << parsedQuery->mapExpressionList;
+            if (jsondbSettings->debug())
+                qDebug() << "isListObject" << isListObject << parsedQuery->mapExpressionList;
             if (isListObject)
                 parsedQuery->resultType = QJsonValue::Array;
             else if (isMapObject)
@@ -499,7 +502,8 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 const QVector<QStringList> &joinPaths = term.joinPaths();
                 for (int j = 0; j < joinPaths.size(); j++) {
                     if (!joinPaths[j].size()) {
-                        DBG() << term.joinField() << term.joinPaths();
+                        if (jsondbSettings->debug())
+                            qDebug() << term.joinField() << term.joinPaths();
                     }
                     QString uuidValue = JsonDb::propertyLookup(joinedObject, joinPaths[j]).toString();
                     if (objectCache && objectCache->contains(uuidValue))
@@ -524,7 +528,8 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 if (objectFieldValue != termValue)
                     matches = true;
             } else if (op == "=~") {
-                DBG() << objectFieldValue.toString() << term.regExpConst().exactMatch(objectFieldValue.toString());
+                if (jsondbSettings->debug())
+                    qDebug() << objectFieldValue.toString() << term.regExpConst().exactMatch(objectFieldValue.toString());
                 if (term.regExpConst().exactMatch(objectFieldValue.toString()))
                     matches = true;
             } else if (op == "<=") {
@@ -638,9 +643,8 @@ JsonDbQueryResult JsonDbQueryResult::makeErrorResponse(JsonDbError::ErrorCode co
     errormap.insert(JsonDbString::kCodeStr, code);
     errormap.insert(JsonDbString::kMessageStr, message);
     result.error = errormap;
-    if (gVerbose && !silent && !errormap.isEmpty()) {
+    if (jsondbSettings->verbose() && !silent && !errormap.isEmpty())
         qCritical() << errormap;
-    }
     return result;
 }
 

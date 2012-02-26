@@ -57,18 +57,13 @@
 #include "jsondbobjecttable.h"
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
+#include "jsondbsettings.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
 
 #include <qjsonobject.h>
 
 #include "../../shared/util.h"
-
-QT_BEGIN_NAMESPACE_JSONDB
-extern bool gValidateSchemas;
-extern bool gDebug;
-extern bool gVerbose;
-QT_END_NAMESPACE_JSONDB
 
 #ifndef QT_NO_DEBUG_OUTPUT
 #define DBG() if (gDebug) qDebug()
@@ -268,6 +263,8 @@ private slots:
     void setOwner();
     void indexPropertyFunction();
     void managedBtree();
+
+    void settings();
 
 public:
     void createContacts();
@@ -795,7 +792,7 @@ void TestJsonDb::capabilities()
 void TestJsonDb::allowAll()
 {
     // can delete me when this goes away
-    ScopedAssignment<bool> enforceAccessControl(gEnforceAccessControlPolicies, true);
+    jsondbSettings->setEnforceAccessControl(true);
 
     JsonDbOwner *owner = new JsonDbOwner();
     owner->setAllowedObjects(QLatin1String("all"), QLatin1String("read"), QStringList());
@@ -816,6 +813,8 @@ void TestJsonDb::allowAll()
     verifyGoodResult(result);
 
     mJsonDb->removeIndex("TestObject");
+
+    jsondbSettings->setEnforceAccessControl(false);
 }
 
 /*
@@ -824,7 +823,7 @@ void TestJsonDb::allowAll()
 
 void TestJsonDb::testAccessControl()
 {
-    ScopedAssignment<bool> enforceAccessControl(gEnforceAccessControlPolicies, true);
+    jsondbSettings->setEnforceAccessControl(true);
     QJsonObject contactsCapabilities;
     QJsonArray value;
     value.append (QLatin1String("rw"));
@@ -921,11 +920,12 @@ void TestJsonDb::testAccessControl()
 
     result = mJsonDb->remove(mOwner, item);
     verifyGoodResult(result);
+    jsondbSettings->setEnforceAccessControl(false);
 }
 
 void TestJsonDb::testFindAccessControl()
 {
-    ScopedAssignment<bool> enforceAccessControl(gEnforceAccessControlPolicies, true);
+    jsondbSettings->setEnforceAccessControl(true);
     mOwner->setAllowAll(true);
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("find-access-control-test-type"));
@@ -996,6 +996,7 @@ void TestJsonDb::testFindAccessControl()
     verifyGoodQueryResult(queryResult);
 
     QVERIFY(queryResult.length.toDouble() > 0);
+    jsondbSettings->setEnforceAccessControl(false);
 }
 
 /*
@@ -1056,7 +1057,7 @@ void TestJsonDb::update3()
 
 void TestJsonDb::update4()
 {
-    ScopedAssignment<bool> rejectStaleUpdates(gRejectStaleUpdates, true);
+    jsondbSettings->setRejectStaleUpdates(true);
 
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("update-test-type"));
@@ -1114,6 +1115,8 @@ void TestJsonDb::update4()
     item.insert("update-test", 102);
     result = mJsonDb->update(mOwner, item);
     verifyErrorResult(result);
+
+    jsondbSettings->setRejectStaleUpdates(false);
 }
 
 /*
@@ -1203,7 +1206,7 @@ void TestJsonDb::remove4()
  */
 void TestJsonDb::remove5()
 {
-    ScopedAssignment<bool> rejectStaleUpdates(gRejectStaleUpdates, true);
+    jsondbSettings->setRejectStaleUpdates(true);
 
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("update-test-type"));
@@ -1220,6 +1223,8 @@ void TestJsonDb::remove5()
     item.insert(JsonDbString::kVersionStr, version);
     result = mJsonDb->remove(mOwner, item);
     verifyGoodResult(result);
+
+    jsondbSettings->setRejectStaleUpdates(false);
 }
 
 void TestJsonDb::schemaValidation_data()
@@ -1258,7 +1263,7 @@ void TestJsonDb::schemaValidation_data()
 
 void TestJsonDb::schemaValidation()
 {
-    ScopedAssignment<bool> validateSchemas(gValidateSchemas, true);
+    jsondbSettings->setValidateSchemas(true);
 
     QFETCH(QByteArray, schema);
     QFETCH(QByteArray, object);
@@ -1293,6 +1298,8 @@ void TestJsonDb::schemaValidation()
     }
     qResult = mJsonDb->remove(mOwner, schemaObject);
     verifyGoodResult(qResult);
+
+    jsondbSettings->setValidateSchemas(false);
 }
 
 void TestJsonDb::schemaValidationExtends_data()
@@ -1317,7 +1324,7 @@ void TestJsonDb::schemaValidationExtends_data()
 
 void TestJsonDb::schemaValidationExtends()
 {
-    ScopedAssignment<bool> validateSchemas(gValidateSchemas, true);
+    jsondbSettings->setValidateSchemas(true);
 
     QFETCH(QByteArray, item);
     QFETCH(bool, isPerson);
@@ -1388,6 +1395,8 @@ void TestJsonDb::schemaValidationExtends()
             verifyErrorResult(qResult);
         }
     }
+
+    jsondbSettings->setValidateSchemas(false);
 }
 
 
@@ -1410,7 +1419,8 @@ void TestJsonDb::schemaValidationExtendsArray_data()
 
 void TestJsonDb::schemaValidationExtendsArray()
 {
-    ScopedAssignment<bool> validateSchemas(gValidateSchemas, true);
+    jsondbSettings->setValidateSchemas(true);
+
     QFETCH(QByteArray, item);
     QFETCH(bool, isValid);
 
@@ -1480,11 +1490,13 @@ void TestJsonDb::schemaValidationExtendsArray()
             verifyErrorResult(qResult);
         }
     }
+
+    jsondbSettings->setValidateSchemas(false);
 }
 
 void TestJsonDb::schemaValidationLazyInit()
 {
-    ScopedAssignment<bool> validateSchemas(gValidateSchemas, true);
+    jsondbSettings->setValidateSchemas(true);
 
     const QByteArray person =
             "{"
@@ -1562,6 +1574,8 @@ void TestJsonDb::schemaValidationLazyInit()
         qResult = mJsonDb->create(mOwner, object);
         verifyErrorResult(qResult);
     }
+
+    jsondbSettings->setValidateSchemas(false);
 }
 
 
@@ -1898,7 +1912,7 @@ void TestJsonDb::map()
     // get results with getObjects()
     GetObjectsResult getObjectsResult = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjectsResult.data.size(), 3);
-    if (gVerbose) {
+    if (jsondbSettings->verbose()) {
         JsonDbObjectList vs = getObjectsResult.data;
         for (int i = 0; i < vs.size(); i++)
             qDebug() << "    " << vs[i];
@@ -1913,7 +1927,7 @@ void TestJsonDb::map()
     query3.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"PhoneCount\"][/key]"));
     queryResult = mJsonDb->find(mOwner, query3);
     verifyGoodQueryResult(queryResult);
-    if (gVerbose) {
+    if (jsondbSettings->verbose()) {
         JsonDbObjectList vs = queryResult.data;
         for (int i = 0; i < vs.size(); i++)
             qDebug() << "    " << vs[i];
@@ -2249,7 +2263,7 @@ void TestJsonDb::mapMapFunctionError()
 
 void TestJsonDb::mapSchemaViolation()
 {
-    ScopedAssignment<bool> validateSchemas(gValidateSchemas, true);
+    jsondbSettings->setValidateSchemas(true);
 
     GetObjectsResult contactsRes = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
     if (contactsRes.data.size() > 0)
@@ -2313,6 +2327,7 @@ void TestJsonDb::mapSchemaViolation()
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
 
+    jsondbSettings->setValidateSchemas(false);
 }
 
 void TestJsonDb::mapArrayConversion()
@@ -2610,7 +2625,7 @@ void TestJsonDb::reduceFunctionError()
 
 void TestJsonDb::reduceSchemaViolation()
 {
-    ScopedAssignment<bool> validateSchemas(gValidateSchemas, true);
+    jsondbSettings->setValidateSchemas(true);
 
     QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
 
@@ -2674,6 +2689,8 @@ void TestJsonDb::reduceSchemaViolation()
     verifyGoodResult(mJsonDb->remove(mOwner, map));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii).toObject()));
+
+    jsondbSettings->setValidateSchemas(false);
 }
 
 void TestJsonDb::reduceSubObjectProp()
@@ -3678,8 +3695,10 @@ void TestJsonDb::testPrimaryKey()
     QJsonObject result2 = mJsonDb->create(mOwner, replay);
     verifyGoodResult(result2);
 
-    if (gVerbose) qDebug() << 1 << result1;
-    if (gVerbose) qDebug() << 2 << result2;
+    if (jsondbSettings->verbose())
+        qDebug() << 1 << result1;
+    if (jsondbSettings->verbose())
+        qDebug() << 2 << result2;
 
     QCOMPARE(result1.value("result").toObject().value("_uuid"),
              result2.value("result").toObject().value("_uuid"));
@@ -4175,7 +4194,8 @@ void TestJsonDb::removeIndexes()
 
 void TestJsonDb::setOwner()
 {
-    gEnforceAccessControlPolicies = true;
+    jsondbSettings->setEnforceAccessControl(true);
+
     mOwner->setAllowAll(true);
     QLatin1String fooOwnerStr("com.foo.owner");
 
@@ -4208,6 +4228,8 @@ void TestJsonDb::setOwner()
             != fooOwnerStr);
     result = mJsonDb->remove(unauthOwner, item);
     verifyGoodResult(result);
+
+    jsondbSettings->setEnforceAccessControl(false);
 }
 
 void TestJsonDb::indexPropertyFunction()
@@ -4322,6 +4344,72 @@ void TestJsonDb::managedBtree()
     delete mdb;
     mdb = 0;
     QFile::remove(mdbname);
+}
+
+void TestJsonDb::settings()
+{
+    // first explicitly set the values
+    jsondbSettings->setRejectStaleUpdates(true);
+    jsondbSettings->setDebug(true);
+    jsondbSettings->setVerbose(true);
+    jsondbSettings->setPerformanceLog(true);
+    jsondbSettings->setCacheSize(64);
+    jsondbSettings->setCompactRate(2000);
+    jsondbSettings->setEnforceAccessControl(true);
+    jsondbSettings->setTransactionSize(50);
+    jsondbSettings->setValidateSchemas(true);
+    jsondbSettings->setSyncInterval(10000);
+    jsondbSettings->setIndexSyncInterval(20000);
+    jsondbSettings->setDebugQuery(true);
+
+    QVERIFY(jsondbSettings->rejectStaleUpdates());
+    QVERIFY(jsondbSettings->debug());
+    QVERIFY(jsondbSettings->verbose());
+    QVERIFY(jsondbSettings->performanceLog());
+    QCOMPARE(jsondbSettings->cacheSize(), 64);
+    QCOMPARE(jsondbSettings->compactRate(), 2000);
+    QVERIFY(jsondbSettings->enforceAccessControl());
+    QCOMPARE(jsondbSettings->transactionSize(), 50);
+    QVERIFY(jsondbSettings->validateSchemas());
+    QCOMPARE(jsondbSettings->syncInterval(), 10000);
+    QCOMPARE(jsondbSettings->indexSyncInterval(), 20000);
+    QVERIFY(jsondbSettings->debugQuery());
+
+    jsondbSettings->setRejectStaleUpdates(false);
+    jsondbSettings->setDebug(false);
+    jsondbSettings->setVerbose(false);
+    jsondbSettings->setPerformanceLog(false);
+    jsondbSettings->setEnforceAccessControl(false);
+    jsondbSettings->setValidateSchemas(false);
+    jsondbSettings->setDebugQuery(false);
+
+    // then with environment variables
+    ::setenv("JSONDB_REJECT_STALE_UPDATES", "true", true);
+    ::setenv("JSONDB_DEBUG", "true", true);
+    ::setenv("JSONDB_VERBOSE", "true", true);
+    ::setenv("JSONDB_PERFORMANCE_LOG", "true", true);
+    ::setenv("JSONDB_CACHE_SIZE", "256", true);
+    ::setenv("JSONDB_COMPACT_RATE", "1500", true);
+    ::setenv("JSONDB_ENFORCE_ACCESS_CONTROL", "true", true);
+    ::setenv("JSONDB_TRANSACTION_SIZE", "75", true);
+    ::setenv("JSONDB_VALIDATE_SCHEMAS", "true", true);
+    ::setenv("JSONDB_SYNC_INTERVAL", "6000", true);
+    ::setenv("JSONDB_INDEX_SYNC_INTERVAL", "17000", true);
+    ::setenv("JSONDB_DEBUG_QUERY", "true", true);
+    jsondbSettings->reload();
+
+    QVERIFY(jsondbSettings->rejectStaleUpdates());
+    QVERIFY(jsondbSettings->debug());
+    QVERIFY(jsondbSettings->verbose());
+    QVERIFY(jsondbSettings->performanceLog());
+    QCOMPARE(jsondbSettings->cacheSize(), 256);
+    QCOMPARE(jsondbSettings->compactRate(), 1500);
+    QVERIFY(jsondbSettings->enforceAccessControl());
+    QCOMPARE(jsondbSettings->transactionSize(), 75);
+    QVERIFY(jsondbSettings->validateSchemas());
+    QCOMPARE(jsondbSettings->syncInterval(), 6000);
+    QCOMPARE(jsondbSettings->indexSyncInterval(), 17000);
+    QVERIFY(jsondbSettings->debugQuery());
 }
 
 QTEST_MAIN(TestJsonDb)

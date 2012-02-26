@@ -235,7 +235,6 @@ void TestJsonDbQueries::initTestCase()
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
-    gVerbose = false;
     mJsonDb = new JsonDb(QString(), kFilename, QStringLiteral("com.example.JsonDbTestQueries"), this);
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId("com.example.JsonDbTestQueries");

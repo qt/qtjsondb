@@ -51,10 +51,9 @@
 #include "jsondbproxy.h"
 #include "jsondbindex.h"
 #include "jsondbmanagedbtree.h"
+#include "jsondbsettings.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-static bool debugIndexObject = false;
 
 JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
                          const QString &propertyType, QObject *parent)
@@ -121,7 +120,8 @@ bool JsonDbIndex::open()
     mBdb->setCmpFunc(forwardKeyCmp);
 
     mStateNumber = mBdb->tag();
-    if (gDebugRecovery) qDebug() << "JsonDbIndex::open" << mStateNumber << mFileName;
+    if (jsondbSettings->debug() && jsondbSettings->verbose())
+        qDebug() << "JsonDbIndex::open" << mStateNumber << mFileName;
     return true;
 }
 
@@ -198,7 +198,7 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
         QByteArray forwardValue(makeForwardValue(objectKey));
 
-        if (debugIndexObject)
+        if (jsondbSettings->debug() && jsondbSettings->verbose())
             qDebug() << "indexing" << objectKey << mPropertyName << fieldValue
                      << "forwardIndex" << "key" << forwardKey.toHex()
                      << "forwardIndex" << "value" << forwardValue.toHex()
@@ -208,7 +208,7 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
     }
     if (!inTransaction)
         txn.commit(stateNumber);
-    if (gDebugRecovery && (stateNumber < mStateNumber))
+    if (jsondbSettings->debug() && (stateNumber < mStateNumber))
         qDebug() << "JsonDbIndex::indexObject" << "stale update" << stateNumber << mStateNumber << mFileName;
     mStateNumber = qMax(stateNumber, mStateNumber);
 
@@ -231,14 +231,14 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
         fieldValue = makeFieldValue(fieldValue, mPropertyType);
         if (fieldValue.isUndefined())
             continue;
-        if (debugIndexObject)
+        if (jsondbSettings->verbose())
             qDebug() << "deindexing" << objectKey << mPropertyName << fieldValue;
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
         if (!txn.remove(forwardKey)) {
             qDebug() << "deindexing failed" << objectKey << mPropertyName << fieldValue << object << forwardKey.toHex();
         }
     }
-    if (gDebugRecovery && (stateNumber < mStateNumber))
+    if (jsondbSettings->verbose() && (stateNumber < mStateNumber))
         qDebug() << "JsonDbIndex::deindexObject" << "stale update" << stateNumber << mStateNumber << mFileName;
     if (!inTransaction)
         txn.commit(stateNumber);

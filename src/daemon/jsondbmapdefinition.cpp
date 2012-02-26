@@ -59,6 +59,7 @@
 #include "jsondbproxy.h"
 #include "jsondbobjecttable.h"
 #include "jsondbmapdefinition.h"
+#include "jsondbsettings.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -211,7 +212,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
     GetObjectsResult getObjectResponse =
         mPartition->getObjects(findKey, JsonDb::fromJSValue(findValue), objectType, false);
     if (!getObjectResponse.error.isNull()) {
-        if (gVerbose)
+        if (jsondbSettings->verbose())
             qDebug() << "lookupRequested" << mSourceTypes << mTargetType
                      << getObjectResponse.error.toString();
         setError(getObjectResponse.error.toString());

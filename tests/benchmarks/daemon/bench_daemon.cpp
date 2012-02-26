@@ -52,6 +52,7 @@
 #include "jsondb.h"
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
+#include "jsondbsettings.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
 
@@ -181,7 +182,6 @@ void TestJsonDb::initTestCase()
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
-    gVerbose = false;
     mJsonDb = new JsonDb(QString (), kFilename, QStringLiteral("com.example.JsonDbTest"), this);
     mJsonDb->open();
     mOwner = new JsonDbOwner(this);
@@ -598,8 +598,8 @@ void TestJsonDb::benchmarkSchemaValidation_data()
 
 void TestJsonDb::benchmarkSchemaValidation()
 {
-    bool validate = gValidateSchemas;
-    gValidateSchemas = true;
+    bool validate = jsondbSettings->validateSchemas();
+    jsondbSettings->setValidateSchemas(true);
 
     QFETCH(QByteArray, item);
     QFETCH(bool, isPerson);
@@ -651,7 +651,7 @@ void TestJsonDb::benchmarkSchemaValidation()
         }
     }
 
-    gValidateSchemas = validate;
+    jsondbSettings->setValidateSchemas(validate);
 }
 
 void TestJsonDb::benchmarkFind()

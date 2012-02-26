@@ -44,8 +44,6 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-extern bool gDebug;
-
 JsonDbMapProxy::JsonDbMapProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
   : QObject(parent)
   , mOwner(owner)

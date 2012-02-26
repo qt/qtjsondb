@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "jsondbsettings.h"
 #include "jsondbsignals.h"
 #include "dbserver.h"
 
@@ -60,8 +61,6 @@
 QString progname;
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-extern bool gUseJsonInDb;
 
 QT_END_NAMESPACE_JSONDB
 
@@ -203,9 +202,11 @@ int main(int argc, char * argv[])
             compactOnClose = true;
 #ifndef QT_NO_DEBUG_OUTPUT
         } else if (arg == "-debug") {
-            gDebug = true;
-        } else if (arg == "-debug-recovery") {
-            gDebugRecovery = true;
+            jsondbSettings->setDebug(true);
+        } else if (arg == "-verbose") {
+            jsondbSettings->setVerbose(true);
+        } else if (arg == "-performance-log") {
+            jsondbSettings->setPerformanceLog(true);
 #endif
 #ifdef Q_OS_LINUX
         } else if ( arg == "-daemon" ) {
@@ -214,23 +215,17 @@ int main(int argc, char * argv[])
             sigstop = true;
 #endif
         } else if (arg == "-validate-schemas") {
-            gValidateSchemas = true;
+            jsondbSettings->setValidateSchemas(true);
         } else if (arg == "-no-validate-schemas") {
-            gValidateSchemas = false;
+            jsondbSettings->setValidateSchemas(false);
         } else if (arg == "-reject-stale-updates") {
-            gRejectStaleUpdates = true;
+           jsondbSettings->setRejectStaleUpdates(true);
         } else if (arg == "-no-reject-stale-updates") {
-            gRejectStaleUpdates = false;
+            jsondbSettings->setRejectStaleUpdates(false);
         } else if (arg == "-enforce-access-control") {
-            gEnforceAccessControlPolicies = true;
-        } else if (arg == "-verbose") {
-            gVerbose = true;
+            jsondbSettings->setEnforceAccessControl(true);
         } else if (arg == "-clear") {
             clear = true;
-#ifndef QT_NO_DEBUG_OUTPUT
-        } else if (arg == "-performance-log") {
-            gPerformanceLog = true;
-#endif
         } else if (arg == "-base-name") {
             baseName = args.takeFirst();
         } else if (arg == "-dbdir") {

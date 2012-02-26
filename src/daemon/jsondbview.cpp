@@ -54,15 +54,9 @@
 #include "jsondbmapdefinition.h"
 #include "jsondbobjecttable.h"
 #include "jsondbreducedefinition.h"
+#include "jsondbsettings.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-#ifndef QT_NO_DEBUG_OUTPUT
-extern bool gDebug;
-#define DBG() if (gDebug) qDebug() << Q_FUNC_INFO << __LINE__
-#else
-#define DBG() if (0) qDebug() << Q_FUNC_INFO
-#endif
 
 JsonDbView::JsonDbView(JsonDb *jsonDb, JsonDbPartition *partition, const QString &viewType, QObject *parent)
   : QObject(parent)
@@ -104,7 +98,8 @@ void JsonDbView::close()
 
 void JsonDbView::initViews(JsonDbPartition *partition, const QString &partitionName)
 {
-    if (gVerbose) qDebug() << "Initializing views on partition" << partitionName;
+    if (jsondbSettings->verbose())
+        qDebug() << "Initializing views on partition" << partitionName;
     {
         JsonDbObjectList mrdList = partition->getObjects(JsonDbString::kTypeStr, QJsonValue(QLatin1String("Map")),
                                                          partitionName).data;
@@ -137,7 +132,7 @@ void JsonDbView::createJsonDbMapDefinition(QJsonObject mapDefinition, bool first
     else
         sourceTypes = mapDefinition.value("map").toObject().keys();
 
-    if (gVerbose)
+    if (jsondbSettings->verbose())
         qDebug() << "createJsonDbMapDefinition" << sourceTypes << targetType;
 
     mObjectTable->addIndexOnProperty("_sourceUuids.*", "string", targetType);
@@ -153,7 +148,7 @@ void JsonDbView::createJsonDbMapDefinition(QJsonObject mapDefinition, bool first
         foreach (const QString &sourceType, sourceTypes) {
             GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, sourceType);
             if (!getObjectResponse.error.isNull()) {
-                if (gVerbose)
+                if (jsondbSettings->verbose())
                     qDebug() << "createJsonDbMapDefinition" << sourceTypes << sourceType << targetType << getObjectResponse.error.toString();
                 def->setError(getObjectResponse.error.toString());
                 return;
@@ -201,7 +196,7 @@ void JsonDbView::createJsonDbReduceDefinition(QJsonObject reduceDefinition, bool
     QString targetType = reduceDefinition.value("targetType").toString();
     QString sourceType = reduceDefinition.value("sourceType").toString();
 
-    if (gDebug)
+    if (jsondbSettings->debug())
         qDebug() << "createJsonDbReduceDefinition" << targetType << sourceType;
 
     const JsonDbOwner *owner = mJsonDb->findOwner(reduceDefinition.value(JsonDbString::kOwnerStr).toString());
@@ -219,7 +214,7 @@ void JsonDbView::createJsonDbReduceDefinition(QJsonObject reduceDefinition, bool
         def->initScriptEngine();
         GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, sourceType);
         if (!getObjectResponse.error.isNull()) {
-            if (gVerbose)
+            if (jsondbSettings->verbose())
                 qDebug() << "createJsonDbReduceDefinition" << targetType << getObjectResponse.error.toString();
             def->setError(getObjectResponse.error.toString());
         }
@@ -236,7 +231,7 @@ void JsonDbView::removeJsonDbReduceDefinition(QJsonObject reduceDefinition)
     QString targetType = reduceDefinition.value("targetType").toString();
     QString sourceType = reduceDefinition.value("sourceType").toString();
 
-    if (gVerbose)
+    if (jsondbSettings->verbose())
         qDebug() << "removeJsonDbReduceDefinition" << sourceType <<  targetType;
 
     JsonDbReduceDefinition *def = 0;
@@ -272,13 +267,13 @@ void JsonDbView::updateSourceTypesList()
 void JsonDbView::updateView()
 {
     QElapsedTimer timer;
-    if (gPerformanceLog)
+    if (jsondbSettings->performanceLog())
         timer.start();
     //qDebug() << endl << "updateView" << mViewType << "{" << endl;
     updateMap();
     updateReduce();
     //qDebug() << endl << "}" << "updateView" << mViewType << endl;
-    if (gPerformanceLog)
+    if (jsondbSettings->performanceLog())
         qDebug() << "updateView" << mViewType << timer.elapsed() << "ms";
 }
 
@@ -286,7 +281,8 @@ void JsonDbView::updateMap()
 {
     JsonDbObjectTable *targetTable = mObjectTable;
     quint32 targetStateNumber = qMax(1u, targetTable->stateNumber());
-    if (gVerbose) qDebug() << "JsonDb::updateMap" << mViewType << targetStateNumber << "targetStateNumber" << targetStateNumber;
+    if (jsondbSettings->verbose())
+        qDebug() << "JsonDb::updateMap" << mViewType << targetStateNumber << "targetStateNumber" << targetStateNumber;
 
     QHash<QString,JsonDbMapDefinition *> mapDefinitions;
     QSet<JsonDbObjectTable *>                  sourceTables;
@@ -389,7 +385,10 @@ void JsonDbView::updateReduce()
     JsonDbPartition *partition = mPartition;
     JsonDbObjectTable *targetTable = partition->findObjectTable(mViewType);
     quint32 targetStateNumber = qMax(1u, targetTable->stateNumber());
-    if (gVerbose) qDebug() << "JsonDb::updateReduce" << mViewType << targetStateNumber << "{";
+
+    if (jsondbSettings->verbose())
+        qDebug() << "JsonDb::updateReduce" << mViewType << targetStateNumber << "{";
+
     QHash<QString,JsonDbReduceDefinition *> reduceDefinitions;
     QSet<JsonDbObjectTable *>                  sourceTables;
     QMultiMap<JsonDbObjectTable *,QString>     objectTableSourceType;
@@ -412,7 +411,8 @@ void JsonDbView::updateReduce()
         reduceDefinitions.insert(sourceType, def);
     }
     if (sourceTables.isEmpty() && addedJsonDbReduceDefinitions.isEmpty() && removedJsonDbReduceDefinitions.isEmpty()) {
-        if (gVerbose) qDebug() << "}" << mViewType;
+        if (jsondbSettings->verbose())
+            qDebug() << "}" << mViewType;
         return;
     }
 
@@ -470,7 +470,8 @@ void JsonDbView::updateReduce()
     bool committed = targetTable->commit(endStateNumber);
     Q_UNUSED(committed);
     Q_ASSERT(committed);
-    if (gVerbose) qDebug() << "}" << mViewType;
+    if (jsondbSettings->verbose())
+        qDebug() << "}" << mViewType;
 }
 
 quint32 JsonDbView::findUpdatedMapJsonDbReduceDefinitions(const QString &definitionType,

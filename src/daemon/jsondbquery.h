@@ -139,7 +139,6 @@ public:
     QVector<QStringList> mJoinPaths;
     QJsonValue mValue;
     QRegExp mRegExp;
-    //QString valueString;
 };
 
 class OrQueryTerm {
@@ -164,9 +163,8 @@ public:
 
 class JsonDbQuery {
 public:
-    JsonDbQuery() {}
-    JsonDbQuery(const QList<OrQueryTerm> &qt, const QList<OrderTerm> &ot)
-    : queryTerms(qt), orderTerms(ot) {}
+    JsonDbQuery() { }
+    JsonDbQuery(const QList<OrQueryTerm> &qt, const QList<OrderTerm> &ot);
     ~JsonDbQuery();
     QList<OrQueryTerm> queryTerms;
     QList<OrderTerm> orderTerms;

@@ -49,6 +49,7 @@
 #include "jsondb-error.h"
 #include "jsondb.h"
 #include "jsondbpartition.h"
+#include "jsondbsettings.h"
 #include "dbserver.h"
 
 #ifdef Q_OS_UNIX
@@ -60,14 +61,7 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-#ifndef QT_NO_DEBUG_OUTPUT
-extern bool gDebug;
-#define DBG() if (gDebug) qDebug() << Q_FUNC_INFO
-#else
-#define DBG() if (0) qDebug() << Q_FUNC_INFO
-#endif
-
-static int gReadBufferSize = 65536;
+static const int gReadBufferSize = 65536;
 
 /*********************************************/
 
@@ -93,7 +87,8 @@ static void sendError( JsonStream *stream, JsonDbError::ErrorCode code,
     map.insert( JsonDbString::kErrorStr, errormap );
     map.insert( JsonDbString::kIdStr, id );
 
-    DBG() << "Sending error" << map;
+    if (jsondbSettings->debug())
+        qDebug() << "Sending error" << map;
     stream->send(map);
 }
 
@@ -122,7 +117,8 @@ bool DBServer::socket()
     QString socketName = ::getenv("JSONDB_SOCKET");
     if (socketName.isEmpty())
         socketName = "qt5jsondb";
-    DBG() << "Listening on socket" << socketName;
+    if (jsondbSettings->debug())
+        qDebug() << "Listening on socket" << socketName;
     QLocalServer::removeServer(socketName);
     mServer = new QLocalServer(this);
     connect(mServer, SIGNAL(newConnection()), this, SLOT(handleConnection()));
@@ -145,7 +141,7 @@ bool DBServer::socket()
 bool DBServer::start(bool compactOnClose)
 {
     QElapsedTimer timer;
-    if (gPerformanceLog)
+    if (jsondbSettings->performanceLog())
         timer.start();
 
     QString username;
@@ -178,7 +174,7 @@ bool DBServer::start(bool compactOnClose)
       qCritical() << "DBServer::start - Unable to open database";
       return false;
     }
-    if (gPerformanceLog) {
+    if (jsondbSettings->performanceLog()) {
         JsonDbStat stat = mJsonDb->stat();
         qDebug().nospace() << "+ JsonDB Perf: " << "[action]" << "start" << "[action]:[ms]" << timer.elapsed()
                            << "[ms]:[reads]" << stat.reads << "[reads]:[hits]" << stat.hits
@@ -194,20 +190,23 @@ bool DBServer::clear()
 
 void DBServer::sigHUP()
 {
-    DBG() << "SIGHUP received";
+    if (jsondbSettings->debug())
+        qDebug() << "SIGHUP received";
     mJsonDb->reduceMemoryUsage();
 }
 
 void DBServer::sigTerm()
 {
-    DBG() << "SIGTERM received";
+    if (jsondbSettings->debug())
+        qDebug() << "SIGTERM received";
     mJsonDb->close();
     QCoreApplication::exit();
 }
 
 void DBServer::sigINT()
 {
-    DBG() << "SIGINT received";
+    if (jsondbSettings->debug())
+        qDebug() << "SIGINT received";
     mJsonDb->close();
     QCoreApplication::exit();
 }
@@ -219,7 +218,8 @@ void DBServer::handleConnection()
 
         //connect(connection, SIGNAL(error(QLocalSocket::LocalSocketError)),
         //        this, SLOT(handleConnectionError()));
-        DBG() << "client connected to jsondb server" << connection;
+        if (jsondbSettings->debug())
+            qDebug() << "client connected to jsondb server" << connection;
         connect(connection, SIGNAL(disconnected()), this, SLOT(removeConnection()));
         JsonStream *stream = new JsonStream(connection, this);
         connect(stream, SIGNAL(receive(QJsonObject)), this,
@@ -233,7 +233,8 @@ void DBServer::handleTcpConnection()
     if (QTcpSocket *connection = mTcpServer->nextPendingConnection()) {
         //connect(connection, SIGNAL(error(QLocalSocket::LocalSocketError)),
         //        this, SLOT(handleConnectionError()));
-        DBG() << "remote client connected to jsondb server" << connection;
+        if (jsondbSettings->debug())
+            qDebug() << "remote client connected to jsondb server" << connection;
         connect(connection, SIGNAL(disconnected()), this, SLOT(removeConnection()));
         JsonStream *stream = new JsonStream(connection, this);
         connect(stream, SIGNAL(receive(QJsonObject)), this,
@@ -246,7 +247,7 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 {
     QIODevice *device = stream->device();
 
-    if (!gEnforceAccessControlPolicies) {
+    if (!jsondbSettings->enforceAccessControl()) {
         // We are not enforcing policies here, allow requests
         // from all applications.
         // ### TODO: We will have to remove this afterwards
@@ -293,8 +294,8 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
             owner->setDomain (domainParts.at(0)+QLatin1Char('.')+domainParts.at(1));
         else
             owner->setDomain(QStringLiteral("public"));
-        DBG() << "username" << username << "uid" << peercred.uid << "domain set to" <<
-                 owner->domain();
+        if (jsondbSettings->debug())
+            qDebug() << "username" << username << "uid" << peercred.uid << "domain set to" << owner->domain();
 
         // Get capabilities from supplementary groups
         if (peercred.uid) {
@@ -319,8 +320,9 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
                         value.append(QJsonValue(QLatin1String("setOwner")));
                     value.append(QJsonValue(QLatin1String("rw")));
                     capabilities.insert(QString::fromLocal8Bit(gr->gr_name), value);
-                    DBG() << "Adding capability" << QString::fromLocal8Bit(gr->gr_name) <<
-                             "to user" << owner->ownerId() << "setOwner =" << setOwner;
+                    if (jsondbSettings->debug())
+                        qDebug() << "Adding capability" << QString::fromLocal8Bit(gr->gr_name)
+                                 << "to user" << owner->ownerId() << "setOwner =" << setOwner;
                 }
                 if (ngroups)
                     owner->setCapabilities(capabilities, mJsonDb);
@@ -373,7 +375,8 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 
 void DBServer::notified(const QString &notificationId, JsonDbObject object, const QString &action)
 {
-    DBG() << "notificationId" << notificationId << "object" << object;
+    if (jsondbSettings->debug())
+        qDebug() << "notificationId" << notificationId << "object" << object;
     JsonStream *stream = mNotifications.value(notificationId);
     // if the notified signal() is delivered after the notification has been deleted,
     // then there is no stream to send to
@@ -387,12 +390,14 @@ void DBServer::notified(const QString &notificationId, JsonDbObject object, cons
     map.insert( JsonDbString::kUuidStr, notificationId );
 
     if (stream && stream->device() && stream->device()->isWritable()) {
-        DBG() << "Sending notify" << map;
+        if (jsondbSettings->debug())
+            qDebug() << "Sending notify" << map;
         stream->send(map);
     }
     else {
         mNotifications.remove(notificationId);
-        DBG() << "Invalid stream" << static_cast<void*>(stream);
+        if (jsondbSettings->debug())
+            qDebug() << "Invalid stream" << static_cast<void*>(stream);
     }
 }
 
@@ -586,7 +591,7 @@ void DBServer::processChangesSince(JsonStream *stream, JsonDbOwner *owner, const
 // When policies are not enforced the JsonDbOwner allows access to everybody.
 JsonDbOwner *DBServer::createDummyOwner( JsonStream *stream)
 {
-    if (gEnforceAccessControlPolicies)
+    if (jsondbSettings->enforceAccessControl())
         return 0;
 
     JsonDbOwner *owner = mOwners.value(stream->device());
@@ -628,8 +633,8 @@ void DBServer::receiveMessage(const QJsonObject &message)
     QHash<QString, qint64> fileSizes;
 
     JsonDbStat startStat;
-    if (gPerformanceLog) {
-        if (gVerbose)
+    if (jsondbSettings->performanceLog()) {
+        if (jsondbSettings->verbose())
             fileSizes = mJsonDb->fileSizes(partitionName);
         startStat = mJsonDb->stat();
         timer.start();
@@ -692,7 +697,7 @@ void DBServer::receiveMessage(const QJsonObject &message)
             return;
         }
     }
-    if (gPerformanceLog) {
+    if (jsondbSettings->performanceLog()) {
         QString additionalInfo;
         JsonDbStat stat = mJsonDb->stat();
         stat -= startStat;
@@ -706,7 +711,7 @@ void DBServer::receiveMessage(const QJsonObject &message)
         qDebug().nospace() << "+ JsonDB Perf: [id]" << id << "[id]:[action]" << action
                            << "[action]:[ms]" << timer.elapsed() << "[ms]:[details]" << additionalInfo << "[details]"
                            << ":[reads]" << stat.reads << "[reads]:[hits]" << stat.hits << "[hits]:[writes]" << stat.writes << "[writes]";
-        if (gVerbose) {
+        if (jsondbSettings->verbose()) {
             QHash<QString, qint64> newSizes = mJsonDb->fileSizes(partitionName);
             QHashIterator<QString, qint64> files(fileSizes);
 

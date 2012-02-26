@@ -51,8 +51,6 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-static QMap<QString, JsonDbNotification*> sNotificationMap;
-
 JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, const QString &uuid, const QString& query,
                            QStringList actions, const QString &partition)
     : mOwner(owner)

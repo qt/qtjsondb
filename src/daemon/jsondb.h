@@ -69,22 +69,6 @@ class TestJsonDbQueries;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-extern bool gValidateSchemas;
-extern bool gRejectStaleUpdates;
-extern bool gUseQsonInDb;
-extern bool gUseJsonInDb;
-extern bool gVerbose;
-extern bool gPrintErrors;
-#ifndef QT_NO_DEBUG_OUTPUT
-extern bool gDebug;
-extern bool gDebugRecovery;
-extern bool gPerformanceLog;
-#else
-static const bool gDebug = false;
-static const bool gDebugRecovery = false;
-static const bool gPerformanceLog = false;
-#endif
-
 extern const QString kSortKeysStr;
 extern const QString kStateStr;
 
@@ -233,7 +217,6 @@ protected:
     QSet<QString>         mViewsUpdating;
     QMap<QString,const JsonDbOwner*> mOwners;
     bool                  mCompactOnClose;
-
     friend class ::TestJsonDb;
     friend class ::TestJsonDbQueries;
     friend class JsonDbPartition;
