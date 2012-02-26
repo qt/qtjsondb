@@ -254,7 +254,6 @@ void TestJsonDb::cleanup()
 {
     foreach (JsonDbPartition *partition, mJsonDb->mPartitions)
         QCOMPARE(partition->mTransactionDepth, 0);
-    //QVERIFY(mJsonDb->checkValidity());
 }
 
 void TestJsonDb::addSchema(const QString &schemaName)

@@ -557,14 +557,6 @@ bool JsonDb::clear()
     return !fail;
 }
 
-bool JsonDb::checkValidity()
-{
-    bool fail = false;
-    foreach (JsonDbPartition *partition, mPartitions)
-        fail = !partition->checkValidity() || fail;
-    return !fail;
-}
-
 /*!
   This function frees all unnecessary memory, for example flushing the btree caches.
  */

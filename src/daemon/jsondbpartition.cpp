@@ -772,61 +772,6 @@ QJsonObject JsonDbPartition::changesSince(quint32 stateNumber, const QSet<QStrin
     return objectTable->changesSince(stateNumber, limitTypes);
 }
 
-bool JsonDbPartition::checkValidity()
-{
-    bool noErrors = true;
-#if 0
-    if (gVerboseCheckValidity) qDebug() << "JsonDbBtreePartition::checkValidity {";
-    QMap<quint32, QString> keyUuids; // objectKey -> uuid
-    QMap<QString, quint32> uuidKeys; // objectKey -> uuid
-    QMap<QString, QJsonValue> objects; // uuid -> object
-
-    AoDbCursor cursor(mObjectTable->bdb());
-    for (bool ok = cursor.first(); ok; ok = cursor.next()) {
-        QByteArray baKey, baValue;
-        if (!cursor.current(baKey, baValue))
-            continue;
-        if (baValue.size() == 0)
-            continue;
-        quint32 objectKey = qFromBigEndian<quint32>((const uchar *)baKey.data());
-        if (baValue.size() == 4)
-            continue;
-        QJsonObject object = QsonParser::fromRawData(baValue).toMap();
-        QString uuid = object.value(JsonDbString::kUuidStr).toString();
-        QString typeName = object.value(JsonDbString::kTypeStr).toString();
-        if (uuidKeys.contains(uuid)) {
-            quint32 previousKey = uuidKeys.value(uuid);
-            keyUuids.remove(previousKey);
-        }
-        if (deleted) {
-            objects.remove(uuid);
-            uuidKeys.remove(uuid);
-        } else {
-            objects.insert(uuid, object);
-            uuidKeys.insert(uuid, objectKey);
-            keyUuids.insert(objectKey, uuid);
-        }
-
-        if (gVerboseCheckValidity || gDebug) {
-            qDebug() << objectKey << uuid << object.value(JsonDbString::kTypeStr).toString();
-            qDebug() << object;
-        }
-        //Q_ASSERT(objectKey > lastObjectKey);
-    }
-    for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
-         it != mIndexes.end();
-         ++it) {
-        const IndexSpec &indexSpec = it.value();
-        if (!indexSpec.index.isNull()) {
-            if (!indexSpec.index->checkValidity(objects, keyUuids, uuidKeys, this))
-                noErrors = false;
-        }
-    }
-    if (gVerboseCheckValidity) qDebug() << "} JsonDbBtreePartition::checkValidity done";
-#endif
-    return noErrors;
-}
-
 void JsonDbPartition::flushCaches()
 {
     mObjectTable->flushCaches();

@@ -3302,8 +3302,6 @@ void TestJsonDb::orderedFind2()
     QFETCH(QString, order);
     QFETCH(QString, field);
 
-    //mJsonDb->checkValidity();
-
     QJsonObject query;
     query.insert("query", QString("[?_type=\"orderedFind2\"][%1%2]").arg(order).arg(field));
     JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);

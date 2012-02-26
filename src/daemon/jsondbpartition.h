@@ -170,7 +170,6 @@ public:
     bool abortTransaction();
 
     void initIndexes();
-    bool checkValidity();
     void flushCaches();
     bool addIndex(const QString &indexName,
                   const QString &propertyName,

@@ -90,7 +90,6 @@ public:
     bool open();
     void close();
     bool clear();
-    bool checkValidity();
     void reduceMemoryUsage();
     JsonDbStat stat() const;
 
