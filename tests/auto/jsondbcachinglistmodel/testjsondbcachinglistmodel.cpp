@@ -245,9 +245,8 @@ void TestJsonDbCachingListModel::getIndex(int index)
 
     const QString createString = QString("get(%1, function (error, response) {callbackSignal(error, response);});");
     const QString getString = QString(createString).arg(index);
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(mModels.last()->engine->rootContext(), mModels.last()->model, getString);
-    expr->evaluate().toInt();
+    QDeclarativeExpression expr(mModels.last()->engine->rootContext(), mModels.last()->model, getString);
+    expr.evaluate().toInt();
 
     if (!mCallbackReceived)
         waitForCallback();
