@@ -85,6 +85,9 @@ public:
 
     QList<QJsonDbRequest *> pendingRequests() const;
 
+    static void setDefaultConnection(QJsonDbConnection *);
+    static QJsonDbConnection *defaultConnection();
+
 public Q_SLOTS:
     void connectToServer();
     void disconnectFromServer();

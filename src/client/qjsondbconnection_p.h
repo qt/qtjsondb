@@ -96,6 +96,8 @@ public:
     void removeWatcher(QJsonDbWatcher *);
     void reactivateAllWatchers();
 
+    static QJsonDbConnection *defaultConnection;
+
     QJsonDbConnection *q_ptr;
     QString socketName;
     QJsonDbConnection::Status status;

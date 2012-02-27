@@ -101,6 +101,9 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+QJsonDbConnection *QJsonDbConnectionPrivate::defaultConnection = 0;
+Q_GLOBAL_STATIC(QJsonDbConnection, _q_defaultConnection)
+
 /*!
     \class QJsonDbConnection
     \inmodule QtJsonDb
@@ -711,6 +714,36 @@ bool QJsonDbConnection::removeWatcher(QJsonDbWatcher *watcher)
     }
     d->removeWatcher(watcher);
     return true;
+}
+
+/*!
+    \nonreentrant
+
+    Sets the global default jsondb connection to \a connection.
+
+    \warning In a multithreaded application, the default connection should be
+    set on application startup, before any threads that use jsondb are created.
+
+    \sa QJsonDbConnection::defaultConnection()
+*/
+void QJsonDbConnection::setDefaultConnection(QJsonDbConnection *connection)
+{
+    QJsonDbConnectionPrivate::defaultConnection = connection;
+}
+
+/*!
+    Returns the default jsondb connection object.
+
+    \warning This function is thread-safe, however the QJsonDbConnection object
+    is not.
+
+    \sa QJsonDbConnection::setDefaultConnection()
+*/
+QJsonDbConnection *QJsonDbConnection::defaultConnection()
+{
+    if (QJsonDbConnectionPrivate::defaultConnection)
+        return QJsonDbConnectionPrivate::defaultConnection;
+    return _q_defaultConnection();
 }
 
 /*!
