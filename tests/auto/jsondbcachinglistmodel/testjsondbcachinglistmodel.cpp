@@ -151,13 +151,13 @@ void TestJsonDbCachingListModel::initTestCase()
     QVariantMap item;
     item.insert("_type", "Partition");
     item.insert("name", "com.nokia.shared.1");
-    int id = mClient->create(item, QString("com.nokia.qtjsondb.System"));
+    int id = mClient->create(item);
     waitForResponse1(id);
 
     item.clear();
     item.insert("_type", "Partition");
     item.insert("name", "com.nokia.shared.2");
-    id = mClient->create(item, QString("com.nokia.qtjsondb.System"));
+    id = mClient->create(item);
     waitForResponse1(id);
 
 }
