@@ -4,7 +4,7 @@ DESTDIR = $$QT.jsondb.bins
 target.path = $$[QT_INSTALL_PREFIX]/bin
 INSTALLS += target
 
-QT = core jsondb declarative
+QT = core jsondb declarative gui
 
 LIBS += -ledit
 
