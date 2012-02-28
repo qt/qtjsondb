@@ -97,6 +97,8 @@ public:
     void close();
     bool exists() const;
 
+    static bool validateIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex, QString &message);
+
 private:
     QList<QJsonValue> indexValues(JsonDbObject &object);
 

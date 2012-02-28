@@ -142,6 +142,37 @@ bool JsonDbIndex::exists() const
     return file.exists();
 }
 
+bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex, QString &message)
+{
+    message.clear();
+
+    if (!newIndex.isEmpty() && !oldIndex.isEmpty()) {
+        if (oldIndex.value(kPropertyNameStr).toString() != newIndex.value(kPropertyNameStr).toString())
+            message = QString("Changing old index propertyName '%1' to '%2' not supported")
+                             .arg(oldIndex.value(kPropertyNameStr).toString())
+                             .arg(newIndex.value(kPropertyNameStr).toString());
+        else if (oldIndex.value(kPropertyTypeStr).toString() != newIndex.value(kPropertyTypeStr).toString())
+            message = QString("Changing old index propertyType from '%1' to '%2' not supported")
+                             .arg(oldIndex.value(kPropertyTypeStr).toString())
+                             .arg(newIndex.value(kPropertyTypeStr).toString());
+        else if (oldIndex.value(kObjectTypeStr).toString() != newIndex.value(kObjectTypeStr).toString())
+            message = QString("Changing old index objectType from '%1' to '%2' not supported")
+                             .arg(oldIndex.value(kObjectTypeStr).toString())
+                             .arg(newIndex.value(kObjectTypeStr).toString());
+        else if (oldIndex.value(kPropertyFunctionStr).toString() != newIndex.value(kPropertyFunctionStr).toString())
+            message = QString("Changing old index propertyFunction from '%1' to '%2' not supported")
+                             .arg(oldIndex.value(kPropertyFunctionStr).toString())
+                             .arg(newIndex.value(kPropertyFunctionStr).toString());
+    }
+
+    if (!(newIndex.contains(kPropertyFunctionStr) ^ newIndex.contains(kPropertyNameStr)))
+        message = QString("Index object must have one of propertyName or propertyFunction set");
+    else if (newIndex.contains(kPropertyFunctionStr) && !newIndex.contains(kNameStr))
+        message = QString("Index object with propertyFunction must have name");
+
+    return message.isEmpty();
+}
+
 JsonDbManagedBtree *JsonDbIndex::bdb()
 {
     if (!mBdb)

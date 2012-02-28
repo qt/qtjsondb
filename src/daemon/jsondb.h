@@ -164,7 +164,6 @@ protected:
     QJsonObject checkQuota(const JsonDbOwner *owner, int size, JsonDbPartition *partition);
     QJsonObject checkCanAddSchema(JsonDbObject schema, JsonDbObject oldSchema = QJsonObject());
     QJsonObject checkCanRemoveSchema(JsonDbObject schema);
-    QJsonObject validateAddIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex) const;
 
     bool addIndex(JsonDbObject indexObject, const QString &partitionName);
     bool removeIndex(const QString &indexName,

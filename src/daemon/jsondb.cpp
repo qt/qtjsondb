@@ -67,6 +67,7 @@
 #endif
 
 #include "jsondb.h"
+#include "jsondbindex.h"
 #include "jsondbproxy.h"
 #include "jsondbpartition.h"
 #include "jsondbephemeralpartition.h"
@@ -963,8 +964,8 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         else if (objectType == JsonDbString::kReduceTypeStr &&
                  !JsonDbReduceDefinition::validateDefinition(master, mViewTypes, errorMsg))
             return makeResponse(resultmap, makeError(JsonDbError::InvalidReduce, errorMsg));
-        else if (!forRemoval && objectType == kIndexTypeStr)
-            RETURN_IF_ERROR(errormap, validateAddIndex(master, oldMaster));
+        else if (!forRemoval && objectType == kIndexTypeStr && !JsonDbIndex::validateIndex(master, oldMaster, errorMsg))
+            return makeResponse(resultmap, makeError(JsonDbError::InvalidIndexOperation, errorMsg));
     }
 
     QJsonObject response;
@@ -1500,44 +1501,6 @@ QJsonObject JsonDb::checkCanRemoveSchema(JsonDbObject schema)
                        QString("A view with targetType of %2 exists. You cannot remove the schema")
                        .arg(schemaName));
     }
-
-    return QJsonObject();
-}
-
-
-
-QJsonObject JsonDb::validateAddIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex) const
-{
-    if (!newIndex.isEmpty() && !oldIndex.isEmpty()) {
-        if (oldIndex.value(kPropertyNameStr).toString() != newIndex.value(kPropertyNameStr).toString())
-            return makeError(JsonDbError::InvalidIndexOperation,
-                             QString("Changing old index propertyName '%1' to '%2' not supported")
-                             .arg(oldIndex.value(kPropertyNameStr).toString())
-                             .arg(newIndex.value(kPropertyNameStr).toString()));
-        if (oldIndex.value(kPropertyTypeStr).toString() != newIndex.value(kPropertyTypeStr).toString())
-            return makeError(JsonDbError::InvalidIndexOperation,
-                             QString("Changing old index propertyType from '%1' to '%2' not supported")
-                             .arg(oldIndex.value(kPropertyTypeStr).toString())
-                             .arg(newIndex.value(kPropertyTypeStr).toString()));
-        if (oldIndex.value(kObjectTypeStr).toString() != newIndex.value(kObjectTypeStr).toString())
-            return makeError(JsonDbError::InvalidIndexOperation,
-                             QString("Changing old index objectType from '%1' to '%2' not supported")
-                             .arg(oldIndex.value(kObjectTypeStr).toString())
-                             .arg(newIndex.value(kObjectTypeStr).toString()));
-        if (oldIndex.value(kPropertyFunctionStr).toString() != newIndex.value(kPropertyFunctionStr).toString())
-            return makeError(JsonDbError::InvalidIndexOperation,
-                             QString("Changing old index propertyFunction from '%1' to '%2' not supported")
-                             .arg(oldIndex.value(kPropertyFunctionStr).toString())
-                             .arg(newIndex.value(kPropertyFunctionStr).toString()));
-    }
-
-    if (!(newIndex.contains(kPropertyFunctionStr) ^ newIndex.contains(kPropertyNameStr)))
-        return makeError(JsonDbError::InvalidIndexOperation,
-                         QString("Index object must have one of propertyName or propertyFunction set"));
-
-    if (newIndex.contains(kPropertyFunctionStr) && !newIndex.contains(kNameStr))
-        return makeError(JsonDbError::InvalidIndexOperation,
-                         QString("Index object with propertyFunction must have name"));
 
     return QJsonObject();
 }
