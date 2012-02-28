@@ -135,27 +135,6 @@ bool JsonDb::responseIsError( QJsonObject responseMap )
             && responseMap.value(JsonDbString::kErrorStr).isObject();
 }
 
-QString JsonDb::uuidhex(uint data, int digits)
-{
-    return QString::number(data, 16).rightJustified(digits, QLatin1Char('0'));
-}
-
-QString JsonDb::createDatabaseId()
-{
-    QFile devUrandom;
-    uint data[3];
-    devUrandom.setFileName(QLatin1String("/dev/urandom"));
-    if (!devUrandom.open(QIODevice::ReadOnly)) {
-    } else {
-        qint64 numToRead = 3 * sizeof(uint);
-        devUrandom.read((char *) data, numToRead); // should read 128-bits of data
-    }
-    return (QString("%1-%2-%3")
-            .arg(uuidhex(data[0], 8))
-            .arg(uuidhex(data[1], 8))
-            .arg(uuidhex(data[2], 8)));
-}
-
 /*!
   This function takes a single QJsonValue,
   adds a "uuid" field to it with a unique UUID (overwriting a

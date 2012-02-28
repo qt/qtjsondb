@@ -166,8 +166,6 @@ protected:
     QJsonObject checkCanRemoveSchema(JsonDbObject schema);
     QJsonObject validateAddIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex) const;
 
-    enum Action { Create, Remove };
-
     bool addIndex(JsonDbObject indexObject, const QString &partitionName);
     bool removeIndex(const QString &indexName,
                      const QString &objectType = QString(),
@@ -181,16 +179,11 @@ protected:
     const JsonDbNotification *createNotification(const JsonDbOwner *owner, JsonDbObject object);
     void removeNotification(const QString &uuid);
 
-    QString filePath() const { return mFilePath; }
-
     static void setError( QJsonObject& map, int code, const QString &message );
     static QJsonObject makeError(int code, const QString &message);
     static QJsonObject makeResponse(const QJsonObject& resultmap, const QJsonObject& errormap, bool silent = false);
     static QJsonObject makeErrorResponse(QJsonObject &resultmap, int code, const QString &message, bool silent = false );
     static bool responseIsError( QJsonObject responseMap );
-
-    static QString uuidhex(uint data, int digits);
-    static QString createDatabaseId();
 
     JsonDbPartition *findPartition(const QString &name) const;
     QJsonObject createPartition(const JsonDbObject &object);
