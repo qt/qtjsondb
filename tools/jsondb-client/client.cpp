@@ -371,18 +371,10 @@ void Client::usage()
               << "   create [partition:<name>] OBJECT" << std::endl
               << "   update [partition:<name>] OBJECT" << std::endl
               << "   remove [partition:<name>] OBJECT" << std::endl
-              << "   remove [partition:<name>] QUERY" << std::endl
-              << "   find [partition:<name>] QUERY" << std::endl
+              << "   query [partition:<name>] STRING [limit]" << std::endl
+              << "   notify [partition:<name>] ACTIONS QUERY" << std::endl
               << "   changesSince [partition:<name>] STATENUMBER [type1 type2 ...]" << std::endl
               << "   load FILE1 FILE2 ..." << std::endl
-              << std::endl
-              << "Convenience functions" << std::endl
-              << "   query STRING [limit]" << std::endl
-              << "                  find {\"query\": STRING}" << std::endl
-              << "   notify ACTIONS QUERY" << std::endl
-              << "                  create { \"_type\": \"notification\"," << std::endl
-              << "                           \"query\": QUERY," << std::endl
-              << "                           \"actions\": ACTIONS }" << std::endl
               << "   help" << std::endl
               << "   quit" << std::endl
               << std::endl
