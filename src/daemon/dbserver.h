@@ -90,10 +90,11 @@ protected slots:
     void handleConnectionError();
     void removeConnection();
 
-    void notified(const QString &id, const QJsonObject &object, const QString &action);
+    void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
     void objectsUpdated(const JsonDbUpdateList &objects);
 
 private:
+    void objectUpdated(JsonDbPartition *partition, quint32 stateNumber, JsonDbNotification *n, JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object);
 
     bool loadPartitions();
     void reduceMemoryUsage();
@@ -109,6 +110,7 @@ private:
     JsonDbObjectList checkForNotifications(const JsonDbObjectList &objects);
     void createNotification(const JsonDbObject &object, JsonStream *stream);
     void removeNotification(const JsonDbObject &object);
+    void notifyHistoricalChanges(JsonDbNotification *n);
     void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition);
 
     JsonDbPartition* findPartition(const QString &partitionName);

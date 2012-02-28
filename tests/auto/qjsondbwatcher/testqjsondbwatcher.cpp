@@ -46,10 +46,12 @@
 #include <QEventLoop>
 #include <QDebug>
 #include <QTimer>
+#include <QUuid>
 
 #include "qjsonobject.h"
 #include "qjsonvalue.h"
 #include "qjsonarray.h"
+#include "qjsondocument.h"
 
 #include "qjsondbconnection.h"
 #include "qjsondbwatcher.h"
@@ -76,6 +78,8 @@ private slots:
     void cleanupTestCase();
 
     void createAndRemove();
+    void history();
+    void currentState();
 
 public slots:
     // from mConnection
@@ -86,7 +90,7 @@ public slots:
     // from a request
     void onRequestFinished();
     void onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString);
-
+    void onRequestStatusChanged(QtJsonDb::QJsonDbRequest::Status);
     // from a watcher
     void onWatcherNotificationsAvailable(int);
     void onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status);
@@ -103,6 +107,8 @@ private:
     // what we're waiting for
     QJsonDbRequest    *mRequest;
     int                mNotificationCount;
+    int                mNotificationsReceived;
+
 };
 
 #ifndef DONT_START_SERVER
@@ -114,6 +120,7 @@ static const char dbfileprefix[] = "test-jsondb-watcher";
     {                                                           \
         mRequest = _request;                                    \
         mNotificationCount = _count;                            \
+        mNotificationsReceived = 0;                             \
         mEventLoop.exec(QEventLoop::AllEvents);                 \
     }
 
@@ -145,21 +152,27 @@ void TestQJsonDbWatcher::disconnected()
 void TestQJsonDbWatcher::onRequestFinished()
 {
     mRequest = 0;
-    if (mNotificationCount == 0)
+    if (mNotificationCount <= mNotificationsReceived)
         mEventLoop.quit();
 }
 
 // this should go into a new version of clientwrapper.h
-void TestQJsonDbWatcher::onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)
+void TestQJsonDbWatcher::onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, QString msg)
 {
+    qCritical() << "onRequestError" << code << msg;
     mEventLoop.quit();
+}
+void TestQJsonDbWatcher::onRequestStatusChanged(QtJsonDb::QJsonDbRequest::Status status)
+{
+    Q_UNUSED(status);
+    //qDebug() << "onRequestStatusChanged" << status;
 }
 
 // this should go into a new version of clientwrapper.h
 void TestQJsonDbWatcher::onWatcherNotificationsAvailable(int count)
 {
-    mNotificationCount -= count;
-    if (mRequest == 0 && mNotificationCount == 0)
+    mNotificationsReceived = count;
+    if (mRequest == 0 && mNotificationCount <= mNotificationsReceived)
         mEventLoop.quit();
 }
 
@@ -236,7 +249,7 @@ void TestQJsonDbWatcher::createAndRemove()
     // create a watcher
     QJsonDbWatcher watcher;
     watcher.setWatchedActions(QJsonDbWatcher::All);
-    watcher.setQuery(QLatin1String("[?_type=\"com.test.create-test\"]"));
+    watcher.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
     connect(&watcher, SIGNAL(notificationsAvailable(int)),
             this, SLOT(onWatcherNotificationsAvailable(int)));
     connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
@@ -245,7 +258,7 @@ void TestQJsonDbWatcher::createAndRemove()
     mConnection->addWatcher(&watcher);
 
     QJsonObject item;
-    item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.create-test"));
+    item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
     item.insert("create-test", 22);
 
     // Create an item
@@ -280,10 +293,127 @@ void TestQJsonDbWatcher::createAndRemove()
     // make sure we got notified on the right object
     QCOMPARE(o.value(JsonDbStrings::Property::uuid()), info.value(JsonDbStrings::Property::uuid()));
 
-    // we are not expecting a tombstone because notifications as
-    // originally defined sent the object to be deleted and not the
-    // tombstone.
-    QVERIFY(!o.contains(JsonDbStrings::Property::deleted()));
+    // we do now expect a tombstone
+    QVERIFY(o.contains(JsonDbStrings::Property::deleted()));
+
+    mConnection->removeWatcher(&watcher);
+}
+
+void TestQJsonDbWatcher::history()
+{
+    QVERIFY(mConnection);
+
+    QFile dataFile(":/daemon/json/largeContactsTest.json");
+    QVERIFY(dataFile.exists());
+    dataFile.open(QIODevice::ReadOnly);
+    QByteArray json = dataFile.readAll();
+    QVERIFY(json.size());
+    dataFile.close();
+    QJsonDocument doc(QJsonDocument::fromJson(json));
+    QVERIFY(doc.isArray());
+    QJsonArray array = doc.array();
+    // make a request and connect it
+    quint32 firstStateNumber = 0;
+    quint32 lastStateNumber = 0;
+
+    // pass the empty object list to make the constructor happy
+    QList<QJsonObject> objects;
+    QJsonDbCreateRequest request(objects);
+    connect(&request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
+    connect(&request, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+            this, SLOT(onRequestStatusChanged(QtJsonDb::QJsonDbRequest::Status)));
+    connect(&request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+
+    for (int i = 0; i < qMin(100, array.size()); i++) {
+        QJsonObject item = array.at(i).toObject();
+
+        // why does QJsonDbCreate request require me to set the Uuid? /me thinks it's a bug
+        item.insert(JsonDbStrings::Property::uuid(), QUuid::createUuid().toString());
+        item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
+        objects.append(item);
+
+        request.setObjects(QList<QJsonObject>() << item);
+
+        // Create the item
+        mConnection->send(&request);
+        waitForResponseAndNotification(&request, 0);
+        if (!firstStateNumber)
+            firstStateNumber = request.stateNumber();
+        lastStateNumber = request.stateNumber();
+    }
+    QVERIFY(firstStateNumber);
+
+    // create a historical watcher
+    QJsonDbWatcher watcher;
+    watcher.setWatchedActions(QJsonDbWatcher::All);
+    watcher.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
+    connect(&watcher, SIGNAL(notificationsAvailable(int)),
+            this, SLOT(onWatcherNotificationsAvailable(int)));
+    connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
+            this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+
+    // set the starting state
+    watcher.setInitialStateNumber(firstStateNumber-1);
+    mConnection->addWatcher(&watcher);
+
+    // expecting one notification per create and one state change
+    waitForResponseAndNotification(0, objects.size()+1);
+
+    QList<QJsonDbNotification> notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.size(), objects.size()+1);
+    // we received one Create notification per object
+    foreach (const QJsonDbNotification n, notifications.mid(0, objects.size()))
+        QCOMPARE(n.action(), QJsonDbWatcher::Created);
+    // we received one StateChanged notification
+    QCOMPARE(notifications.at(objects.size()).action(), QJsonDbWatcher::StateChanged);
+
+    mConnection->removeWatcher(&watcher);
+}
+
+void TestQJsonDbWatcher::currentState()
+{
+    QJsonDbWatcher watcher;
+    watcher.setWatchedActions(QJsonDbWatcher::All);
+    watcher.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
+    connect(&watcher, SIGNAL(notificationsAvailable(int)),
+            this, SLOT(onWatcherNotificationsAvailable(int)));
+    connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
+            this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+
+    // set the starting state to -1 to get the current state
+    watcher.setInitialStateNumber(static_cast<quint32>(-1));
+    mConnection->addWatcher(&watcher);
+
+    // expecting one notification per create and one state change
+    bool stateChanged = false;
+    while (!stateChanged) {
+      // wait for a notification
+      waitForResponseAndNotification(0, 1);
+      QList<QJsonDbNotification> notifications = watcher.takeNotifications();
+      foreach (const QJsonDbNotification n, notifications)
+        if (n.action() == QJsonDbWatcher::StateChanged)
+          stateChanged = true;
+    }
+
+    // now create another object
+    {
+        QJsonObject item;
+        item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
+        item.insert("create-test", 22);
+
+        // Create an item
+        QJsonDbCreateRequest request(item);
+        connect(&request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
+        connect(&request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        mConnection->send(&request);
+        waitForResponseAndNotification(&request, 1);
+    }
+    QList<QJsonDbNotification> notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.size(), 1);
 
     mConnection->removeWatcher(&watcher);
 }

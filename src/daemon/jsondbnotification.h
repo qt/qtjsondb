@@ -68,6 +68,8 @@ public:
     JsonDbQuery *parsedQuery() { return mCompiledQuery; }
     void            setCompiledQuery(JsonDbQuery *parsedQuery) { mCompiledQuery = parsedQuery; }
     const QString & partition() const { return mPartition; }
+    quint32 initialStateNumber() const { return mInitialStateNumber; }
+    void setInitialStateNumber(quint32 stateNumber) { mInitialStateNumber = stateNumber; }
 private:
     const JsonDbOwner *mOwner;
     QString       mUuid;
@@ -75,6 +77,7 @@ private:
     JsonDbQuery *mCompiledQuery;
     Actions       mActions;
     QString       mPartition;
+    quint32       mInitialStateNumber;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(JsonDbNotification::Actions)

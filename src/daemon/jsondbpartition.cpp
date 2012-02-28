@@ -646,7 +646,6 @@ QJsonObject JsonDbPartition::changesSince(quint32 stateNumber, const QSet<QStrin
     else
         foreach (const QString &limitType, limitTypes) {
             JsonDbObjectTable *ot = findObjectTable(limitType);
-            qDebug() << "changesSince" << limitType << QString::number((long long)ot, 16);
             if (!objectTable)
                 objectTable = ot;
             else if (ot == objectTable)

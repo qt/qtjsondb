@@ -57,7 +57,7 @@ QT_BEGIN_NAMESPACE_JSONDB
     This is a single notification event that is emitted by QJsonDbWatcher class
     when an object matching a query string was changed in the database.
 
-    \sa QJsonDbWatcher::notificationsAvailable(), QJsonDbWatcher::takeNotifications()
+    \sa QJsonDbWatcher::notificationsAvailable(), QJsonDbWatcher::takeNotifications(), QJsonDbWatcher::query()
 */
 
 /*!
@@ -79,9 +79,12 @@ QJsonDbNotification::QJsonDbNotification(const QJsonObject &object, QJsonDbWatch
     \li If the action() is QJsonDbWatcher::Updated, the object contains the
     latest version of the object.
 
-    \li If the action() is QJsonDbWatcher::Removed, the object contains the
-    \c{_uuid} and \c{_version} of the object that no longer matches the watcher
-    query string.
+    \li If the action() is QJsonDbWatcher::Removed, the object
+    contains the \c{_uuid} and \c{_version} of the object that no
+    longer matches the watcher query string, and the object contains
+    the property \c{_deleted} with value \c{true}.
+
+    \li If the action() is QJsonDbWatcher::StateChanged, the object is empty.
 
     \endlist
 
@@ -94,6 +97,8 @@ QJsonObject QJsonDbNotification::object() const
 
 /*!
     Returns the notification action.
+
+    \sa QJsonDbWatcher::query()
 */
 QJsonDbWatcher::Action QJsonDbNotification::action() const
 {
@@ -119,9 +124,9 @@ QJsonDbWatcherPrivate::QJsonDbWatcherPrivate(QJsonDbWatcher *q)
     \class QJsonDbWatcher
     \inmodule QtJsonDb
 
-    \brief The QJsonDbWatcher class allows to watch live database changes.
+    \brief The QJsonDbWatcher class allows to watch database changes.
 
-    This class is used to configure what live database changes should result in
+    This class is used to configure what database changes should result in
     notification events. The notificationsAvailable() signal is emitted
     whenever an object matching the given \l{QJsonDbWatcher::query}{query} was
     created or updated or removed from the database (depending on the
@@ -165,6 +170,7 @@ QJsonDbWatcherPrivate::QJsonDbWatcherPrivate(QJsonDbWatcher *q)
     \value Created Watches for objects to start matching the given query string.
     \value Updated Watches for modifications of objects matching the given query.
     \value Removed Watches for objects that stop matching the given query string.
+    \value StateChanged Watches for database state changes.
     \value All A convenience value that specifies to watch for all possible actions.
 */
 /*!
@@ -174,7 +180,7 @@ QJsonDbWatcherPrivate::QJsonDbWatcherPrivate(QJsonDbWatcher *q)
 
     \value Inactive The watcher does not current watch database changes.
     \value Activating The watcher is being activated.
-    \value Active The watcher is successfully setup to watch for live database changes.
+    \value Active The watcher is successfully setup to watch for database changes.
 */
 /*!
     \enum QJsonDbWatcher::ErrorCode
@@ -240,7 +246,20 @@ QJsonDbWatcher::Actions QJsonDbWatcher::watchedActions() const
 /*!
     \property QJsonDbWatcher::query
     Specifies the query this watcher is registered for.
-*/
+
+    Notifications will be delivered to the watcher for any changes
+    that match the query. For object creation, a change matches the
+    query if the query matches the object.
+
+    For object update or removal, a change matches the query if either
+    the initial state or final state of the object matches the
+    query. If the change matches the query in its initial state but
+    not it final state, then the action is reported as
+    QJsonDbWatcher::Removed. If the change matches the query in its
+    final state but not its initial state, the action is reported as
+    QJsonDbWatcher::Created.
+
+ */
 void QJsonDbWatcher::setQuery(const QString &query)
 {
     Q_D(QJsonDbWatcher);
@@ -279,6 +298,16 @@ QString QJsonDbWatcher::partition() const
     Specifies from which database state number the watcher should start
     watching for notifications.
 
+    Defaults to 0, specifying to watch for live database changes only.
+
+    If stateNumber is 0xFFFFFFFF (-1), then the watcher will receive a
+    notification for every object in the database matching query and
+    then will receive ongoing notifications as actions are performed
+    on matching objects.
+
+    For state numbers in the past, the watcher will receive
+    notifications for actions starting at the initialStateNumber.
+
     \sa lastStateNumber()
 */
 void QJsonDbWatcher::setInitialStateNumber(quint32 stateNumber)
@@ -299,7 +328,7 @@ quint32 QJsonDbWatcher::initialStateNumber() const
 /*!
     \property QJsonDbWatcher::lastStateNumber
 
-    Specifies the last database state number the watcher received notifications for.
+    Indicates the last database state number for which the watcher received notifications.
 
     This property contains valid data only after watcher was successfully
     activated (i.e. the watcher state was changed to QJsonDbWatcher::Active).
@@ -369,15 +398,16 @@ void QJsonDbWatcherPrivate::_q_onError(QtJsonDb::QJsonDbRequest::ErrorCode code,
     emit q->error(error, message);
 }
 
-void QJsonDbWatcherPrivate::handleNotification(QJsonDbWatcher::Action action, const QJsonObject &object)
+void QJsonDbWatcherPrivate::handleNotification(quint32 stateNumber, QJsonDbWatcher::Action action, const QJsonObject &object)
 {
     Q_Q(QJsonDbWatcher);
     if (!actions.testFlag(action))
         return;
     Q_ASSERT(!object.isEmpty());
-    quint32 stateNumber = 0; // ### TODO:
-    // lastStateNumber = stateNumber;
-    // emit q->lastStateNumberChanged(stateNumber);
+    if (stateNumber != lastStateNumber) {
+        lastStateNumber = stateNumber;
+        emit q->lastStateNumberChanged(stateNumber);
+    }
     QJsonDbNotification n(object, action, stateNumber);
     notifications.append(n);
     emit q->notificationsAvailable(notifications.size());

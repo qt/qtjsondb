@@ -102,6 +102,7 @@ public:
     static inline const QString bindings() { return QStringLiteral("bindings"); }
     static inline const QString state() { return QStringLiteral("state"); }
     static inline const QString sortKeys() { return QStringLiteral("sortKeys"); }
+    static inline const QString initialStateNumber() { return QStringLiteral("initialStateNumber"); }
     static inline const QString startingStateNumber() { return QStringLiteral("startingStateNumber"); }
     static inline const QString currentStateNumber() { return QStringLiteral("currentStateNumber"); }
 };
@@ -118,6 +119,7 @@ public:
     static inline const QString actionCreate() { return QStringLiteral("create"); }
     static inline const QString actionUpdate() { return QStringLiteral("update"); }
     static inline const QString actionRemove() { return QStringLiteral("remove"); }
+    static inline const QString actionStateChange() { return QStringLiteral("stateChange"); }
 };
 
 } // namespace JsonDbStrings
