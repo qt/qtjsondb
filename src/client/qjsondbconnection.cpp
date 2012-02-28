@@ -212,10 +212,14 @@ void QJsonDbConnectionPrivate::_q_onDisconnected()
 
     QJsonDbConnection::Status newStatus;
     if (shouldAutoReconnect()) {
-        newStatus = QJsonDbConnection::Connecting;
-        if (!timeoutTimer.isActive()) {
-            timeoutTimer.setInterval(5000);
-            timeoutTimer.start();
+        status = QJsonDbConnection::Unconnected;
+        emit q->statusChanged(status);
+        if (!explicitDisconnect && status == QJsonDbConnection::Unconnected) {
+            newStatus = QJsonDbConnection::Connecting;
+            if (!timeoutTimer.isActive()) {
+                timeoutTimer.setInterval(5000);
+                timeoutTimer.start();
+            }
         }
     } else {
         newStatus = QJsonDbConnection::Unconnected;
