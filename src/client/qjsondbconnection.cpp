@@ -42,7 +42,6 @@
 #include "qjsondbconnection_p.h"
 #include "qjsondbwriterequest.h"
 #include "qjsondbrequest_p.h"
-#include "qjsondbauthrequest_p.h"
 #include "qjsondbwatcher_p.h"
 #include "qjsondbstrings_p.h"
 #include "qjsondbobject.h"
@@ -158,7 +157,6 @@ QJsonDbConnectionPrivate::QJsonDbConnectionPrivate(QJsonDbConnection *q)
     timeoutTimer.setSingleShot(true);
     timeoutTimer.setTimerType(Qt::VeryCoarseTimer);
     QObject::connect(&timeoutTimer, SIGNAL(timeout()), q, SLOT(_q_onTimer()));
-    defaultAuthenticationToken = qgetenv("JSONDB_TOKEN");
     socket = new QLocalSocket(q);
     QObject::connect(socket, SIGNAL(disconnected()), q_ptr, SLOT(_q_onDisconnected()));
     QObject::connect(socket, SIGNAL(connected()), q_ptr, SLOT(_q_onConnected()));
@@ -174,23 +172,6 @@ void QJsonDbConnectionPrivate::_q_onConnected()
 {
     Q_Q(QJsonDbConnection);
     Q_ASSERT(status == QJsonDbConnection::Connecting);
-    QByteArray token = authenticationToken.isEmpty() ? defaultAuthenticationToken : authenticationToken;
-    if (!token.isEmpty()) {
-        status = QJsonDbConnection::Authenticating;
-        emit q->statusChanged(status);
-        QJsonDbAuthRequest *request = new QJsonDbAuthRequest(q);
-        request->QJsonDbRequest::d_func()->internal = true;
-        request->setToken(token);
-        QObject::connect(request, SIGNAL(finished()), q, SLOT(_q_onAuthFinished()));
-        QObject::connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
-                         q, SLOT(_q_onAuthError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
-        // auto delete request after it's complete
-        QObject::connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
-        QObject::connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
-                         request, SLOT(deleteLater()));
-        q->send(request);
-        return;
-    }
     status = QJsonDbConnection::Connected;
     emit q->statusChanged(status);
     emit q->connected();
@@ -334,9 +315,6 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
         QJsonValue result = object.value(JsonDbStrings::Protocol::result());
         if (result.isObject()) {
             drequest->handleResponse(result.toObject());
-        } else if (result.isString()) {
-            // ### TODO: meeeh, hack for response to authentication token
-            drequest->handleResponse(QJsonObject());
         } else {
             QJsonObject error = object.value(JsonDbStrings::Protocol::error()).toObject();
             int code = static_cast<int>(error.value(JsonDbStrings::Protocol::errorCode()).toDouble());

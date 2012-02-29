@@ -73,9 +73,6 @@ public:
     };
 
     static JsonDbConnection *instance();
-    static void              setDefaultToken( const QString& token );
-    static QString           defaultToken();
-
 
     static QVariantMap makeCreateRequest(const QVariant &, const QString &partitionName = QString());
     static QVariantMap makeUpdateRequest(const QVariant &, const QString &partitionName = QString());
@@ -100,7 +97,6 @@ public:
     // Synchronized calls pause execution until successful
     QVariant sync(const QVariantMap &dbrequest);
 
-    void setToken(const QString &token);
     void connectToServer(const QString &socketName = QString());
     void connectToHost(const QString &hostname, quint16 port);
     void disconnectFromServer();

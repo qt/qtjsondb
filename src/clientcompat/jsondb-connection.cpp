@@ -51,8 +51,6 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 Q_GLOBAL_STATIC(JsonDbConnection, qtjsondbConnection)
 
-QString JsonDbConnectionPrivate::sDefaultToken;
-
 /*!
   \internal
   \class JsonDbConnection
@@ -70,22 +68,6 @@ JsonDbConnection *JsonDbConnection::instance()
 {
     JsonDbConnection *c = qtjsondbConnection();
     return c;
-}
-
-/*!
-  Sets the default security token to \a token.
-*/
-void JsonDbConnection::setDefaultToken( const QString& token )
-{
-    JsonDbConnectionPrivate::sDefaultToken = token;
-}
-
-/*!
-  Returns the default security for the connection.
-*/
-QString JsonDbConnection::defaultToken()
-{
-    return JsonDbConnectionPrivate::sDefaultToken;
 }
 
 /*!
@@ -214,11 +196,6 @@ QVariantMap JsonDbConnection::makeChangesSinceRequest(int stateNumber, const QSt
 JsonDbConnection::JsonDbConnection(QObject *parent)
     : QObject(parent), d_ptr(new JsonDbConnectionPrivate(this))
 {
-    Q_D(JsonDbConnection);
-    if (!JsonDbConnectionPrivate::sDefaultToken.isEmpty())
-        d->mToken = JsonDbConnectionPrivate::sDefaultToken;
-    else
-        d->mToken = QLatin1String(::getenv("JSONDB_TOKEN"));
 }
 
 JsonDbConnection::~JsonDbConnection()
@@ -301,7 +278,6 @@ void JsonDbConnection::disconnectFromServer()
         d->socket->disconnectFromServer();
 
     d->status = JsonDbConnection::Disconnected;
-    d->tokenRequestId = -1;
 }
 
 
@@ -317,22 +293,8 @@ void JsonDbConnectionPrivate::_q_onConnected()
     QObject::disconnect(&mStream, SIGNAL(receive(QJsonObject)), q, SLOT(_q_onReceiveMessage(QJsonObject)));
     QObject::connect(&mStream, SIGNAL(receive(QJsonObject)), q, SLOT(_q_onReceiveMessage(QJsonObject)));
 
-    if (!mToken.isEmpty()) {
-        QJsonObject request;
-        tokenRequestId = q->makeRequestId();
-        request.insert(JsonDbString::kIdStr, tokenRequestId);
-        request.insert(JsonDbString::kActionStr, JsonDbString::kTokenStr);
-        request.insert(JsonDbString::kObjectStr, mToken);
-        mStream.send(request);
-
-        status = JsonDbConnection::Authenticating;
-        emit q->statusChanged();
-    } else {
-        // if we don't need a token, then we are done
-        status = JsonDbConnection::Ready;
-        emit q->statusChanged();
-    }
-
+    status = JsonDbConnection::Ready;
+    emit q->statusChanged();
     emit q->connected();
 }
 
@@ -427,16 +389,6 @@ void JsonDbConnectionPrivate::_q_onReceiveMessage(const QJsonObject &qjsonMsg)
 {
     Q_Q(JsonDbConnection);
     int id = qjsonMsg.value(JsonDbString::kIdStr).toDouble();
-    if (id == tokenRequestId) {
-        bool error = qjsonMsg.value(JsonDbString::kErrorStr).type() != QJsonValue::Null;
-        // if token auth failed, socket will be disconnected.
-        if (!error) {
-            status = JsonDbConnection::Ready;
-            errorString = QLatin1String("Token authentication failed");
-            emit q->statusChanged();
-        }
-        return;
-    }
 
     if (qjsonMsg.contains(JsonDbString::kNotifyStr)) {
         QJsonObject nmap = qjsonMsg.value(JsonDbString::kNotifyStr).toObject();
@@ -497,14 +449,6 @@ QVariant JsonDbConnection::sync(const QVariantMap &dbrequest)
     syncThread.start();
     syncThread.wait();
     return result;
-}
-
-/*!
-    Sets the security token for this connection.
-*/
-void JsonDbConnection::setToken(const QString &token)
-{
-    d_func()->mToken = token;
 }
 
 /*!

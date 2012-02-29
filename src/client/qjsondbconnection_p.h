@@ -101,8 +101,6 @@ public:
     QJsonDbConnection *q_ptr;
     QString socketName;
     QJsonDbConnection::Status status;
-    QByteArray authenticationToken;
-    QByteArray defaultAuthenticationToken;
     bool autoReconnectEnabled;
     bool explicitDisconnect;
     QTimer timeoutTimer;

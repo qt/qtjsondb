@@ -608,19 +608,6 @@ JsonDbOwner *DBServer::createDummyOwner( JsonStream *stream)
     return mOwners[stream->device()];
 }
 
-void DBServer::processToken(JsonStream *stream, const QJsonValue &object, int id)
-{
-    // Always succeed. Authentication is done using the socket peer credentials in getOwner()
-    Q_UNUSED(object);
-    QJsonObject resultObject;
-    resultObject.insert(JsonDbString::kResultStr, QLatin1String("Okay"));
-    QJsonObject result;
-    result.insert(JsonDbString::kResultStr, resultObject);
-    result.insert(JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
-    result.insert(JsonDbString::kIdStr, id);
-    stream->send(result);
-}
-
 void DBServer::processFlush(JsonStream *stream, JsonDbOwner *owner, const QString &partition, int id)
 {
     QJsonObject result = mJsonDb->flush(owner, partition);
@@ -681,8 +668,6 @@ void DBServer::receiveMessage(const QJsonObject &message)
             processCreate(stream, owner, object, id, partitionName, writeMode);
     } else if (action == JsonDbString::kFindStr) {
         processFind(stream, owner, object, id, partitionName);
-    } else if (action == JsonDbString::kTokenStr) {
-        processToken(stream, object, id);
     } else if (action == JsonDbString::kChangesSinceStr) {
         processChangesSince(stream, owner, object, id, partitionName);
     } else if (action == JsonDbString::kFlushStr) {

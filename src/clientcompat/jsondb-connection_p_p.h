@@ -64,8 +64,7 @@ class JsonDbConnectionPrivate
     Q_DECLARE_PUBLIC(JsonDbConnection)
 public:
     JsonDbConnectionPrivate(JsonDbConnection *q)
-        : q_ptr(q), socket(0), tcpSocket(0), mStream(0, q), mId(1), status(JsonDbConnection::Null),
-          tokenRequestId(-1)
+        : q_ptr(q), socket(0), tcpSocket(0), mStream(0, q), mId(1), status(JsonDbConnection::Null)
     { }
     ~JsonDbConnectionPrivate()
     { }
@@ -75,17 +74,13 @@ public:
     void _q_onReceiveMessage(const QJsonObject &);
     void _q_onError(QLocalSocket::LocalSocketError error);
 
-    static QString sDefaultToken;
-
     JsonDbConnection *q_ptr;
     QLocalSocket *socket;
     QTcpSocket *tcpSocket;
     JsonStream mStream;
     int mId;
-    QString mToken;
     JsonDbConnection::Status status;
     QString errorString;
-    int tokenRequestId;
 };
 
 /*!

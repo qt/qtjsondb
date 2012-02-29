@@ -67,7 +67,6 @@ public:
     static inline const QString update() { return QStringLiteral("update"); }
     static inline const QString remove() { return QStringLiteral("remove"); }
     static inline const QString query() { return QStringLiteral("find"); }
-    static inline const QString token() { return QStringLiteral("token"); }
     static inline const QString changesSince() { return QStringLiteral("changesSince"); }
     static inline const QString flush() { return QStringLiteral("flush"); }
     static inline const QString object() { return QStringLiteral("object"); }
