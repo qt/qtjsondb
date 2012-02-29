@@ -74,6 +74,21 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, const JsonDbOwner *owne
     , mTargetType(definition.value("targetType").toString())
     , mTargetTable(mPartition->findObjectTable(mTargetType))
 {
+    if (!mDefinition.contains("sourceType")) {
+        QJsonObject sourceFunctions(mDefinition.contains("join")
+                                   ? mDefinition.value("join").toObject()
+                                   : mDefinition.value("map").toObject());
+        mSourceTypes = sourceFunctions.keys();
+        for (int i = 0; i < mSourceTypes.size(); i++) {
+            const QString &sourceType = mSourceTypes[i];
+            mSourceTables[sourceType] = mJsonDb->findPartition(mPartition->name())->findObjectTable(sourceType);
+        }
+    } else {
+        // TODO: remove this case
+        const QString sourceType = mDefinition.value("sourceType").toString();
+        mSourceTables[sourceType] = mJsonDb->findPartition(mPartition->name())->findObjectTable(sourceType);
+        mSourceTypes.append(sourceType);
+    }
 }
 
 
@@ -91,7 +106,6 @@ void JsonDbMapDefinition::initScriptEngine()
         QJsonObject sourceFunctions(mDefinition.contains("join")
                                    ? mDefinition.value("join").toObject()
                                    : mDefinition.value("map").toObject());
-        mSourceTypes = sourceFunctions.keys();
         for (int i = 0; i < mSourceTypes.size(); i++) {
             const QString &sourceType = mSourceTypes[i];
             const QString &script = sourceFunctions.value(sourceType).toString();
@@ -100,8 +114,6 @@ void JsonDbMapDefinition::initScriptEngine()
             if (mapFunction.isError() || !mapFunction.isCallable())
                 setError( "Unable to parse map function: " + mapFunction.toString());
             mMapFunctions[sourceType] = mapFunction;
-
-            mSourceTables[sourceType] = mJsonDb->findPartition(mPartition->name())->findObjectTable(sourceType);
         }
 
         mJoinProxy = new JsonDbJoinProxy(mOwner, mJsonDb, this);
@@ -126,9 +138,6 @@ void JsonDbMapDefinition::initScriptEngine()
         if (mapFunction.isError() || !mapFunction.isCallable())
             setError( "Unable to parse map function: " + mapFunction.toString());
         mMapFunctions[sourceType] = mapFunction;
-
-        mSourceTables[sourceType] = mJsonDb->findPartition(mPartition->name())->findObjectTable(sourceType);
-        mSourceTypes.append(sourceType);
 
         mMapProxy = new JsonDbMapProxy(mOwner, mJsonDb, this);
         connect(mMapProxy, SIGNAL(lookupRequested(QJSValue,QJSValue)),
