@@ -281,17 +281,21 @@ void JsonDbView::updateMap()
 {
     JsonDbObjectTable *targetTable = mObjectTable;
     quint32 targetStateNumber = qMax(1u, targetTable->stateNumber());
+    JsonDbObjectTable *definitionTable = mPartition->findObjectTable("Map");
+    quint32 partitionStateNumber = definitionTable->stateNumber();
+    if (targetStateNumber == partitionStateNumber)
+        return;
     if (jsondbSettings->verbose())
-        qDebug() << "JsonDb::updateMap" << mViewType << targetStateNumber << "targetStateNumber" << targetStateNumber;
+        qDebug() << "JsonDb::updateMap" << mViewType << "targetStateNumber" << targetStateNumber << "partitionStateNumber" << partitionStateNumber;
 
     QHash<QString,JsonDbMapDefinition *> mapDefinitions;
     QSet<JsonDbObjectTable *>                  sourceTables;
     QMultiMap<JsonDbObjectTable *,QString>     objectTableSourceType;
     QMap<QString, QJsonObject> addedJsonDbMapDefinitions;   // uuid -> added definition
     QMap<QString, QJsonObject> removedJsonDbMapDefinitions; // uuid -> removed definition
-    quint32 endStateNumber =
-        findUpdatedMapJsonDbReduceDefinitions(JsonDbString::kMapTypeStr,
-                                        mViewType, targetStateNumber, addedJsonDbMapDefinitions, removedJsonDbMapDefinitions);
+    findUpdatedDefinitions(JsonDbString::kMapTypeStr,
+                           mViewType, targetStateNumber, addedJsonDbMapDefinitions, removedJsonDbMapDefinitions);
+
     for (QSet<JsonDbMapDefinition*>::const_iterator it = mJsonDbMapDefinitions.begin();
          it != mJsonDbMapDefinitions.end();
          ++it) {
@@ -306,22 +310,15 @@ void JsonDbView::updateMap()
         }
     }
     if (sourceTables.isEmpty() && addedJsonDbMapDefinitions.isEmpty() && removedJsonDbMapDefinitions.isEmpty()) {
+        qDebug() << "no source tables or updated/removed definitions.";
         return;
     }
 
     for (QMap<JsonDbObjectTable *,QString>::const_iterator it = objectTableSourceType.begin();
          it != objectTableSourceType.end();
-         ++it) {
-        QString sourceType = it.value();
+         ++it)
         // make sure the source is updated
-        mPartition->updateView(sourceType);
-
-        if (!endStateNumber) {
-            JsonDbObjectTable *sourceTable = it.key();
-            quint32 sourceStateNumber = sourceTable->stateNumber();
-            endStateNumber = sourceStateNumber;
-        }
-    }
+        mPartition->updateView(it.value());
 
     // this transaction private to targetTable
     targetTable->begin();
@@ -344,7 +341,11 @@ void JsonDbView::updateMap()
          ++it) {
         JsonDbObjectTable *sourceTable = *it;
         QStringList sourceTypes = objectTableSourceType.values(sourceTable);
-        QJsonObject changesSince(sourceTable->changesSince(targetStateNumber));
+        if (sourceTable->stateNumber() == targetStateNumber)
+            // up-to-date with respect the source table
+            continue;
+
+        QJsonObject changesSince(sourceTable->changesSince(targetStateNumber, QSet<QString>::fromList(sourceTypes)));
         QJsonObject changes(changesSince.value("result").toObject());
         QJsonArray changeList(changes.value("changes").toArray());
         quint32 count = changeList.size();
@@ -374,9 +375,9 @@ void JsonDbView::updateMap()
         }
     }
 
-    bool ok = targetTable->commit(endStateNumber);
-    Q_UNUSED(ok);
-    Q_ASSERT(ok);
+    bool ok = targetTable->commit(partitionStateNumber);
+    if (!ok)
+        qCritical() << "Failed to commit transaction on map" << mViewType;
 }
 
 void JsonDbView::updateReduce()
@@ -385,25 +386,29 @@ void JsonDbView::updateReduce()
     JsonDbPartition *partition = mPartition;
     JsonDbObjectTable *targetTable = partition->findObjectTable(mViewType);
     quint32 targetStateNumber = qMax(1u, targetTable->stateNumber());
+    JsonDbObjectTable *definitionTable = mPartition->findObjectTable("Reduce");
+    quint32 partitionStateNumber = definitionTable->stateNumber();
+    if (targetStateNumber == partitionStateNumber)
+        return;
 
     if (jsondbSettings->verbose())
-        qDebug() << "JsonDb::updateReduce" << mViewType << targetStateNumber << "{";
+        qDebug() << "JsonDb::updateReduce" << mViewType << targetStateNumber << "partitionStateNumber" << partitionStateNumber << "{";
 
     QHash<QString,JsonDbReduceDefinition *> reduceDefinitions;
     QSet<JsonDbObjectTable *>                  sourceTables;
     QMultiMap<JsonDbObjectTable *,QString>     objectTableSourceType;
     QMap<QString, QJsonObject> addedJsonDbReduceDefinitions;   // uuid -> added definition
     QMap<QString, QJsonObject> removedJsonDbReduceDefinitions; // uuid -> removed definition
-    quint32 endStateNumber =
-        findUpdatedMapJsonDbReduceDefinitions(JsonDbString::kReduceTypeStr,
-                                        mViewType, targetStateNumber, addedJsonDbReduceDefinitions, removedJsonDbReduceDefinitions);
+    findUpdatedDefinitions(JsonDbString::kReduceTypeStr,
+                           mViewType, targetStateNumber, addedJsonDbReduceDefinitions, removedJsonDbReduceDefinitions);
     for (QSet<JsonDbReduceDefinition*>::const_iterator it = mJsonDbReduceDefinitions.begin();
          it != mJsonDbReduceDefinitions.end();
          ++it) {
         JsonDbReduceDefinition *def = *it;
+        const QString &sourceType = def->sourceType();
         if (addedJsonDbReduceDefinitions.contains(def->uuid()) || removedJsonDbReduceDefinitions.contains(def->uuid()))
             continue;
-        const QString &sourceType = def->sourceType();
+
         JsonDbObjectTable *sourceTable = partition->findObjectTable(sourceType);
 
         sourceTables.insert(sourceTable);
@@ -412,23 +417,15 @@ void JsonDbView::updateReduce()
     }
     if (sourceTables.isEmpty() && addedJsonDbReduceDefinitions.isEmpty() && removedJsonDbReduceDefinitions.isEmpty()) {
         if (jsondbSettings->verbose())
-            qDebug() << "}" << mViewType;
+            qDebug() << "no source tables or no changed reduce definitions" << "}" << mViewType;
         return;
     }
 
     for (QMap<JsonDbObjectTable*,QString>::const_iterator it = objectTableSourceType.begin();
          it != objectTableSourceType.end();
-         ++it) {
-        QString sourceType = it.value();
+         ++it)
         // make sure the source is updated
-        mPartition->updateView(sourceType);
-
-        if (!endStateNumber) {
-            JsonDbObjectTable *sourceTable = it.key();
-            quint32 sourceStateNumber = sourceTable->stateNumber();
-            endStateNumber = sourceStateNumber;
-        }
-    }
+        mPartition->updateView(it.value());
 
     // transaction private to this objecttable
     targetTable->begin();
@@ -451,10 +448,15 @@ void JsonDbView::updateReduce()
          ++it) {
         JsonDbObjectTable *sourceTable = *it;
         QStringList sourceTypes = objectTableSourceType.values(sourceTable);
-        QJsonObject changes = sourceTable->changesSince(targetStateNumber).value("result").toObject();
-        quint32 count = changes.value("count").toDouble();
-        QJsonArray changeList = changes.value("changes").toArray();
-        for (quint32 i = 0; i < count; i++) {
+        qDebug() << "reduce sourceTypes" << sourceTypes << endl << "targetStateNumber" << targetStateNumber << "sourceStateNumber" << sourceTable->stateNumber();
+        if (sourceTable->stateNumber() == targetStateNumber)
+            //up-to-date with respect to source table
+            continue;
+
+        QJsonObject result = sourceTable->changesSince(targetStateNumber
+                                                        , QSet<QString>::fromList(sourceTypes));
+        QJsonArray changeList = result.value("result").toObject().value("changes").toArray();
+        for (int i = 0; i < changeList.size(); i++) {
             QJsonObject change = changeList.at(i).toObject();
             QJsonObject before = change.value("before").toObject();
             QJsonObject after = change.value("after").toObject();
@@ -467,21 +469,22 @@ void JsonDbView::updateReduce()
         }
     }
 
-    bool committed = targetTable->commit(endStateNumber);
-    Q_UNUSED(committed);
-    Q_ASSERT(committed);
+    bool committed = targetTable->commit(partitionStateNumber);
+    if (!committed)
+        qCritical() << "Failed to commit transaction on view" << mViewType;
+
     if (jsondbSettings->verbose())
-        qDebug() << "}" << mViewType;
+        qDebug() << "}" << mViewType << partitionStateNumber;
 }
 
-quint32 JsonDbView::findUpdatedMapJsonDbReduceDefinitions(const QString &definitionType,
-                                                    const QString &viewType, quint32 targetStateNumber,
-                                                    QMap<QString,QJsonObject> &addedDefinitions, QMap<QString,QJsonObject> &removedDefinitions) const
+void JsonDbView::findUpdatedDefinitions(const QString &definitionType,
+                                        const QString &viewType, quint32 targetStateNumber,
+                                        QMap<QString,QJsonObject> &addedDefinitions, QMap<QString,QJsonObject> &removedDefinitions) const
 {
     JsonDbObjectTable *objectTable = mPartition->findObjectTable(definitionType);
     quint32 stateNumber = objectTable->stateNumber();
     if (stateNumber == targetStateNumber)
-        return stateNumber;
+        return;
     QSet<QString> limitTypes;
     limitTypes << definitionType;
     QJsonObject changes = objectTable->changesSince(targetStateNumber, limitTypes).value("result").toObject();
@@ -502,7 +505,6 @@ quint32 JsonDbView::findUpdatedMapJsonDbReduceDefinitions(const QString &definit
                 addedDefinitions.insert(after.value(JsonDbString::kUuidStr).toString(), after);
         }
     }
-    return stateNumber;
 }
 
 void JsonDbView::reduceMemoryUsage()

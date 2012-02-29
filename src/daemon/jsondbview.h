@@ -77,10 +77,10 @@ public:
     void removeJsonDbMapDefinition(QJsonObject mapDefinition);
     void createJsonDbReduceDefinition(QJsonObject reduceDefinition, bool firstTime);
     void removeJsonDbReduceDefinition(QJsonObject reduceDefinition);
-    quint32 findUpdatedMapJsonDbReduceDefinitions(const QString &definitionType,
-                                            const QString &viewType, quint32 targetStateNumber,
-                                            QMap<QString,QJsonObject> &addedDefinitions,
-                                            QMap<QString,QJsonObject> &removedDefinitions) const;
+    void findUpdatedDefinitions(const QString &definitionType,
+                                const QString &viewType, quint32 targetStateNumber,
+                                QMap<QString,QJsonObject> &addedDefinitions,
+                                QMap<QString,QJsonObject> &removedDefinitions) const;
 
     void updateView();
     void updateMap();
