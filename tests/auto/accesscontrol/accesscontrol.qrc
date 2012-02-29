@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/security">
+        <file>json</file>
+    </qresource>
+</RCC>
