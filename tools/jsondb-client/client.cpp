@@ -56,6 +56,7 @@ QT_USE_NAMESPACE
 const char* InputThread::commands[] = { "changesSince",
                                         "create {\"",
                                         "help",
+                                        "load",
                                         "notify create [?",
                                         "notify remove [?",
                                         "notify update [?",
@@ -373,6 +374,7 @@ void Client::usage()
               << "   remove [partition:<name>] QUERY" << std::endl
               << "   find [partition:<name>] QUERY" << std::endl
               << "   changesSince [partition:<name>] STATENUMBER [type1 type2 ...]" << std::endl
+              << "   load FILE1 FILE2 ..." << std::endl
               << std::endl
               << "Convenience functions" << std::endl
               << "   query STRING [limit]" << std::endl
@@ -517,6 +519,14 @@ bool Client::processCommand(const QString &command)
                 this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
         pushRequest(request);
         mConnection->send(request);
+    } else if (cmd == "load") {
+        QStringList filenames = rest.split(' ');
+        for (int i = 0; i < filenames.size(); i++) {
+            QString filename = filenames[i];
+            if (filename.startsWith('"'))
+                filenames[i] = filename.mid(1, filename.size()-2);
+        }
+        loadFiles(filenames);
     } else if (cmd == "changesSince") {
         qWarning() << "Not yet supported";
     } else if (cmd == "connect") {
@@ -566,7 +576,7 @@ void Client::loadNextFile()
     if (mFilesToLoad.isEmpty()) {
         if (mTerminate)
             emit terminate();
-        else
+        else if (!mInputThread)
             interactiveMode();
         return;
     }
