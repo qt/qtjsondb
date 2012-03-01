@@ -7,6 +7,7 @@ SUBDIRS = \
     jsondb-listmodel \
     jsondblistmodel \
     jsondbsortinglistmodel \
+    jsondbcachinglistmodel \
     jsondbpartition \
     jsondbnotification \
     jsondbqueryobject \

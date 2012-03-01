@@ -26,6 +26,10 @@
         <description>QML JsonDB Partition tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbpartition;date &amp;&amp; ./tst_jsondbpartition -platform minimal&amp;&amp; date</step>
       </case>
+      <case name="tst_jsondbcachinglistmodel" requirement="BAT,CST" component="qt5jsondb"  timeout="1000">
+        <description>QML JsonDB Caching ListModel tests</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbcachinglistmodel;date &amp;&amp; ./tst_jsondbcachinglistmodel -platform minimal&amp;&amp; date</step>
+      </case>
       <case name="tst_jsondbsortinglistmodel" requirement="CST" component="qt5jsondb"  timeout="1000">
         <description>QML JsonDB Sorting ListModel tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbsortinglistmodel;date &amp;&amp; ./tst_jsondbsortinglistmodel -platform minimal&amp;&amp; date</step>
