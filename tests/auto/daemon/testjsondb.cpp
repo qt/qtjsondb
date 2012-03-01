@@ -1812,20 +1812,42 @@ void TestJsonDb::mapUpdate()
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 4);
 
-    // tinker with a map
-    JsonDbObject map = maps.at(0);
-    map.insert("targetType", QString("ContactView2"));
-    QJsonObject result = mJsonDb->update(mOwner, map);
-    verifyGoodResult(result);
+    // remove a map
+    JsonDbObject map1 = maps.at(1);
+    QJsonObject result1 = mJsonDb->remove(mOwner, map1);
+    maps.removeOne(map1);
+    verifyGoodResult(result1);
 
     queryResult = mJsonDb->find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 2);
 
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"ContactView2\"]"));
+    // update a map
+    JsonDbObject map0 = maps.at(0);
+    QJsonObject sourceMap = map0.value("map").toObject();
+    sourceMap.insert("Contact3", sourceMap.value("Contact2"));;
+    map0.insert("map", sourceMap);
+    QJsonObject result0 = mJsonDb->update(mOwner, map0);
+    verifyGoodResult(result0);
+
     queryResult = mJsonDb->find(mOwner, query);
     verifyGoodQueryResult(queryResult);
-    QCOMPARE(queryResult.data.size(), 2);
+    QCOMPARE(queryResult.data.size(), 4);
+
+    // update the targetType
+    map0.insert("targetType", QLatin1String("ContactView2"));
+    result0 = mJsonDb->update(mOwner, map0);
+    verifyGoodResult(result0);
+
+    queryResult = mJsonDb->find(mOwner, query);
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 0);
+
+    QJsonObject query2;
+    query2.insert(JsonDbString::kQueryStr, QString("[?_type=\"ContactView2\"]"));
+    queryResult = mJsonDb->find(mOwner, query2);
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 4);
 
     for (int ii = 0; ii < maps.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, maps.at(ii)));

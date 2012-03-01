@@ -97,7 +97,6 @@ void JsonDbMapDefinition::initScriptEngine()
     if (mScriptEngine)
         return;
 
-    qDebug() << "initScriptEngine";
     mScriptEngine = new QJSEngine(this);
     QJSValue globalObject = mScriptEngine->globalObject();
     globalObject.setProperty("console", mScriptEngine->newQObject(new Console()));

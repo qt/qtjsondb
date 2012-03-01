@@ -66,25 +66,21 @@ public:
                QObject *parent = 0);
     ~JsonDbView();
     JsonDbPartition *partition() const { return mPartition; }
-    JsonDbObjectTable *objectTable() const { return mObjectTable; }
+    JsonDbObjectTable *objectTable() const { return mViewObjectTable; }
     QStringList sourceTypes() const { return mSourceTypes; }
 
     void open();
     void close();
 
     static void initViews(JsonDbPartition *partition, const QString &partitionName);
-    void createJsonDbMapDefinition(QJsonObject mapDefinition, bool firstTime);
-    void removeJsonDbMapDefinition(QJsonObject mapDefinition);
-    void createJsonDbReduceDefinition(QJsonObject reduceDefinition, bool firstTime);
-    void removeJsonDbReduceDefinition(QJsonObject reduceDefinition);
-    void findUpdatedDefinitions(const QString &definitionType,
-                                const QString &viewType, quint32 targetStateNumber,
-                                QMap<QString,QJsonObject> &addedDefinitions,
-                                QMap<QString,QJsonObject> &removedDefinitions) const;
+    void createMapDefinition(QJsonObject mapDefinition, bool firstTime);
+    void removeMapDefinition(QJsonObject mapDefinition);
+    void createReduceDefinition(QJsonObject reduceDefinition, bool firstTime);
+    void removeReduceDefinition(QJsonObject reduceDefinition);
+    bool processUpdatedDefinitions(const QString &viewType, quint32 targetStateNumber,
+                                   QSet<QString> &processedDefinitions);
 
     void updateView();
-    void updateMap();
-    void updateReduce();
     void reduceMemoryUsage();
 
 private:
@@ -92,13 +88,16 @@ private:
 private:
     JsonDb        *mJsonDb;
     JsonDbPartition *mPartition;
-    JsonDbObjectTable   *mObjectTable;
+    JsonDbObjectTable   *mViewObjectTable;     // view object table
+    JsonDbObjectTable   *mMainObjectTable; // partition's main object table
     QString        mViewType;
     QStringList    mSourceTypes;
-    QSet<JsonDbMapDefinition*> mJsonDbMapDefinitions;
-    QMultiMap<QString,JsonDbMapDefinition*> mJsonDbMapDefinitionsBySource; // maps map source type to view definition
-    QSet<JsonDbReduceDefinition*> mJsonDbReduceDefinitions;
-    QMultiMap<QString,JsonDbReduceDefinition*> mJsonDbReduceDefinitionsBySource; // maps reduce source type to view definition
+    typedef QMap<JsonDbObjectTable*,QSet<QString> > ObjectTableSourceTypeMap;
+    ObjectTableSourceTypeMap                mObjectTableSourceTypeMap;
+    QSet<JsonDbMapDefinition*>              mMapDefinitions;
+    QMultiMap<QString,JsonDbMapDefinition*> mMapDefinitionsBySource; // maps map source type to view definition
+    QSet<JsonDbReduceDefinition*>           mReduceDefinitions;
+    QMultiMap<QString,JsonDbReduceDefinition*> mReduceDefinitionsBySource; // maps reduce source type to view definition
 };
 
 QT_END_NAMESPACE_JSONDB
