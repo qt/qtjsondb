@@ -3,6 +3,7 @@
 
 #include "qbtreedata.h"
 
+class QBtree;
 class QBtreeTxn;
 struct cursor;
 
@@ -27,7 +28,7 @@ public:
     bool last();
 
     bool next();
-    bool prev();
+    bool previous();
 
     bool seek(const QByteArray &baKey);
     bool seek(const QBtreeData &key);

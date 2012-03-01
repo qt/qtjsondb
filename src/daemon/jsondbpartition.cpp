@@ -64,8 +64,7 @@
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
 #include "jsondbobjecttable.h"
-#include "qbtreetxn.h"
-#include "jsondbmanagedbtree.h"
+#include "jsondbbtree.h"
 #include "jsondbsettings.h"
 #include "jsondbview.h"
 
@@ -132,7 +131,7 @@ bool JsonDbPartition::open()
 
     mObjectTable = new JsonDbObjectTable(this);
 
-    mObjectTable->open(mFilename, QBtree::NoSync | QBtree::UseSyncMarker);
+    mObjectTable->open(mFilename, JsonDbBtree::Default);
 
     QString dir = fi.dir().path();
     QString basename = fi.fileName();
@@ -411,8 +410,20 @@ void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue, Objec
     memcpyFieldValue(vt, fieldValue, data+4, fvSize);
     objectKey = qFromBigEndian<ObjectKey>((const uchar *)&data[4+fvSize]);
 }
-int forwardKeyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *)
+int forwardKeyCmp(const QByteArray &ab, const QByteArray &bb)
 {
+    const char *aptr = ab.constData();
+    size_t asiz = ab.size();
+    const char *bptr = bb.constData();
+    size_t bsiz = bb.size();
+
+    if (!bsiz && !asiz)
+        return 0;
+    if (!bsiz)
+        return 1;
+    if (!asiz)
+        return -1;
+
     int rv = 0;
     QJsonValue::Type avt = (QJsonValue::Type)qFromBigEndian<quint32>((const uchar *)&aptr[0]);
     QJsonValue::Type bvt = (QJsonValue::Type)qFromBigEndian<quint32>((const uchar *)&bptr[0]);
@@ -923,9 +934,9 @@ IndexQuery::IndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
 {
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->indexSpec(propertyName)->index->bdb();
-        mCursor = new QBtreeCursor(mBdbIndex->btree());
+        mCursor = new JsonDbBtree::Cursor(mBdbIndex->btree());
     } else {
-        mCursor = new QBtreeCursor(table->bdb()->btree(), true);
+        mCursor = new JsonDbBtree::Cursor(table->bdb()->btree(), true);
     }
 }
 IndexQuery::~IndexQuery()
@@ -1007,7 +1018,7 @@ bool IndexQuery::seekToStart(QJsonValue &fieldValue)
 
 bool IndexQuery::seekToNext(QJsonValue &fieldValue)
 {
-    bool ok = mAscending ? mCursor->next() : mCursor->prev();
+    bool ok = mAscending ? mCursor->next() : mCursor->previous();
     if (ok) {
         QByteArray baKey;
         mCursor->current(&baKey, 0);
@@ -1060,7 +1071,7 @@ bool UuidQuery::seekToStart(QJsonValue &fieldValue)
         if (mAscending)
             ok = mCursor->next();
         else
-            ok = mCursor->prev();
+            ok = mCursor->previous();
     }
     if (ok) {
         QUuid quuid(QUuid::fromRfc4122(baKey));
@@ -1072,7 +1083,7 @@ bool UuidQuery::seekToStart(QJsonValue &fieldValue)
 
 bool UuidQuery::seekToNext(QJsonValue &fieldValue)
 {
-    bool ok = mAscending ? mCursor->next() : mCursor->prev();
+    bool ok = mAscending ? mCursor->next() : mCursor->previous();
     QByteArray baKey;
     while (ok) {
         mCursor->current(&baKey, 0);
@@ -1081,7 +1092,7 @@ bool UuidQuery::seekToNext(QJsonValue &fieldValue)
         if (mAscending)
             ok = mCursor->next();
         else
-            ok = mCursor->prev();
+            ok = mCursor->previous();
     }
     if (ok) {
         QUuid quuid(QUuid::fromRfc4122(baKey));
@@ -1766,7 +1777,7 @@ bool JsonDbPartition::compact()
     return result;
 }
 
-struct JsonDbStat JsonDbPartition::stat() const
+JsonDbStat JsonDbPartition::stat() const
 {
     JsonDbStat result;
     for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();

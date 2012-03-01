@@ -50,20 +50,18 @@
 #include <QPointer>
 
 #include "jsondb.h"
-#include "jsondbmanagedbtreetxn.h"
 #include "jsondbobjectkey.h"
 #include "jsondbowner.h"
 #include "jsondbstat.h"
-#include "qbtree.h"
+#include "jsondbbtree.h"
 
 QT_BEGIN_HEADER
 
 class TestJsonDb;
-class QBtreeCursor;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbManagedBtree;
+class JsonDbBtree;
 class JsonDbOwner;
 class JsonDbObjectTable;
 class JsonDbIndex;
@@ -128,8 +126,8 @@ protected:
 protected:
     JsonDbPartition *mPartition;
     JsonDbObjectTable   *mObjectTable;
-    JsonDbManagedBtree *mBdbIndex;
-    QBtreeCursor  *mCursor;
+    JsonDbBtree *mBdbIndex;
+    JsonDbBtree::Cursor  *mCursor;
     const JsonDbOwner *mOwner;
     QJsonValue      mMin, mMax;
     QSet<QString> mTypeNames;
@@ -213,7 +211,7 @@ public:
 
     void checkIndex(const QString &propertyName);
     bool compact();
-    struct JsonDbStat stat() const;
+    JsonDbStat stat() const;
 
     QHash<QString, qint64> fileSizes() const;
 
@@ -325,7 +323,7 @@ private:
 
 QJsonValue makeFieldValue(const QJsonValue &value, const QString &type);
 QByteArray makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectKey);
-int forwardKeyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *op);
+int forwardKeyCmp(const QByteArray &ab, const QByteArray &bb);
 void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue);
 void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue, ObjectKey &objectKey);
 QByteArray makeForwardValue(const ObjectKey &);

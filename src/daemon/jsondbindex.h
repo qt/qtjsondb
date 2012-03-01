@@ -55,14 +55,12 @@
 
 #include "jsondb-global.h"
 #include "jsondbobjectkey.h"
-#include "jsondbmanagedbtreetxn.h"
-#include "qbtreecursor.h"
+#include "jsondbbtree.h"
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbManagedBtree;
 class JsonDbPartition;
 class JsonDbObjectTable;
 
@@ -78,7 +76,7 @@ public:
     QStringList fieldPath() const { return mPath; }
     QString propertyType() const { return mPropertyType; }
 
-    JsonDbManagedBtree *bdb();
+    QtAddOn::JsonDb::JsonDbBtree *bdb();
 
     bool setPropertyFunction(const QString &propertyFunction);
     void indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
@@ -86,7 +84,7 @@ public:
 
     quint32 stateNumber() const;
 
-    JsonDbManagedBtreeTxn begin();
+    JsonDbBtree::Transaction *begin();
     bool commit(quint32);
     bool abort();
     bool clearData();
@@ -112,11 +110,10 @@ private:
     QStringList mPath;
     QString mPropertyType;
     quint32 mStateNumber;
-    QScopedPointer<JsonDbManagedBtree> mBdb;
+    QScopedPointer<JsonDbBtree> mBdb;
     QJSEngine *mScriptEngine;
     QJSValue   mPropertyFunction;
     QList<QJsonValue> mFieldValues;
-    JsonDbManagedBtreeTxn mWriteTxn;
     quint32 mCacheSize;
 };
 
@@ -136,7 +133,7 @@ public:
     bool prev();
 
 private:
-    QBtreeCursor mCursor;
+    JsonDbBtree::Cursor mCursor;
     JsonDbIndex *mIndex;
 
     JsonDbIndexCursor(const JsonDbIndexCursor&);

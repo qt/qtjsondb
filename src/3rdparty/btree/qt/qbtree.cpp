@@ -49,10 +49,18 @@
 #include <errno.h>
 #include <string.h>
 
+int compareFunctionProxy(const char *a, int asiz, const char *b, int bsiz, void *context)
+{
+    Q_ASSERT(context);
+    QByteArray ab = QByteArray::fromRawData(a, asiz);
+    QByteArray bb = QByteArray::fromRawData(b, bsiz);
+    return ((QBtree::CompareFunction)context)(ab, bb);
+}
+
 QBtree::QBtree()
     : mBtree(0), mCmp(0), mCacheSize(0), mFlags(0),
       mWrites(0), mReads(0), mHits(0),
-      mCommitCount(0), mAutoCompactRate(0)
+      mCommitCount(0), mAutoCompactRate(0), mWriteTxn(0)
 {
 }
 
@@ -77,8 +85,8 @@ bool QBtree::open()
         qDebug() << "QBtree::reopen" << "failed" << errno;
         return false;
     }
-    btree_set_cache_size(mBtree, mCacheSize);
-    btree_set_cmp(mBtree, (bt_cmp_func)mCmp);
+    setCacheSize(mCacheSize);
+    setCompareFunction(mCmp);
     return true;
 }
 
@@ -101,14 +109,18 @@ QBtreeTxn *QBtree::begin(QBtree::TxnFlag flag)
     btree_txn *txn = btree_txn_begin(mBtree, flag == QBtree::TxnReadOnly ? 1 : 0);
     if (!txn)
         return 0;
-    return new QBtreeTxn(this, txn);
+
+    QBtreeTxn *rtxn = new QBtreeTxn(this, txn);
+    if (rtxn && flag == QBtree::TxnReadWrite)
+        mWriteTxn = rtxn;
+    return rtxn;
 }
 
 QBtreeTxn *QBtree::beginRead(quint32 tag)
 {
     Q_ASSERT(mBtree);
     if (!mBtree) {
-        qCritical() << "QBtree::begin" << "no tree" << mFilename;
+        qCritical() << "QBtree::begin(tag)" << "no tree" << mFilename;
         return 0;
     }
 
@@ -155,11 +167,15 @@ bool QBtree::sync()
     return false;
 }
 
-void QBtree::setCmpFunc(QBtree::CmpFunc cmp)
+void QBtree::setCompareFunction(QBtree::CompareFunction cmp)
 {
     mCmp = cmp;
-    if (mBtree)
-        btree_set_cmp(mBtree, (bt_cmp_func)cmp);
+    if (mBtree) {
+        if (mCmp)
+            btree_set_cmp(mBtree, (bt_cmp_func)compareFunctionProxy, (void*)cmp);
+        else
+            btree_set_cmp(mBtree, 0, 0);
+    }
 }
 
 void QBtree::setFileName(const QString &filename)
@@ -203,7 +219,7 @@ quint32 QBtree::tag() const
     return stat->tag;
 }
 
-QBtree::Stat QBtree::stat() const
+QBtree::Stat QBtree::stats() const
 {
     if (!mBtree)
         return QBtree::Stat();
@@ -221,13 +237,28 @@ QBtree::Stat QBtree::stat() const
 void QBtree::setCacheSize(unsigned int cacheSize)
 {
     mCacheSize = cacheSize;
-    if (mBtree)
+    if (mBtree && mCacheSize)
         btree_set_cache_size(mBtree, cacheSize);
 }
 
 void QBtree::dump() const
 {
     btree_dump(mBtree);
+}
+
+bool QBtree::isWriting() const
+{
+    return btree_get_txn(mBtree) != NULL;
+}
+
+QBtreeTxn *QBtree::writeTransaction()
+{
+    return mWriteTxn;
+}
+
+QString QBtree::errorMessage()
+{
+    return QString("QBtree: %1, %2").arg(fileName(), strerror(errno));
 }
 
 bool QBtree::commit(QBtreeTxn *txn, quint32 tag)
@@ -240,6 +271,7 @@ bool QBtree::commit(QBtreeTxn *txn, quint32 tag)
         return false;
 
     delete txn;
+    mWriteTxn = 0;
 
     mCommitCount++;
     if (mAutoCompactRate && mCommitCount > mAutoCompactRate)

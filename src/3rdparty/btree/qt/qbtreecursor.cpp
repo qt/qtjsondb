@@ -94,7 +94,7 @@ bool QBtreeCursor::next()
     return moveHelper(0, 0, BT_NEXT);
 }
 
-bool QBtreeCursor::prev()
+bool QBtreeCursor::previous()
 {
     return moveHelper(0, 0, BT_PREV);
 }

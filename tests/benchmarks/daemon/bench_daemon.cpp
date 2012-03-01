@@ -507,7 +507,7 @@ void TestJsonDb::benchmarkTokenizer()
 
 namespace QtAddOn { namespace JsonDb {
 QByteArray makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectKey);
-int forwardKeyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *op);
+int forwardKeyCmp(const QByteArray &, const QByteArray &);
 } } // end namespace QtAddOn::JsonDb
 
 void TestJsonDb::benchmarkForwardKeyCmp()
@@ -528,7 +528,7 @@ void TestJsonDb::benchmarkForwardKeyCmp()
             QByteArray key1 = keys[j];
             for (int i = 0; i < count; i++) {
                 QByteArray key2 = keys[i];
-                int cmp = forwardKeyCmp(key1.constData(), key1.size(), key2.constData(), key2.size(), 0);
+                int cmp = forwardKeyCmp(key1, key2);
                 if (i == j)
                     QVERIFY(cmp == 0);
                 /* Note: this fails horrible but I guess it shouldn't

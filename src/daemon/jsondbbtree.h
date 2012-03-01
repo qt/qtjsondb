@@ -3,7 +3,7 @@
 ** Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/
 **
-** This file is part of the FOO module of the Qt Toolkit.
+** This file is part of the QtAddOn.JsonDb module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** GNU Lesser General Public License Usage
@@ -42,46 +42,65 @@
 #ifndef JSONDB_MANAGED_BTREE_H
 #define JSONDB_MANAGED_BTREE_H
 
-#include <QMap>
-#include <QSet>
+#define JSONDB_USE_HBTREE
+
+#include "jsondb-global.h"
+
+#ifndef JSONDB_USE_HBTREE
 #include "qbtree.h"
-#include "jsondbmanagedbtreetxn.h"
+#include "qbtreecursor.h"
+#include "qbtreetxn.h"
+#else
+#include "hbtree.h"
+#include "hbtreecursor.h"
+#include "hbtreetransaction.h"
+#endif
 
 QT_BEGIN_HEADER
 
-class QBtree;
-
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDbManagedBtree
+class JsonDbBtree
 {
 public:
-    JsonDbManagedBtree();
-    ~JsonDbManagedBtree();
 
-    bool open(const QString &filename, QBtree::DbFlags flags = QBtree::Default);
+    enum OpenFlag {
+        Default,
+        ReadOnly
+    };
+    Q_DECLARE_FLAGS(OpenFlags, OpenFlag)
+
+#ifdef JSONDB_USE_HBTREE
+    typedef HBtree Btree;
+#else
+    typedef QBtree Btree;
+#endif
+
+    typedef Btree::CursorType Cursor;
+    typedef Btree::TransactionType Transaction;
+    typedef Btree::StatType Stat;
+
+    typedef int (*CompareFunction)(const QByteArray &, const QByteArray &);
+
+    JsonDbBtree();
+    ~JsonDbBtree();
+
+    bool open(const QString &filename, OpenFlags flags);
     void close();
 
-    JsonDbManagedBtreeTxn beginRead(quint32 tag);
-    JsonDbManagedBtreeTxn beginRead();
-    JsonDbManagedBtreeTxn beginWrite();
+    Transaction *beginRead()
+    { Q_ASSERT(mBtree); return mBtree->beginRead(); }
+    Transaction *beginWrite()
+    { Q_ASSERT(mBtree); return mBtree->beginWrite(); }
 
-    bool isWriteTxnActive() const
-    { return mWriter.txn != NULL; }
-    bool isReadTxnActive(quint32 tag) const;
-    bool isReadTxnActive() const;
-    bool numActiveReadTxns() const
-    { return mReaders.size() > 0; }
+    bool isWriting() const
+    { Q_ASSERT(mBtree); return mBtree->isWriting(); }
 
-    JsonDbManagedBtreeTxn existingWriteTxn();
+    Transaction *writeTransaction()
+    { Q_ASSERT(mBtree); return mBtree->writeTransaction(); }
 
-    bool putOne(const QByteArray &key, const QByteArray &value);
-    bool getOne(const QByteArray &key, QByteArray *value);
-    bool removeOne(const QByteArray &key);
-
-    bool clearData();
-
-    QString errorMessage() const;
+    QString errorMessage() const
+    { Q_ASSERT(mBtree); return mBtree->errorMessage(); }
 
     QString fileName() const
     { Q_ASSERT(mBtree); return mBtree->fileName(); }
@@ -89,42 +108,30 @@ public:
     { Q_ASSERT(mBtree); return mBtree->count(); }
     quint32 tag() const
     { Q_ASSERT(mBtree); return mBtree->tag(); }
-    bool compact()
-    { Q_ASSERT(mBtree); return mBtree->compact(); }
-    bool rollback()
-    { Q_ASSERT(mBtree && !numActiveReadTxns() && !isWriteTxnActive()); return mBtree->rollback(); }
-    struct btree *handle() const
-    { Q_ASSERT(mBtree); return mBtree->handle(); }
-    void setAutoCompactRate(int rate) const
-    { Q_ASSERT(mBtree); mBtree->setAutoCompactRate(rate); }
-    void setCmpFunc(QBtree::CmpFunc cmp)
-    { Q_ASSERT(mBtree); mBtree->setCmpFunc(cmp); }
+    void setCompareFunction(CompareFunction cmp)
+    { Q_ASSERT(mBtree); mBtree->setCompareFunction(cmp); }
     void setCacheSize(int size)
     { Q_ASSERT(mBtree); mBtree->setCacheSize(size); }
-    QBtree *btree() const
+    Btree *btree() const
     { return mBtree; }
-    QBtree::Stat stat() const;
+    Stat stats() const;
+
+    bool putOne(const QByteArray &key, const QByteArray &value);
+    bool getOne(const QByteArray &key, QByteArray *value);
+    bool removeOne(const QByteArray &key);
+
+    bool clearData();
+
+    bool compact();
+    bool rollback();
+    void setAutoCompactRate(int rate) const;
 
 private:
-    friend class JsonDbManagedBtreeTxn;
-    void remove(JsonDbManagedBtreeTxn *txn);
-    void add(JsonDbManagedBtreeTxn *txn);
-
-    bool commit(JsonDbManagedBtreeTxn *txn, quint32 tag);
-    void abort(JsonDbManagedBtreeTxn *txn);
-
-    struct RefedTxn {
-        QBtreeTxn *txn;
-        QSet<JsonDbManagedBtreeTxn* > clients;
-    };
-    typedef QMap<quint32, RefedTxn> RefedTxnMap;
-
-    QBtree *mBtree;
-    RefedTxn mWriter;
-    RefedTxnMap mReaders;
-
-    JsonDbManagedBtree(const JsonDbManagedBtree&);
+    Btree *mBtree;
+    JsonDbBtree(const JsonDbBtree&);
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(JsonDbBtree::OpenFlags)
 
 QT_END_NAMESPACE_JSONDB
 

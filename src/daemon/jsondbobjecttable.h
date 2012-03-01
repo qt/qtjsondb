@@ -49,8 +49,7 @@
 #include <QtEndian>
 
 #include "jsondbobjectkey.h"
-#include "jsondbmanagedbtreetxn.h"
-#include "qbtree.h"
+#include "jsondbbtree.h"
 
 #include <qjsonarray.h>
 #include <qjsonobject.h>
@@ -118,9 +117,9 @@ public:
     ~JsonDbObjectTable();
 
     QString filename() const { return mFilename; }
-    bool open(const QString &filename, QBtree::DbFlags flags);
+    bool open(const QString &filename, JsonDbBtree::OpenFlags flags);
     void close();
-    JsonDbManagedBtree *bdb() const { return mBdb; }
+    JsonDbBtree *bdb() const { return mBdb; }
     bool begin();
     void begin(JsonDbIndex *btree);
     bool commit(quint32);
@@ -168,10 +167,9 @@ private:
 private:
     JsonDbPartition *mPartition;
     QString             mFilename;
-    JsonDbManagedBtree      *mBdb;
-    JsonDbManagedBtreeTxn    mWriteTxn;
+    JsonDbBtree      *mBdb;
     QHash<QString,IndexSpec> mIndexes; // indexed by full path, e.g., _type or _name.first
-    QVector<JsonDbManagedBtreeTxn> mBdbTransactions;
+    QVector<JsonDbBtree::Transaction *> mBdbTransactions;
 
     quint32 mStateNumber;
 

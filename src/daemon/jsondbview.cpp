@@ -86,7 +86,7 @@ void JsonDbView::open()
                                .arg(dirName)
                                .arg(baseName)
                                .arg(mViewType),
-                               QBtree::NoSync | QBtree::UseSyncMarker)) {
+                               JsonDbBtree::Default)) {
         qCritical() << "viewDb->open" << mViewObjectTable->errorMessage();
         return;
     }

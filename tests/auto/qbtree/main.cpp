@@ -232,7 +232,7 @@ void TestQBtree::lastMultiPage()
         QByteArray outkey1;
         QVERIFY(cursor.current(&outkey1, 0));
         QCOMPARE(baKey, outkey1);
-        while (cursor.prev()) {
+        while (cursor.previous()) {
             QByteArray outkey2;
             cursor.current(&outkey2, 0);
             //qDebug() << outkey1.toHex() << outkey2.toHex();
@@ -294,7 +294,7 @@ void TestQBtree::prev()
         QBtreeCursor cursor(txn);
         QVERIFY(cursor.last());
         // test prev
-        QVERIFY(cursor.prev());
+        QVERIFY(cursor.previous());
         QByteArray outkey;
         QVERIFY(cursor.current(&outkey, 0));
         QCOMPARE(key1, outkey);
@@ -303,23 +303,23 @@ void TestQBtree::prev()
     {
         QBtreeCursor cursor(txn);
         // test prev without initialization is same as last()
-        QVERIFY(cursor.prev());
+        QVERIFY(cursor.previous());
         QByteArray outkey;
         QVERIFY(cursor.current(&outkey, 0));
         QCOMPARE(key2, outkey);
 
         // prev to key1
-        QVERIFY(cursor.prev());
+        QVERIFY(cursor.previous());
         QVERIFY(cursor.current(&outkey, 0));
         QCOMPARE(key1, outkey);
 
         // prev to key0
-        QVERIFY(cursor.prev());
+        QVERIFY(cursor.previous());
         QVERIFY(cursor.current(&outkey, 0));
         QCOMPARE(key0, outkey);
 
         // prev to eof
-        QVERIFY(!cursor.prev());
+        QVERIFY(!cursor.previous());
     }
     txn->abort();
 }
@@ -352,17 +352,17 @@ void TestQBtree::prev2()
     QBtreeCursor r(txn);
     QVERIFY(r.last());
     int rcnt = 1;
-    while (r.prev()) ++rcnt;
+    while (r.previous()) ++rcnt;
 
     QCOMPARE(rcnt, amount);
     txn->abort();
     qDebug() << "maxSize" << maxSize << "amount" << amount;
 }
 
-int keyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *)
+int keyCmp(const QByteArray &aa, const QByteArray &bb)
 {
-    QString a((QChar *)aptr, asiz/2);
-    QString b((QChar *)bptr, bsiz/2);
+    QString a((QChar *)aa.constData(), aa.size()/2);
+    QString b((QChar *)bb.constData(), bb.size()/2);
     if (a < b)
         return -1;
     else if (a > b)
@@ -373,7 +373,7 @@ int keyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *)
 
 void TestQBtree::createWithCmp()
 {
-    db->setCmpFunc(keyCmp);
+    db->setCompareFunction(keyCmp);
     QString str1("1");
     QByteArray key1 = QByteArray::fromRawData((const char *)str1.data(), str1.size()*2);
     QByteArray value1("foo");
@@ -683,9 +683,12 @@ int findLongestSequenceOf(const char *a, size_t size, char x)
     return result;
 }
 
-int cmpVarLengthKeys(const char *aptr, size_t asize, const char *bptr, size_t bsize, void *)
+int cmpVarLengthKeys(const QByteArray &aa, const QByteArray &bb)
 {
-
+    const char *aptr = aa.constData();
+    size_t asize = aa.size();
+    const char *bptr = bb.constData();
+    size_t bsize = bb.size();
     int acount = findLongestSequenceOf(aptr, asize, 'a');
     int bcount = findLongestSequenceOf(bptr, bsize, 'a');
 
@@ -699,7 +702,7 @@ int cmpVarLengthKeys(const char *aptr, size_t asize, const char *bptr, size_t bs
 
 bool cmpVarLengthKeysForQVec(const QByteArray &a, const QByteArray &b)
 {
-    return cmpVarLengthKeys(a.constData(), a.size(), b.constData(), b.size(), 0) < 0;
+    return cmpVarLengthKeys(a, b) < 0;
 }
 
 int myRand(int r)
@@ -715,7 +718,7 @@ void TestQBtree::compareSequenceOfVarLengthKeys()
     const int maxKeyLength = 25;
 
     db->close();
-    db->setCmpFunc(cmpVarLengthKeys);
+    db->setCompareFunction(cmpVarLengthKeys);
     QVERIFY(db->open());
 
     // Create vector of variable length keys of sequenceChar
@@ -840,18 +843,18 @@ void TestQBtree::tag()
 
 void TestQBtree::readFromTag()
 {
-    QBtreeTxn *txn = db->beginReadWrite();
+    QBtreeTxn *txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
     QVERIFY(txn->commit(1));
 
-    txn = db->beginReadWrite();
+    txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("bla"), QByteArray("bla")));
     QVERIFY(txn->put(QByteArray("zzz"), QByteArray("zzz")));
     QVERIFY(txn->commit(2));
 
-    txn = db->beginReadWrite();
+    txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo"), QByteArray("zzz")));
     QVERIFY(txn->remove(QByteArray("zzz")));
@@ -892,12 +895,12 @@ void TestQBtree::readFromTag()
 
 void TestQBtree::btreeRollback()
 {
-    QBtreeTxn *txn = db->beginReadWrite();
+    QBtreeTxn *txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
     QVERIFY(txn->commit(1));
 
-    txn = db->beginReadWrite();
+    txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("bar"), QByteArray("baz")));
     QVERIFY(txn->commit(2));
@@ -917,7 +920,7 @@ void TestQBtree::btreeRollback()
 
 void TestQBtree::lockers()
 {
-    QBtreeTxn *txn = db->beginReadWrite();
+    QBtreeTxn *txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
     QVERIFY(txn->commit(1));
@@ -979,20 +982,20 @@ void TestQBtree::corruptSinglePage(int psize, int pgno, qint32 flag)
 
 void TestQBtree::pageChecksum()
 {
-    const qint64 psize = db->stat().psize;
+    const qint64 psize = db->stats().psize;
     QByteArray value;
 
-    QBtreeTxn *txn = db->beginReadWrite();
+    QBtreeTxn *txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo1"), QByteArray("bar1")));
     QVERIFY(txn->commit(1));
 
-    txn = db->beginReadWrite();
+    txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo2"), QByteArray("bar2")));
     QVERIFY(txn->commit(2));
 
-    txn = db->beginReadWrite();
+    txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo3"), QByteArray("bar3")));
     QVERIFY(txn->commit(3));
@@ -1055,24 +1058,24 @@ void TestQBtree::keySizes()
     QVector<QByteArray> illegalkeys;
     QVector<QByteArray> values;
 
-    qDebug() << "Testing with max key size:" << db->stat().ksize;
+    qDebug() << "Testing with max key size:" << db->stats().ksize;
 
     for (int i = 0; i < numlegal; ++i) {
-        legalkeys.append(QByteArray(db->stat().ksize - i, 'a' + i));
+        legalkeys.append(QByteArray(db->stats().ksize - i, 'a' + i));
         if (i < numillegal)
-            illegalkeys.append(QByteArray(db->stat().ksize + i + 1, 'a' + i));
+            illegalkeys.append(QByteArray(db->stats().ksize + i + 1, 'a' + i));
         values.append(QByteArray(500 + myRand(2000), 'a' + i));
     }
 
     for (int i = 0; i < numlegal; ++i) {
-        QBtreeTxn *txn = db->beginReadWrite();
+        QBtreeTxn *txn = db->beginWrite();
         QVERIFY(txn);
         QVERIFY(txn->put(legalkeys[i], values[i]));
         txn->commit(0);
     }
 
     for (int i = 0; i < numillegal; ++i) {
-        QBtreeTxn *txn = db->beginReadWrite();
+        QBtreeTxn *txn = db->beginWrite();
         QVERIFY(txn);
         QVERIFY(!txn->put(illegalkeys[i], values[i]));
         txn->commit(0);
@@ -1108,13 +1111,13 @@ void TestQBtree::prefixSizes()
         QByteArray key(pfxsize + keysize, 'a');
         for (int j = 0; j < keysize; ++j)
             key[pfxsize + j] = '0' + myRand(10);
-        if (db->stat().ksize == 255) // chop off if max key size is 255
+        if (db->stats().ksize == 255) // chop off if max key size is 255
             key = key.mid(key.size() - 255);
         keys.append(key);
     }
 
     for (int i = 0; i < keys.size(); ++i) {
-        QBtreeTxn *txn = db->beginReadWrite();
+        QBtreeTxn *txn = db->beginWrite();
         QVERIFY(txn);
         QVERIFY(txn->put(keys[i], QString::number(i).toAscii()));
         txn->commit(0);
@@ -1159,14 +1162,14 @@ void TestQBtree::prefixTest()
 {
     const char *data[4] = { "1aaaa", "1bbbb", "2aaaa", "1cccc" };
     for (int i = 0; i < 4; ++i) {
-        QBtreeTxn *txn = db->beginReadWrite();
+        QBtreeTxn *txn = db->beginWrite();
         txn->put(data[i], strlen(data[i])+1, "aaaa", 5);
         txn->commit(i);
     }
 
     const int count = 50000;
     for (int i = 0; i < count; ++i) {
-        QBtreeTxn *txn = db->beginReadWrite();
+        QBtreeTxn *txn = db->beginWrite();
 
         QByteArray key("1Person", 7);
         // make determenistic uuid so that the test is stable.
@@ -1199,7 +1202,7 @@ void TestQBtree::prefixTest()
 
 void TestQBtree::cursors()
 {
-    QBtreeTxn *txn = db->beginReadWrite();
+    QBtreeTxn *txn = db->beginWrite();
     txn->put(QByteArray("1"), QByteArray("a"));
     txn->put(QByteArray("2"), QByteArray("b"));
     txn->put(QByteArray("3"), QByteArray("c"));
@@ -1302,17 +1305,17 @@ void TestQBtree::markerChecksumRollCheck()
     db->close();
     db->open(QBtree::NoSync | QBtree::UseSyncMarker);
 
-    QBtreeTxn *txn = db->beginReadWrite();
+    QBtreeTxn *txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo1"), QByteArray("bar1")));
     QVERIFY(txn->commit(1));
 
-    txn = db->beginReadWrite();
+    txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo2"), QByteArray("bar2")));
     QVERIFY(txn->commit(2));
 
-    txn = db->beginReadWrite();
+    txn = db->beginWrite();
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo3"), QByteArray("bar3")));
     QVERIFY(txn->commit(3));

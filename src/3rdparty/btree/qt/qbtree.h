@@ -47,15 +47,16 @@
 #include <QList>
 #include <QtEndian>
 
-#include "qbtreedata.h"
 
 class QBtreeTxn;
+class QBtreeCursor;
 struct btree;
 struct btree_stat;
 
 class QBtree
 {
 public:
+
     enum DbFlag {
         Default=0x0000,
         ReverseKeys=0x001,
@@ -65,6 +66,9 @@ public:
         NoPageChecksums=0x020
     };
     Q_DECLARE_FLAGS(DbFlags, DbFlag)
+
+    static quint32 readWriteFlags()
+    { return (quint32)(QBtree::NoSync | QBtree::UseSyncMarker); }
 
     class Stat
     {
@@ -86,12 +90,16 @@ public:
         }
     };
 
+    typedef QBtreeCursor CursorType;
+    typedef QBtreeTxn TransactionType;
+    typedef Stat StatType;
+
     QBtree();
     QBtree(const QString &filename);
     ~QBtree();
 
-    typedef int (*CmpFunc)(const char *a, size_t asize, const char *b, size_t bsize, void *context);
-    void setCmpFunc(CmpFunc cmp);
+    typedef int (*CompareFunction)(const QByteArray &, const QByteArray &);
+    void setCompareFunction(CompareFunction cmp);
     void setFileName(const QString &filename);
     void setFlags(DbFlags flags);
     void setAutoCompactRate(int rate);
@@ -103,13 +111,13 @@ public:
     bool open();
     void close();
 
-    bool open(DbFlags flags)
-    { setFlags(flags); return open(); }
+    bool open(quint32 flags)
+    { setFlags(QFlag(flags)); return open(); }
 
     enum TxnFlag { TxnReadWrite, TxnReadOnly };
     QBtreeTxn *begin(TxnFlag flag = TxnReadWrite);
 
-    QBtreeTxn *beginReadWrite()
+    QBtreeTxn *beginWrite()
     { return begin(QBtree::TxnReadWrite); }
     QBtreeTxn *beginRead()
     { return begin(QBtree::TxnReadOnly); }
@@ -118,7 +126,7 @@ public:
     bool rollback();
 
     QString fileName() const { return mFilename; }
-    QBtree::Stat stat() const;
+    QBtree::Stat stats() const;
     quint64 count() const;
     btree *handle() const { return mBtree; }
     quint32 tag() const;
@@ -126,6 +134,11 @@ public:
     bool compact();
     bool sync();
     void dump() const;
+
+    bool isWriting() const;
+    QBtreeTxn *writeTransaction();
+
+    QString errorMessage();
 
 private:
     bool commit(QBtreeTxn *txn, quint32 tag);
@@ -135,13 +148,14 @@ private:
 
     QString mFilename;
     btree *mBtree;
-    CmpFunc mCmp;
+    CompareFunction mCmp;
     int mCacheSize;
     int mFlags;
     qint32 mWrites, mReads, mHits; // pages written and read, page cache hits
 
     int mCommitCount;
     int mAutoCompactRate;
+    QBtreeTxn *mWriteTxn;
 
     Q_DISABLE_COPY(QBtree)
 };

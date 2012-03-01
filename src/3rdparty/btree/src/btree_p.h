@@ -233,7 +233,8 @@ struct btree {
         int                      ref;           /* increased by cursors & txn */
         struct btree_stat        stat;
         off_t                    size;          /* current file size */
-        QCryptographicHash       *hasher;
+        void                    *context;       /* passed in to the compare function */
+        QCryptographicHash      *hasher;
 };
 
 void                     btree_dump_tree(struct btree *bt, pgno_t pgno, int depth);

@@ -320,15 +320,16 @@ memnrcmp(const void *s1, size_t n1, const void *s2, size_t n2, void *)
 }
 
 void
-btree_set_cmp(struct btree *bt, bt_cmp_func cmp)
+btree_set_cmp(struct btree *bt, bt_cmp_func cmp, void *context)
 {
         bt->cmp = cmp;
+        bt->context = context;
 }
 
 int
 btree_cmp(struct btree *bt, const struct btval *a, const struct btval *b)
 {
-        return bt->cmp((const char *)a->data, a->size, (const char *)b->data, b->size, 0);
+        return bt->cmp((const char *)a->data, a->size, (const char *)b->data, b->size, bt->context);
 }
 
 static void
@@ -411,7 +412,7 @@ bt_cmp(struct btree *bt, const struct btval *key1, const struct btval *key2,
     struct btkey *pfx)
 {
         if (bt->cmp) {
-                return bt->cmp((const char*)key1->data, key1->size, (const char*)key2->data, key2->size, 0);
+                return bt->cmp((const char*)key1->data, key1->size, (const char*)key2->data, key2->size, bt->context);
         } else {
                 if (F_ISSET(bt->flags, BT_REVERSEKEY)) {
                         return memnrcmp(key1->data, key1->size - pfx->len,
