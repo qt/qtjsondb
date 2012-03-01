@@ -89,7 +89,6 @@ public:
     void _q_onTimer();
     void _q_onReceivedObject(const QJsonObject &);
     void _q_onAuthFinished();
-    void _q_onAuthError(QtJsonDb::QJsonDbRequest::ErrorCode, const QString &);
 
     void handleRequestQueue();
     void initWatcher(QJsonDbWatcher *);

@@ -337,15 +337,6 @@ void QJsonDbConnectionPrivate::_q_onAuthFinished()
     handleRequestQueue();
 }
 
-void QJsonDbConnectionPrivate::_q_onAuthError(QtJsonDb::QJsonDbRequest::ErrorCode, const QString &message)
-{
-    Q_Q(QJsonDbConnection);
-    status = QJsonDbConnection::Unconnected;
-    emit q->statusChanged(status);
-    explicitDisconnect = true;
-    socket->disconnectFromServer();
-}
-
 /*!
     Constructs a new connection object with a given \a parent.
 */
