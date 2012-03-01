@@ -1069,16 +1069,31 @@ void TestJsonDbClient::changesSince()
 
     int state = mData.toMap()["currentStateNumber"].toInt();
 
-    QVariantMap c1, c2;
-    c1["_type"] = c2["_type"] = "com.test.TestContact";
+    QVariantMap c1, c2, c3;
+    c1["_type"] = c2["_type"] = c3["_type"] = "com.test.TestContact";
     c1["firstName"] = "John";
     c1["lastName"] = "Doe";
     c2["firstName"] = "George";
     c2["lastName"] = "Washington";
+    c3["firstName"] = "Betsy";
+    c3["lastName"] = "Ross";
 
     id = mClient->create(c1);
     waitForResponse1(id);
+    c1["_uuid"] = mData.toMap().value("_uuid");
+    c1["_version"] = mData.toMap().value("_version");
+
     id = mClient->create(c2);
+    waitForResponse1(id);
+    c2["_uuid"] = mData.toMap().value("_uuid");
+    c2["_version"] = mData.toMap().value("_version");
+
+    id = mClient->create(c3);
+    waitForResponse1(id);
+    c3["_uuid"] = mData.toMap().value("_uuid");
+    c3["_version"] = mData.toMap().value("_version");
+
+    id = mClient->remove(c1);
     waitForResponse1(id);
 
     // changesSince returns changes after the specified state
@@ -1094,23 +1109,25 @@ void TestJsonDbClient::changesSince()
     QCOMPARE(results.count(), 2);
 
     JsonWriter writer;
-    qDebug() << writer.toByteArray(results);
+    //qDebug() << writer.toByteArray(results[0]);
+    //qDebug() << writer.toByteArray(results[1]);
     QVERIFY(results[0].toMap()["before"].toMap().isEmpty());
     QVERIFY(results[1].toMap()["before"].toMap().isEmpty());
 
     QVariantMap r1(results[0].toMap()["after"].toMap());
     QVariantMap r2(results[1].toMap()["after"].toMap());
 
-    QMapIterator<QString, QVariant> i(c1);
-    while (i.hasNext()) {
-        i.next();
-        QCOMPARE(i.value().toString(), r1[i.key()].toString());
-    }
-
-    i = QMapIterator<QString, QVariant>(c2);
-    while (i.hasNext()) {
-        i.next();
-        QCOMPARE(i.value().toString(), r2[i.key()].toString());
+    QMap<QString,QVariantMap> objectsByUuid;
+    objectsByUuid[c2["_uuid"].toString()] = c2;
+    objectsByUuid[c3["_uuid"].toString()] = c3;
+    for (int i = 0; i < results.size(); i++) {
+        QVariantMap after = results[i].toMap()["after"].toMap();
+        QVariantMap original = objectsByUuid[after["_uuid"].toString()];
+        QMapIterator<QString, QVariant> j(original);
+        while (j.hasNext()) {
+            j.next();
+            QCOMPARE(j.value().toString(), after[j.key()].toString());
+        }
     }
 }
 

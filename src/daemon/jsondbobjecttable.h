@@ -79,6 +79,8 @@ struct ObjectChange
     } action;
     QJsonObject oldObject;
 
+    // needed for QMap<ObjectKey,ObjectChange>
+    inline ObjectChange() {}
     inline ObjectChange(const ObjectKey &obj, Action act, const QJsonObject &old = QJsonObject())
         : objectKey(obj), action(act), oldObject(old)
     {
@@ -132,7 +134,6 @@ public:
     quint32 stateNumber() const { return mStateNumber; }
     quint32 storeStateChange(const ObjectKey &key1, ObjectChange::Action action, const JsonDbObject &old = JsonDbObject());
     quint32 storeStateChange(const QList<ObjectChange> &stateChange);
-    void changesSince(quint32 stateNumber, QMap<quint32, QList<ObjectChange> > *changes);
     QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
 
     IndexSpec *indexSpec(const QString &indexName);
@@ -160,6 +161,9 @@ public:
     QString errorMessage() const;
 
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &objectType);
+
+private:
+    void changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectChange> *changes);
 
 private:
     JsonDbPartition *mPartition;

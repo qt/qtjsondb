@@ -576,7 +576,7 @@ quint32 JsonDbObjectTable::storeStateChange(const QList<ObjectChange> &changes)
     return stateNumber;
 }
 
-void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<quint32, QList<ObjectChange> > *changes)
+void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectChange> *changes)
 {
     if (!changes)
         return;
@@ -588,6 +588,8 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<quint32, QList<Ob
     QBtreeCursor cursor(mBdb->btree());
     QByteArray baStateKey(5, 0);
     makeStateKey(baStateKey, stateNumber);
+
+    QMap<ObjectKey,ObjectChange> changeMap; // collect one change per uuid
 
     if (cursor.seekRange(baStateKey)) {
         do {
@@ -606,7 +608,6 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<quint32, QList<Ob
                 continue;
             }
 
-            QList<ObjectChange> ch;
             for (int i = 0; i < baObject.size() / 20; ++i) {
                 const uchar *data = (const uchar *)baObject.constData() + i*20;
                 ObjectKey objectKey = qFromBigEndian<ObjectKey>(data);
@@ -614,16 +615,34 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<quint32, QList<Ob
                 Q_ASSERT(action <= ObjectChange::LastAction);
                 QByteArray baValue;
                 QJsonObject oldObject;
-                if (mBdb->getOne(baStateKey + objectKey.key.toRfc4122(), &baValue)) {
+                if ((action != ObjectChange::Created)
+                    && mBdb->getOne(baStateKey + objectKey.key.toRfc4122(), &baValue)) {
                     oldObject = QJsonDocument::fromBinaryData(baValue).object();
                     Q_ASSERT(objectKey == ObjectKey(oldObject.value(JsonDbString::kUuidStr).toString()));
                 }
-                ch.append(ObjectChange(objectKey, ObjectChange::Action(action), oldObject));
-            }
-            if (changes)
-                changes->insert(stateNumber, ch);
+                ObjectChange change(objectKey, ObjectChange::Action(action), oldObject);
+                if (changeMap.contains(objectKey)) {
+                    ObjectChange oldChange = changeMap.value(objectKey);
+                    // create followed by delete cancels out
+                    ObjectChange::Action newAction = ObjectChange::Action(action);
+                    ObjectChange::Action oldAction = oldChange.action;
+                    if ((oldAction == ObjectChange::Created)
+                        && (newAction == ObjectChange::Deleted)) {
+                        changeMap.remove(objectKey);
+                    } else {
+                        if ((oldAction == ObjectChange::Deleted)
+                            && (newAction == ObjectChange::Created))
+                            oldChange.action = ObjectChange::Updated;
+                        changeMap.insert(objectKey, oldChange);
+                    }
+                } else {
+                    changeMap.insert(objectKey, change);
+                }
+           }
         } while (cursor.next());
     }
+    *changes = changeMap;
+
     if (jsondbSettings->performanceLog())
         qDebug() << "changesSince" << mFilename << timer.elapsed() << "ms";
 }
@@ -636,39 +655,37 @@ QJsonObject JsonDbObjectTable::changesSince(quint32 stateNumber, const QSet<QStr
     QJsonArray result;
     int count = 0;
 
-    QMap<quint32, QList<ObjectChange> > changes;
+    QMap<ObjectKey,ObjectChange> changes;
     changesSince(stateNumber, &changes);
 
-    QMap<quint32, QList<ObjectChange> >::const_iterator it, e;
-    for (it = changes.begin(), e = changes.end(); it != e; ++it) {
-        const QList<ObjectChange> &changes = it.value();
-        for (int i = 0; i < changes.size(); ++i) {
-            const ObjectChange &change = changes.at(i);
-            QJsonObject before;
-            QJsonObject after;
-            switch (change.action) {
-            case ObjectChange::Created:
-                get(change.objectKey, &after);
-                break;
-            case ObjectChange::Updated:
-                before = change.oldObject;
-                get(change.objectKey, &after);
-                break;
-            case ObjectChange::Deleted:
-                before = change.oldObject;
-                break;
-            }
-            if (!limitTypes.isEmpty()) {
-                QString type = (after.isEmpty() ? before : after).value(JsonDbString::kTypeStr).toString();
-                if (!limitTypes.contains(type))
-                    continue;
-            }
-            QJsonObject res;
-            res.insert("before", before);
-            res.insert("after", after);
-            result.append(res);
-            ++count;
+    for (QMap<ObjectKey,ObjectChange>::const_iterator it = changes.begin();
+         it != changes.end();
+         ++it) {
+        const ObjectChange &change = it.value();
+        QJsonObject before;
+        QJsonObject after;
+        switch (change.action) {
+        case ObjectChange::Created:
+            get(change.objectKey, &after);
+            break;
+        case ObjectChange::Updated:
+            before = change.oldObject;
+            get(change.objectKey, &after);
+            break;
+        case ObjectChange::Deleted:
+            before = change.oldObject;
+            break;
         }
+        if (!limitTypes.isEmpty()) {
+            QString type = (after.isEmpty() ? before : after).value(JsonDbString::kTypeStr).toString();
+            if (!limitTypes.contains(type))
+                continue;
+        }
+        QJsonObject res;
+        res.insert("before", before);
+        res.insert("after", after);
+        result.append(res);
+        ++count;
     }
     QJsonObject resultmap, errormap;
     resultmap.insert("count", count);
