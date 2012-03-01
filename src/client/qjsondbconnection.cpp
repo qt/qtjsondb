@@ -293,7 +293,8 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
                 watchers.erase(it);
                 return;
             }
-            QJsonDbWatcher::Action actionType;
+            // initialize actionType to silence compiler warnings.
+            QJsonDbWatcher::Action actionType = QJsonDbWatcher::All;
             if (action == JsonDbStrings::Notification::actionCreate())
                 actionType = QJsonDbWatcher::Created;
             else if (action == JsonDbStrings::Notification::actionUpdate())
@@ -301,8 +302,9 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
             else if (action == JsonDbStrings::Notification::actionRemove())
                 actionType = QJsonDbWatcher::Removed;
             else
-                Q_ASSERT(false);
-            watcher->d_func()->handleNotification(actionType, object);
+                qWarning() << "Unknown action" << action << "received for notification" << notifyUuid;
+            if (actionType != QJsonDbWatcher::All)
+                watcher->d_func()->handleNotification(actionType, object);
         } else {
             // received notification for unknown watcher, just ignore it.
         }

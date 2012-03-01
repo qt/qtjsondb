@@ -212,7 +212,7 @@ QJsonObject QJsonDbWriteRequestPrivate::getRequest() const
             array.append(obj);
         request.insert(JsonDbStrings::Protocol::object(), array);
     }
-    switch (conflictResolutionMode) {
+    switch ((int)conflictResolutionMode) {
     case QJsonDbWriteRequest::RejectStale:
         request.insert(JsonDbStrings::Protocol::conflictResolutionMode(), JsonDbStrings::Protocol::rejectStale());
         break;
