@@ -79,8 +79,8 @@ static QUuid generateUUIDv3(const QString &uri)
     specification, and for Qt JsonDb the two important ones are the following:
 
     \list
-    \o version 3 constructs uuid from a given string (usually, uri)
-    \o version 4 generates a random uuid
+    \li version 3 constructs uuid from a given string (usually, uri)
+    \li version 4 generates a random uuid
     \endlist
 
     Uuid version 3 makes a deterministic uuid from a given string, that can be

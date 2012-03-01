@@ -956,9 +956,9 @@ void JsonDbSortingListModel::setSortOrder(const QString &newSortOrder)
     \qmlproperty State QtJsonDb::JsonDbSortingListModel::state
     The current state of the model.
     \list
-    \o State.None - The model is not initialized
-    \o State.Querying - It is querying the results from server
-    \o State.Ready - Results are ready
+    \li State.None - The model is not initialized
+    \li State.Querying - It is querying the results from server
+    \li State.Ready - Results are ready
     \endlist
 */
 

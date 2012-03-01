@@ -143,13 +143,13 @@ static QVariant qjsvalue_to_qvariant(const QJSValue &value)
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
     only defined in case of an error. The \a response object conatins the following properties :
     \list
-    \o id -  The id of the request.
-    \o stateNumber - The state label of the partition this write was committed in.
-    \o items - An array of objects (in the same order as the request). Each item in the array has
+    \li id -  The id of the request.
+    \li stateNumber - The state label of the partition this write was committed in.
+    \li items - An array of objects (in the same order as the request). Each item in the array has
     the following properties:
     \list
-    \o _uuid - The _uuid of the newly created object
-    \o _version - The _version of the newly created object
+    \li _uuid - The _uuid of the newly created object
+    \li _version - The _version of the newly created object
     \endlist
     \endlist
 
@@ -180,11 +180,11 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
     request. If the request fails to update an object, the whole transaction will be aborted. The
     \a options specifies how update should be handled.
     \list
-    \o options.mode - Supported values: "normal", "forced".
+    \li options.mode - Supported values: "normal", "forced".
     \list
-    \o"normal" creates the document if it does not exist otherwise it enforces that the
+    \li"normal" creates the document if it does not exist otherwise it enforces that the
     "_version" matches or fails - lost update prevention.
-    \o"forced" ignores the existing database content.
+    \li"forced" ignores the existing database content.
     \endlist
     Default is "normal"
     \endlist
@@ -215,13 +215,13 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
     only defined in case of an error. The \a response object conatins the following properties :
     \list
-    \o id -  The id of the request.
-    \o stateNumber - The state label of the partition this write was committed in.
-    \o items - An array of objects (in the same order as the request). Each item in the array has
+    \li id -  The id of the request.
+    \li stateNumber - The state label of the partition this write was committed in.
+    \li items - An array of objects (in the same order as the request). Each item in the array has
     the following properties:
     \list
-    \o _uuid - The _uuid of the newly created object
-    \o _version - The _version of the newly created object
+    \li _uuid - The _uuid of the newly created object
+    \li _version - The _version of the newly created object
     \endlist
     \endlist
 
@@ -252,7 +252,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
     Removes the \a objectToRemove (or list of objects) from the partition. It returns the id of this
     request. The \a options specifies how removal should be handled.
     \list
-    \o options.mode - Supported values: "normal", which requires a an object with _uuid and
+    \li options.mode - Supported values: "normal", which requires a an object with _uuid and
     _version set to be passed.
     \endlist
 
@@ -282,12 +282,12 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
     only defined in case of an error. The \a response object conatins the following properties :
     \list
-    \o id -  The id of the request.
-    \o stateNumber - The state label of the partition this write was committed in.
-    \o items - An array of objects (in the same order as the request). Each item in the array has
+    \li id -  The id of the request.
+    \li stateNumber - The state label of the partition this write was committed in.
+    \li items - An array of objects (in the same order as the request). Each item in the array has
     the following properties:
     \list
-    \o _uuid - The _uuid of the newly created object
+    \li _uuid - The _uuid of the newly created object
     \endlist
     \endlist
 
@@ -318,8 +318,8 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
     how query should be handled. The \a query should be specified in JsonQuery format.
     \a options support the following properties.
     \list
-    \o options.limit - Maximum number of items to be fetched
-    \o options.bindings - Holds the bindings object for the placeholders used in the query string. Note that
+    \li options.limit - Maximum number of items to be fetched
+    \li options.bindings - Holds the bindings object for the placeholders used in the query string. Note that
     the placeholder marker '%' should not be included as part of the keys.
     \endlist
 
@@ -342,9 +342,9 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
     only defined in case of an error. The \a response object contains the following properties :
     \list
-    \o id -  The id of the request.
-    \o stateNumber - The state label of the partition this write was committed in.
-    \o items - An array of objects
+    \li id -  The id of the request.
+    \li stateNumber - The state label of the partition this write was committed in.
+    \li items - An array of objects
     \endlist
 
     \sa QtJsonDb::Query

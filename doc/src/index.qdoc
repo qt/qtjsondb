@@ -63,26 +63,26 @@ action.
 
 \table
 \header
-\o Expression
-\o Description
+\li Expression
+\li Description
 \row
-\o \c {[? filter]}
-\o Query for matching objects.
+\li \c {[? filter]}
+\li Query for matching objects.
 \row
-\o \c {[= fields]}
-\o Restrict returned objects to particular fields.
+\li \c {[= fields]}
+\li Restrict returned objects to particular fields.
 \row
-\o \c {[/ field]}
-\o Sort in ascending order by field.
+\li \c {[/ field]}
+\li Sort in ascending order by field.
 \row
-\o \c {[\ field]}
-\o Sort in descending order by field.
+\li \c {[\ field]}
+\li Sort in descending order by field.
 \row
-\o \c {[count]}
-\o Aggregation operation.
+\li \c {[count]}
+\li Aggregation operation.
 \row
-\o \c {[*]}
-\o Match all objects.
+\li \c {[*]}
+\li Match all objects.
 \endtable
 
 See also \l {Expression Examples}
@@ -109,7 +109,7 @@ sets.
 \section2 Views
 
 \list
-\o \l {Map and Join Views}
+\li \l {Map and Join Views}
 \endlist
 
 \section2 Notifications
@@ -128,10 +128,10 @@ See also \l{QJsonDbWatcher}
 \section1 Examples
 
 \list
-\o \l{declarative/simplelistmodel}{Simple List Model}
-\o \l{declarative/simpleindex}{Simple Object Indexing}
-\o \l{declarative/desktop-inspector}{Desktop Database Inspector Example}
-\o \l{declarative/map-phone}{Creating a Map View}
-\o \l{declarative/joinview}{Creating a Join View}
+\li \l{declarative/simplelistmodel}{Simple List Model}
+\li \l{declarative/simpleindex}{Simple Object Indexing}
+\li \l{declarative/desktop-inspector}{Desktop Database Inspector Example}
+\li \l{declarative/map-phone}{Creating a Map View}
+\li \l{declarative/joinview}{Creating a Join View}
 \endlist
 */

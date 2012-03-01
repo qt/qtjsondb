@@ -73,26 +73,26 @@ JsonReader::~JsonReader()
   The conversion from JSON type into QVariant type is as listed below:
   \table
   \row
-  \o false
-  \o QVariant::Bool with the value false.
+  \li false
+  \li QVariant::Bool with the value false.
   \row
-  \o true
-  \o QVariant::Bool with the value true.
+  \li true
+  \li QVariant::Bool with the value true.
   \row
-  \o null
-  \o QVariant::Invalid i.e QVariant()
+  \li null
+  \li QVariant::Invalid i.e QVariant()
   \row
-  \o object
-  \o QVariant::Map i.e QVariantMap
+  \li object
+  \li QVariant::Map i.e QVariantMap
   \row
-  \o array
-  \o QVariant::List i.e QVariantList
+  \li array
+  \li QVariant::List i.e QVariantList
   \row
-  \o string
-  \o QVariant::String i.e QString
+  \li string
+  \li QVariant::String i.e QString
   \row
-  \o number
-  \o QVariant::Double or QVariant::LongLong. If the JSON number contains a '.' or 'e' 
+  \li number
+  \li QVariant::Double or QVariant::LongLong. If the JSON number contains a '.' or 'e' 
      or 'E', QVariant::Double is used.
   \endtable
 
@@ -381,29 +381,29 @@ QString JsonWriter::stringify(const QVariant &variant, int depth)
 
   \table
   \row
-  \o QVariant::List, QVariant::StringList
-  \o JSON array []
+  \li QVariant::List, QVariant::StringList
+  \li JSON array []
   \row
-  \o QVariant::Map
-  \o JSON object {}
+  \li QVariant::Map
+  \li JSON object {}
   \row
-  \o QVariant::String, QVariant::ByteArray
-  \o JSON string encapsulated in double quotes. String contents are escaped using '\' if necessary.
+  \li QVariant::String, QVariant::ByteArray
+  \li JSON string encapsulated in double quotes. String contents are escaped using '\' if necessary.
   \row
-  \o QVariant::Double, QMetaType::Float
-  \o JSON number with a precision 15. Infinity and NaN are converted into null.
+  \li QVariant::Double, QMetaType::Float
+  \li JSON number with a precision 15. Infinity and NaN are converted into null.
   \row
-  \o QVariant::Bool
-  \o JSON boolean true and false
+  \li QVariant::Bool
+  \li JSON boolean true and false
   \row
-  \o QVariant::Invalid
-  \o JSON null
+  \li QVariant::Invalid
+  \li JSON null
   \row
-  \o QVariant::ULongLong, QVariant::LongLong, QVariant::Int, QVariant::UInt, 
-  \o JSON number
+  \li QVariant::ULongLong, QVariant::LongLong, QVariant::Int, QVariant::UInt, 
+  \li JSON number
   \row
-  \o QVariant::Char
-  \o JSON string. Non-ASCII characters are converted into the \uXXXX notation.
+  \li QVariant::Char
+  \li JSON string. Non-ASCII characters are converted into the \uXXXX notation.
   \endtable
 
   As a fallback, the writer attempts to convert a type not listed above into a long long or a

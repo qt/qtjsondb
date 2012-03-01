@@ -144,9 +144,9 @@ void JsonDbNotify::setQuery(const QString &newQuery)
     Holds the list of registered actions for the notification.
     Supported actions are
     \list
-    \o Notification.Create - Subscribe to create notifications
-    \o Notification.Update  - Subscribe to update notifications
-    \o Notification.Remove - Subscribe to remove notifications
+    \li Notification.Create - Subscribe to create notifications
+    \li Notification.Update  - Subscribe to update notifications
+    \li Notification.Remove - Subscribe to remove notifications
     \endlist
     By default the object subscribes to all types of notifications.
     If you need to subscribe only to a subset of actions, it can
@@ -290,8 +290,8 @@ void JsonDbNotify::setEnabled(bool enabled)
 
     This property holds the current error information for the notification object. It contains:
     \list
-    \o error.code -  code for the current error.
-    \o error.message - detailed explanation of the error
+    \li error.code -  code for the current error.
+    \li error.message - detailed explanation of the error
     \endlist
 */
 
@@ -309,10 +309,10 @@ QVariantMap JsonDbNotify::error() const
 
     This property holds the status of the notification object.  It can be one of:
     \list
-    \o Notification.Null - waiting for component to finish loading or for all the pararamters to be set.
-    \o Notification.Registering - notification is being registered with the server
-    \o Notification.Ready - object is ready, will send notifications
-    \o Notification.Error - an error occurred while registering
+    \li Notification.Null - waiting for component to finish loading or for all the pararamters to be set.
+    \li Notification.Registering - notification is being registered with the server
+    \li Notification.Ready - object is ready, will send notifications
+    \li Notification.Error - an error occurred while registering
     \endlist
 */
 

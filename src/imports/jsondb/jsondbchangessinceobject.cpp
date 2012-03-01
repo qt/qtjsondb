@@ -256,8 +256,8 @@ QVariantList JsonDbChangesSinceObject::takeResults()
 
     This property holds the current error information for the ChangesSince object. It contains:
     \list
-    \o error.code -  code for the current error.
-    \o error.message - detailed explanation of the error
+    \li error.code -  code for the current error.
+    \li error.message - detailed explanation of the error
     \endlist
 */
 
@@ -275,10 +275,10 @@ QVariantMap JsonDbChangesSinceObject::error() const
 
     This property holds the current status of the ChangesSince object.  It can be one of:
     \list
-    \o Query.Null - waiting for component to finish loading or for all the pararamters to be set.
-    \o Query.Loading - Executing the changes-since query
-    \o Query.Ready - object is ready, users can call start()
-    \o Query.Error - an error occurred while executing the query
+    \li Query.Null - waiting for component to finish loading or for all the pararamters to be set.
+    \li Query.Loading - Executing the changes-since query
+    \li Query.Ready - object is ready, users can call start()
+    \li Query.Error - an error occurred while executing the query
     \endlist
 
     \sa QtJsonDb::ChangesSince::error

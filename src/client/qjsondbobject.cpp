@@ -72,8 +72,8 @@ static const Uuid JsonDbNamespace = {0x6ba7b810, 0x9dad, 0x11d1, { 0x80, 0xb4, 0
     specification, and for Qt JsonDb the two important ones are the following:
 
     \list
-    \o version 3 constructs uuid from a given string (usually, uri)
-    \o version 4 generates a random uuid
+    \li version 3 constructs uuid from a given string (usually, uri)
+    \li version 4 generates a random uuid
     \endlist
 
     Uuid version 3 makes a deterministic uuid from a given string, that can be

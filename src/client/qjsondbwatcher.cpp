@@ -73,13 +73,13 @@ QJsonDbNotification::QJsonDbNotification(const QJsonObject &object, QJsonDbWatch
 
     \list
 
-    \o If the action() is QJsonDbWatcher::Created, the object contains the full
+    \li If the action() is QJsonDbWatcher::Created, the object contains the full
     object that started matching the watcher query string.
 
-    \o If the action() is QJsonDbWatcher::Updated, the object contains the
+    \li If the action() is QJsonDbWatcher::Updated, the object contains the
     latest version of the object.
 
-    \o If the action() is QJsonDbWatcher::Removed, the object contains the
+    \li If the action() is QJsonDbWatcher::Removed, the object contains the
     \c{_uuid} and \c{_version} of the object that no longer matches the watcher
     query string.
 

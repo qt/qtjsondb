@@ -1419,10 +1419,10 @@ void JsonDbCachingListModel::setSortOrder(const QString &newSortOrder)
     \qmlproperty State QtJsonDb::JsonDbCachingListModel::state
     The current state of the model.
     \list
-    \o State.None - The model is not initialized
-    \o State.Querying - It is querying the results from server
-    \o State.Ready - Results are ready
-    \o State.Error - Cannot find a matching index on the server
+    \li State.None - The model is not initialized
+    \li State.Querying - It is querying the results from server
+    \li State.Ready - Results are ready
+    \li State.Error - Cannot find a matching index on the server
     \endlist
 */
 
@@ -1500,8 +1500,8 @@ JsonDbPartition* JsonDbCachingListModel::getPartition(int index) const
 
     This property holds the current error information for the object. It contains:
     \list
-    \o error.code -  code for the current error.
-    \o error.message - detailed explanation of the error
+    \li error.code -  code for the current error.
+    \li error.message - detailed explanation of the error
     \endlist
 */
 

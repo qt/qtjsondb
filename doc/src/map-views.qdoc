@@ -41,14 +41,14 @@ values of a single target type. The target type must extend \l View.
 
 \table
 \row
-\o _type
-\o Map
+\li _type
+\li Map
 \row
-\o targetType
-\o The output type of this mapping
+\li targetType
+\li The output type of this mapping
 \row
-\o map
-\o A dictionary whose keys are source type names and whose values are the functions to run on those source type.
+\li map
+\li A dictionary whose keys are source type names and whose values are the functions to run on those source type.
 \endtable
 
 \section2 Map Proxy
@@ -58,7 +58,7 @@ When the map functions run, they have access to a jsondb proxy object with one m
 \table
 \row
 \target {jsondb.emit}
-\o \l {jsondb.emit}{jsondb.emit}(viewObject)
+\li \l {jsondb.emit}{jsondb.emit}(viewObject)
 \endtable
 
 \section3 jsondb.emit
@@ -79,14 +79,14 @@ A join is defined by creating a \l Map object in the database with a "join" prop
 
 \table
 \row
-\o _type
-\o Map
+\li _type
+\li Map
 \row
-\o targetType
-\o The output type of this Join
+\li targetType
+\li The output type of this Join
 \row
-\o join
-\o A dictionary whose keys are source type names and whose values are the functions to run on those source type.
+\li join
+\li A dictionary whose keys are source type names and whose values are the functions to run on those source type.
 \endtable
 
 \section2 JsonDb Join Proxy
@@ -95,10 +95,10 @@ When the \l Join functions run, they have access to a jsondb proxy object with t
 
 \table
 \row
-\o \l {jsondb.lookup} {jsondb.lookup}({index: indexName, value: v, objectType: objectType}, context)
+\li \l {jsondb.lookup} {jsondb.lookup}({index: indexName, value: v, objectType: objectType}, context)
 \row
 \target {jsondb.emit}
-\o \l {jsondb.emit}{jsondb.emit}(viewObject)
+\li \l {jsondb.emit}{jsondb.emit}(viewObject)
 \endtable
 
 \section3 jsondb.lookup
@@ -107,14 +107,14 @@ When the \l Join functions run, they have access to a jsondb proxy object with t
 Takes two arguments, a lookup object and a context object. The lookup object consists of:
 \table
 \row
-\o index
-\o The name of the index to use.
+\li index
+\li The name of the index to use.
 \row
-\o value
-\o The value to match in the index.
+\li value
+\li The value to match in the index.
 \row
-\o objectType
-\o The type of the objects to lookup. Must be one of the source types listed in the \l Join definition.
+\li objectType
+\li The type of the objects to lookup. Must be one of the source types listed in the \l Join definition.
 \endtable
 
 For each object found, the join function for objectType is called with

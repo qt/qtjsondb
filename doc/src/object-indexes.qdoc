@@ -42,28 +42,28 @@ An index is defined by creating an \l Index object in the
 
 \table
 \row
-\o _type
-\o Index
+\li _type
+\li Index
 
 \row
-\o name
-\o The name of this index. If not specified and propertyName is
+\li name
+\li The name of this index. If not specified and propertyName is
 specified, name defaults to propertyName. If propertyFunction is
 specified, then name must be specified.
 
 \row
-\o propertyName
-\o A string or array of strings, naming the properties to be
+\li propertyName
+\li A string or array of strings, naming the properties to be
 indexed. Mutually exclusive with propertyFunction.
 
 \row
-\o propertyFunction
-\o A string or array of strings, naming the properties to be
+\li propertyFunction
+\li A string or array of strings, naming the properties to be
 indexed. Mutually exclusive with propertyName.
 
 \row
-\o propertyType
-\o A string or array of strings, naming the types of the values to be
+\li propertyType
+\li A string or array of strings, naming the types of the values to be
 indexed.
 
 If propertyName is specified, propertyType must have the same number
@@ -85,7 +85,7 @@ has one function: \l jsondb.emit.
 \table
 \row
 \target {jsondb.emit}
-\o \l {jsondb.emit}{jsondb.emit}(propertyValue)
+\li \l {jsondb.emit}{jsondb.emit}(propertyValue)
 \endtable
 
 \section3 jsondb.emit

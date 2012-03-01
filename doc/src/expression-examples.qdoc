@@ -33,104 +33,104 @@
 
 \table
 \row
-\o \c {[?_type="Person"]}
-\o Return all objects that are Person types.
+\li \c {[?_type="Person"]}
+\li Return all objects that are Person types.
 \row
-\o \c {[*]}
-\o All objects in the database.
+\li \c {[*]}
+\li All objects in the database.
 \row
-\o \c {[?name exists][/_type]}
-\o All objects with a "name" field in the database, sorted by _type.
+\li \c {[?name exists][/_type]}
+\li All objects with a "name" field in the database, sorted by _type.
 \row
-\o \c {[?name = %thename ][/_type]}
-\o All objects from the database where the "name" field is the same as the
+\li \c {[?name = %thename ][/_type]}
+\li All objects from the database where the "name" field is the same as the
 binding for thename in the bindings object provided to find, sorted by _type.
 \row
-\o \c {[?name != "nancy"]}
-\o All objects in the database with an "name" field not equal to "nancy".
+\li \c {[?name != "nancy"]}
+\li All objects in the database with an "name" field not equal to "nancy".
 \row
-\o \c {[?name < "nancy"]}
-\o All objects in the database with an "name" field less than "nancy".
+\li \c {[?name < "nancy"]}
+\li All objects in the database with an "name" field less than "nancy".
 \row
-\o \c {[?name <= "nancy"]}
-\o All objects in the database with an "name" field less than or equal to
+\li \c {[?name <= "nancy"]}
+\li All objects in the database with an "name" field less than or equal to
 "nancy".
 \row
-\o \c {[?name > "nancy"]}
-\o All objects in the database with an "name" field greater than "nancy".
+\li \c {[?name > "nancy"]}
+\li All objects in the database with an "name" field greater than "nancy".
 \row
-\o \c {[?name >= "nancy"]}
-\o All objects in the database with an "name" field greater than or equal to
+\li \c {[?name >= "nancy"]}
+\li All objects in the database with an "name" field greater than or equal to
 "nancy".
 \row
-\o \c {[?count != 47]}
-\o All objects in the database with a "count" field not equal to 47.
+\li \c {[?count != 47]}
+\li All objects in the database with a "count" field not equal to 47.
 \row
-\o \c {[?count < 47]}
-\o All objects in the database with a "count" field less than 47.
+\li \c {[?count < 47]}
+\li All objects in the database with a "count" field less than 47.
 \row
-\o \c {[?count <= 47]}
-\o All objects in the database with a "count field less than or equal to 47.
+\li \c {[?count <= 47]}
+\li All objects in the database with a "count field less than or equal to 47.
 \row
-\o \c {[?count > 47]}
-\o All objects in the database with a "count" field greater than 47.
+\li \c {[?count > 47]}
+\li All objects in the database with a "count" field greater than 47.
 \row
-\o \c {[?count >= 47]}
-\o All objects in the database with a "count" field greater than or equal to 47.
+\li \c {[?count >= 47]}
+\li All objects in the database with a "count" field greater than or equal to 47.
 \row
-\o \c {[?email contains "foo@example.com"]}
-\o All objects in the database with an "email" field containing the string
+\li \c {[?email contains "foo@example.com"]}
+\li All objects in the database with an "email" field containing the string
 "foo@example.com".
 \row
-\o \c {[?sizes contains 3]}
-\o All objects in the database with a "sizes" field containing the int 3.
+\li \c {[?sizes contains 3]}
+\li All objects in the database with a "sizes" field containing the int 3.
 \row
-\o \c {[?sizes contains %three ]}
-\o All objects in the database with a "sizes" field containing the value bound
+\li \c {[?sizes contains %three ]}
+\li All objects in the database with a "sizes" field containing the value bound
 to three in the bindings object provided to find.
 \row
-\o \c {[?size in [3, 4, 5]]}
-\o All objects in the database with a "size" field that is contained in the
+\li \c {[?size in [3, 4, 5]]}
+\li All objects in the database with a "size" field that is contained in the
 list [3, 4, 5].
 \row
-\o \c {[?size notIn [3, 4, 5]]}
-\o All objects in the database with a "size" field that is not contained in the
+\li \c {[?size notIn [3, 4, 5]]}
+\li All objects in the database with a "size" field that is not contained in the
 list [3, 4, 5].
 \row
-\o \c {[?name =~ "!fred.*!"]}
-\o Objects with a name field matching the regular expression "fred.*", case
+\li \c {[?name =~ "!fred.*!"]}
+\li Objects with a name field matching the regular expression "fred.*", case
 sensitive.
 \row
-\o \c {[?name =~ "!fred.*!i"]}
-\o Objects with a name field matching the regular expression "fred.*", case
+\li \c {[?name =~ "!fred.*!i"]}
+\li Objects with a name field matching the regular expression "fred.*", case
 insensitive.
 \row
-\o \c {[?name =~ "!fred*!w"]}
-\o Objects with a name field matching the wildcard expression "fred*", case
+\li \c {[?name =~ "!fred*!w"]}
+\li Objects with a name field matching the wildcard expression "fred*", case
 sensitive.
 \row
-\o \c {[?name =~ "!fred*!wi"]}
-\o Objects with a name field matching the wildcard expression "fred*", case
+\li \c {[?name =~ "!fred*!wi"]}
+\li Objects with a name field matching the wildcard expression "fred*", case
 insensitive.
 \row
-\o \c {[?name startsWith "fred"]}
-\o Objects with a name field that start with "fred".
+\li \c {[?name startsWith "fred"]}
+\li Objects with a name field that start with "fred".
 \row
-\o \c {[?_type="MESSAGE"][?HasAttachments="true"][\DateTimeSent]}
-\o Message objects with attachments, sorted in reverse chronological order.
+\li \c {[?_type="MESSAGE"][?HasAttachments="true"][\DateTimeSent]}
+\li Message objects with attachments, sorted in reverse chronological order.
 \row
-\o \c {[?_type="MESSAGE"][= Subject ]}
-\o List of the subjects from message objects.
+\li \c {[?_type="MESSAGE"][= Subject ]}
+\li List of the subjects from message objects.
 \row
-\o \c {[?_type="MESSAGE"][= [ Subject, DateTimeSent, Sender.Mailbox.EmailAddress] ]}
-\o List of lists containing the subject, sent time, and sender email address
+\li \c {[?_type="MESSAGE"][= [ Subject, DateTimeSent, Sender.Mailbox.EmailAddress] ]}
+\li List of lists containing the subject, sent time, and sender email address
 from message objects.
 \row
-\o \c {[?_type="MESSAGE"][= { subject: Subject, sent: DateTimeSent, sender: Sender.Mailbox.EmailAddress } ]}
-\o List of new objects containing of subject, sent time, and sender email
+\li \c {[?_type="MESSAGE"][= { subject: Subject, sent: DateTimeSent, sender: Sender.Mailbox.EmailAddress } ]}
+\li List of new objects containing of subject, sent time, and sender email
 address from message objects.
 \row
-\o \c {[?_type="CALL"][= time, duration, contactUuid->name ][/time]}
-\o Time, duration and contact name from call log objects, sorted by time.
+\li \c {[?_type="CALL"][= time, duration, contactUuid->name ][/time]}
+\li Time, duration and contact name from call log objects, sorted by time.
 \endtable
 */

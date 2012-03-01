@@ -507,9 +507,9 @@ int JsonDbClient::query(const QString &queryString, int offset, int limit,
   A successful response object will include the following properties:
 
   \list
-  \o \c data: a list of objects matching the query
-  \o \c length: the number of returned objects
-  \o \c offset: the offset of the returned objects in the list of all objects matching the query.
+  \li \c data: a list of objects matching the query
+  \li \c length: the number of returned objects
+  \li \c offset: the offset of the returned objects in the list of all objects matching the query.
   \endlist
 
   \sa query(), JsonDbQuery, response(), error()
@@ -550,8 +550,8 @@ JsonDbQuery *JsonDbClient::query()
   A successful response will include the following properties:
 
   \list
-  \o \c _uuid: the unique id of the created object
-  \o \c _version: the version of the created object
+  \li \c _uuid: the unique id of the created object
+  \li \c _version: the version of the created object
   \endlist
 
   \sa response()
@@ -584,8 +584,8 @@ int JsonDbClient::create(const QVariant &object, const QString &partitionName, Q
   A successful response will include the following properties:
 
   \list
-  \o \c _uuid: the unique id of the updated object
-  \o \c _version: the version of the updated object
+  \li \c _uuid: the unique id of the updated object
+  \li \c _version: the version of the updated object
   \endlist
 
   \sa response()
@@ -615,7 +615,7 @@ int JsonDbClient::update(const QVariant &object, const QString &partitionName, Q
   A successful response will include the following properties:
 
   \list
-  \o \c _uuid: the unique id of the removed object
+  \li \c _uuid: the unique id of the removed object
   \endlist
 
   \sa response()
