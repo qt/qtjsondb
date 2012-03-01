@@ -1,2 +1,2 @@
 TEMPLATE = subdirs
-SUBDIRS += daemon jsondb-listmodel client
+SUBDIRS += daemon jsondb-listmodel client jsondbcachinglistmodel jsondbsortinglistmodel

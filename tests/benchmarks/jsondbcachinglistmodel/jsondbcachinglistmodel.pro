@@ -1,5 +1,5 @@
 TEMPLATE = app
-TARGET = tst_jsondbcachinglistmodel
+TARGET = tst_bench_jsondbcachinglistmodel
 DEPENDPATH += .
 INCLUDEPATH += .
 

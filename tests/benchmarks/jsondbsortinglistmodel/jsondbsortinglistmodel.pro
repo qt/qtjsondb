@@ -1,5 +1,5 @@
 TEMPLATE = app
-TARGET = tst_jsondbsortinglistmodel-bench
+TARGET = tst_bench_jsondbsortinglistmodel
 DEPENDPATH += .
 INCLUDEPATH += .
 
