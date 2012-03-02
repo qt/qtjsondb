@@ -469,6 +469,8 @@ void QJsonDbConnection::disconnectFromServer()
 
     Returns true if the request was successfully added to the queue.
 
+    This function does not take ownership of the passed \a request object.
+
     \sa cancel()
 */
 bool QJsonDbConnection::send(QJsonDbRequest *request)
@@ -649,6 +651,8 @@ void QJsonDbConnectionPrivate::removeWatcher(QJsonDbWatcher *watcher)
     Note however that registering a watcher doesn't necessery mean it was
     activated sucessfully, but QJsonDbWatcher::status property should be used to
     detect that.
+
+    This function does not take ownership of the passed \a watcher object.
 
     \sa removeWatcher()
 */
