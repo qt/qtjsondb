@@ -52,6 +52,7 @@
 extern bool gDebugHBtree;
 
 class TestHBtree;
+class TestBtrees;
 
 class HBtreePrivate;
 class HBtree
@@ -175,6 +176,7 @@ private:
     Stat stats_;
 
     friend class TestHBtree;
+    friend class TestBtrees;
 };
 
 
