@@ -230,6 +230,11 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
     for (int i = 0; i < objectList.size(); ++i) {
         JsonDbObject object = objectList.at(i);
         const QString uuid = object.value(JsonDbString::kUuidStr).toString();
+        if (mSourceUuids.contains(uuid)) {
+            if (jsondbSettings->verbose())
+                qDebug() << "Lookup cycle detected" << "key" << findKey << JsonDb::fromJSValue(findValue) << "matching object" << uuid << "source uuids" << mSourceUuids;
+            continue;
+        }
         mSourceUuids.append(uuid);
         QJSValueList mapArgs;
         QJSValue sv = JsonDb::toJSValue(object, mScriptEngine);
