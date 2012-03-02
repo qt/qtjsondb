@@ -84,12 +84,10 @@ has one function: \l jsondb.emit.
 
 \table
 \row
-\target {jsondb.emit}
 \li \l {jsondb.emit}{jsondb.emit}(propertyValue)
 \endtable
 
 \section3 jsondb.emit
-\target {jsondb.emit}
 
 Emits a computed property value. \l jsondb.emit may be called zero or
 more times in a propertyFunction. For each value emitted from the

@@ -57,12 +57,10 @@ When the map functions run, they have access to a jsondb proxy object with one m
 
 \table
 \row
-\target {jsondb.emit}
 \li \l {jsondb.emit}{jsondb.emit}(viewObject)
 \endtable
 
 \section3 jsondb.emit
-\target {jsondb.emit}
 
 Emits a view object. \l jsondb.emit may be called zero or more times
 in a map function. Each object emitted from the map function is
