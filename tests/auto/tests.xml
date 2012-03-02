@@ -6,11 +6,11 @@
         <description>Client library tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/client;date &amp;&amp; ./tst_client&amp;&amp; date</step>
       </case>
-      <case name="tst_daemon" component="qt5jsondb"  timeout="2000">
+      <case name="tst_daemon" requirement="BAT" component="qt5jsondb"  timeout="2000">
         <description> JsonDb daemon tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/daemon;date &amp;&amp; ./tst_daemon &amp;&amp; date</step>
       </case>
-      <case name="tst_accesscontrol" type="Security" component="qt5jsondb"  timeout="2000">
+      <case name="tst_accesscontrol" requirement="BAT,CST" type="Security" component="qt5jsondb"  timeout="600">
         <description> JsonDb security tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/accesscontrol;date &amp;&amp; ./tst_accesscontrol&amp;&amp; date</step>
       </case>
@@ -26,15 +26,15 @@
         <description>QML JsonDB Partition tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbpartition;date &amp;&amp; ./tst_jsondbpartition -platform minimal&amp;&amp; date</step>
       </case>
-      <case name="tst_jsondbcachinglistmodel" requirement="BAT,CST" component="qt5jsondb"  timeout="1000">
+      <case name="tst_jsondbcachinglistmodel" requirement="BAT,CST" component="qt5jsondb"  timeout="600">
         <description>QML JsonDB Caching ListModel tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbcachinglistmodel;date &amp;&amp; ./tst_jsondbcachinglistmodel -platform minimal&amp;&amp; date</step>
       </case>
-      <case name="tst_jsondbsortinglistmodel" requirement="CST" component="qt5jsondb"  timeout="1000">
+      <case name="tst_jsondbsortinglistmodel" requirement="BAT,CST" component="qt5jsondb"  timeout="600">
         <description>QML JsonDB Sorting ListModel tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbsortinglistmodel;date &amp;&amp; ./tst_jsondbsortinglistmodel -platform minimal&amp;&amp; date</step>
       </case>
-      <case name="tst_jsondbqueryobject" requirement="BAT,CST" component="qt5jsondb"  timeout="1000">
+      <case name="tst_jsondbqueryobject" requirement="BAT,CST" component="qt5jsondb"  timeout="600">
         <description>QML JsonDB Query Object tests</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/jsondbqueryobject;date &amp;&amp; ./tst_jsondbqueryobject -platform minimal&amp;&amp; date</step>
       </case>
