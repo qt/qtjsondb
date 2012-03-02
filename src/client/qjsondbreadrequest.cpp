@@ -329,7 +329,7 @@ QJsonDbReadObjectRequestPrivate::QJsonDbReadObjectRequestPrivate(QJsonDbReadObje
     Constructs a new QJsonDbReadObjectRequest object with the given \a parent.
 */
 QJsonDbReadObjectRequest::QJsonDbReadObjectRequest(QObject *parent)
-    : QJsonDbReadRequest(parent)
+    : QJsonDbReadRequest(new QJsonDbReadObjectRequestPrivate(this), parent)
 {
     connect(this, SIGNAL(finished()), this, SLOT(_q_onFinished()));
 }
@@ -339,7 +339,7 @@ QJsonDbReadObjectRequest::QJsonDbReadObjectRequest(QObject *parent)
     to retrieve content of the object with the given \a uuid.
 */
 QJsonDbReadObjectRequest::QJsonDbReadObjectRequest(const QUuid &uuid, QObject *parent)
-    : QJsonDbReadRequest(parent)
+    : QJsonDbReadRequest(new QJsonDbReadObjectRequestPrivate(this), parent)
 {
     connect(this, SIGNAL(finished()), this, SLOT(_q_onFinished()));
     setUuid(uuid);
