@@ -98,6 +98,7 @@ private:
     QMultiMap<QString,JsonDbMapDefinition*> mMapDefinitionsBySource; // maps map source type to view definition
     QSet<JsonDbReduceDefinition*>           mReduceDefinitions;
     QMultiMap<QString,JsonDbReduceDefinition*> mReduceDefinitionsBySource; // maps reduce source type to view definition
+    bool mUpdating;
 };
 
 QT_END_NAMESPACE_JSONDB

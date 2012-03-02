@@ -65,6 +65,7 @@ JsonDbView::JsonDbView(JsonDb *jsonDb, JsonDbPartition *partition, const QString
   , mViewObjectTable(0)
   , mMainObjectTable(mPartition->mainObjectTable())
   , mViewType(viewType)
+  , mUpdating(false)
 {
     mViewObjectTable = new JsonDbObjectTable(mPartition);
 }
@@ -299,8 +300,18 @@ void JsonDbView::updateView()
     quint32 viewStateNumber = mViewObjectTable->stateNumber();
 
     // if the view is up to date, then return
-    if (viewStateNumber == partitionStateNumber)
+    if (viewStateNumber == partitionStateNumber) {
+        if (jsondbSettings->verbose())
+            qDebug() << "updateView" << mViewType << "}";
         return;
+    }
+    if (mUpdating) {
+        if (jsondbSettings->verbose())
+            qDebug() << endl << "Update already in progess" << endl
+                     << "updateView" << mViewType << "}";
+        return;
+    }
+    mUpdating = true;
 
     // update the source types in case they are views
     for (JsonDbView::ObjectTableSourceTypeMap::const_iterator it = mObjectTableSourceTypeMap.begin();
@@ -394,6 +405,7 @@ void JsonDbView::updateView()
         qDebug() << endl << "}" << "updateView" << mViewType << endl;
     if (jsondbSettings->performanceLog())
         qDebug() << "updateView" << mViewType << timer.elapsed() << "ms";
+    mUpdating = false;
 }
 
 bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targetStateNumber,
