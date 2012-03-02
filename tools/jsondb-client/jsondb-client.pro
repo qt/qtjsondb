@@ -8,8 +8,6 @@ QT = core jsondb declarative gui
 
 LIBS += -ledit
 
-include(../../qtjsondb.pri)
-
 mac:CONFIG -= app_bundle
 
 HEADERS += client.h
