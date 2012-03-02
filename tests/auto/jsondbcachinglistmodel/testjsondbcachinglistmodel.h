@@ -120,6 +120,7 @@ private slots:
     void changeQuery();
     void indexOfUuid();
     void roleNames();
+    void getItemNotInCache();
 
 private:
     void waitForExitOrTimeout();

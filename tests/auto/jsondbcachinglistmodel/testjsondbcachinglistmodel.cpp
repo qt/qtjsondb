@@ -294,6 +294,7 @@ void TestJsonDbCachingListModel::createItem()
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
     listModel->setProperty("roleNames", roleNames);
     listModel->setProperty("sortOrder", "[/name]");
+    listModel->setProperty("cacheSize", 200);
     listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     connectListModel(listModel);
 
@@ -302,6 +303,7 @@ void TestJsonDbCachingListModel::createItem()
 
     waitForStateOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
+    QCOMPARE(listModel->property("cacheSize").toInt(), 200);
 
     getIndex(0);
     QCOMPARE(callbackResponse.toMap().value("_type").toString(), QLatin1String(__FUNCTION__));
@@ -469,6 +471,7 @@ void TestJsonDbCachingListModel::sortedQuery()
 
     waitForStateOrTimeout();
 
+    QCOMPARE(listModel->property("sortOrder").toString(), QString("[/number]"));
     QCOMPARE(listModel->rowCount(), 1000);
     for (int i = 0; i < 1000; i++) {
         getIndex(i);
@@ -479,6 +482,7 @@ void TestJsonDbCachingListModel::sortedQuery()
 
     waitForStateOrTimeout();
 
+    QCOMPARE(listModel->property("sortOrder").toString(), QString("[\\number]"));
     QCOMPARE(listModel->rowCount(), 1000);
 
     for (int i = 0; i < 1000; i++) {
@@ -1066,6 +1070,50 @@ void TestJsonDbCachingListModel::roleNames()
 
     deleteModel(listModel);
 }
+
+void TestJsonDbCachingListModel::getItemNotInCache()
+{
+    QVariantMap item;
+    for (int i=0; i < 300; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("number", i);
+        int id = mClient->create(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+    }
+
+    createIndex("number", "number");
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+    listModel->setProperty("cacheSize", 100);
+    listModel->setProperty("sortOrder", "[/number]");
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "number");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    // now start it working
+    QCOMPARE(listModel->rowCount(), 0);
+
+    waitForStateOrTimeout();
+    QCOMPARE(listModel->rowCount(), 300);
+    QCOMPARE(listModel->property("cacheSize").toInt(), 100);
+
+    getIndex(100);
+    QCOMPARE(callbackResponse.toMap().value("number").toInt(), 100);
+    getIndex(151);
+    QCOMPARE(callbackResponse.toMap().value("number").toInt(), 151);
+    getIndex(202);
+    QCOMPARE(callbackResponse.toMap().value("number").toInt(), 202);
+    getIndex(255);
+    QCOMPARE(callbackResponse.toMap().value("number").toInt(), 255);
+    getIndex(20);
+    QCOMPARE(callbackResponse.toMap().value("number").toInt(), 20);
+
+    deleteModel(listModel);
+}
+
+
 
 QStringList TestJsonDbCachingListModel::getOrderValues(QAbstractListModel *listModel)
 {
