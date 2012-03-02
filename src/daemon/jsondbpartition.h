@@ -73,6 +73,8 @@ extern const QString kDbidTypeStr;
 extern const QString kIndexTypeStr;
 extern const QString kPropertyNameStr;
 extern const QString kPropertyTypeStr;
+extern const QString kLocaleStr;
+extern const QString kCollationStr;
 extern const QString kNameStr;
 extern const QString kObjectTypeStr;
 extern const QString kDatabaseSchemaVersionStr;
@@ -175,7 +177,9 @@ public:
                   const QString &propertyName,
                   const QString &propertyType = QString("string"),
                   const QString &objectType = QString(),
-                  const QString &propertyFunction = QString());
+                  const QString &propertyFunction = QString(),
+                  const QString &locale = QString(),
+                  const QString &collation = QString());
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
                             const QString &objectType = QString())

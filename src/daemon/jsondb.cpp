@@ -1179,6 +1179,8 @@ bool JsonDb::addIndex(JsonDbObject indexObject, const QString &partitionName)
     QString propertyType = indexObject.value(kPropertyTypeStr).toString();
     QString objectType = indexObject.value(kObjectTypeStr).toString();
     QString propertyFunction = indexObject.value(kPropertyFunctionStr).toString();
+    QString locale = indexObject.value(kLocaleStr).toString();
+    QString collation = indexObject.value(kCollationStr).toString();
 
     Q_ASSERT(propertyName.isEmpty() ^ propertyFunction.isEmpty());
     Q_ASSERT(!propertyFunction.isEmpty() ? !indexName.isEmpty() : true);
@@ -1187,7 +1189,7 @@ bool JsonDb::addIndex(JsonDbObject indexObject, const QString &partitionName)
         indexName = propertyName;
 
     if (JsonDbPartition *partition = findPartition(partitionName))
-        return partition->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
+        return partition->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation);
     qWarning() << "addIndex" << "did not find partition" << partitionName;
     return false;
 }

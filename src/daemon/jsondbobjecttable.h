@@ -144,7 +144,9 @@ public:
                   const QString &propertyName = QString(),
                   const QString &propertyType = QString("string"),
                   const QString &objectType = QString(),
-                  const QString &propertyFunction = QString());
+                  const QString &propertyFunction = QString(),
+                  const QString &locale = QString(),
+                  const QString &collation = QString());
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
                             const QString &objectType = QString())

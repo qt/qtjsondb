@@ -258,6 +258,7 @@ private slots:
     void removeIndexes();
     void setOwner();
     void indexPropertyFunction();
+    void indexCollation();
     void managedBtree();
 
     void settings();
@@ -4152,6 +4153,106 @@ void TestJsonDb::indexPropertyFunction()
     queryResult = mJsonDb->find(mOwner, query);
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("to").toDouble(), (double)-64);
+}
+
+void TestJsonDb::indexCollation()
+{
+#ifndef NO_COLLATION_SUPPORT
+    JsonDbObject item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u4e00"));
+    item.insert("lastName", QLatin1String("1-Yi"));
+    QJsonObject result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u4e8c"));
+    item.insert("lastName", QLatin1String("2-Er"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u4e09"));
+    item.insert("lastName", QLatin1String("3-San"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u82b1"));
+    item.insert("lastName", QLatin1String("4-Hua"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u9489"));
+    item.insert("lastName", QLatin1String("5-Ding"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u516d"));
+    item.insert("lastName", QLatin1String("6-Liu"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u5b54"));
+    item.insert("lastName", QLatin1String("7-Kong"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    JsonDbObject pinyinIndex;
+    pinyinIndex.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
+    pinyinIndex.insert(QLatin1String("name"), QLatin1String("pinyinIndex"));
+    pinyinIndex.insert(QLatin1String("propertyName"), QLatin1String("firstName"));
+    pinyinIndex.insert(QLatin1String("propertyType"), QLatin1String("string"));
+    pinyinIndex.insert(QLatin1String("locale"), QLatin1String("zh_CN"));
+    pinyinIndex.insert(QLatin1String("collation"), QLatin1String("pinyin"));
+    result = mJsonDb->create(mOwner, pinyinIndex);
+    verifyGoodResult(result);
+
+    JsonDbObject strokeIndex;
+    strokeIndex.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
+    strokeIndex.insert(QLatin1String("name"), QLatin1String("strokeIndex"));
+    strokeIndex.insert(QLatin1String("propertyName"), QLatin1String("firstName"));
+    strokeIndex.insert(QLatin1String("propertyType"), QLatin1String("string"));
+    strokeIndex.insert(QLatin1String("locale"), QLatin1String("zh_CN"));
+    strokeIndex.insert(QLatin1String("collation"), QLatin1String("stroke"));
+    result = mJsonDb->create(mOwner, strokeIndex);
+    verifyGoodResult(result);
+
+    QJsonObject query1;
+    query1.insert("query", QString("[?_type=\"IndexCollation\"][/pinyinIndex]"));
+    JsonDbQueryResult queryResult1 = mJsonDb->find(mOwner, query1);
+    QCOMPARE(queryResult1.data.size(), 7);
+    QCOMPARE(queryResult1.data.at(0).value("lastName").toString(), QLatin1String("5-Ding"));
+    QCOMPARE(queryResult1.data.at(1).value("lastName").toString(), QLatin1String("2-Er"));
+    QCOMPARE(queryResult1.data.at(2).value("lastName").toString(), QLatin1String("4-Hua"));
+    QCOMPARE(queryResult1.data.at(3).value("lastName").toString(), QLatin1String("7-Kong"));
+    QCOMPARE(queryResult1.data.at(4).value("lastName").toString(), QLatin1String("6-Liu"));
+    QCOMPARE(queryResult1.data.at(5).value("lastName").toString(), QLatin1String("3-San"));
+    QCOMPARE(queryResult1.data.at(6).value("lastName").toString(), QLatin1String("1-Yi"));
+
+    QJsonObject query2;
+    query2.insert("query", QString("[?_type=\"IndexCollation\"][/strokeIndex]"));
+    JsonDbQueryResult queryResult2 = mJsonDb->find(mOwner, query2);
+    QCOMPARE(queryResult2.data.size(), 7);
+    QCOMPARE(queryResult2.data.at(0).value("lastName").toString(), QLatin1String("1-Yi"));
+    QCOMPARE(queryResult2.data.at(1).value("lastName").toString(), QLatin1String("2-Er"));
+    QCOMPARE(queryResult2.data.at(2).value("lastName").toString(), QLatin1String("3-San"));
+    QCOMPARE(queryResult2.data.at(3).value("lastName").toString(), QLatin1String("6-Liu"));
+    QCOMPARE(queryResult2.data.at(4).value("lastName").toString(), QLatin1String("7-Kong"));
+    QCOMPARE(queryResult2.data.at(5).value("lastName").toString(), QLatin1String("4-Hua"));
+    QCOMPARE(queryResult2.data.at(6).value("lastName").toString(), QLatin1String("5-Ding"));
+#else
+    QSKIP("This test requires NO_COLLATION_SUPPORT is not defined!");
+#endif
 }
 
 void TestJsonDb::managedBtree()
