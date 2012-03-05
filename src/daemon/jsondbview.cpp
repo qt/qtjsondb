@@ -47,7 +47,6 @@
 #include <QElapsedTimer>
 
 #include "jsondb-global.h"
-#include "jsondb.h"
 #include "jsondbpartition.h"
 #include "jsondbobject.h"
 #include "jsondbview.h"
@@ -58,9 +57,8 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-JsonDbView::JsonDbView(JsonDb *jsonDb, JsonDbPartition *partition, const QString &viewType, QObject *parent)
-  : QObject(parent)
-  , mJsonDb(jsonDb)
+JsonDbView::JsonDbView(JsonDbPartition *partition, const QString &viewType, QObject *parent) :
+    QObject(parent)
   , mPartition(partition)
   , mViewObjectTable(0)
   , mMainObjectTable(mPartition->mainObjectTable())
@@ -98,13 +96,13 @@ void JsonDbView::close()
         mViewObjectTable->close();
 }
 
-void JsonDbView::initViews(JsonDbPartition *partition, const QString &partitionName)
+void JsonDbView::initViews(JsonDbPartition *partition)
 {
     if (jsondbSettings->verbose())
-        qDebug() << "Initializing views on partition" << partitionName;
+        qDebug() << "Initializing views on partition" << partition->name();
     {
-        JsonDbObjectList mrdList = partition->getObjects(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr,
-                                                         partitionName).data;
+        JsonDbObjectList mrdList = partition->getObjects(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr).data;
+
         for (int i = 0; i < mrdList.size(); ++i) {
             JsonDbObject mrd = mrdList.at(i);
             JsonDbView *view = partition->addView(mrd.value("targetType").toString());
@@ -112,8 +110,8 @@ void JsonDbView::initViews(JsonDbPartition *partition, const QString &partitionN
         }
     }
     {
-        JsonDbObjectList mrdList = partition->getObjects(JsonDbString::kTypeStr, JsonDbString::kReduceTypeStr,
-                                                         partitionName).data;
+        JsonDbObjectList mrdList = partition->getObjects(JsonDbString::kTypeStr, JsonDbString::kReduceTypeStr).data;
+
         for (int i = 0; i < mrdList.size(); ++i) {
             JsonDbObject mrd = mrdList.at(i);
             JsonDbView *view = partition->addView(mrd.value("targetType").toString());
@@ -160,8 +158,10 @@ void JsonDbView::createMapDefinition(QJsonObject mapDefinition)
     if (jsondbSettings->verbose())
         qDebug() << "createMapDefinition" << uuid << targetType << "{";
 
-    const JsonDbOwner *owner = mJsonDb->findOwner(mapDefinition.value(JsonDbString::kOwnerStr).toString());
-    JsonDbMapDefinition *def = new JsonDbMapDefinition(mJsonDb, owner, mPartition, mapDefinition, this);
+    // FIXME: need to get capabilities even when the owner isn't connected
+    JsonDbOwner *owner = new JsonDbOwner(this);
+    owner->setOwnerId(mapDefinition.value(JsonDbString::kOwnerStr).toString());
+    JsonDbMapDefinition *def = new JsonDbMapDefinition(owner, mPartition, mapDefinition, this);
     QStringList sourceTypes = def->sourceTypes();
     for (int i = 0; i < sourceTypes.size(); i++) {
         const QString sourceType = sourceTypes[i];
@@ -197,6 +197,7 @@ void JsonDbView::removeMapDefinition(QJsonObject mapDefinition)
             break;
         }
     }
+
     updateSourceTypesList();
     if (jsondbSettings->verbose())
         qDebug() << "removeMapDefinition" << uuid << targetType << "}";
@@ -209,8 +210,9 @@ void JsonDbView::createReduceDefinition(QJsonObject reduceDefinition)
     if (jsondbSettings->debug())
         qDebug() << "createReduceDefinition" << sourceType << targetType << sourceType << "{";
 
-    const JsonDbOwner *owner = mJsonDb->findOwner(reduceDefinition.value(JsonDbString::kOwnerStr).toString());
-    JsonDbReduceDefinition *def = new JsonDbReduceDefinition(mJsonDb, owner, mPartition, reduceDefinition, this);
+    JsonDbOwner *owner = new JsonDbOwner(this);
+    owner->setOwnerId(reduceDefinition.value(JsonDbString::kOwnerStr).toString());
+    JsonDbReduceDefinition *def = new JsonDbReduceDefinition(owner, mPartition, reduceDefinition, this);
     if (mReduceDefinitionsBySource.contains(sourceType)) {
         def->setError(QString("Duplicate Reduce definition on source %1 and target %2")
                       .arg(sourceType).arg(targetType));
@@ -242,6 +244,7 @@ void JsonDbView::removeReduceDefinition(QJsonObject reduceDefinition)
             break;
         }
     }
+
     updateSourceTypesList();
     //TODO: actually remove the table
     if (jsondbSettings->verbose())
@@ -410,9 +413,9 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
                 QString definitionType = before.value(JsonDbString::kTypeStr).toString();
                 QString targetType = before.value("targetType").toString();
                 if (definitionType == JsonDbString::kMapTypeStr)
-                    JsonDbMapDefinition::definitionRemoved(mJsonDb, mViewObjectTable, targetType, definitionUuid);
+                    JsonDbMapDefinition::definitionRemoved(mPartition, mViewObjectTable, targetType, definitionUuid);
                 else
-                    JsonDbReduceDefinition::definitionRemoved(mJsonDb, mViewObjectTable, targetType, definitionUuid);
+                    JsonDbReduceDefinition::definitionRemoved(mPartition, mViewObjectTable, targetType, definitionUuid);
             }
         }
         if (change.contains("after")) {
@@ -452,6 +455,21 @@ void JsonDbView::reduceMemoryUsage()
          it != mReduceDefinitions.end();
          ++it)
         it.value()->releaseScriptEngine();
+}
+
+bool JsonDbView::isActive() const
+{
+    foreach (JsonDbMapDefinition *mapDef, mMapDefinitions) {
+        if (mapDef->isActive())
+            return true;
+    }
+
+    foreach (JsonDbReduceDefinition *reduceDef, mReduceDefinitions) {
+        if (reduceDef->isActive())
+            return true;
+    }
+
+    return false;
 }
 
 QT_END_NAMESPACE_JSONDB

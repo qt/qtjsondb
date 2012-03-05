@@ -49,7 +49,6 @@
 
 #include "json.h"
 
-#include "jsondb.h"
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
 #include "jsondbsettings.h"
@@ -135,7 +134,7 @@ private:
     void addIndex(const QString &propertyName, const QString &propertyType=QString(), const QString &objectType=QString());
 
 private:
-    JsonDb *mJsonDb;
+    JsonDbPartition *mJsonDbPartition;
     QList<JsonDbObject>  mContactList;
     QStringList mFirstNames;
     QStringList mUuids;
@@ -144,10 +143,7 @@ private:
 
 #define verifyGoodResult(result) \
 { \
-    QJsonObject __result = result; \
-    QVERIFY(__result.contains(JsonDbString::kErrorStr)); \
-    QVERIFY2(__result.value(JsonDbString::kErrorStr).type() == QJsonValue::Null, __result.value(JsonDbString::kErrorStr).toObject().value("message").toString().toLocal8Bit()); \
-    QVERIFY(__result.contains(JsonDbString::kResultStr)); \
+    JsonDbWriteResult __result = result; \
 }
 
 #define verifyGoodQueryResult(result) \
@@ -159,8 +155,9 @@ private:
 
 const char *kFilename = "testdatabase";
 
-TestJsonDb::TestJsonDb()
-    : mJsonDb(NULL), mOwner(0)
+TestJsonDb::TestJsonDb() :
+    mJsonDbPartition(0)
+  , mOwner(0)
 {
 }
 
@@ -182,10 +179,10 @@ void TestJsonDb::initTestCase()
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
-    mJsonDb = new JsonDb(QString (), kFilename, QStringLiteral("com.example.JsonDbTest"), this);
-    mJsonDb->open();
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId(QStringLiteral("com.example.JsonDbTest"));
+    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
+    mJsonDbPartition->open();
 
     QFile contactsFile(":/daemon/json/largeContactsTest.json");
     QVERIFY(contactsFile.exists());
@@ -226,10 +223,10 @@ void TestJsonDb::initTestCase()
     int chunksize = 100;
     for (count = 0; count < mContactList.size(); count += chunksize) {
         JsonDbObjectList chunk = mContactList.mid(count, chunksize);
-        QJsonObject result = mJsonDb->createList(mOwner, chunk);
-        QJsonArray data = result.value("result").toObject().value("data").toArray();
+        JsonDbWriteResult result = mJsonDbPartition->updateObjects(mOwner, chunk);
+        JsonDbObjectList data = result.objectsWritten;
         for (int i = 0; i < data.size(); i++)
-            mUuids.append(data.at(i).toObject().value(JsonDbString::kUuidStr).toString());
+            mUuids.append(data.at(i).value(JsonDbString::kUuidStr).toString());
     }
     long elapsed = time.elapsed();
     mUuids.sort();
@@ -242,18 +239,17 @@ void TestJsonDb::init()
 
 void TestJsonDb::cleanupTestCase()
 {
-    if (mJsonDb) {
-        mJsonDb->close();
-        delete mJsonDb;
-        mJsonDb = 0;
+    if (mJsonDbPartition) {
+        mJsonDbPartition->close();
+        delete mJsonDbPartition;
+        mJsonDbPartition = 0;
     }
     removeDbFiles();
 }
 
 void TestJsonDb::cleanup()
 {
-    foreach (JsonDbPartition *partition, mJsonDb->mPartitions)
-        QCOMPARE(partition->mTransactionDepth, 0);
+    QCOMPARE(mJsonDbPartition->mTransactionDepth, 0);
 }
 
 void TestJsonDb::addSchema(const QString &schemaName)
@@ -264,25 +260,26 @@ void TestJsonDb::addSchema(const QString &schemaName)
     schemaDocument.insert("name", schemaName);
     schemaDocument.insert("schema", schema);
 
-    QJsonObject result = mJsonDb->create(mOwner, schemaDocument);
+    JsonDbWriteResult result = mJsonDbPartition->updateObject(mOwner, schemaDocument);
     verifyGoodResult(result);
 }
 
 void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyType, const QString &objectType)
 {
     QJsonObject index;
-    index.insert(JsonDbString::kTypeStr, kIndexTypeStr);
-    index.insert(kPropertyNameStr, propertyName);
+    index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    index.insert(JsonDbString::kPropertyNameStr, propertyName);
     if (!propertyType.isEmpty())
-        index.insert(kPropertyTypeStr, propertyType);
+        index.insert(JsonDbString::kPropertyTypeStr, propertyType);
     if (!objectType.isEmpty())
-        index.insert(kObjectTypeStr, objectType);
-    QVERIFY(mJsonDb->addIndex(index, mJsonDb->mSystemPartitionName));
+        index.insert(JsonDbString::kObjectTypeStr, objectType);
+    JsonDbWriteResult result = mJsonDbPartition->updateObject(mOwner, index);
+    QVERIFY(result.code == JsonDbError::NoError);
 }
 
 void TestJsonDb::compact()
 {
-    mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->compact();
+    mJsonDbPartition->compact();
 }
 
 void TestJsonDb::jsonArrayCreate()
@@ -386,7 +383,7 @@ void TestJsonDb::benchmarkCreate()
     QJsonArray contacts(readJsonFile(":/daemon/json/largeContactsTest.json").toArray());
     QBENCHMARK {
         JsonDbObject contact(contacts.at(0).toObject());
-            mJsonDb->create(mOwner, contact);
+            mJsonDbPartition->updateObject(mOwner, contact);
     }
 }
 
@@ -563,7 +560,7 @@ void TestJsonDb::benchmarkParsedQuery()
         //QVariantList orderTerms = parseResult.value("orderTerms").toList();
         int limit = 1;
         int offset = 0;
-        JsonDbQueryResult queryResult = mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->queryPersistentObjects(mOwner, parsedQuery.data(), limit, offset);
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), limit, offset);
         if (queryResult.data.size() != 1) {
             qDebug() << "result length" << queryResult.data.size();
             qDebug() << "item" << item;
@@ -617,15 +614,13 @@ void TestJsonDb::benchmarkSchemaValidation()
     static int schemaId = 0;
     const QString personSchemaName = QString::fromLatin1("personBenchmark") + QString::number(++schemaId);
 
-    QJsonObject qResult;
     QJsonObject personSchemaBody = readJson(person).toObject();
     JsonDbObject personSchemaObject;
     personSchemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     personSchemaObject.insert("name", personSchemaName);
     personSchemaObject.insert("schema", personSchemaBody);
-    qResult = mJsonDb->create(mOwner, personSchemaObject);
+    JsonDbWriteResult qResult = mJsonDbPartition->updateObject(mOwner, personSchemaObject);
     verifyGoodResult(qResult);
-
 
     // Prepare items
     const uint numberOfIterations = 1000;
@@ -640,12 +635,13 @@ void TestJsonDb::benchmarkSchemaValidation()
 
     QBENCHMARK_ONCE {
         foreach (QJsonObject object, objects) {
-            qResult = mJsonDb->validateSchema(personSchemaName, object);
+            QString error;
+            bool result = mJsonDbPartition->validateSchema(personSchemaName, object, error);
 
             if (isPerson) {
-                QVERIFY(qResult.isEmpty());
+                QVERIFY(result && error.isEmpty());
             } else {
-                QVERIFY(!qResult.isEmpty());
+                QVERIFY(!(result || error.isEmpty()));
             }
         }
     }
@@ -660,16 +656,13 @@ void TestJsonDb::benchmarkFind()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
         int itemNumber = (int)((double)qrand() * count / RAND_MAX);
         JsonDbObject item = mContactList.at(itemNumber);
-        request.insert("query",
-                       QString("[?name=\"%3\"][?%1=\"%2\"]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact")
-                       .arg(item.value("name").toString()));
-        request.insert("limit", 1);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query =  QString("[?name=\"%3\"][?%1=\"%2\"]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact")
+                .arg(item.value("name").toString());
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -681,14 +674,11 @@ void TestJsonDb::benchmarkFindByName()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?name.first<=\"%3\"]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact")
-                       .arg(mFirstNames[mFirstNames.size()-1]));
-        request.insert("limit", 1);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?name.first<=\"%3\"]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact")
+                .arg(mFirstNames[mFirstNames.size()-1]);
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -701,12 +691,10 @@ void TestJsonDb::benchmarkFindByUuid()
 
     QString uuid = mUuids[mUuids.size() / 2];
     QBENCHMARK {
-        QJsonObject request;
-        request.insert("query",
-                       QString("[?%1=\"%2\"]")
-                       .arg(JsonDbString::kUuidStr)
-                       .arg(uuid));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"]")
+                .arg(JsonDbString::kUuidStr)
+                .arg(uuid);
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query));
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -717,17 +705,14 @@ void TestJsonDb::benchmarkFindEQ()
   if (!count)
     return;
 
-  QJsonObject request;
-
   int itemNumber = (int)((double)qrand() * count / RAND_MAX);
   JsonDbObject item = mContactList.at(itemNumber);
-  request.insert("query",
-                 QString("[?name.first=\"%3\"][?%1=\"%2\"]")
-                 .arg(JsonDbString::kTypeStr)
-                 .arg("contact")
-                 .arg(JsonDb::propertyLookup(item, "name.first").toString()));
+  QString query = QString("[?name.first=\"%3\"][?%1=\"%2\"]")
+          .arg(JsonDbString::kTypeStr)
+          .arg("contact")
+          .arg(item.propertyLookup("name.first").toString());
   QBENCHMARK {
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+    JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query));
     verifyGoodQueryResult(queryResult);
   }
 }
@@ -739,17 +724,13 @@ void TestJsonDb::benchmarkFindLE()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
         int itemNumber = (int)((double)qrand() * count / RAND_MAX);
         JsonDbObject item = mContactList.at(itemNumber);
-        request.insert("query",
-                       QString("[?name.first<=\"%3\"][?%1=\"%2\"]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact")
-                       .arg(JsonDb::propertyLookup(item, "name.first").toString()));
-        request.insert("limit", 1);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?name.first<=\"%3\"][?%1=\"%2\"]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact")
+                .arg(item.propertyLookup("name.first").toString());
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -761,14 +742,10 @@ void TestJsonDb::benchmarkFirst()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("limit", 1);
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?name.last exists][/name.first]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?name.last exists][/name.first]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -780,14 +757,10 @@ void TestJsonDb::benchmarkLast()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("limit", 1);
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?name.last exists][\\name.first]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?name.last exists][\\name.first]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -799,14 +772,10 @@ void TestJsonDb::benchmarkFirst10()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("limit", 10);
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?name.last exists][/name.first]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?name.last exists][/name.first]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 10);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -820,15 +789,11 @@ void TestJsonDb::benchmarkFind10()
     int itemNumber = qMax(0, mFirstNames.size()-10);
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("limit", 10);
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?name.first>=\"%3\"][?name.last exists][/name.first]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact")
-                       .arg(mFirstNames[itemNumber]));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?name.first>=\"%3\"][?name.last exists][/name.first]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact")
+                .arg(mFirstNames[itemNumber]);
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 10);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -839,17 +804,14 @@ void TestJsonDb::benchmarkFind20()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
         int itemNumber = (int)((double)qrand() * count / RAND_MAX);
         JsonDbObject item = mContactList.at(itemNumber);
-        request.insert("limit", 20);
-        request.insert("query",
-                       QString("[?name.first<=\"%3\"][?%1=\"%2\"]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact")
-                       .arg(JsonDb::propertyLookup(item, "name.first").toString()));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+
+        QString query = QString("[?name.first<=\"%3\"][?%1=\"%2\"]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact")
+                .arg(item.propertyLookup("name.first").toString());
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 20);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -861,14 +823,10 @@ void TestJsonDb::benchmarkFirstByUuid()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("limit", 1);
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -880,14 +838,10 @@ void TestJsonDb::benchmarkLastByUuid()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("limit", 1);
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -899,14 +853,10 @@ void TestJsonDb::benchmarkFirst10ByUuid()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("limit", 10);
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 10);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -919,15 +869,11 @@ void TestJsonDb::benchmarkFind10ByUuid()
 
     int itemNumber = qMax(0, mUuids.size()-10);
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("limit", 10);
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?_uuid>=\"%3\"][?name.last exists][/_uuid]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact")
-                       .arg(mUuids[itemNumber]));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?_uuid>=\"%3\"][?name.last exists][/_uuid]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact")
+                .arg(mUuids[itemNumber]);
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 10);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -939,18 +885,13 @@ void TestJsonDb::benchmarkFindUnindexed()
         return;
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
         int itemNumber = (int)((double)qrand() * count / RAND_MAX);
         JsonDbObject item = mContactList.at(itemNumber);
-        //qDebug() << item.value("firstName").toString();
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?firstName=\"%3\"]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact")
-                       .arg(item.value("firstName").toString()));
-        //request.insert("limit", 1);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][?firstName=\"%3\"]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact")
+                .arg(item.value("firstName").toString());
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query));
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -966,18 +907,13 @@ void TestJsonDb::benchmarkFindReindexed()
     //qDebug() << "Done adding index for lastName";
 
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
         int itemNumber = (int)((double)qrand() * count / RAND_MAX);
         JsonDbObject item = mContactList.at(itemNumber);
-        //qDebug() << item.value("firstName").toString();
-        request.insert("query",
-                       QString("[?%1=\"%2\"][?lastName=\"%3\"]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact")
-                       .arg(item.value("lastName").toString()));
-        //request.insert("limit", 1);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query  = QString("[?%1=\"%2\"][?lastName=\"%3\"]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact")
+                .arg(item.value("lastName").toString());
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query));
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -985,15 +921,10 @@ void TestJsonDb::benchmarkFindReindexed()
 void TestJsonDb::benchmarkFindNames()
 {
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        QVariantList items;
-        request.insert("query",
-                       QString("[?%1=\"%2\"]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        request.insert("limit", 1);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -1001,14 +932,10 @@ void TestJsonDb::benchmarkFindNames()
 void TestJsonDb::findNamesMapL()
 {
     QBENCHMARK_ONCE {
-        QJsonObject request;
-        QJsonObject result;
-
-        request.insert("query",
-                       QString("[?%1=\"%2\"][= [_uuid, name.first, name.last] ]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][= [_uuid, name.first, name.last] ]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query));
         verifyGoodQueryResult(queryResult);
         QCOMPARE(queryResult.values.size(), mContactList.size());
     }
@@ -1017,14 +944,10 @@ void TestJsonDb::findNamesMapL()
 void TestJsonDb::benchmarkFindNamesMapL()
 {
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("query",
-                       QString("[?%1=\"%2\"][= [_uuid, name.first, name.last] ]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        request.insert("limit", 1);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][= [_uuid, name.first, name.last] ]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
         QCOMPARE(queryResult.values.size(), 1);
     }
@@ -1034,13 +957,10 @@ void TestJsonDb::benchmarkFindNamesMapL()
 void TestJsonDb::findNamesMapO()
 {
     QBENCHMARK_ONCE {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("query",
-                       QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query));
         verifyGoodQueryResult(queryResult);
         QCOMPARE(queryResult.data.size(), mContactList.size());
     }
@@ -1049,14 +969,10 @@ void TestJsonDb::findNamesMapO()
 void TestJsonDb::benchmarkFindNamesMapO()
 {
     QBENCHMARK {
-        QJsonObject request;
-        QJsonObject result;
-        request.insert("query",
-                       QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
-                       .arg(JsonDbString::kTypeStr)
-                       .arg("contact"));
-        request.insert("limit", 1);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        QString query = QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 1);
         verifyGoodQueryResult(queryResult);
         QCOMPARE(queryResult.data.size(), 1);
     }
@@ -1071,7 +987,7 @@ void TestJsonDb::benchmarkCursorCount()
     QJsonObject bindings;
     foreach (QString query, queries) {
         QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
-        IndexQuery *indexQuery = mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->compileIndexQuery(mOwner, parsedQuery.data());
+        IndexQuery *indexQuery = mJsonDbPartition->compileIndexQuery(mOwner, parsedQuery.data());
         int count = 0;
         //qDebug() << "query" << query;
         QBENCHMARK {
@@ -1093,10 +1009,9 @@ void TestJsonDb::benchmarkQueryCount()
                            << "[/name.first][?_type=\"contact\"]"
         );
     foreach (QString query, queries) {
-        QJsonObject request;
-        request.insert("query", QString("%1[count]").arg(query));
         QBENCHMARK {
-            JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+            JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner,
+                                                                            JsonDbQuery::parse(QString("%1[count]").arg(query)));
         }
     }
 }
@@ -1153,7 +1068,7 @@ void TestJsonDb::contactListChaff()
                 chaff.insert(key, data.value(key));
         }
 
-        QJsonObject result = mJsonDb->create(mOwner, chaff);
+        JsonDbWriteResult result = mJsonDbPartition->updateObject(mOwner, chaff);
         verifyGoodResult(result);
         }
     }

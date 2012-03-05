@@ -773,6 +773,7 @@ void JsonDbClient::unregisterNotification(const QString &notifyUuid)
 
     QVariantMap object;
     object.insert(JsonDbString::kUuidStr, notifyUuid);
+    object.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
 
     int id = d->connection->makeRequestId();
     QVariantMap request = JsonDbConnection::makeRemoveRequest(object);

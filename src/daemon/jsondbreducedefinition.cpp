@@ -54,7 +54,6 @@
 #include "jsondb-error.h"
 #include "json.h"
 
-#include "jsondb.h"
 #include "jsondbproxy.h"
 #include "jsondbsettings.h"
 #include "jsondbobjecttable.h"
@@ -63,10 +62,9 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, const JsonDbOwner *owner, JsonDbPartition *partition,
-                                   QJsonObject definition, QObject *parent)
-    : QObject(parent)
-    , mJsonDb(jsonDb)
+JsonDbReduceDefinition::JsonDbReduceDefinition(const JsonDbOwner *owner, JsonDbPartition *partition,
+                                               QJsonObject definition, QObject *parent) :
+    QObject(parent)
     , mOwner(owner)
     , mPartition(partition)
     , mDefinition(definition)
@@ -102,13 +100,16 @@ void JsonDbReduceDefinition::definitionCreated()
         updateObject(QJsonObject(), objects.at(i));
 }
 
-void JsonDbReduceDefinition::definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid)
+void JsonDbReduceDefinition::definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid)
 {
     // remove the output objects
     GetObjectsResult getObjectResponse = table->getObjects(QLatin1String("_reduceUuid"), definitionUuid, targetType);
     JsonDbObjectList objects = getObjectResponse.data;
-    for (int i = 0; i < objects.size(); i++)
-        jsonDb->removeViewObject(jsonDb->owner(), objects.at(i), table->partition()->name());
+    for (int i = 0; i < objects.size(); i++) {
+        JsonDbObject o = objects[i];
+        o.markDeleted();
+        partition->updateObject(partition->defaultOwner(), o, JsonDbPartition::ViewObject);
+    }
 }
 
 void JsonDbReduceDefinition::initScriptEngine()
@@ -152,10 +153,10 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
     Q_ASSERT(mAddFunction.isCallable());
 
     QJsonValue beforeKeyValue = mSourceKeyName.contains(".")
-        ? JsonDb::propertyLookup(before, mSourceKeyNameList)
+        ? before.propertyLookup(mSourceKeyNameList)
         : before.value(mSourceKeyName);
     QJsonValue afterKeyValue = mSourceKeyName.contains(".")
-        ? JsonDb::propertyLookup(after, mSourceKeyNameList)
+        ? after.propertyLookup(mSourceKeyNameList)
         : after.value(mSourceKeyName);
 
     if (!after.isEmpty() && !before.isEmpty() && (beforeKeyValue != afterKeyValue)) {
@@ -194,13 +195,14 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
     if (!after.isEmpty())
         value = addObject(keyValue, value, after);
 
-    QJsonObject res;
+    JsonDbWriteResult res;
     // if we had a previous object to reduce
     if (previousObject.contains(JsonDbString::kUuidStr)) {
         // and now the value is undefined
         if (value.isUndefined()) {
             // then remove it
-            res = mJsonDb->removeViewObject(mOwner, previousObject, mPartition->name());
+            previousObject.markDeleted();
+            res = mPartition->updateObject(mOwner, previousObject, JsonDbPartition::ViewObject);
         } else {
             //otherwise update it
             JsonDbObject reduced(value.toObject());
@@ -211,7 +213,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
                          previousObject.value(JsonDbString::kVersionStr));
             reduced.insert(mTargetKeyName, keyValue);
             reduced.insert("_reduceUuid", mUuid);
-            res = mJsonDb->updateViewObject(mOwner, reduced, mPartition->name());
+            res = mPartition->updateObject(mOwner, reduced, JsonDbPartition::ViewObject);
         }
     } else {
         // otherwise create the new object
@@ -219,20 +221,20 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
         reduced.insert(JsonDbString::kTypeStr, mTargetType);
         reduced.insert(mTargetKeyName, keyValue);
         reduced.insert("_reduceUuid", mUuid);
-        res = mJsonDb->createViewObject(mOwner, reduced, mPartition->name());
+
+        res = mPartition->updateObject(mOwner, reduced, JsonDbPartition::ViewObject);
     }
 
-    if (JsonDb::responseIsError(res))
-        setError("Error executing add function: " +
-                 res.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString());
+    if (res.code != JsonDbError::NoError)
+        setError(QString("Error executing add function: %1").arg(res.message));
 }
 
 QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const QJsonValue &previousValue, JsonDbObject object)
 {
     initScriptEngine();
-    QJSValue svKeyValue = JsonDb::toJSValue(keyValue, mScriptEngine);
-    QJSValue svPreviousValue = JsonDb::toJSValue(previousValue.toObject().value(mTargetValueName), mScriptEngine);
-    QJSValue svObject = JsonDb::toJSValue(object, mScriptEngine);
+    QJSValue svKeyValue = JsonDbObject::toJSValue(keyValue, mScriptEngine);
+    QJSValue svPreviousValue = JsonDbObject::toJSValue(previousValue.toObject().value(mTargetValueName), mScriptEngine);
+    QJSValue svObject = JsonDbObject::toJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << svObject;
@@ -240,7 +242,7 @@ QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const Q
 
     if (!reduced.isUndefined() && !reduced.isError()) {
         QJsonObject jsonReduced;
-        jsonReduced.insert(mTargetValueName, JsonDb::fromJSValue(reduced));
+        jsonReduced.insert(mTargetValueName, JsonDbObject::fromJSValue(reduced));
         return jsonReduced;
     } else {
 
@@ -256,10 +258,10 @@ QJsonValue JsonDbReduceDefinition::subtractObject(const QJsonValue &keyValue, co
     initScriptEngine();
     Q_ASSERT(mSubtractFunction.isCallable());
 
-    QJSValue svKeyValue = JsonDb::toJSValue(keyValue, mScriptEngine);
-    QJSValue svPreviousValue = JsonDb::toJSValue(previousValue.toObject().value(mTargetValueName),
-                                                 mScriptEngine);
-    QJSValue sv = JsonDb::toJSValue(object, mScriptEngine);
+    QJSValue svKeyValue = JsonDbObject::toJSValue(keyValue, mScriptEngine);
+    QJSValue svPreviousValue = JsonDbObject::toJSValue(previousValue.toObject().value(mTargetValueName),
+                                                       mScriptEngine);
+    QJSValue sv = JsonDbObject::toJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << sv;
@@ -267,7 +269,7 @@ QJsonValue JsonDbReduceDefinition::subtractObject(const QJsonValue &keyValue, co
 
     if (!reduced.isUndefined() && !reduced.isError()) {
         QJsonObject jsonReduced;
-        jsonReduced.insert(mTargetValueName, JsonDb::fromJSValue(reduced));
+        jsonReduced.insert(mTargetValueName, JsonDbObject::fromJSValue(reduced));
         return jsonReduced;
     } else {
         if (reduced.isError())
@@ -285,14 +287,14 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
 {
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
-    if (JsonDbPartition *partition = mJsonDb->findPartition(mPartition->name())) {
-        WithTransaction transaction(partition, "JsonDbReduceDefinition::setError");
-        JsonDbObjectTable *objectTable = partition->findObjectTable(JsonDbString::kReduceTypeStr);
+    if (mPartition) {
+        WithTransaction transaction(mPartition, "JsonDbReduceDefinition::setError");
+        JsonDbObjectTable *objectTable = mPartition->findObjectTable(JsonDbString::kReduceTypeStr);
         transaction.addObjectTable(objectTable);
         JsonDbObject doc(mDefinition);
         JsonDbObject _delrec;
-        partition->getObject(mUuid, _delrec, JsonDbString::kReduceTypeStr);
-        partition->updatePersistentObject(_delrec, doc);
+        mPartition->getObject(mUuid, _delrec, JsonDbString::kReduceTypeStr);
+        mPartition->updatePersistentObject(_delrec, doc);
         transaction.commit();
     }
 }

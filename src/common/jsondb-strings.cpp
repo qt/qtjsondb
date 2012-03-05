@@ -99,5 +99,15 @@ const QString JsonDbString::kStartingStateNumberStr = QString::fromLatin1("start
 const QString JsonDbString::kTombstoneStr = QString::fromLatin1("Tombstone");
 const QString JsonDbString::kPartitionTypeStr = QString::fromLatin1("Partition");
 const QString JsonDbString::kPartitionStr = QString::fromLatin1("partition");
+const QString JsonDbString::kLogStr = QString::fromLatin1("log");
+const QString JsonDbString::kPropertyNameStr = QString::fromLatin1("propertyName");
+const QString JsonDbString::kPropertyTypeStr = QString::fromLatin1("propertyType");
+const QString JsonDbString::kPropertyFunctionStr = QString::fromLatin1("propertyFunction");
+const QString JsonDbString::kObjectTypeStr = QString::fromLatin1("objectType");
+const QString JsonDbString::kDbidTypeStr = QString::fromLatin1("DatabaseId");
+const QString JsonDbString::kIndexTypeStr = QString::fromLatin1("Index");
+const QString JsonDbString::kLocaleStr = QString::fromLatin1("locale");
+const QString JsonDbString::kCollationStr = QString::fromLatin1("collation");
+const QString JsonDbString::kDatabaseSchemaVersionStr = QString::fromLatin1("databaseSchemaVersion");
 
 QT_END_NAMESPACE_JSONDB

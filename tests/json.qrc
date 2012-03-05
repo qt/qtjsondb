@@ -6,5 +6,6 @@
         <file>auto/jsondblistmodel/list-objects.json</file>
         <file>auto/jsondbsortinglistmodel/list-objects.json</file>
         <file alias="dataset.json">auto/queries/dataset.json</file>
+        <file>auto/daemon/json/map-reduce.json</file>
     </qresource>
 </RCC>

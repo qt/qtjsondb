@@ -250,17 +250,17 @@ int main(int argc, char * argv[])
         pidFile.close();
     }
 
-    if (args.size() == 1) { // For backwards compatibility
-        filePath = args.takeFirst();
-        QFileInfo fi(filePath);
-        if (!fi.isDir()) {
-            filePath = fi.path();
-            if (QString::compare(fi.suffix(), QStringLiteral("db"), Qt::CaseInsensitive) == 0)
-                baseName = fi.completeBaseName();
-            else
-                baseName = fi.fileName();
+    // FIXME: we should either support passing in the file or not
+    // missing dbdir and base-name with the file name is just bad
+    if (args.size() == 1) {
+        if (filePath.isEmpty()) {
+            filePath = args.takeFirst();
+        } else {
+            qCritical() << "Cannot specify the file name in combination with -dbdir";
+            usage();
         }
     }
+
     if (!args.isEmpty())
         usage();
 
@@ -294,6 +294,7 @@ int main(int argc, char * argv[])
             qWarning() << "Failed to setrlimit" << errno;
     }
 
+    server.setCompactOnClose(compactOnClose);
     if (clear)
         server.clear();
 
@@ -302,7 +303,7 @@ int main(int argc, char * argv[])
 
     cout << "Ready" << endl << flush;
 
-    if (!server.start(compactOnClose))
+    if (!server.start())
         return -2;
 
     if (detach)

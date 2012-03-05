@@ -41,7 +41,6 @@
 
 #include "jsondbephemeralpartition.h"
 
-#include "jsondb.h"
 #include "jsondbobject.h"
 #include "jsondbquery.h"
 #include "jsondbresponse.h"
@@ -52,8 +51,9 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-JsonDbEphemeralPartition::JsonDbEphemeralPartition(QObject *parent)
-    : QObject(parent)
+JsonDbEphemeralPartition::JsonDbEphemeralPartition(const QString &name, QObject *parent) :
+    QObject(parent)
+  , mName(name)
 {
 }
 
@@ -67,65 +67,9 @@ bool JsonDbEphemeralPartition::get(const QUuid &uuid, JsonDbObject *result) cons
     return true;
 }
 
-QJsonObject JsonDbEphemeralPartition::create(JsonDbObject &object)
+JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
 {
-    if (!object.contains(JsonDbString::kUuidStr)) {
-        object.generateUuid();
-        object.computeVersion();
-    }
-
-    QJsonObject resultmap;
-
-    QUuid uuid = object.uuid();
-    if (mObjects.contains(uuid)) {
-        return JsonDbResponse::makeErrorResponse(resultmap, JsonDbError::DatabaseError,
-                                         QLatin1String("Already have an object with uuid") + uuid.toString());
-    }
-    mObjects.insert(uuid, object);
-
-    resultmap.insert(JsonDbString::kUuidStr, uuid.toString());
-    resultmap.insert(JsonDbString::kVersionStr, object.value(JsonDbString::kVersionStr).toString());
-    resultmap.insert(JsonDbString::kCountStr, 1);
-
-    return JsonDbResponse::makeResponse(resultmap);
-}
-
-QJsonObject JsonDbEphemeralPartition::update(JsonDbObject &object)
-{
-    QJsonObject resultmap;
-
-    QUuid uuid = object.uuid();
-    mObjects.insert(uuid, object);
-
-    resultmap.insert(JsonDbString::kUuidStr, uuid.toString());
-    resultmap.insert(JsonDbString::kVersionStr, object.value(JsonDbString::kVersionStr));
-    resultmap.insert(JsonDbString::kCountStr, 1);
-
-    return JsonDbResponse::makeResponse(resultmap);
-}
-
-QJsonObject JsonDbEphemeralPartition::remove(const JsonDbObject &object)
-{
-    QUuid uuid = object.uuid();
-
-    mObjects.remove(uuid);
-
-    QJsonObject item;
-    item.insert(JsonDbString::kUuidStr, uuid.toString());
-
-    QJsonArray data;
-    data.append(item);
-
-    QJsonObject resultmap;
-    resultmap.insert(JsonDbString::kCountStr, 1);
-    resultmap.insert(JsonDbString::kDataStr, data);
-    resultmap.insert(JsonDbString::kErrorStr, QJsonValue());
-
-    return JsonDbResponse::makeResponse(resultmap);
-}
-
-JsonDbQueryResult JsonDbEphemeralPartition::query(const JsonDbQuery *query, int limit, int offset) const
-{
+    Q_UNUSED(owner);
     if (!query->orderTerms.isEmpty())
         return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,
                                                       QLatin1String("Cannot query with order term on ephemeral objects"));
@@ -149,6 +93,52 @@ JsonDbQueryResult JsonDbEphemeralPartition::query(const JsonDbQuery *query, int 
     result.data = results;
     result.state = 0;
     result.sortKeys = sortKeys;
+    return result;
+}
+
+JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode)
+{
+    JsonDbWriteResult result;
+    QList<JsonDbUpdate> updated;
+
+    foreach (const JsonDbObject &toUpdate, objects) {
+
+        JsonDbObject object = toUpdate;
+
+        JsonDbObject oldObject;
+        if (mObjects.contains(object.uuid()))
+            oldObject = mObjects[object.uuid()];
+
+        JsonDbNotification::Action action = JsonDbNotification::Update;
+
+        if (object.uuid().isNull())
+            object.generateUuid();
+
+        // FIXME: stale update rejection, access control
+        if (object.value(JsonDbString::kDeletedStr).toBool()) {
+            if (mObjects.contains(object.uuid())) {
+                action = JsonDbNotification::Delete;
+                mObjects.remove(object.uuid());
+            } else {
+                result.code =  JsonDbError::MissingObject;
+                result.message = QLatin1String("Cannot remove non-existing object");
+                return result;
+            }
+        } else {
+
+            if (!mObjects.contains(object.uuid()))
+                action = JsonDbNotification::Create;
+
+            object.insert(JsonDbString::kOwnerStr, owner->ownerId());
+            object.computeVersion();
+            mObjects[object.uuid()] = object;
+        }
+
+        result.objectsWritten.append(object);
+        updated.append(JsonDbUpdate(oldObject, object, action));
+    }
+
+    emit objectsUpdated(updated);
     return result;
 }
 

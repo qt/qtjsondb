@@ -40,7 +40,7 @@
 ****************************************************************************/
 
 #include "jsondbowner.h"
-#include "jsondb.h"
+#include "jsondbpartition.h"
 #include "jsondbsettings.h"
 #include "jsondb-strings.h"
 #include <qdebug.h>
@@ -69,10 +69,10 @@ void JsonDbOwner::setAllowedObjects(const QString &partition, const QString &op,
     }
 }
 
-void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *jsondb)
+void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDbPartition *partition)
 {
     QJsonObject request;
-    GetObjectsResult result = jsondb->getObjects(JsonDbString::kTypeStr, QString("Capability"));
+    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QString("Capability"));
     JsonDbObjectList translations = result.data;
     //qDebug() << "JsonDbOwner::setCapabilities" << "translations" << translations;
 

@@ -41,13 +41,17 @@
 
 #include "jsondbproxy.h"
 #include "jsondb-strings.h"
+#include "jsondbobject.h"
+
+#include <QDebug>
+#include <QJSEngine>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-JsonDbMapProxy::JsonDbMapProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
+JsonDbMapProxy::JsonDbMapProxy(const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent)
   : QObject(parent)
   , mOwner(owner)
-  , mJsonDb(jsonDb)
+  , mPartition(partition)
 {
 }
 JsonDbMapProxy::~JsonDbMapProxy()
@@ -80,10 +84,10 @@ void JsonDbMapProxy::lookupWithType(const QString &key, const QJSValue &value, c
     emit lookupRequested(query, context);
 }
 
-JsonDbJoinProxy::JsonDbJoinProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
+JsonDbJoinProxy::JsonDbJoinProxy(const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent)
   : QObject(parent)
   , mOwner(owner)
-  , mJsonDb(jsonDb)
+  , mPartition(partition)
 {
 }
 JsonDbJoinProxy::~JsonDbJoinProxy()

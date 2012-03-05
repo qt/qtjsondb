@@ -69,7 +69,7 @@ QJsonObject JsonDbSchemaManager::take(const QString &name)
     return m_schemas.take(name).first;
 }
 
-QJsonObject JsonDbSchemaManager::insert(const QString &name, QJsonObject &schema)
+QJsonObject JsonDbSchemaManager::insert(const QString &name, const QJsonObject &schema)
 {
     m_schemas.insert(name, qMakePair(schema, SchemaValidation::Schema<QJsonObjectTypes>()));
     return QJsonObject();

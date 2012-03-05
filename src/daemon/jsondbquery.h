@@ -180,8 +180,8 @@ public:
     void bind(QString variable, QJsonValue &binding) { mBindings[variable] = binding; }
     bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbPartition *partition = 0) const;
 
-    static QJsonValue parseJsonLiteral(const QString &json, QueryTerm *term, QJsonObject &bindings, bool *ok);
-    static JsonDbQuery *parse(const QString &query, QJsonObject &bindings);
+    static QJsonValue parseJsonLiteral(const QString &json, QueryTerm *term, const QJsonObject &bindings, bool *ok);
+    static JsonDbQuery *parse(const QString &query, const QJsonObject &bindings = QJsonObject());
 
 private:
     QSet<QString> mMatchedTypes;

@@ -81,6 +81,7 @@ public:
     int mId;
     JsonDbConnection::Status status;
     QString errorString;
+    QList<int> protocolAdaptionRequests;
 };
 
 /*!

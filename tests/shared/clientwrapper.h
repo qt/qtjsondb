@@ -67,7 +67,9 @@ QT_USE_NAMESPACE_JSONDB
     QObject::connect(&timer, SIGNAL(timeout()), &eventloop, SLOT(quit())); \
     timer.start(mClientTimeout);                                       \
     mElapsedTimer.start(); \
-    eventloop.exec(QEventLoop::AllEvents); \
+    do { \
+        eventloop.exec(QEventLoop::AllEvents); \
+    } while ((result)->mNeedId && (result)->mId.toInt() < QVariant(givenid_).toInt()); \
     if (debug_output) { \
         qDebug() << "waitForResponse" << "expected id" << givenid_ << "got id" << (result)->mId; \
         qDebug() << "waitForResponse" << "expected code" << int(code) << "got code" << (result)->mCode; \
@@ -126,6 +128,13 @@ public:
                 this, SLOT(error(int,int,QString)));
         connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
                 this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
+    }
+
+    QString addNotification(JsonDbClient::NotifyTypes types, const QString &query) {
+        QEventLoop ev;
+        QString uuid = mClient->registerNotification(types, query, "", 0, 0, &ev, SLOT(quit()));
+        ev.exec();
+        return uuid;
     }
 
     bool debug_output;

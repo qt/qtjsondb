@@ -156,7 +156,7 @@ void TestJsonDbSortingListModel::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
 
     mClient = new JsonDbClient(this);
     connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
@@ -341,7 +341,7 @@ void TestJsonDbSortingListModel::deleteItem()
 
     item.insert("name", "Baker");
     id = mClient->create(item, "com.nokia.shared.2");
-    waitForItemChanged();
+    waitForResponse1(id);
 
     QCOMPARE(listModel->rowCount(), 2);
 
@@ -349,7 +349,6 @@ void TestJsonDbSortingListModel::deleteItem()
     item.insert("_uuid", mLastUuid);
     id = mClient->remove(item, "com.nokia.shared.2");
     waitForItemChanged(true);
-
 
     QCOMPARE(listModel->rowCount(), 1);
     QCOMPARE(get(listModel, 0, "_type").toString(), QLatin1String(__FUNCTION__));

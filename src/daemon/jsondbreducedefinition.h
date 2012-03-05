@@ -56,7 +56,6 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDb;
 class JsonDbOwner;
 class JsonDbJoinProxy;
 class JsonDbMapProxy;
@@ -67,7 +66,7 @@ class JsonDbReduceDefinition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbReduceDefinition(JsonDb *mJsonDb, const JsonDbOwner *mOwner, JsonDbPartition *partition, QJsonObject reduceDefinition, QObject *parent = 0);
+    JsonDbReduceDefinition(const JsonDbOwner *mOwner, JsonDbPartition *partition, QJsonObject reduceDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     QString sourceType() const { return mSourceType; }
@@ -82,7 +81,7 @@ public:
     const QJSValue &subtractFunction() const { return mSubtractFunction; }
     const JsonDbOwner *owner() const { return mOwner; }
 
-    static void definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
+    static void definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
     void definitionCreated();
 
     void initScriptEngine();
@@ -96,7 +95,6 @@ public:
     static bool validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message);
 
 private:
-    JsonDb        *mJsonDb;
     const JsonDbOwner *mOwner;
     JsonDbPartition *mPartition;
     QJsonObject    mDefinition;

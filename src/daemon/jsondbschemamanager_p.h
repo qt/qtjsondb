@@ -62,7 +62,7 @@ public:
     inline QJsonObject value(const QString &name) const;
     inline SchemaValidation::Schema<QJsonObjectTypes> schema(const QString &name, QJsonObjectTypes::Service *service);
     inline QJsonObject take(const QString &name);
-    inline QJsonObject insert(const QString &name, QJsonObject &schema);
+    inline QJsonObject insert(const QString &name, const QJsonObject &schema);
 
     inline QJsonObject validate(const QString &schemaName, JsonDbObject object);
 

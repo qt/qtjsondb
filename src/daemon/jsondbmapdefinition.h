@@ -58,7 +58,6 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDb;
 class JsonDbOwner;
 class JsonDbJoinProxy;
 class JsonDbMapProxy;
@@ -68,7 +67,7 @@ class JsonDbMapDefinition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbMapDefinition(JsonDb *mJsonDb, const JsonDbOwner *mOwner, JsonDbPartition *partition, QJsonObject mapDefinition, QObject *parent = 0);
+    JsonDbMapDefinition(const JsonDbOwner *mOwner, JsonDbPartition *partition, QJsonObject mapDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     const QStringList &sourceTypes() const { return mSourceTypes; }
@@ -79,7 +78,7 @@ public:
     JsonDbObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
     const JsonDbOwner *owner() const { return mOwner; }
 
-    static void definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
+    static void definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
     void definitionCreated();
 
     void initScriptEngine();
@@ -97,7 +96,6 @@ private:
     void unmapObject(const JsonDbObject &object);
 
 private:
-    JsonDb        *mJsonDb;
     JsonDbPartition *mPartition;
     const JsonDbOwner *mOwner;
     QJsonObject     mDefinition;

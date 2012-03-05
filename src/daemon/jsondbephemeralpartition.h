@@ -46,7 +46,9 @@
 #include <QMap>
 #include <QObject>
 #include <qjsonobject.h>
+#include "jsondbnotification.h"
 #include "jsondbobject.h"
+#include "jsondbpartition.h"
 #include "jsondbquery.h"
 
 QT_BEGIN_HEADER
@@ -59,19 +61,22 @@ class JsonDbEphemeralPartition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbEphemeralPartition(QObject *parent = 0);
+    JsonDbEphemeralPartition(const QString &name, QObject *parent = 0);
 
     bool get(const QUuid &uuid, JsonDbObject *result) const;
 
-    QJsonObject create(JsonDbObject &);
-    QJsonObject update(JsonDbObject &);
-    QJsonObject remove(const JsonDbObject &);
+    JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
+    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode);
 
-    JsonDbQueryResult query(const JsonDbQuery *query, int limit = -1, int offset = 0) const;
+    inline QString name() const { return mName; }
+
+Q_SIGNALS:
+    void objectsUpdated(const JsonDbUpdateList &objects);
 
 private:
     typedef QMap<QUuid, JsonDbObject> ObjectMap;
     ObjectMap mObjects;
+    QString mName;
 };
 
 QT_END_NAMESPACE_JSONDB

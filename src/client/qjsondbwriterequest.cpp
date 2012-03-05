@@ -231,24 +231,20 @@ QJsonObject QJsonDbWriteRequestPrivate::getRequest() const
 void QJsonDbWriteRequestPrivate::handleResponse(const QJsonObject &response)
 {
     Q_Q(QJsonDbWriteRequest);
-    // sigh, fix the server response
+
     if (response.contains(JsonDbStrings::Protocol::data())) {
         QJsonArray data = response.value(JsonDbStrings::Protocol::data()).toArray();
         foreach (const QJsonValue &v, data) {
             QJsonObject object = v.toObject();
-            stateNumber = static_cast<quint32>(object.value(JsonDbStrings::Protocol::stateNumber()).toDouble());
             QJsonObject obj;
             obj.insert(JsonDbStrings::Property::uuid(), object.value(JsonDbStrings::Property::uuid()));
             obj.insert(JsonDbStrings::Property::version(), object.value(JsonDbStrings::Property::version()));
             results.append(obj);
         }
-    } else {
-        stateNumber = static_cast<quint32>(response.value(JsonDbStrings::Protocol::stateNumber()).toDouble());
-        QJsonObject obj;
-        obj.insert(JsonDbStrings::Property::uuid(), response.value(JsonDbStrings::Property::uuid()));
-        obj.insert(JsonDbStrings::Property::version(), response.value(JsonDbStrings::Property::version()));
-        results.append(obj);
     }
+
+    stateNumber = static_cast<quint32>(response.value(JsonDbStrings::Protocol::stateNumber()).toDouble());
+
     setStatus(QJsonDbRequest::Receiving);
     emit q->started();
     emit q->resultsAvailable(results.size());

@@ -8,7 +8,6 @@ HEADERS += \
     $$PWD/jsondbowner.h \
     $$PWD/jsondbproxy.h \
     $$PWD/jsondbresponse.h \
-    $$PWD/jsondb.h \
     $$PWD/jsondbephemeralpartition.h \
     $$PWD/jsondbindex.h \
     $$PWD/jsondbobject.h \
@@ -38,7 +37,6 @@ SOURCES += \
     $$PWD/jsondbowner.cpp \
     $$PWD/jsondbproxy.cpp \
     $$PWD/jsondbresponse.cpp \
-    $$PWD/jsondb.cpp \
     $$PWD/jsondbephemeralpartition.cpp \
     $$PWD/jsondbindex.cpp \
     $$PWD/jsondbobject.cpp \

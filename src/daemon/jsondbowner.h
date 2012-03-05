@@ -57,8 +57,6 @@ class TestJsonDb;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDb;
-
 class JsonDbOwner : public QObject
 {
     Q_OBJECT
@@ -74,7 +72,7 @@ public:
 
     void setAllowedObjects(const QString &partition, const QString &op,
                            const QList<QString> &queries);
-    void setCapabilities(QJsonObject &capabilities, JsonDb *jsondb);
+    void setCapabilities(QJsonObject &capabilities, JsonDbPartition *partition);
     void setAllowAll(bool allowAll) { mAllowAll = allowAll; }
 
     bool isAllowed(JsonDbObject &object, const QString &partition, const QString &op) const;

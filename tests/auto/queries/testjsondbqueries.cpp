@@ -49,31 +49,19 @@
 #include <QUuid>
 
 #include "json.h"
-
-#include "jsondb.h"
-
-#include "jsondb.h"
+#include "jsondbowner.h"
+#include "jsondbpartition.h"
+#include "jsondbquery.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
 
 #include "../../shared/util.h"
 
-
-#define verifyGoodResult(result) \
+#define verifyGoodWriteResult(result) \
 { \
-    QJsonObject __result = result; \
-    QVERIFY(__result.contains(JsonDbString::kErrorStr)); \
-    QVERIFY2(__result.value(JsonDbString::kErrorStr).type() == QJsonValue::Null,  \
-             __result.value(JsonDbString::kErrorStr).toObject().value("message").toString().toLocal8Bit()); \
-    QVERIFY(__result.contains(JsonDbString::kResultStr)); \
-}
-
-// QJsonObject result, QString field, QVariant expectedValue
-#define verifyResultField(result, field, expectedValue) \
-{ \
-    QJsonObject map = result.value(JsonDbString::kResultStr).toObject(); \
-    QVERIFY(map.contains(field)); \
-    QCOMPARE(map.value(field).toVariant(), QVariant(expectedValue));    \
+    JsonDbWriteResult __result = result; \
+    QVERIFY2(__result.message.isEmpty(), __result.message.toLocal8Bit()); \
+    QVERIFY(__result.code == JsonDbError::NoError); \
 }
 
 #define verifyGoodQueryResult(result) \
@@ -81,27 +69,6 @@
     JsonDbQueryResult __result = result; \
     QVERIFY2(__result.error.type() == QJsonValue::Null,  \
          __result.error.toObject().value("message").toString().toLocal8Bit()); \
-}
-
-/*
-  Ensure that a error result contains the correct fields
- */
-
-#define verifyErrorResult(result) \
-{\
-    QVERIFY(result.contains(JsonDbString::kErrorStr)); \
-    if (result.value(JsonDbString::kErrorStr).type() != QJsonValue::Object )   \
-        qDebug() << "verifyErrorResult" << result; \
-    QCOMPARE(result.value(JsonDbString::kErrorStr).type(), QJsonValue::Object ); \
-    QJsonObject errormap = result.value(JsonDbString::kErrorStr).toObject(); \
-    QVERIFY(errormap.contains(JsonDbString::kCodeStr)); \
-    QCOMPARE(errormap.value(JsonDbString::kCodeStr).type(), QJsonValue::Double ); \
-    QVERIFY(errormap.contains(JsonDbString::kMessageStr)); \
-    QCOMPARE(errormap.value(JsonDbString::kMessageStr).type(), QJsonValue::String ); \
-    QVERIFY(result.contains(JsonDbString::kResultStr)); \
-    QVERIFY(result.value(JsonDbString::kResultStr).toObject().isEmpty() \
-            || (result.value(JsonDbString::kResultStr).toObject().contains("count") \
-                && result.value(JsonDbString::kResultStr).toObject().value("count").toDouble() == 0)); \
 }
 
 QT_USE_NAMESPACE_JSONDB
@@ -134,6 +101,7 @@ private slots:
 
 private:
     void removeDbFiles();
+    JsonDbQueryResult find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings = QJsonObject());
 
     template <class CheckType>
     bool confirmEachObject(const JsonDbObjectList &data, CheckType checker)
@@ -145,7 +113,7 @@ private:
     }
 
 private:
-    JsonDb *mJsonDb;
+    JsonDbPartition *mJsonDbPartition;
     JsonDbOwner *mOwner;
     QVariantMap mDataStats;
     int mTotalObjects;
@@ -212,8 +180,9 @@ struct CheckSortOrder
     QList<T> listOfValues;
 };
 
-TestJsonDbQueries::TestJsonDbQueries()
-    : mJsonDb(NULL), mOwner(0)
+TestJsonDbQueries::TestJsonDbQueries() :
+    mJsonDbPartition(0)
+  , mOwner(0)
 {
 }
 
@@ -226,6 +195,11 @@ void TestJsonDbQueries::removeDbFiles()
         QFile::remove(fileName);
 }
 
+JsonDbQueryResult TestJsonDbQueries::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
+{
+    return mJsonDbPartition->queryObjects(owner, JsonDbQuery::parse(query, bindings));
+}
+
 void TestJsonDbQueries::initTestCase()
 {
     qsrand(QDateTime::currentDateTime().toTime_t());
@@ -235,10 +209,10 @@ void TestJsonDbQueries::initTestCase()
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
-    mJsonDb = new JsonDb(QString(), kFilename, QStringLiteral("com.example.JsonDbTestQueries"), this);
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId("com.example.JsonDbTestQueries");
-    mJsonDb->open();
+    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTestQueries"), mOwner, this);
+    mJsonDbPartition->open();
 
     QFile contactsFile(":/queries/dataset.json");
     QVERIFY2(contactsFile.exists(), "Err: dataset.json doesn't exist!");
@@ -263,16 +237,16 @@ void TestJsonDbQueries::initTestCase()
             nameObject.insert("last", names[names.size()-1]);
             object.insert("name", nameObject);
         }
-        verifyGoodResult(mJsonDb->create(mOwner, object));
+        verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, object));
     }
 }
 
 void TestJsonDbQueries::cleanupTestCase()
 {
-    if (mJsonDb) {
-        mJsonDb->close();
-        delete mJsonDb;
-        mJsonDb = 0;
+    if (mJsonDbPartition) {
+        mJsonDbPartition->close();
+        delete mJsonDbPartition;
+        mJsonDbPartition = 0;
     }
     removeDbFiles();
 }
@@ -281,20 +255,16 @@ void TestJsonDbQueries::init()
 {
     // Set total number of objects and total default objects not used by the
     // data set to use for verification
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[*]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[*]"));
     mTotalObjects = queryResult.data.size();
 
     // extract stats from data set and calculate a few others
-    query = QJsonObject();
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"data-stats\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner,  QString("[?_type=\"data-stats\"]"));
     mDataStats = queryResult.data.at(0).toVariantMap();
     mDataStats["num-default-objects"] = mTotalObjects - mDataStats["num-objects"].toInt();
 
     JsonDbObject statObject = JsonDbObject::fromVariantMap(mDataStats);
-    verifyGoodResult(mJsonDb->update(mOwner, statObject));
+    verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, statObject));
 }
 
 void TestJsonDbQueries::cleanup()
@@ -303,53 +273,41 @@ void TestJsonDbQueries::cleanup()
 
 void TestJsonDbQueries::queryAll()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[*]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[*]"));
     QCOMPARE(queryResult.data.size(), mTotalObjects);
 }
 
 void TestJsonDbQueries::queryOneType()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"dragon\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"dragon\"]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
 }
 
 void TestJsonDbQueries::queryOneOrOtherType()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"dragon\"|_type=\"bunny\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"dragon\"|_type=\"bunny\"]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt() + mDataStats["num-bunnies"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", QStringList() << "dragon" << "bunny")));
 }
 
 void TestJsonDbQueries::queryTypesIn()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type in [\"dragon\",\"bunny\"]]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type in [\"dragon\",\"bunny\"]]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt() + mDataStats["num-bunnies"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", QStringList() << "dragon" << "bunny")));
 }
 
 void TestJsonDbQueries::queryFieldExists()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?color exists]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?color exists]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
 }
 
 void TestJsonDbQueries::queryFieldNotExists()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"][/_type]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"][/_type]"));
     QCOMPARE(queryResult.data.size(),
              mDataStats["num-bunnies"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
@@ -357,67 +315,52 @@ void TestJsonDbQueries::queryFieldNotExists()
 
 void TestJsonDbQueries::queryLessThan()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?age < 5]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?age < 5]"));
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<double>("age", QList<double>() << 0 << 1 << 2 << 3 << 4)));
 }
 
 void TestJsonDbQueries::queryLessThanOrEqual()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?age <= 5]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?age <= 5]"));
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<double>("age", QList<double>() << 0 << 1 << 2 << 3 << 4 << 5)));
 }
 
 void TestJsonDbQueries::queryGreaterThan()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?age > 5]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?age > 5]"));
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<double>("age", QList<double>() << 6 << 7 << 8)));
 }
 
 void TestJsonDbQueries::queryGreaterThanOrEqual()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?age >= 5]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?age >= 5]"));
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<double>("age", QList<double>() << 5 << 6 << 7 << 8)));
 }
 
 void TestJsonDbQueries::queryNotEqual()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type != \"dragon\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type != \"dragon\"]"));
     QCOMPARE(queryResult.data.size(), mTotalObjects - mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldNotEqualTo<QString>("_type", "dragon")));
 }
 
 void TestJsonDbQueries::queryQuotedProperties()
 {
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][/_type]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][/_type]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-red-eyes"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
 
-    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][= \"eye-color\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][= \"eye-color\"]"));
     // single values are returned in queryResult.values
     QCOMPARE(queryResult.values.size(), mDataStats["num-red-eyes"].toInt());
     QCOMPARE(queryResult.values.at(0).toString(), QString("red"));
 
-    query.insert(JsonDbString::kQueryStr, QString("[?\"eye-color\" = \"red\"][= [\"eye-color\", age ]]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner,  QLatin1String("[?\"eye-color\" = \"red\"][= [\"eye-color\", age ]]"));
     // array values are returned in queryResult.values
     QCOMPARE(queryResult.values.size(), mDataStats["num-red-eyes"].toInt());
     QCOMPARE(queryResult.values.at(0).toArray().at(0).toString(), QString("red"));
 
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"dragon\"][/_type][?\"eye-color\" = \"red\"][= {\"color-of-eyes\": \"eye-color\" }]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"dragon\"][/_type][?\"eye-color\" = \"red\"][= {\"color-of-eyes\": \"eye-color\" }]"));
     // object values are returned in queryResult.data
     QCOMPARE(queryResult.data.size(), mDataStats["num-red-eyes"].toInt());
     QCOMPARE(queryResult.data.at(0).value("color-of-eyes").toString(), QString("red"));
@@ -430,35 +373,27 @@ void TestJsonDbQueries::querySortedByIndexName()
     index.insert("name", QString("dragonSort"));
     index.insert("propertyName", QString("age"));
     index.insert("propertyType", QString("number"));
-    verifyGoodResult(mJsonDb->create(mOwner, index));
+    verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
 
     index = JsonDbObject();
     index.insert("_type", QString("Index"));
     index.insert("propertyName", QString("age"));
     index.insert("propertyType", QString("number"));
-    verifyGoodResult(mJsonDb->create(mOwner, index));
+    verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][/age]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][/age]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 0 << 0 << 2 << 2 << 4 << 4 << 6 << 6 << 8 << 8)));
 
-    query = QJsonObject();
-    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][/dragonSort]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][/dragonSort]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 0 << 0 << 2 << 2 << 4 << 4 << 6 << 6 << 8 << 8)));
 
-    query = QJsonObject();
-    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][\\age]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][\\age]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 8 << 8 << 6 << 6 << 4 << 4 << 2 << 2 << 0 << 0)));
 
-    query = QJsonObject();
-    query.insert(JsonDbString::kQueryStr, QString("[?_type = \"dragon\"][\\dragonSort]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][\\dragonSort]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 8 << 8 << 6 << 6 << 4 << 4 << 2 << 2 << 0 << 0)));
 }

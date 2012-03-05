@@ -46,16 +46,19 @@
 #include <QMultiMap>
 #include <QJSValue>
 
-#include "jsondb.h"
+#include "jsondb-global.h"
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+class JsonDbOwner;
+class JsonDbPartition;
+
 class JsonDbMapProxy : public QObject {
     Q_OBJECT
 public:
-    JsonDbMapProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent=0 );
+    JsonDbMapProxy(const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent=0);
     ~JsonDbMapProxy();
 
     Q_SCRIPTABLE void emitViewObject(const QString &key, const QJSValue &value );
@@ -70,13 +73,13 @@ public:
     void lookupRequested(const QJSValue &, const QJSValue &);
 private:
     const JsonDbOwner *mOwner;
-    JsonDb      *mJsonDb;
+    JsonDbPartition *mPartition;
 };
 
 class JsonDbJoinProxy : public QObject {
     Q_OBJECT
 public:
-    JsonDbJoinProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent=0 );
+    JsonDbJoinProxy( const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent=0 );
     ~JsonDbJoinProxy();
 
     Q_SCRIPTABLE void create(const QJSValue &value );
@@ -90,7 +93,7 @@ public:
     void lookupRequested(const QJSValue &, const QJSValue &);
 private:
     const JsonDbOwner *mOwner;
-    JsonDb      *mJsonDb;
+    JsonDbPartition *mPartition;
 };
 
 class Console : public QObject {

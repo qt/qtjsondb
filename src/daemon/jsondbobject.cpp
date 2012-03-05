@@ -41,6 +41,8 @@
 
 #include "jsondbobject.h"
 
+#include <QJSValue>
+#include <QJSValueIterator>
 #include <QStringBuilder>
 #include <QStringList>
 #include <QCryptographicHash>
@@ -109,6 +111,11 @@ bool JsonDbObject::isDeleted() const
         return false;
 
     return true;
+}
+
+void JsonDbObject::markDeleted()
+{
+    insert(JsonDbString::kDeletedStr, true);
 }
 
 void JsonDbObject::generateUuid()
@@ -550,5 +557,109 @@ bool JsonDbObject::operator <(const JsonDbObject &other) const
     return myHash < otherHash;
 }
 
+
+QJsonValue JsonDbObject::propertyLookup(const QString &path) const
+{
+    return propertyLookup(path.split('.'));
+}
+
+QJsonValue JsonDbObject::propertyLookup(const QStringList &path) const
+{
+    if (!path.size()) {
+        qCritical() << "JsonDb::propertyLookup empty path";
+        abort();
+        return QJsonValue(QJsonValue::Undefined);
+    }
+    // TODO: one malloc here
+    QJsonValue value(*this);
+    for (int i = 0; i < path.size(); i++) {
+        const QString &key = path.at(i);
+        // this part of the property is a list
+        if (value.isArray()) {
+            QJsonArray objectList = value.toArray();
+            bool ok = false;
+            int index = key.toInt(&ok);
+            if (ok && (index >= 0) && (objectList.size() > index))
+                value = objectList.at(index);
+            else
+                value = QJsonValue(QJsonValue::Undefined);
+        } else if (value.isObject()) {
+            QJsonObject o = value.toObject();
+            if (o.contains(key))
+                value = o.value(key);
+            else
+                value = QJsonValue(QJsonValue::Undefined);
+        } else {
+            value = QJsonValue(QJsonValue::Undefined);
+        }
+    }
+    return value;
+}
+
+QJsonValue JsonDbObject::fromJSValue(const QJSValue &v)
+{
+    if (v.isNull())
+        return QJsonValue(QJsonValue::Null);
+    if (v.isNumber())
+        return QJsonValue(v.toNumber());
+    if (v.isString())
+        return QJsonValue(v.toString());
+    if (v.isBool())
+        return QJsonValue(v.toBool());
+    if (v.isArray()) {
+        QJsonArray a;
+        int size = v.property("length").toInt();
+        for (int i = 0; i < size; i++) {
+            a.append(fromJSValue(v.property(i)));
+        }
+        return a;
+    }
+    if (v.isObject()) {
+        QJSValueIterator it(v);
+        QJsonObject o;
+        while (it.hasNext()) {
+            it.next();
+            QString name = it.name();
+            QJSValue value = it.value();
+            o.insert(name, fromJSValue(value));
+        }
+        return o;
+    }
+    return QJsonValue(QJsonValue::Undefined);
+}
+
+QJSValue JsonDbObject::toJSValue(const QJsonValue &v, QJSEngine *scriptEngine)
+{
+    switch (v.type()) {
+    case QJsonValue::Null:
+        return QJSValue(QJSValue::NullValue);
+    case QJsonValue::Undefined:
+        return QJSValue(QJSValue::UndefinedValue);
+    case QJsonValue::Double:
+        return QJSValue(v.toDouble());
+    case QJsonValue::String:
+        return QJSValue(v.toString());
+    case QJsonValue::Bool:
+        return QJSValue(v.toBool());
+    case QJsonValue::Array: {
+        QJSValue jsArray = scriptEngine->newArray();
+        QJsonArray array = v.toArray();
+        for (int i = 0; i < array.size(); i++)
+            jsArray.setProperty(i, toJSValue(array.at(i), scriptEngine));
+        return jsArray;
+    }
+    case QJsonValue::Object:
+        return toJSValue(v.toObject(), scriptEngine);
+    }
+    return QJSValue(QJSValue::UndefinedValue);
+}
+
+QJSValue JsonDbObject::toJSValue(const QJsonObject &object, QJSEngine *scriptEngine)
+{
+    QJSValue jsObject = scriptEngine->newObject();
+    for (QJsonObject::const_iterator it = object.begin(); it != object.end(); ++it)
+        jsObject.setProperty(it.key(), toJSValue(it.value(), scriptEngine));
+    return jsObject;
+}
 
 QT_ADDON_JSONDB_END_NAMESPACE
