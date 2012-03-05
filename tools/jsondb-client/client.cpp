@@ -246,6 +246,7 @@ void Client::interactiveMode()
     mInputThread = InputThread::instance();
     connect(mInputThread, SIGNAL(commandReceived(QString)), this, SLOT(processCommand(QString)));
     connect(mInputThread, SIGNAL(finished()), QCoreApplication::instance(), SLOT(quit()));
+    connect(mInputThread, SIGNAL(terminated()), QCoreApplication::instance(), SLOT(quit()));
     mInputThread->start();
 }
 
