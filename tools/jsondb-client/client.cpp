@@ -162,7 +162,15 @@ void InputThread::run()
         exit(-1);
     }
     history(hist, &ev, H_SETSIZE, 800);
-    historyFile = QDir::homePath() + QDir::separator() + QLatin1String(".jsondb/history");
+    QString dirName = QDir::homePath() + QDir::separator() + QLatin1String(".jsondb");
+    QFileInfo fi(dirName);
+    if (!fi.exists())
+    {
+        if (!QDir::home().mkdir(".jsondb"))
+            qWarning() << "Cannot create" << dirName << ". History will not work.";
+    }
+
+    historyFile = dirName + QDir::separator() + "history";
     history(hist, &ev, H_LOAD, historyFile.toLocal8Bit().constData());
     el_set(el, EL_HIST, history, hist);
     el_set(el, EL_BIND, "\t", "tab-key", NULL);
