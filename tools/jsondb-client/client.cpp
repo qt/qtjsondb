@@ -367,7 +367,7 @@ void Client::usage()
     out << "Valid commands:" << std::endl
               << "   connect" << std::endl
               << "   disconnect" << std::endl
-              << "Direct database commands - these take an explict object" << std::endl
+              << "Direct database commands - these take an explicit object" << std::endl
               << "   create [partition:<name>] OBJECT" << std::endl
               << "   update [partition:<name>] OBJECT" << std::endl
               << "   remove [partition:<name>] OBJECT" << std::endl
@@ -385,6 +385,7 @@ void Client::usage()
               << "Sample commands: " << std::endl
               << "   create {\"_type\": \"duck\", \"name\": \"Fred\"}" << std::endl
               << "   query [?_type=\"duck\"]" << std::endl
+              << "   remove {\"_uuid\": \"{18c9d905-5860-464e-a6dd-951464e366de}\", \"_version\": \"1-134f23dbb2\"}" << std::endl
               << "   notify create,remove [?_type=\"duck\"]" << std::endl;
 
     QString usageInfo = QString::fromStdString(out.str());
