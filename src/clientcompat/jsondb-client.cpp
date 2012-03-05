@@ -332,6 +332,8 @@ void JsonDbClientPrivate::init(JsonDbConnection *c)
     }
     connection = c;
 
+    _q_statusChanged();
+
     q->connect(connection, SIGNAL(statusChanged()), q, SLOT(_q_statusChanged()));
     q->connect(connection, SIGNAL(notified(QString,QVariant,QString)),
                SLOT(_q_handleNotified(QString,QVariant,QString)));
