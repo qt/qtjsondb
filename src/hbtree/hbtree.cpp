@@ -539,29 +539,26 @@ HBtreePrivate::NodePage HBtreePrivate::deserializeNodePage(const QByteArray &buf
     HBTREE_VERBOSE("deserialising" << page.info.lowerOffset / sizeof(quint16) << "nodes");
 
     if (page.info.hasPayload()) {
+        page.nodes.reserve(page.info.lowerOffset / sizeof(quint16));
         quint16 *indices = (quint16 *)(buffer.constData() + offset);
         for (size_t i = 0; i < page.info.lowerOffset / sizeof(quint16); ++i) {
             const char *nodePtr = (buffer.constData() + buffer.size()) - indices[i];
             NodeHeader node;
             memcpy(&node, nodePtr, sizeof(NodeHeader));
 
-            NodeKey key(compareFunction_);
+            NodeKey key(compareFunction_, QByteArray(nodePtr + sizeof(NodeHeader), node.keySize));
             NodeValue value;
-
-            key.data.resize(node.keySize);
-            memcpy(key.data.data(), nodePtr + sizeof(NodeHeader), node.keySize);
 
             if (node.flags & NodeHeader::Overflow || page.info.type == PageInfo::Branch) {
                 value.overflowPage = node.context.overflowPage;
                 if (page.info.type == PageInfo::Leaf)
                     value.flags = NodeHeader::Overflow;
             } else {
-                value.data.resize(node.context.valueSize);
-                memcpy(value.data.data(), nodePtr + sizeof(NodeHeader) + node.keySize, node.context.valueSize);
+                value.data = QByteArray(nodePtr + sizeof(NodeHeader) + node.keySize, node.context.valueSize);
             }
 
             HBTREE_VERBOSE("deserialized node" << i << "->" << node << "<- [" << key << "," << value << "]");
-            page.nodes.insert(key, value);
+            page.nodes.uncheckedAppend(key, value);
         }
     }
     return page;
@@ -593,29 +590,27 @@ QByteArray HBtreePrivate::serializeNodePage(const HBtreePrivate::NodePage &page)
         char *upperPtr = buffer.data() + buffer.size();
         Node it = page.nodes.constBegin();
         while (it != page.nodes.constEnd()) {
-            QList<NodeValue> values = page.nodes.values(it.key());
-            foreach (const NodeValue &value, values) {
-                const NodeKey &key = it.key();
-                quint16 nodeSize = value.data.size() + key.data.size() + sizeof(NodeHeader);
-                upperPtr -= nodeSize;
-                NodeHeader node;
-                node.flags = value.flags;
-                node.keySize = key.data.size();
-                if ((value.flags & NodeHeader::Overflow) || page.info.type == PageInfo::Branch) {
-                    Q_ASSERT(value.data.size() == 0);
-                    node.context.overflowPage = value.overflowPage;
-                } else {
-                    Q_ASSERT(page.info.type == PageInfo::Leaf);
-                    node.context.valueSize = value.data.size();
-                }
-                memcpy(upperPtr, &node, sizeof(NodeHeader));
-                memcpy(upperPtr + sizeof(NodeHeader), key.data.constData(), key.data.size());
-                memcpy(upperPtr + sizeof(NodeHeader) + key.data.size(), value.data.constData(), value.data.size());
-                quint16 upperOffset = (quint16)((buffer.data() + buffer.size()) - upperPtr);
-                indices[i++] = upperOffset;
-                HBTREE_VERBOSE("serialized node" << i << "->" << node
-                                      << "@offset" << upperOffset << "<- [" << key<< "," << value << "]");
+            const NodeKey &key = it.key();
+            const NodeValue &value = it.value();
+            quint16 nodeSize = value.data.size() + key.data.size() + sizeof(NodeHeader);
+            upperPtr -= nodeSize;
+            NodeHeader node;
+            node.flags = value.flags;
+            node.keySize = key.data.size();
+            if ((value.flags & NodeHeader::Overflow) || page.info.type == PageInfo::Branch) {
+                Q_ASSERT(value.data.size() == 0);
+                node.context.overflowPage = value.overflowPage;
+            } else {
+                Q_ASSERT(page.info.type == PageInfo::Leaf);
+                node.context.valueSize = value.data.size();
             }
+            memcpy(upperPtr, &node, sizeof(NodeHeader));
+            memcpy(upperPtr + sizeof(NodeHeader), key.data.constData(), key.data.size());
+            memcpy(upperPtr + sizeof(NodeHeader) + key.data.size(), value.data.constData(), value.data.size());
+            quint16 upperOffset = (quint16)((buffer.data() + buffer.size()) - upperPtr);
+            indices[i++] = upperOffset;
+            HBTREE_VERBOSE("serialized node" << i << "->" << node
+                           << "@offset" << upperOffset << "<- [" << key<< "," << value << "]");
             ++it;
         }
     }
@@ -1705,7 +1700,7 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
 
     int splitIndex = copy.nodes.size() / 2 + 1; // bias for left page
     HBTREE_DEBUG("splitIndex =" << splitIndex << "from" << copy.nodes.size() << "nodes in copy");
-    Node splitIter = copy.nodes.begin() + splitIndex;
+    Node splitIter = copy.nodes.constBegin() + splitIndex;
     NodeKey splitKey = splitIter.key();
     NodeValue splitValue(right->info.number);
 
@@ -1825,9 +1820,9 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
 
             // Set parent to null since this baby might be in the cache
             // TODO: add a better way to do this.
-            NodePage *root = static_cast<NodePage *>(getPage(page->nodes.begin().value().overflowPage));
+            NodePage *root = static_cast<NodePage *>(getPage(page->nodes.constBegin().value().overflowPage));
             root->parent = NULL;
-            writeTransaction_->rootPage_ = page->nodes.begin().value().overflowPage;
+            writeTransaction_->rootPage_ = page->nodes.constBegin().value().overflowPage;
             HBTREE_DEBUG("One node in root branch" << page->info << "setting root to page" << writeTransaction_->rootPage_);
             q->stats_.depth--;
         } else {
@@ -1945,7 +1940,7 @@ bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePa
         NodePage *lowest;
         searchPageRoot(NULL, dst, NodeKey(compareFunction_), SearchFirst, false, &lowest);
         removeNode(dst->parent, dst->parentKey);
-        dst->parentKey = lowest->nodes.begin().key();
+        dst->parentKey = lowest->nodes.constBegin().key();
         insertNode(dst->parent, dst->parentKey, NodeValue(dst->info.number));
     }
 
@@ -1954,7 +1949,7 @@ bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePa
         NodePage *lowest;
         searchPageRoot(NULL, src, NodeKey(compareFunction_), SearchFirst, false, &lowest);
         removeNode(src->parent, src->parentKey);
-        src->parentKey = lowest->nodes.begin().key();
+        src->parentKey = lowest->nodes.constBegin().key();
         insertNode(src->parent, src->parentKey, NodeValue(src->info.number));
     }
 //    // If we move
@@ -2127,8 +2122,10 @@ void HBtreePrivate::dumpPage(HBtreePrivate::NodePage *page, int depth)
     switch (page->info.type) {
     case PageInfo::Branch:
         qDebug() << tabs << page->nodes;
-        foreach (NodeValue value, page->nodes)
+        for (Node it = page->nodes.constBegin(); it != page->nodes.constEnd(); ++it) {
+            const NodeValue &value = it.value();
             dumpPage(static_cast<NodePage *>(getPage(value.overflowPage)), depth + 1);
+        }
         break;
     case PageInfo::Leaf:
         qDebug() << tabs << page->nodes;
@@ -2266,7 +2263,7 @@ bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArr
 
     if (page->nodes.contains(nkey)) {
         keyData = nkey.data;
-        valueData = getDataFromNode(page->nodes[nkey]);
+        valueData = getDataFromNode(page->nodes.value(nkey));
         ok = true;
     } else if (!exact) {
         Node node = page->nodes.lowerBound(nkey);
@@ -2750,17 +2747,6 @@ quint16 HBtreePrivate::PageInfo::headerSize() const
     }
     return 0;
 }
-
-QDebug operator << (QDebug dbg, const HBtreePrivate::KeyValueMap::iterator &node) {
-    dbg.nospace() << "(" << node.key() << "," << node.value() << ")";
-    return dbg.space();
-}
-
-QDebug operator << (QDebug dbg, const HBtreePrivate::KeyValueMap::const_iterator &node) {
-    dbg.nospace() << "(" << node.key() << "," << node.value() << ")";
-    return dbg.space();
-}
-
 
 HBtreePrivate::HistoryNode::HistoryNode(HBtreePrivate::NodePage *np)
     : pageNumber(np->info.number), commitNumber(np->meta.commitId), syncNumber(np->meta.syncId)

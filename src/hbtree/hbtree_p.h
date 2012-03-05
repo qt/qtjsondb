@@ -45,8 +45,11 @@
 #include "hbtree.h"
 #include "hbtreetransaction.h"
 #include "hbtreecursor.h"
+#include "orderedlist_p.h"
+
 #include <QDebug>
 #include <QMap>
+#include <QList>
 #include <QSharedPointer>
 #include <QStack>
 
@@ -142,6 +145,7 @@ public:
         inline bool operator != (const NodeKey &rhs) const { return !operator==(rhs); }
         inline bool operator <= (const NodeKey &rhs) const { return !operator > (rhs); }
         inline bool operator >= (const NodeKey &rhs) const { return !operator < (rhs); }
+        inline int compare(const NodeKey &rhs) const;
     };
 
     // In memory value
@@ -160,9 +164,8 @@ public:
         quint32 overflowPage;   // This can also be used as childPage pointer in the case of branches
     };
 
-    typedef QMap<NodeKey, NodeValue> KeyValueMap;
+    typedef OrderedList<NodeKey, NodeValue> KeyValueMap;
     typedef KeyValueMap::const_iterator Node;
-    typedef KeyValueMap::iterator MutableNode;
 
     // Base of all pages so "fake" page type identification can be used
     // form just the page header.
@@ -374,6 +377,10 @@ public:
     bool verifyIntegrity(const Page *page) const;
 };
 
+QT_BEGIN_NAMESPACE
+Q_DECLARE_TYPEINFO(HBtreePrivate::NodeKey, Q_MOVABLE_TYPE);
+QT_END_NAMESPACE
+
 extern QDebug operator << (QDebug dbg, const HBtreePrivate::PageInfo &pi);
 extern QDebug operator << (QDebug dbg, const HBtreePrivate::MarkerPage &p);
 extern QDebug operator << (QDebug dbg, const HBtreePrivate::NodeKey &k);
@@ -383,12 +390,15 @@ extern QDebug operator << (QDebug dbg, const HBtreePrivate::NodePage &p);
 extern QDebug operator << (QDebug dbg, const HBtreePrivate::OverflowPage &p);
 extern QDebug operator << (QDebug dbg, const HBtreePrivate::NodeHeader &n);
 extern QDebug operator << (QDebug dbg, const HBtreePrivate::HistoryNode &hn);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::KeyValueMap::iterator &node);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::KeyValueMap::const_iterator &node);
 
 
 
 bool HBtreePrivate::NodeKey::operator < (const HBtreePrivate::NodeKey &rhs) const
+{
+    return compare(rhs) < 0;
+}
+
+inline int HBtreePrivate::NodeKey::compare(const NodeKey &rhs) const
 {
     // Since the btree uses an empty key as an implicit lowest value,
     // we can account for it here and avoid a call to the compare
@@ -401,32 +411,31 @@ bool HBtreePrivate::NodeKey::operator < (const HBtreePrivate::NodeKey &rhs) cons
 //        return false;
 
     if (compareFunction)
-        return compareFunction(data, rhs.data) < 0;
-    return data < rhs.data;
+        return compareFunction(data, rhs.data);
+
+    int n1 = data.size();
+    int n2 = rhs.data.size();
+    if (n1 < n2) {
+        int ret = memcmp(data.constData(), rhs.data.constData(), n1);
+        return ret == 0 ? -1 : ret;
+    } else if (n1 > n2) {
+        int ret = memcmp(data.constData(), rhs.data.constData(), n2);
+        return ret == 0 ? 1 : ret;
+    } else {
+        return memcmp(data.constData(), rhs.data.constData(), n2);
+    }
 }
 
 bool HBtreePrivate::NodeKey::operator == (const HBtreePrivate::NodeKey &rhs) const
 {
-//    if (data.isEmpty() && rhs.data.isEmpty())
-//        return true;
-//    if (data.isEmpty() || rhs.data.isEmpty())
-//        return false;
-
     if (compareFunction)
         return compareFunction(data, rhs.data) == 0;
-    return data == rhs.data;
+    return data.size() == rhs.data.size() && memcmp(data.constData(), rhs.data.constData(), data.size()) == 0;
 }
 
 bool HBtreePrivate::NodeKey::operator > (const HBtreePrivate::NodeKey &rhs) const
 {
-//    if (rhs.data.isEmpty() && !data.isEmpty())
-//        return true;
-//    if (data.isEmpty())
-//        return false;
-
-    if (compareFunction)
-        return compareFunction(data, rhs.data) > 0;
-    return data > rhs.data;
+    return compare(rhs) > 0;
 }
 
 #endif // HBTREE_P_H

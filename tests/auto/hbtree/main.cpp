@@ -52,6 +52,7 @@
 #include "hbtreetransaction.h"
 #include "hbtreecursor.h"
 #include "hbtree_p.h"
+#include "orderedlist_p.h"
 
 class TestHBtree: public QObject
 {
@@ -64,6 +65,8 @@ private slots:
     void cleanupTestCase();
     void init();
     void cleanup();
+
+    void orderedList();
 
     void openClose();
     void reopen();
@@ -1906,6 +1909,65 @@ void TestHBtree::cursors()
 //    db->open(HBtree::NoSync | HBtree::UseSyncMarker);
 //    QCOMPARE(db->tag(), 3u);
 //}
+
+void TestHBtree::orderedList()
+{
+    OrderedList<HBtreePrivate::NodeKey, HBtreePrivate::NodeValue> list;
+
+    typedef HBtreePrivate::NodeKey Key;
+    typedef HBtreePrivate::NodeValue Value;
+
+    Key key;
+
+    key = Key(0, QByteArray("B"));
+    list.insert(key, Value("_B_"));
+
+    key = Key(0, QByteArray("A"));
+    list.insert(key, Value("_A_"));
+
+    key = Key(0, QByteArray("C"));
+    list.insert(key, Value("_C_"));
+
+    QCOMPARE(list.size(), 3);
+    QVERIFY((list.constBegin() + 0).key().data == QByteArray("A"));
+    QVERIFY((list.constBegin() + 1).key().data == QByteArray("B"));
+    QVERIFY((list.constBegin() + 2).key().data == QByteArray("C"));
+
+    QVERIFY(list.contains(Key(0, "A")));
+    QVERIFY(!list.contains(Key(0, "AA")));
+    QVERIFY(!list.contains(Key(0, "D")));
+
+    QVERIFY(list.lowerBound(Key(0, "A")) == list.constBegin());
+    QVERIFY(list.lowerBound(Key(0, "AA")) == list.constBegin()+1);
+    QVERIFY(list.lowerBound(Key(0, "B")) == list.constBegin()+1);
+    QVERIFY(list.lowerBound(Key(0, "D")) == list.constEnd());
+
+    QVERIFY(list.upperBound(Key(0, "A")) == list.constBegin()+1);
+    QVERIFY(list.upperBound(Key(0, "AA")) == list.constBegin()+1);
+    QVERIFY(list.upperBound(Key(0, "B")) == list.constBegin()+2);
+    QVERIFY(list.upperBound(Key(0, "D")) == list.constEnd());
+
+    QCOMPARE(list.size(), 3);
+    QVERIFY(list[Key(0, "C")].data == QByteArray("_C_"));
+    QCOMPARE(list.size(), 3);
+    list[Key(0, "C")].data = QByteArray("_C2_");
+    QVERIFY(list[Key(0, "C")].data == QByteArray("_C2_"));
+    QCOMPARE(list.size(), 3);
+    QVERIFY(list[Key(0, "AA")].data.isEmpty());
+    QVERIFY(list.contains(Key(0, "AA")));
+    QCOMPARE(list.size(), 4);
+
+    QVERIFY(list.find(Key(0, "D")) == list.constEnd());
+
+    QCOMPARE(list.size(), 4);
+    list.insert(Key(0, "B"), Value("_B2_"));
+    QCOMPARE(list.size(), 4);
+
+    QCOMPARE(list.value(Key(0, "A")).data, QByteArray("_A_"));
+    QCOMPARE(list.value(Key(0, "B")).data, QByteArray("_B2_"));
+    QCOMPARE(list.value(Key(0, "C")).data, QByteArray("_C2_"));
+    QCOMPARE(list.value(Key(0, "AA")).data, QByteArray(""));
+}
 
 QTEST_MAIN(TestHBtree)
 #include "main.moc"

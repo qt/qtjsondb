@@ -1,12 +1,14 @@
 INCLUDEPATH += $$PWD/
 
 HEADERS += \
+    $$PWD/orderedlist_p.h \
     $$PWD/hbtree.h \
     $$PWD/hbtreetransaction.h \
     $$PWD/hbtreecursor.h \
     $$PWD/hbtree_p.h \
 
 SOURCES += \
+    $$PWD/orderedlist.cpp \
     $$PWD/hbtree.cpp \
     $$PWD/hbtreetransaction.cpp \
     $$PWD/hbtreecursor.cpp
