@@ -129,7 +129,7 @@ Q_GLOBAL_STATIC(QJsonDbConnection, _q_defaultConnection)
     \code
         QtJsonDb::QJsonDbConnection *connection = new QtJsonDb::QJsonDbConnection;
         QObject::connect(connection, SIGNAL(error(QtJsonDb::QJsonDbConnection::ErrorCode,QString))),
-                         this, SIGNAL(onConnectionError(QtJsonDb::QJsonDbConnection::ErrorCode,QString)));
+                         this, SLOT(onConnectionError(QtJsonDb::QJsonDbConnection::ErrorCode,QString)));
         connection->connectToServer();
     \endcode
 */
