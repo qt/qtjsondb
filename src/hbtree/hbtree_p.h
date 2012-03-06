@@ -200,6 +200,7 @@ public:
         } HBtree_ATTRIBUTE_PACKED;
         Q_STATIC_ASSERT(sizeof(Meta) == 24);
         Meta meta;
+        QStack<quint32> collectiblePages;
     };
 
     // Keeps track of revisions of touched node pages
@@ -266,10 +267,12 @@ public:
     ~HBtreePrivate();
 
     bool open(int fd);
-    void close();
+    void close(bool doSync = true);
+    bool readSpec(const QByteArray &binaryData);
+    bool writeSpec();
 
-    QByteArray readPage(quint32 pageNumber);
-    bool writePage(QByteArray *buffer);
+    QByteArray readPage(quint32 pageNumber) const;
+    bool writePage(QByteArray *buffer) const;
 
     QByteArray serializePage(const Page &page) const;
     Page *deserializePage(const QByteArray &buffer, Page *page) const;
@@ -277,6 +280,7 @@ public:
     void serializePageInfo(const PageInfo &info, QByteArray *buffer) const;
 
     Page *newDeserializePage(const QByteArray &buffer) const;
+    bool serializeAndWrite(const Page &page) const;
 
     void serializeChecksum(quint32 checksum, QByteArray *buffer) const;
     quint32 deserializePageNumber(const QByteArray &buffer) const;
@@ -303,15 +307,21 @@ public:
     bool commit(HBtreeTransaction *transaction, quint64 tag);
     void abort(HBtreeTransaction *transaction);
     bool sync(const MarkerPage &mp);
+    bool readSyncedMarker(MarkerPage *markerOut);
+    bool rollback();
 
     Page *newPage(PageInfo::Type type);
-    Page *getPage(quint32 pageNumber);
-    void deletePage(Page *page);
+    Page *getPage(quint32 pageNumber, bool insertInCache = true);
+    void deletePage(Page *page) const;
     NodePage *touchNodePage(NodePage *page);
     quint32 putDataOnOverflow(const QByteArray &value);
-    QByteArray getDataFromNode(const NodeValue &nval);
-    QByteArray getOverflowData(quint32 startPage);
-    QVector<quint32> getOverflowPageNumbers(quint32 startPage);
+    QByteArray getDataFromNode(const NodeValue &nval) const;
+    bool getOverflowData(quint32 startPage, QByteArray *data) const;
+    bool getOverflowPageNumbers(quint32 startPage, QList<quint32> *pages) const;
+    bool walkTree(const MarkerPage &marker, QList<quint32> *pagesWalked) const;
+    bool walkBranch(NodePage *branch, QList<quint32> *pagesWalked) const;
+    bool walkLeaf(NodePage *leaf, QList<quint32> *overflowPages) const;
+    void collectPages(const QList<quint32> &pagesUsedSorted);
 
     enum SearchType {
         SearchKey,
@@ -346,13 +356,14 @@ public:
 
     void dump();
     void dumpPage(NodePage *page, int depth);
-    const QStack<quint32> collectibleStack() const;
 
     bool cursorLast(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorFirst(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorNext(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut, const QByteArray &matchKey, bool exact);
+
+    void copy(const MarkerPage &src, MarkerPage *dst);
 
     HBtree              *q_ptr;
     QString              fileName_;
@@ -362,7 +373,7 @@ public:
     quint32              lastSyncedRevision_;
 
     typedef QMap<quint32, Page *> PageMap;
-    const Spec spec_;
+    Spec spec_;
     MarkerPage markers_[2];
     uint mi_;
     PageMap dirtyPages_;

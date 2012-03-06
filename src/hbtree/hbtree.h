@@ -138,7 +138,7 @@ public:
     size_t size() const;
     quint16 pageSize() const;
     bool sync();
-    bool rollback() { return true; }
+    bool rollback();
 
     HBtreeTransaction *beginTransaction(HBtreeTransaction::Type type);
 

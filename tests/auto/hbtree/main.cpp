@@ -101,18 +101,25 @@ private slots:
     void transactionTag();
     void compareSequenceOfVarLengthKeys();
     void asciiAsSortedNumbers();
-    void corruptedPage();
-    void tag();
-    void btreeRollback();
-    void pageChecksum();
-    void cursors();
-//    void markerFileSizeCheck();
-//    void markerChecksumRollCheck();
     void deleteReinsertVerify_data();
     void deleteReinsertVerify();
     void rebalanceEmptyTree();
     void reinsertion();
     void nodeComparisons();
+    void tag();
+    void cursors();
+    void markerOnReopen_data();
+    void markerOnReopen();
+    void corruptSyncMarker1_data();
+    void corruptSyncMarker1();
+    void corruptBothSyncMarkers_data();
+    void corruptBothSyncMarkers();
+    void corruptPingMarker_data();
+    void corruptPingMarker();
+    void corruptPongMarker_data();
+    void corruptPongMarker();
+    void corruptPingAndPongMarker_data();
+    void corruptPingAndPongMarker();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 type = -1);
@@ -179,7 +186,7 @@ void TestHBtree::cleanup()
     qDebug() << "Size:" << sizeStr(db->size()) << " Pages:" << db->size() / d->spec_.pageSize;
     qDebug() << "Stats:" << db->stats();
     if (printOutCollectibles_)
-        qDebug() << "Collectible pages: " << d->collectibleStack();
+        qDebug() << "Collectible pages: " << d->collectiblePages_;
 
     delete db;
     db = 0;
@@ -1601,31 +1608,6 @@ void TestHBtree::nodeComparisons()
     QVERIFY(nkey33 >= nkey33);
 }
 
-void TestHBtree::corruptedPage()
-{
-    QSKIP("logic not implemented yet");
-    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-    QVERIFY(txn);
-    QVERIFY(txn->put(QByteArray("foo"), QByteArray("123")));
-    QVERIFY(txn->commit(42));
-
-    int pgSize = db->pageSize();
-    db->close();
-
-    QFile file(dbname);
-    QVERIFY(file.open(QFile::Append));
-    file.write(QByteArray(pgSize, 8)); // write one page of garbage
-    file.close();
-
-    QVERIFY(db->open());
-    QCOMPARE(db->tag(), 42u);
-    txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
-    QVERIFY(txn);
-    QCOMPARE(txn->tag(), 42u);
-    QCOMPARE(txn->get(QByteArray("foo")), QByteArray("123"));
-    txn->abort();
-}
-
 void TestHBtree::tag()
 {
     HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
@@ -1652,134 +1634,6 @@ void TestHBtree::tag()
     QCOMPARE(rtxn->tag(), 64u);
     rtxn->abort();
 }
-
-
-void TestHBtree::btreeRollback()
-{
-    QSKIP("rollback logic not in yet");
-    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-    QVERIFY(txn);
-    QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
-    QVERIFY(txn->commit(1));
-
-    txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-    QVERIFY(txn);
-    QVERIFY(txn->put(QByteArray("bar"), QByteArray("baz")));
-    QVERIFY(txn->commit(2));
-
-    QCOMPARE(db->tag(), 2u);
-    QVERIFY(db->rollback());
-    QCOMPARE(db->tag(), 1u);
-
-    txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
-    QVERIFY(txn);
-    QCOMPARE(txn->tag(), 1u);
-    QByteArray value;
-    QVERIFY(!txn->get(QByteArray("foo")).isEmpty());
-    QVERIFY(txn->get(QByteArray("bar")).isEmpty());
-    txn->abort();
-}
-
-void TestHBtree::corruptSinglePage(int psize, int pgno, qint32 type)
-{
-    const int asize = psize / 4;
-    quint32 *page = new quint32[asize];
-    QFile::OpenMode om = QFile::ReadWrite;
-
-    if (pgno == -1)  // we'll be appending
-        om |= QFile::Append;
-
-    QFile file(dbname);
-    QVERIFY(file.open(om));
-    QVERIFY(file.seek((pgno == -1 ? 0 : pgno * psize)));
-    QVERIFY(file.read((char*)page, psize));
-
-    if (pgno == -1)
-        pgno = file.size() / psize; // next pgno
-    page[2] = pgno;
-    if (type > 0)
-        page[1] = type; // set page flag if specified
-
-    for (int j = 3; j < asize; ++j) // randomly corrupt page (skip type and pgno)
-        page[j] = rand();
-
-    QVERIFY(file.seek(pgno * psize));
-    QCOMPARE(file.write((char*)page, psize), (qint64)psize);
-    file.close();
-
-    delete [] page;
-}
-
-void TestHBtree::pageChecksum()
-{
-    QSKIP("logic needs to be implemented");
-
-    const qint64 psize = db->pageSize();
-    QByteArray value;
-
-    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-    QVERIFY(txn);
-    QVERIFY(txn->put(QByteArray("foo1"), QByteArray("bar1")));
-    QVERIFY(txn->commit(1));
-
-    txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-    QVERIFY(txn);
-    QVERIFY(txn->put(QByteArray("foo2"), QByteArray("bar2")));
-    QVERIFY(txn->commit(2));
-
-    txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-    QVERIFY(txn);
-    QVERIFY(txn->put(QByteArray("foo3"), QByteArray("bar3")));
-    QVERIFY(txn->commit(3));
-
-    db->close();
-
-    QFile f0(dbname);
-    QCOMPARE(f0.size(), psize * 7); // Should have 7 pages in db
-    f0.close();
-
-    corruptSinglePage(psize, 6); // corrupt page 6 (the meta with tag 3)
-
-    QFile f1(dbname);
-    QCOMPARE(f1.size(), psize * 7); // Should have 7 pages in db
-    f1.close();
-
-    corruptSinglePage(psize); // add corrupted page
-
-    QFile f2(dbname);
-    QCOMPARE(f2.size(), psize * 8);  // Should have 8 pages in db
-    f2.close();
-
-    QVERIFY(db->open());
-    QCOMPARE(db->tag(), 2); // page with tag 3 corrupted, should get tag 2
-
-    txn = db->beginRead();
-    QVERIFY(txn);
-    QVERIFY(txn->get(QByteArray("foo1"), &value));
-    QCOMPARE(value, QByteArray("bar1"));
-    QVERIFY(txn->get(QByteArray("foo2"), &value));
-    QCOMPARE(value, QByteArray("bar2"));
-
-    QVERIFY(!txn->get(QByteArray("foo3"), &value)); // should not exist
-    txn->abort();
-
-    db->close();
-
-    corruptSinglePage(psize, 3); // corrupt page 3 (leaf with key foo2)
-
-    QFile f3(dbname);
-    QCOMPARE(f3.size(), psize * 8);  // Should have 9 pages in db
-    f3.close();
-
-    QVERIFY(db->open());
-
-    txn = db->beginRead();
-    QVERIFY(txn);
-    QVERIFY(!txn->get(QByteArray("foo1"), &value)); // page 3 should be corrupted
-    QVERIFY(!txn->get(QByteArray("foo2"), &value)); // page 3 should be corrupted
-    txn->abort();
-}
-
 
 void TestHBtree::cursors()
 {
@@ -1827,88 +1681,290 @@ void TestHBtree::cursors()
     txn->abort();
 }
 
-//void TestHBtree::markerFileSizeCheck()
-//{
-//    const char *filename = "corruptor.db";
-//    QFile::remove(filename);
-//    QVERIFY(!QFile::remove(filename));
+void TestHBtree::markerOnReopen_data()
+{
+    // This test won't work if numCommits results in an auto sync or a split
+    QTest::addColumn<quint32>("numCommits");
+    QTest::newRow("Even commits") << 10u;
+    QTest::newRow("Odd Commits") << 13u;
+}
 
-//    const char *testKeyData = "hello";
-//    const int testKeySize = strlen(testKeyData);
-//    struct btval val;
+void TestHBtree::markerOnReopen()
+{
+    QFETCH(quint32, numCommits);
+    const quint32 pageSize = db->pageSize();
 
-//    struct btree *bt = btree_open(filename, BT_NOSYNC | BT_USEMARKER, 0644);
-//    QVERIFY(bt);
-//    struct btree_txn *txn = btree_txn_begin(bt, 0);
-//    QVERIFY(txn);
+    for (quint32 i = 0; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->put(QByteArray::number(i), QByteArray("value")));
+        QVERIFY(txn->commit(i));
+    }
 
-//    val.free_data = 0;
-//    val.mp = 0;
-//    val.data = (void*)testKeyData;
-//    val.size = testKeySize;
-//    QVERIFY(btree_txn_put(bt, txn, &val, &val, 0) == 0);
-//    QVERIFY(btree_txn_commit(txn, 1, 0) == 0);
+    // First commit goes to marker on page 4
+    const quint32 lastMarkerCommited = ((numCommits % 2) == 0 ? 3 : 4);
+    quint32 cPage = d->collectiblePages_[0];
 
-//    btree_close_nosync(bt);
+    // There should be 1 reusable page if numCommits is greater than 3
+    // Plus the 3 copies of the leaf page
+    // Plus 1 header
+    // Plus the 4 markers
+    // == 9 pages
+    QCOMPARE(d->currentMarker().info.number, lastMarkerCommited);
+    QCOMPARE(d->collectiblePages_.size(), 1);
+    QCOMPARE(d->size_, quint32(pageSize * 9));
+    QCOMPARE(d->currentMarker().meta.revision, numCommits);
+    QCOMPARE(d->currentMarker().meta.syncedRevision, 1u);
 
-//    struct btree *bt2 = btree_open(filename, BT_NOSYNC | BT_USEMARKER, 0644);
-//    QVERIFY(bt2);
+    db->close();
+    QVERIFY(db->open());
 
-//    const int count = 1000;
-//    QVector<QByteArray> keys;
-//    for (int i = 0; i < count; ++i) {
-//        QByteArray key = QString::number(rand()).toAscii();
-//        val.free_data = 0;
-//        val.mp = 0;
-//        val.size = key.size();
-//        val.data = key.data();
-//        QVERIFY(btree_put(bt2, &val, &val, 0) == 0);
-//        keys.append(key);
-//    }
+    QCOMPARE(d->currentMarker().info.number, 3u); // On open markers are synced. Starts with page 3u (ping marker)
+    QCOMPARE(d->collectiblePages_.size(), 1);
+    QCOMPARE(d->collectiblePages_[0], cPage);
+    QCOMPARE(d->size_, quint32(pageSize * 9));
+    QCOMPARE(d->currentMarker().meta.revision, numCommits);
+    QCOMPARE(d->currentMarker().meta.syncedRevision, 1u);
+}
 
-//    qSort(keys);
+void TestHBtree::corruptSinglePage(int psize, int pgno, qint32 type)
+{
+    const int asize = psize / 4;
+    quint32 *page = new quint32[asize];
+    QFile::OpenMode om = QFile::ReadWrite;
 
-//    txn = btree_txn_begin(bt2, 1);
-//    struct cursor *c = btree_txn_cursor_open(bt2, txn);
-//    btval key;
-//    btree_cursor_get(c, &key, &val, BT_FIRST);
-//    for (int i = 0; i < keys.size(); ++i) {
-//        QCOMPARE(QByteArray((char *)key.data, key.size), keys[i]);
-//        btree_cursor_get(c, &key, &val, BT_NEXT);
-//    }
+    if (pgno == -1)  // we'll be appending
+        om |= QFile::Append;
+    QFile file(dbname);
+    QVERIFY(file.open(om));
+    QVERIFY(file.seek((pgno == -1 ? 0 : pgno * psize)));
+    QVERIFY(file.read((char*)page, asize));
 
-//    btree_cursor_close(c);
-//    btree_txn_abort(txn);
+    if (pgno == -1)
+        pgno = file.size() / psize; // next pgno
+    page[2] = pgno;
+    if (type > 0)
+        page[1] = type; // set page flag if specified
 
-//    btree_close(bt2);
-//}
+    for (int j = 3; j < asize; ++j) // randomly corrupt page (skip type and pgno)
+        page[j] = rand();
 
-//void TestHBtree::markerChecksumRollCheck()
-//{
-//    db->close();
-//    db->open(HBtree::NoSync | HBtree::UseSyncMarker);
+    QVERIFY(file.seek(pgno * psize));
+    QCOMPARE(file.write((char*)page, psize), (qint64)psize);
+    file.close();
 
-//    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite)();
-//    QVERIFY(txn);
-//    QVERIFY(txn->put(QByteArray("foo1"), QByteArray("bar1")));
-//    QVERIFY(txn->commit(1));
+    delete [] page;
+}
 
-//    txn = db->beginTransaction(HBtreeTransaction::ReadWrite)();
-//    QVERIFY(txn);
-//    QVERIFY(txn->put(QByteArray("foo2"), QByteArray("bar2")));
-//    QVERIFY(txn->commit(2));
+void TestHBtree::corruptSyncMarker1_data()
+{
+    QTest::addColumn<quint32>("numCommits");
+    QTest::newRow("Even commits") << 10u;
+    QTest::newRow("Odd Commits") << 13u;
+}
 
-//    txn = db->beginTransaction(HBtreeTransaction::ReadWrite)();
-//    QVERIFY(txn);
-//    QVERIFY(txn->put(QByteArray("foo3"), QByteArray("bar3")));
-//    QVERIFY(txn->commit(3));
+void TestHBtree::corruptSyncMarker1()
+{
+    QFETCH(quint32, numCommits);
 
-//    btree_close_nosync(db->handle());
-//    db->close();
+    quint32 psize = db->pageSize();
+    for (quint32 i = 0; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->put(QByteArray::number(i), QByteArray::number(i)));
+        QVERIFY(txn->commit(i));
+    }
 
-//    db->open(HBtree::NoSync | HBtree::UseSyncMarker);
-//    QCOMPARE(db->tag(), 3u);
-//}
+    QCOMPARE(d->collectiblePages_.size(), 1);
+    quint32 cPage = d->collectiblePages_[0];
+
+    for (int i = 0; i < 5; ++i) {
+        db->close();
+
+        corruptSinglePage(psize, 1, HBtreePrivate::PageInfo::Marker);
+
+        QVERIFY(db->open());
+
+        QCOMPARE(d->collectiblePages_.size(), 1);
+        QCOMPARE(d->collectiblePages_[0], cPage);
+
+        for (quint32 i = 0; i < numCommits; ++i) {
+            HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+            QVERIFY(txn);
+            QCOMPARE(txn->get(QByteArray::number(i)), QByteArray::number(i));
+            txn->abort();
+        }
+    }
+}
+
+void TestHBtree::corruptBothSyncMarkers_data()
+{
+    QTest::addColumn<quint32>("numCommits");
+    QTest::newRow("Even commits") << 10u;
+    QTest::newRow("Odd Commits") << 13u;
+}
+
+void TestHBtree::corruptBothSyncMarkers()
+{
+    QFETCH(quint32, numCommits);
+
+    quint32 psize = db->pageSize();
+    for (quint32 i = 0; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->put(QByteArray::number(i), QByteArray::number(i)));
+        QVERIFY(txn->commit(i));
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        db->close();
+
+        corruptSinglePage(psize, 1, HBtreePrivate::PageInfo::Marker);
+        corruptSinglePage(psize, 2, HBtreePrivate::PageInfo::Marker);
+
+        QVERIFY(db->open());
+        // Now everything should be synced to ping or pong, whichever was newer and uncorrupted.
+
+        for (quint32 i = 0; i < numCommits; ++i) {
+            HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+            QVERIFY(txn);
+            QCOMPARE(txn->get(QByteArray::number(i)), QByteArray::number(i));
+            txn->abort();
+        }
+    }
+}
+
+void TestHBtree::corruptPingMarker_data()
+{
+    QTest::addColumn<quint32>("numCommits");
+    QTest::newRow("Even commits") << 10u;
+    QTest::newRow("Odd Commits") << 13u;
+}
+
+void TestHBtree::corruptPingMarker()
+{
+    QFETCH(quint32, numCommits);
+
+    // Ping is marker 3 and gets written every even commit. If commits are even, the last commit won't be there.
+    bool includeLast = numCommits % 2;
+
+    quint32 psize = db->pageSize();
+    for (quint32 i = 0; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->put(QByteArray::number(i), QByteArray::number(i)));
+        QVERIFY(txn->commit(i));
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        db->close();
+
+        corruptSinglePage(psize, 3, HBtreePrivate::PageInfo::Marker);
+
+        QVERIFY(db->open());
+        QCOMPARE(db->tag(), (includeLast ? (numCommits - 1) : (numCommits - 2)));
+        // Now everything should be synced to ping or pong, whichever was newer and uncorrupted.
+
+        for (quint32 i = 0; i < numCommits; ++i) {
+            if (!includeLast && i == (numCommits - 1))
+                continue;
+            HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+            QVERIFY(txn);
+            QCOMPARE(txn->get(QByteArray::number(i)), QByteArray::number(i));
+            txn->abort();
+        }
+    }
+}
+
+void TestHBtree::corruptPongMarker_data()
+{
+    QTest::addColumn<quint32>("numCommits");
+    QTest::newRow("Even commits") << 10u;
+    QTest::newRow("Odd Commits") << 13u;
+}
+
+void TestHBtree::corruptPongMarker()
+{
+    QFETCH(quint32, numCommits);
+
+    // Pong is marker 4 and gets written every odd commit. If commits are odd, the last commit won't be there.
+    bool includeLast = !(numCommits % 2);
+
+    quint32 psize = db->pageSize();
+    for (quint32 i = 0; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->put(QByteArray::number(i), QByteArray::number(i)));
+        QVERIFY(txn->commit(i));
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        db->close();
+
+        corruptSinglePage(psize, 4, HBtreePrivate::PageInfo::Marker);
+
+        QVERIFY(db->open());
+        QCOMPARE(db->tag(), (includeLast ? (numCommits - 1) : (numCommits - 2)));
+        // Now everything should be synced to ping or pong, whichever was newer and uncorrupted.
+
+        for (quint32 i = 0; i < numCommits; ++i) {
+            if (!includeLast && i == (numCommits - 1))
+                continue;
+            HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+            QVERIFY(txn);
+            QCOMPARE(txn->get(QByteArray::number(i)), QByteArray::number(i));
+            txn->abort();
+        }
+    }
+}
+
+
+void TestHBtree::corruptPingAndPongMarker_data()
+{
+    QTest::addColumn<quint32>("numCommits");
+    QTest::newRow("Even commits") << 10u;
+    QTest::newRow("Odd Commits") << 13u;
+}
+
+void TestHBtree::corruptPingAndPongMarker()
+{
+    QFETCH(quint32, numCommits);
+
+    quint32 psize = db->pageSize();
+
+    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
+    QVERIFY(txn->commit(42));
+    QVERIFY(db->sync());
+
+    for (quint32 i = 0; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->put(QByteArray::number(i), QByteArray::number(i)));
+        QVERIFY(txn->commit(i));
+    }
+
+    d->close(false);
+
+    corruptSinglePage(psize, 3, HBtreePrivate::PageInfo::Marker);
+    corruptSinglePage(psize, 4, HBtreePrivate::PageInfo::Marker);
+
+    QVERIFY(db->open());
+    QCOMPARE(db->tag(), 42u);
+
+    for (quint32 i = 0; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+        QVERIFY(txn);
+        QVERIFY(txn->get(QByteArray::number(i)).isEmpty());
+        txn->abort();
+    }
+
+    txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+    QVERIFY(txn);
+    QCOMPARE(txn->get(QByteArray("foo")), QByteArray("bar"));
+    txn->abort();
+}
 
 void TestHBtree::orderedList()
 {

@@ -112,89 +112,48 @@ bool HBtreePrivate::open(int fd)
     int rc = pread(fd_, (void *)binaryData.data(), HBTREE_DEFAULT_PAGE_SIZE, 0);
     q->stats_.reads++;
 
+    markers_[0] = MarkerPage(3);
+    markers_[1] = MarkerPage(4);
+
     if (rc != HBTREE_DEFAULT_PAGE_SIZE) {
         // Write spec
         if (rc == 0) {
 
             HBTREE_DEBUG("New file:" << "[" << "fd:" << fd_ << "]");
 
-            struct stat sb;
-            if (fstat(fd, &sb) != 0)
-                return false;
-
-            Spec spec;
-            spec.version = HBTREE_VERSION;
-            spec.keySize = 255;
-            spec.pageSize = sb.st_blksize > HBTREE_DEFAULT_PAGE_SIZE ? sb.st_blksize : HBTREE_DEFAULT_PAGE_SIZE;
-            spec.overflowThreshold = 1000;
-
-            QByteArray ba(spec.pageSize, (char)0);
-
-            PageInfo info(PageInfo::Spec, 0);
-            memcpy(ba.data(), &info, sizeof(PageInfo));
-            memcpy(ba.data() + sizeof(PageInfo), &spec, sizeof(Spec));
-
-            *const_cast<Spec *>(&spec_) = spec; // Must be done before using any internal functions
-
-            if (!writePage(&ba)) {
-                HBTREE_ERROR("failed to write spec page");
+            if (!writeSpec()) {
+                HBTREE_ERROR("failed to write spec");
                 return false;
             }
+
+            const quint32 initSize = spec_.pageSize * 5;
 
             // Write sync markers
             MarkerPage synced0(1);
             MarkerPage synced1(2);
+            synced0.meta.size = synced1.meta.size = initSize;
 
-            ba = serializePage(synced0);
-            if (ba.isEmpty()) {
-                HBTREE_ERROR("failed to serialize sync0");
-                return false;
-            }
-
-            if (!writePage(&ba)) {
+            if (!serializeAndWrite(synced0)) {
                 HBTREE_ERROR("failed to write sync0");
                 return false;
             }
 
-            ba = serializePage(synced1);
-            if (ba.isEmpty()) {
-                HBTREE_ERROR("failed to serialize sync1");
-                return false;
-            }
-
-            if (!writePage(&ba)) {
+            if (!serializeAndWrite(synced1)) {
                 HBTREE_ERROR("failed to write sync1");
                 return false;
             }
 
             // Write ping and pong
-            markers_[0] = MarkerPage(3);
-            markers_[1] = MarkerPage(4);
+            MarkerPage ping(3);
+            MarkerPage pong(4);
+            ping.meta.size = pong.meta.size = initSize;
 
-            // Set size info to current size + the 2 we're writing next
-            markers_[0].meta.size = lseek(fd_, 0, SEEK_END) + spec_.pageSize * 2;
-            markers_[1].meta.size = lseek(fd_, 0, SEEK_END) + spec_.pageSize * 2;
-
-            ba = serializePage(markers_[0]);
-
-            if (ba.isEmpty()) {
-                HBTREE_ERROR("failed to serialize ping");
-                return false;
-            }
-
-            if (!writePage(&ba)) {
+            if (!serializeAndWrite(ping)) {
                 HBTREE_ERROR("failed to write ping");
                 return false;
             }
 
-            ba = serializePage(markers_[1]);
-
-            if (ba.isEmpty()) {
-                HBTREE_ERROR("failed to serialize pong");
-                return false;
-            }
-
-            if (!writePage(&ba)) {
+            if (!serializeAndWrite(pong)) {
                 HBTREE_ERROR("failed to write pong");
                 return false;
             }
@@ -206,52 +165,24 @@ bool HBtreePrivate::open(int fd)
 
             mi_ = 0;
             lastSyncedRevision_ = 0;
+            size_ = initSize;
+            copy(ping, &markers_[0]);
+            copy(pong, &markers_[1]);
 
         } else {
-            HBTREE_ERROR("failed to read spec page");
+            HBTREE_ERROR("failed to read spec page: rc" << rc);
             return false;
         }
     } else {
-        // Verify spec information
-        PageInfo info;
-        Spec spec;
-        memcpy(&info, binaryData.constData(), sizeof(PageInfo));
-        memcpy(&spec, binaryData.constData() + sizeof(PageInfo), sizeof(Spec));
 
-        if (info.type != PageInfo::Spec) {
-            HBTREE_ERROR("failed to read spec:" << info);
+        if (!readSpec(binaryData)) {
+            HBTREE_ERROR("failed to read spec information");
             return false;
         }
 
-        if (info.number != 0) {
-            HBTREE_ERROR("failed to read spec:" << info);
-            return false;
-        }
-
-        if (spec.version != HBTREE_VERSION) {
-            HBTREE_ERROR("failed to read spec version:" << spec.version);
-            return false;
-        }
-
-        *const_cast<Spec *>(&spec_) = spec;
-
-        if (calculateChecksum(binaryData) != info.checksum) {
-            HBTREE_ERROR("failed to verify spec checksum");
-            return false;
-        }
-
-        // Get synced markers
+        // Get synced marker
         MarkerPage syncedMarker;
-        QByteArray syncedMarkerData = readPage(1);
-        if (syncedMarkerData.isEmpty() || !deserializePage(syncedMarkerData, &syncedMarker)) {
-            HBTREE_DEBUG("synced marker 1 was invalid. Checking synced marker 2.");
-            syncedMarkerData = readPage(2);
-            if (syncedMarkerData.isEmpty() || !deserializePage(syncedMarkerData, &syncedMarker)) {
-                HBTREE_DEBUG("sync markers are invalid. Let's try recovering.");
-                // Don't return. We can try ping or pong
-                syncedMarker = MarkerPage();
-            }
-        }
+        bool hasSyncedMarker = readSyncedMarker(&syncedMarker);
 
         QByteArray pingData = readPage(3);
         QByteArray pongData = readPage(4);
@@ -263,25 +194,27 @@ bool HBtreePrivate::open(int fd)
         bool result2 = pongData.isEmpty() ? false : deserializePage(pongData, &pongMarker) && pongMarker.info.isValid();
 
         bool hasAnotherMarker = false;
+        bool doTheWalk = false;
         if (result1 && result2) {
             // If both are ok then use whichever has a bigger revision
             mi_ = pingMarker.meta.revision > pongMarker.meta.revision ? 0 : 1;
-            markers_[0] = mi_ == 0 ? pingMarker : pongMarker;
-            markers_[1] = mi_ == 0 ? pongMarker : pingMarker;
+            copy(mi_ == 0 ? pingMarker : pongMarker, &markers_[0]);
+            copy(mi_ == 0 ? pongMarker : pingMarker, &markers_[1]);
             hasAnotherMarker = true;
         } else if (result1) {
             HBTREE_DEBUG("pong marker is invalid");
-            markers_[0] = pingMarker;
-            markers_[1] = pingMarker;
+            copy(pingMarker, &markers_[0]);
+            copy(pingMarker, &markers_[1]);
         } else if (result2) {
             HBTREE_DEBUG("ping marker is invalid");
-            markers_[0] = pongMarker;
-            markers_[1] = pongMarker;
+            copy(pongMarker, &markers_[0]);
+            copy(pongMarker, &markers_[1]);
         } else {
             // If neither are ok then use synced marker
-            if (syncedMarker.info.isValid()) {
-                markers_[0] = syncedMarker;
-                markers_[1] = syncedMarker;
+            if (hasSyncedMarker) {
+                copy(syncedMarker, &markers_[0]);
+                copy(syncedMarker, &markers_[1]);
+                doTheWalk = true;
             } else {
                 HBTREE_ERROR("failed to load valid marker");
                 // Is this an empty tree?
@@ -294,49 +227,68 @@ bool HBtreePrivate::open(int fd)
         // 3 levels of awesomeness
         // If we have a synced marker and the revision of the marker we decided to use matches it,
         // then we don't need to verify the tree
-        if (!syncedMarker.info.isValid() || currentMarker().meta.revision != syncedMarker.meta.revision) {
-            // TODO: verify the tree
-            bool verificationFailed = false;
+        QList<quint32> pingPagesWalked;
+        QList<quint32> pongPagesWalked;
+        QList<quint32> syncedPagesWalked;
+        bool mustCollect = false;
+        if (!hasSyncedMarker || currentMarker().meta.revision != syncedMarker.meta.revision || doTheWalk) {
+            mustCollect = true;
             // If verification fails, try the other marker
-            if (hasAnotherMarker && verificationFailed) {
-                markers_[mi_] = markers_[!mi_];
-                mi_ = !mi_;
-                if (syncedMarker.info.isValid()) {
+            if (!walkTree(currentMarker(), &pingPagesWalked) && hasAnotherMarker) {
+                copy(markers_[!mi_], &markers_[mi_]);
+                if (!walkTree(currentMarker(), &pongPagesWalked) && hasSyncedMarker) {
                     // If that fails we still have the synced marker
-                    markers_[0] = syncedMarker;
-                    markers_[1] = syncedMarker;
-                    // If (!verified) initiateEndOfWorldSequence();
+                    copy(syncedMarker, &markers_[0]);
+                    copy(syncedMarker, &markers_[1]);
+                    if (!walkTree(currentMarker(), &syncedPagesWalked)) {
+                        HBTREE_ERROR("Unable to verify tree");
+                        return false;
+                    }
                 }
             }
         }
 
-        lastSyncedRevision_ = syncedMarker.info.isValid() ? syncedMarker.meta.syncedRevision : 0;
-
-        size_ = lseek(fd_, 0, SEEK_END);
-
         if (openMode_ == HBtree::ReadWrite) {
-            if (currentMarker().meta.size < size_) {// cut off garbage (check reverse case)
+            off_t currentSize = lseek(fd_, 0, SEEK_END);
+            if (currentMarker().meta.size < currentSize) {// cut off garbage (TODO: check reverse case)
                 if (ftruncate(fd_, currentMarker().meta.size) != 0) {
-                    HBTREE_ERROR("failed to truncate from" << size_ << "to" << currentMarker().meta.size);
+                    HBTREE_ERROR("failed to truncate from" << currentSize << "for" << currentMarker());
                     return false;
                 }
             }
-        }
 
-        Q_ASSERT(verifyIntegrity(&currentMarker()));
+            size_ = currentMarker().meta.size;
+            lastSyncedRevision_ = currentMarker().meta.syncedRevision;
+
+            if (!sync(currentMarker())) {
+                HBTREE_ERROR("failed to sync" << currentMarker());
+                return false;
+            }
+
+            if (mustCollect) {
+                QList<quint32> totalPagesWalked = syncedPagesWalked + pingPagesWalked + pongPagesWalked;
+                qSort(totalPagesWalked);
+                collectPages(totalPagesWalked);
+            } else {
+                collectiblePages_ = currentMarker().collectiblePages;
+            }
+        } else {
+            size_ = currentMarker().meta.size;
+        }
     }
 
-    size_ = currentMarker().meta.size;
     lastPage_ = size_ / spec_.pageSize;
+    Q_ASSERT(verifyIntegrity(&currentMarker()));
 
     return true;
 }
 
-void HBtreePrivate::close()
+void HBtreePrivate::close(bool doSync)
 {
     if (fd_ != -1) {
         HBTREE_DEBUG("closing btree with fd:" << fd_);
-        sync(currentMarker());
+        if (doSync)
+            sync(currentMarker());
         ::close(fd_);
         fd_ = -1;
         if (dirtyPages_.size()) {
@@ -347,7 +299,68 @@ void HBtreePrivate::close()
             deletePage(page);
         }
         cache_.clear();
+        collectiblePages_.clear();
+        spec_ = Spec();
     }
+}
+
+bool HBtreePrivate::readSpec(const QByteArray &binaryData)
+{
+    PageInfo info;
+    Spec spec;
+    memcpy(&info, binaryData.constData(), sizeof(PageInfo));
+    memcpy(&spec, binaryData.constData() + sizeof(PageInfo), sizeof(Spec));
+
+    if (info.type != PageInfo::Spec) {
+        HBTREE_ERROR("failed to read spec:" << info);
+        return false;
+    }
+
+    if (info.number != 0) {
+        HBTREE_ERROR("failed to read spec:" << info);
+        return false;
+    }
+
+    if (spec.version != HBTREE_VERSION) {
+        HBTREE_ERROR("failed to read spec version:" << spec.version);
+        return false;
+    }
+
+    memcpy(&spec_, &spec, sizeof(Spec));
+
+    if (calculateChecksum(binaryData) != info.checksum) {
+        HBTREE_ERROR("failed to verify spec checksum");
+        return false;
+    }
+
+    return true;
+}
+
+bool HBtreePrivate::writeSpec()
+{
+    struct stat sb;
+    if (fstat(fd_, &sb) != 0)
+        return false;
+
+    Spec spec;
+    spec.version = HBTREE_VERSION;
+    spec.keySize = 255;
+    spec.pageSize = sb.st_blksize > HBTREE_DEFAULT_PAGE_SIZE ? sb.st_blksize : HBTREE_DEFAULT_PAGE_SIZE;
+    spec.overflowThreshold = 1000;
+
+    QByteArray ba(spec.pageSize, (char)0);
+
+    PageInfo info(PageInfo::Spec, 0);
+    memcpy(ba.data(), &info, sizeof(PageInfo));
+    memcpy(ba.data() + sizeof(PageInfo), &spec, sizeof(Spec));
+
+    memcpy(&spec_, &spec, sizeof(Spec));
+
+    if (!writePage(&ba)) {
+        HBTREE_ERROR("failed to write spec page");
+        return false;
+    }
+    return true;
 }
 
 // ######################################################################
@@ -434,12 +447,33 @@ HBtreePrivate::Page *HBtreePrivate::newDeserializePage(const QByteArray &buffer)
             break;
         case PageInfo::Spec:
             Q_ASSERT(0);
+            return 0;
     }
     if (!deserializePage(buffer, page)) {
-        delete page;
+        deletePage(page);
         return 0;
     }
     return page;
+}
+
+bool HBtreePrivate::serializeAndWrite(const HBtreePrivate::Page &page) const
+{
+    Q_ASSERT(page.info.type == PageInfo::Branch ||
+             page.info.type == PageInfo::Leaf ||
+             page.info.type == PageInfo::Overflow ||
+             page.info.type == PageInfo::Marker);
+    QByteArray ba = serializePage(page);
+    if (ba.isEmpty()) {
+        HBTREE_ERROR("failed to serialize" << page.info);
+        return false;
+    }
+
+    if (!writePage(&ba)) {
+        HBTREE_ERROR("failed to write" << page.info);
+        return false;
+    }
+
+    return true;
 }
 
 void HBtreePrivate::serializeChecksum(quint32 checksum, QByteArray *buffer) const
@@ -490,6 +524,15 @@ HBtreePrivate::MarkerPage HBtreePrivate::deserializeMarkerPage(const QByteArray 
 
     memcpy(&page.meta, buffer.constData() + sizeof(PageInfo), sizeof(MarkerPage::Meta));
 
+    if (page.info.hasPayload()) {
+        Q_ASSERT(page.info.lowerOffset > 0);
+        Q_ASSERT(page.info.upperOffset == 0);
+        page.collectiblePages.resize(page.info.lowerOffset);
+        memcpy(page.collectiblePages.data(),
+               buffer.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta),
+               sizeof(quint32) * page.info.lowerOffset);
+    }
+
     HBTREE_DEBUG("deserialized" << page);
 
     return page;
@@ -505,6 +548,13 @@ QByteArray HBtreePrivate::serializeMarkerPage(const HBtreePrivate::MarkerPage &p
 
     memcpy(buffer.data(), &page.info, sizeof(PageInfo));
     memcpy(buffer.data() + sizeof(PageInfo), &page.meta, sizeof(MarkerPage::Meta));
+
+    Q_ASSERT(page.info.lowerOffset == page.collectiblePages.size());
+    if (page.info.hasPayload()) {
+        memcpy(buffer.data() + sizeof(PageInfo) + sizeof(MarkerPage::Meta),
+               page.collectiblePages.constData(),
+               page.info.lowerOffset * sizeof(quint32));
+    }
 
     HBTREE_VERBOSE("serialized" << page);
 
@@ -672,7 +722,7 @@ QByteArray HBtreePrivate::serializeOverflowPage(const HBtreePrivate::OverflowPag
 // ### Page reading/writing/commiting/syncing
 // ######################################################################
 
-QByteArray HBtreePrivate::readPage(quint32 pageNumber)
+QByteArray HBtreePrivate::readPage(quint32 pageNumber) const
 {
     QByteArray buffer = qUninitializedByteArray();
 
@@ -694,13 +744,13 @@ QByteArray HBtreePrivate::readPage(quint32 pageNumber)
 
     HBTREE_DEBUG("read page:" << pageInfo);
 
-    Q_Q(HBtree);
-    q->stats_.reads++;
+    const Q_Q(HBtree);
+    const_cast<HBtree*>(q)->stats_.reads++;
 
     return buffer;
 }
 
-bool HBtreePrivate::writePage(QByteArray *buffer)
+bool HBtreePrivate::writePage(QByteArray *buffer) const
 {
     Q_ASSERT(buffer);
     Q_ASSERT(buffer->isDetached());
@@ -724,8 +774,8 @@ bool HBtreePrivate::writePage(QByteArray *buffer)
 
     HBTREE_DEBUG("wrote page" << deserializePageInfo(*buffer));
 
-    Q_Q(HBtree);
-    q->stats_.writes++;
+    const Q_Q(HBtree);
+    const_cast<HBtree *>(q)->stats_.writes++;
 
     return true;
 }
@@ -743,10 +793,10 @@ bool HBtreePrivate::sync(const MarkerPage &mp)
 
     QByteArray ba;
 
-    MarkerPage synced0 = mp;
-    MarkerPage synced1 = mp;
-    synced0.info.number = 1;
-    synced1.info.number = 2;
+    MarkerPage synced0(1);
+    MarkerPage synced1(2);
+    copy(mp, &synced0);
+    copy(mp, &synced1);
 
     if (fsync(fd_) != 0)
         return false;
@@ -759,11 +809,8 @@ bool HBtreePrivate::sync(const MarkerPage &mp)
 
     HBTREE_VERBOSE("synced marker 1 and upped revision to" << lastSyncedRevision_);
 
-    markers_[0] = synced0;
-    markers_[1] = synced0;
-
-    markers_[0].info.number = 3;
-    markers_[1].info.number = 4;
+    copy(synced0, &markers_[0]);
+    copy(synced0, &markers_[1]);
 
     if (fsync(fd_) != 0)
         return false;
@@ -778,6 +825,40 @@ bool HBtreePrivate::sync(const MarkerPage &mp)
     HBTREE_VERBOSE("synced marker 2");
 
     return true;
+}
+
+bool HBtreePrivate::readSyncedMarker(HBtreePrivate::MarkerPage *markerOut)
+{
+    Q_ASSERT(markerOut);
+    QByteArray syncedMarkerData = readPage(1);
+    if (syncedMarkerData.isEmpty() || !deserializePage(syncedMarkerData, markerOut)) {
+        HBTREE_DEBUG("synced marker 1 invalid. Checking synced marker 2.");
+        syncedMarkerData = readPage(2);
+        if (syncedMarkerData.isEmpty() || !deserializePage(syncedMarkerData, markerOut)) {
+            HBTREE_DEBUG("sync markers both invalid.");
+            return false;
+        }
+    }
+    return true;
+}
+
+bool HBtreePrivate::rollback()
+{
+    // Rollback from current marker.
+    // If other marker is the same or is invalid, then rollback
+    // to synced marker.
+//    QList<quint32> pongWalk;
+//    if (markers_[!mi_].info.isValid()) {
+//        if (walkTree(markers[!mi_], &pongWalk)) {
+
+//        }
+//    }
+
+//    MarkerPage syncedMarker;
+//    if (!readSyncedMarker(&syncedMarker))
+//        return false;
+
+    return false;
 }
 
 bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
@@ -849,6 +930,8 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
     mp.meta.rootPage = transaction->rootPage_;
     mp.meta.tag = tag;
     mp.meta.size = size_;
+    mp.collectiblePages = collectiblePages_;
+    mp.info.lowerOffset = collectiblePages_.size();
     QByteArray ba = serializePage(mp);
     if (!writePage(&ba))
         return false;
@@ -1261,33 +1344,160 @@ quint32 HBtreePrivate::putDataOnOverflow(const QByteArray &value)
     return overflowPageNumber;
 }
 
-QByteArray HBtreePrivate::getDataFromNode(const HBtreePrivate::NodeValue &nval)
+QByteArray HBtreePrivate::getDataFromNode(const HBtreePrivate::NodeValue &nval) const
 {
-    if (nval.flags & NodeHeader::Overflow)
-        return getOverflowData(nval.overflowPage);
-    else
+    if (nval.flags & NodeHeader::Overflow) {
+        QByteArray data;
+        if (!getOverflowData(nval.overflowPage, &data))
+            return QByteArray();
+        return data;
+    } else {
         return nval.data;
+    }
 }
 
-QByteArray HBtreePrivate::getOverflowData(quint32 startPage)
+bool HBtreePrivate::getOverflowData(quint32 startPage, QByteArray *data) const
 {
-    QByteArray data;
+    Q_ASSERT(data);
+    data->clear();
     if (startPage != PageInfo::INVALID_PAGE) {
-        OverflowPage *page = static_cast<OverflowPage *>(getPage(startPage));
-        return page->data + getOverflowData(page->nextPage);
+        // When insertInCache is false, then getPage does not modify anything so it is safe to const_cast this
+        OverflowPage *page = static_cast<OverflowPage *>(const_cast<HBtreePrivate *>(this)->getPage(startPage, false));
+        if (!page)
+            return false;
+        bool ok = getOverflowData(page->nextPage, data);
+        if (!ok)
+            data->clear();
+        else
+            data->append(page->data);
+        deletePage(page);
+        return ok;
     }
-    return QByteArray();
+    return true;
 }
 
-QVector<quint32> HBtreePrivate::getOverflowPageNumbers(quint32 startPage)
+bool HBtreePrivate::getOverflowPageNumbers(quint32 startPage, QList<quint32> *pages) const
 {
-    QVector<quint32> list;
+    Q_ASSERT(pages);
+    pages->clear();
     if (startPage != PageInfo::INVALID_PAGE) {
-        OverflowPage *page = static_cast<OverflowPage *>(getPage(startPage));
-        list.append(startPage);
-        return list + getOverflowPageNumbers(page->nextPage);
+        OverflowPage *page = static_cast<OverflowPage *>(const_cast<HBtreePrivate *>(this)->getPage(startPage, false));
+        if (!page)
+            return false;
+        bool ok = getOverflowPageNumbers(page->nextPage, pages);
+        if (!ok)
+            pages->clear();
+        else
+            pages->append(startPage);
+        deletePage(page);
+        return ok;
     }
-    return  QVector<quint32>();
+    return true;
+}
+
+bool HBtreePrivate::walkTree(const HBtreePrivate::MarkerPage &marker, QList<quint32> *pagesWalked) const
+{
+    if (pagesWalked)
+        pagesWalked->clear();
+    quint32 root = marker.meta.rootPage;
+    bool ok = true;
+    if (root != PageInfo::INVALID_PAGE) {
+        NodePage *page = static_cast<NodePage *>(const_cast<HBtreePrivate *>(this)->getPage(root, false));
+        if (!page)
+            return false;
+        switch (page->info.type) {
+        case PageInfo::Branch:
+            ok = walkBranch(page, pagesWalked);
+            break;
+        case PageInfo::Leaf:
+            ok = walkLeaf(page, pagesWalked);
+            break;
+        default:
+            Q_ASSERT(0);
+            ok = false;
+        }
+        if (ok && pagesWalked)
+            pagesWalked->append(root);
+        deletePage(page);
+    }
+    if (pagesWalked && !ok)
+        pagesWalked->clear();
+
+    return ok;
+}
+
+bool HBtreePrivate::walkBranch(HBtreePrivate::NodePage *branch, QList<quint32> *pagesWalked) const
+{
+    if (pagesWalked)
+        pagesWalked->clear();
+    bool ok = true;
+    Node it = branch->nodes.constBegin();
+    while (it != branch->nodes.constEnd()) {
+        NodePage *page = static_cast<NodePage *>(const_cast<HBtreePrivate *>(this)->getPage(it.value().overflowPage, false));
+        if (!page)
+            return false;
+        if (pagesWalked)
+            pagesWalked->append(page->info.number);
+        QList<quint32> pages;
+        if (page->info.type == PageInfo::Leaf) {
+            ok = walkLeaf(page, &pages);
+        } else if (page->info.type == PageInfo::Branch) {
+            ok = walkBranch(page, &pages);
+        } else {
+            Q_ASSERT(0);
+            ok = false;
+        }
+        if (ok && pagesWalked)
+            pagesWalked->append(pages);
+        deletePage(page);
+        ++it;
+    }
+    if (!ok && pagesWalked)
+        pagesWalked->clear();
+    return true;
+}
+
+bool HBtreePrivate::walkLeaf(HBtreePrivate::NodePage *leaf, QList<quint32> *overflowPages) const
+{
+    // Nothing to walk if there're no nodes with an overflow page
+    if (overflowPages)
+        overflowPages->clear();
+    bool ok = true;
+    if (leaf->meta.flags & NodeHeader::Overflow) {
+        Node it = leaf->nodes.constBegin();
+        while (it != leaf->nodes.constEnd()) {
+            if (it.value().flags & NodeHeader::Overflow) {
+                QList<quint32> pages;
+                if (!getOverflowPageNumbers(it.value().overflowPage, &pages)) {
+                    ok = false;
+                    break;
+                }
+                if (overflowPages)
+                    overflowPages->append(pages);
+            }
+            ++it;
+        }
+    }
+    if (!ok && overflowPages)
+        overflowPages->clear();
+    return ok;
+}
+
+void HBtreePrivate::collectPages(const QList<quint32> &pagesUsedSorted)
+{
+    // pagesUsedSorted may have duplicates...
+    HBTREE_DEBUG("collecting pages not in" << pagesUsedSorted);
+    quint32 n = 5;
+    quint32 numPages = currentMarker().meta.size / spec_.pageSize;
+    quint32 i = 0;
+    while (n < numPages && i < (quint32)pagesUsedSorted.size()) {
+        while (n < pagesUsedSorted.at(i)) {
+            collectiblePages_.append(n++);
+        }
+        n = pagesUsedSorted.at(i++) + 1;
+    }
+    while (n < numPages)
+        collectiblePages_.append(n++);
 }
 
 bool HBtreePrivate::searchPage(HBtreeCursor *cursor, HBtreeTransaction *transaction, const NodeKey &key, SearchType searchType,
@@ -1440,13 +1650,17 @@ quint32 HBtreePrivate::getLeftSibling(QStack<quint32> leftQ)
     return pageNumber;
 }
 
-HBtreePrivate::Page *HBtreePrivate::getPage(quint32 pageNumber)
+HBtreePrivate::Page *HBtreePrivate::getPage(quint32 pageNumber, bool insertInCache)
 {
     HBTREE_DEBUG("getting page #" << pageNumber);
-    if (cache_.contains(pageNumber)) {
-        Q_Q(HBtree);
-        q->stats_.hits++;
-        return cache_[pageNumber];
+
+    // Only check cache if we want to insert in cache. Otherwise everything is the caller's responsibility
+    if (insertInCache) {
+        if (cache_.contains(pageNumber)) {
+            Q_Q(HBtree);
+            q->stats_.hits++;
+            return cache_[pageNumber];
+        }
     }
 
     QByteArray buffer;
@@ -1466,11 +1680,12 @@ HBtreePrivate::Page *HBtreePrivate::getPage(quint32 pageNumber)
     page->commited = true;
     Q_ASSERT(verifyIntegrity(page));
 
-    cache_.insert(pageNumber, page);
+    if (insertInCache)
+        cache_.insert(pageNumber, page);
     return page;
 }
 
-void HBtreePrivate::deletePage(HBtreePrivate::Page *page)
+void HBtreePrivate::deletePage(HBtreePrivate::Page *page) const
 {
     HBTREE_DEBUG("deleting page" << page->info);
     switch (page->info.type) {
@@ -1620,7 +1835,11 @@ bool HBtreePrivate::removeNode(HBtreePrivate::NodePage *page, const HBtreePrivat
 
     if (value.flags & NodeHeader::Overflow) {
         Q_ASSERT(page->info.type == PageInfo::Leaf);
-        QVector<quint32> overflowPages = getOverflowPageNumbers(value.overflowPage);
+        QList<quint32> overflowPages;
+        if (!getOverflowPageNumbers(value.overflowPage, &overflowPages)) {
+            HBTREE_ERROR("falsed to get overflow page numbers");
+            return false;
+        }
         QList<HistoryNode> historyNodes;
         foreach (quint32 pageNumber, overflowPages) {
             HistoryNode hn;
@@ -2043,6 +2262,10 @@ bool HBtreePrivate::mergePages(HBtreePrivate::NodePage *page, HBtreePrivate::Nod
         dst->parentKey = page->parentKey;
     }
 
+    // Overflow pages may have been transfered over
+    if (page->meta.flags & NodeHeader::Overflow)
+        dst->meta.flags |= NodeHeader::Overflow;
+
     return rebalance(dst->parent);
 }
 
@@ -2129,11 +2352,6 @@ void HBtreePrivate::dumpPage(HBtreePrivate::NodePage *page, int depth)
     default:
         Q_ASSERT(0);
     }
-}
-
-const QStack<quint32> HBtreePrivate::collectibleStack() const
-{
-    return collectiblePages_;
 }
 
 // ######################################################################
@@ -2291,6 +2509,13 @@ bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArr
     return ok;
 }
 
+void HBtreePrivate::copy(const HBtreePrivate::MarkerPage &src, HBtreePrivate::MarkerPage *dst)
+{
+    quint32 pgno = dst->info.number;
+    *dst = src;
+    dst->info.number = pgno;
+}
+
 QByteArray HBtreePrivate::qInitializedByteArray() const
 {
     Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
@@ -2313,7 +2538,7 @@ bool HBtreePrivate::verifyIntegrity(const HBtreePrivate::Page *page) const
     if (page->info.type == PageInfo::Marker) {
         const MarkerPage *mp = static_cast<const MarkerPage *>(page);
         CHECK_TRUE(mp->info.number == currentMarker().info.number); // only verify current marker
-        CHECK_TRUE(mp->info.lowerOffset == 0);
+        CHECK_TRUE(mp->info.lowerOffset == mp->collectiblePages.size());
         CHECK_TRUE(mp->info.upperOffset == 0);
         CHECK_TRUE(mp->meta.size <= size_);
         CHECK_TRUE(mp->meta.syncedRevision == lastSyncedRevision_ || mp->meta.syncedRevision == (lastSyncedRevision_ + 1));
@@ -2472,6 +2697,12 @@ bool HBtree::sync()
 {
     Q_D(HBtree);
     return d->sync(d->currentMarker());
+}
+
+bool HBtree::rollback()
+{
+    Q_D(HBtree);
+    return d->rollback();
 }
 
 HBtreeTransaction *HBtree::beginTransaction(HBtreeTransaction::Type type)
