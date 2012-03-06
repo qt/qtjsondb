@@ -120,6 +120,7 @@ public:
     QString filename() const { return mFilename; }
     bool open(const QString &filename, QBtree::DbFlags flags);
     void close();
+    JsonDbPartition *partition() const { return mPartition; }
     JsonDbManagedBtree *bdb() const { return mBdb; }
     bool begin();
     void begin(JsonDbIndex *btree);

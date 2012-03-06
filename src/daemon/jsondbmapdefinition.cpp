@@ -92,6 +92,41 @@ JsonDbMapDefinition::JsonDbMapDefinition(JsonDb *jsonDb, const JsonDbOwner *owne
     }
 }
 
+void JsonDbMapDefinition::definitionCreated()
+{
+  initScriptEngine();
+
+  mTargetTable->addIndexOnProperty(QLatin1String("_sourceUuids.*"), QLatin1String("string"), mTargetType);
+
+  foreach (const QString &sourceType, mSourceTypes) {
+    GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, sourceType);
+    if (!getObjectResponse.error.isNull()) {
+      if (jsondbSettings->verbose())
+        qDebug() << "createMapDefinition" << mSourceTypes << sourceType << mTargetType << getObjectResponse.error.toString();
+      setError(getObjectResponse.error.toString());
+      return;
+    }
+    JsonDbObjectList objects = getObjectResponse.data;
+    bool isJoin = mDefinition.contains(QLatin1String("join"));
+    for (int i = 0; i < objects.size(); i++) {
+      JsonDbObject object(objects.at(i));
+      if (isJoin)
+        unmapObject(object);
+      mapObject(objects.at(i));
+    }
+  }
+}
+
+void JsonDbMapDefinition::definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid)
+{
+    // remove the output objects
+    GetObjectsResult getObjectResponse = table->getObjects(QLatin1String("_sourceUuids.*"),
+                                                           definitionUuid,
+                                                           targetType);
+    JsonDbObjectList objects = getObjectResponse.data;
+    for (int i = 0; i < objects.size(); i++)
+        jsonDb->removeViewObject(jsonDb->owner(), objects.at(i), table->partition()->name());
+}
 
 void JsonDbMapDefinition::initScriptEngine()
 {

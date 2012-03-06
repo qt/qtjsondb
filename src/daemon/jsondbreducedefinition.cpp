@@ -56,6 +56,7 @@
 
 #include "jsondb.h"
 #include "jsondbproxy.h"
+#include "jsondbsettings.h"
 #include "jsondbobjecttable.h"
 #include "jsondbreducedefinition.h"
 #include "jsondbview.h"
@@ -79,6 +80,35 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, const JsonDbOwner
     , mSourceKeyName(mDefinition.contains("sourceKeyName") ? mDefinition.value("sourceKeyName").toString() : QString("key"))
     , mSourceKeyNameList(mSourceKeyName.split("."))
 {
+}
+
+void JsonDbReduceDefinition::definitionCreated()
+{
+    // TODO: this index should not be automatic
+    mTargetTable->addIndexOnProperty(mSourceKeyName, QLatin1String("string"), mSourceType);
+    // TODO: this index should not be automatic
+    mTargetTable->addIndexOnProperty(mTargetKeyName, QLatin1String("string"), mTargetType);
+    mTargetTable->addIndexOnProperty(QLatin1String("_reduceUuid"), QLatin1String("string"), mTargetType);
+
+    initScriptEngine();
+    GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, mSourceType);
+    if (!getObjectResponse.error.isNull()) {
+        if (jsondbSettings->verbose())
+            qDebug() << "createReduceDefinition" << mTargetType << getObjectResponse.error.toString();
+        setError(getObjectResponse.error.toString());
+    }
+    JsonDbObjectList objects = getObjectResponse.data;
+    for (int i = 0; i < objects.size(); i++)
+        updateObject(QJsonObject(), objects.at(i));
+}
+
+void JsonDbReduceDefinition::definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid)
+{
+    // remove the output objects
+    GetObjectsResult getObjectResponse = table->getObjects(QLatin1String("_reduceUuid"), definitionUuid, targetType);
+    JsonDbObjectList objects = getObjectResponse.data;
+    for (int i = 0; i < objects.size(); i++)
+        jsonDb->removeViewObject(jsonDb->owner(), objects.at(i), table->partition()->name());
 }
 
 void JsonDbReduceDefinition::initScriptEngine()

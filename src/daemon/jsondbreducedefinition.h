@@ -82,6 +82,9 @@ public:
     const QJSValue &subtractFunction() const { return mSubtractFunction; }
     const JsonDbOwner *owner() const { return mOwner; }
 
+    static void definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
+    void definitionCreated();
+
     void initScriptEngine();
     void releaseScriptEngine();
     void updateObject(JsonDbObject before, JsonDbObject after);

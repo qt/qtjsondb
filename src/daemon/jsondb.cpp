@@ -1011,12 +1011,16 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
             removeSchema(oldMaster.value("name").toString());
         else if (oldType == kIndexTypeStr)
             removeIndex(oldMaster, partitionId);
+        else if (oldType == JsonDbString::kMapTypeStr || oldType == JsonDbString::kReduceTypeStr)
+            JsonDbView::removeDefinition(partition, oldMaster);
 
         if (!forRemoval) {
             if (objectType == JsonDbString::kSchemaTypeStr)
                 setSchema(master.value("name").toString(), object.value("schema").toObject());
             else if (objectType == kIndexTypeStr)
                 addIndex(master, partitionId);
+            else if (objectType == JsonDbString::kMapTypeStr || objectType == JsonDbString::kReduceTypeStr)
+                JsonDbView::createDefinition(partition, master);
         }
     }
 
@@ -1118,7 +1122,7 @@ void JsonDb::checkNotifications(const QString &partitionName, JsonDbObject objec
         if (mEagerViewSourceTypes.contains(objectType)) {
             const QSet<QString> &targetTypes = mEagerViewSourceTypes[objectType];
             for (QSet<QString>::const_iterator it = targetTypes.begin(); it != targetTypes.end(); ++it)
-                emit requestViewUpdate(*it, mSystemPartitionName);
+                updateView(*it);
         }
     }
     if (object.contains(JsonDbString::kUuidStr))
@@ -1585,8 +1589,7 @@ void JsonDb::updateEagerViewTypes(const QString &objectType)
     if (!view)
         return;
     foreach (const QString sourceType, view->sourceTypes()) {
-        QSet<QString> &targetTypes = mEagerViewSourceTypes[sourceType];
-        targetTypes.insert(objectType);
+        mEagerViewSourceTypes[sourceType].insert(objectType);
         // now recurse until we get to a non-view sourceType
         updateEagerViewTypes(sourceType);
     }

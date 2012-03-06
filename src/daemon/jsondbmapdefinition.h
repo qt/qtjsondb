@@ -79,6 +79,9 @@ public:
     JsonDbObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
     const JsonDbOwner *owner() const { return mOwner; }
 
+    static void definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
+    void definitionCreated();
+
     void initScriptEngine();
     void releaseScriptEngine();
     void mapObject(JsonDbObject object);

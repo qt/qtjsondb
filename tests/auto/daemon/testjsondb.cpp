@@ -192,6 +192,7 @@ private slots:
     void reduceInvalidAddSubtractFuncs();
 
     void map();
+    void mapNotification();
     void mapDuplicateSourceAndTarget();
     void mapRemoval();
     void mapUpdate();
@@ -223,6 +224,7 @@ private slots:
     void find2();
     void findFields();
     void testNotify1();
+    void testNotifyViewType();
 
     void findLikeRegexp_data();
     void findLikeRegexp();
@@ -1708,6 +1710,77 @@ void TestJsonDb::map()
     foreach (JsonDbObject map, toDelete.values())
         verifyGoodResult(mJsonDb->remove(mOwner, map));
     //mJsonDb->removeIndex(QLatin1String("phoneNumber"));
+}
+
+void TestJsonDb::mapNotification()
+{
+    addIndex(QLatin1String("phoneNumber"));
+
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
+
+    JsonDbObjectList mapsReduces;
+    JsonDbObjectList schemas;
+    QMap<QString, JsonDbObject> toDelete;
+    for (int i = 0; i < objects.size(); ++i) {
+        QJsonObject object(objects.at(i).toObject());
+        JsonDbObject doc(object);
+        QJsonObject result = mJsonDb->create(mOwner, doc);
+        verifyGoodResult(result);
+
+        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr ||
+            object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr)
+            mapsReduces.append(doc);
+        else if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
+            schemas.append(doc);
+        else
+            toDelete.insert(doc.value("_uuid").toString(), doc);
+    }
+
+    QJsonArray actions;
+    actions.append(QLatin1String("create"));
+    actions.append(QLatin1String("remove"));
+    actions.append(QLatin1String("update"));
+
+    JsonDbObject notification;
+    notification.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
+    notification.insert(QLatin1String("query"), QLatin1String("[?_type=\"Phone\"]"));
+    notification.insert(QLatin1String("actions"), actions);
+
+    QJsonObject result = mJsonDb->create(mOwner, notification);
+    QVERIFY(result.contains(JsonDbString::kResultStr));
+    QVERIFY(result.value(JsonDbString::kResultStr).toObject().contains(JsonDbString::kUuidStr));
+    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+
+    connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
+            this, SLOT(notified(QString,JsonDbObject,QString)));
+
+    mNotificationsReceived.clear();
+
+    // now remove one of the source items
+    QJsonObject query2;
+    query2.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"Contact\"][?displayName=\"Nancy Doe\"]"));
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query2);
+    JsonDbObject firstItem = queryResult.data.at(0);
+    QVERIFY(!firstItem.value("_uuid").toString().isEmpty());
+    toDelete.remove(firstItem.value("_uuid").toString());
+    result = mJsonDb->remove(mOwner, firstItem);
+    verifyGoodResult(result);
+
+    QVERIFY(mNotificationsReceived.contains(uuid));
+
+    result = mJsonDb->remove(mOwner, notification);
+    verifyGoodResult(result);
+
+    for (int i = 0; i < mapsReduces.size(); ++i) {
+        JsonDbObject object = mapsReduces.at(i);
+        verifyGoodResult(mJsonDb->remove(mOwner, object));
+    }
+    for (int i = 0; i < schemas.size(); ++i) {
+        JsonDbObject object = schemas.at(i);
+        verifyGoodResult(mJsonDb->remove(mOwner, object));
+    }
+    foreach (JsonDbObject map, toDelete.values())
+        verifyGoodResult(mJsonDb->remove(mOwner, map));
 }
 
 void TestJsonDb::mapDuplicateSourceAndTarget()
@@ -3277,6 +3350,7 @@ void TestJsonDb::testNotify1()
 
     result = mJsonDb->remove(mOwner, notification);
     verifyGoodResult(result);
+    disconnect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)));
 }
 
 void TestJsonDb::notified(const QString nid, const JsonDbObject &o, const QString action)
@@ -3284,6 +3358,39 @@ void TestJsonDb::notified(const QString nid, const JsonDbObject &o, const QStrin
     Q_UNUSED(o);
     Q_UNUSED(action);
     mNotificationsReceived.append(nid);
+}
+
+void TestJsonDb::testNotifyViewType()
+{
+    QString query = QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg(kContactStr);
+
+    QJsonArray actions;
+    actions.append(QLatin1String("create"));
+
+    JsonDbObject notification;
+    notification.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
+    notification.insert(QLatin1String("query"), query);
+    notification.insert(QLatin1String("actions"), actions);
+
+    QJsonObject result = mJsonDb->create(mOwner, notification);
+    QVERIFY(result.contains(JsonDbString::kResultStr));
+    QVERIFY(result.value(JsonDbString::kResultStr).toObject().contains(JsonDbString::kUuidStr));
+    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+
+    connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
+            this, SLOT(notified(QString,JsonDbObject,QString)));
+
+    mNotificationsReceived.clear();
+
+    JsonDbObject item;
+    item.insert("name", QString("Wilma"));
+    item.insert(JsonDbString::kTypeStr, kContactStr);
+    mJsonDb->create(mOwner, item);
+
+    QVERIFY(mNotificationsReceived.contains(uuid));
+
+    result = mJsonDb->remove(mOwner, notification);
+    verifyGoodResult(result);
 }
 
 void TestJsonDb::orQuery_data()
