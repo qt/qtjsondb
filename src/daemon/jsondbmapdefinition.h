@@ -85,7 +85,7 @@ public:
     void unmapObject(const JsonDbObject &object);
     void setError(const QString &errorMsg);
 
-    static bool validateDefinition(const JsonDbObject &map, const QSet<QString> &viewTypes, QString &message);
+    static bool validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message);
 
 public slots:
     void viewObjectEmitted(const QJSValue &value);

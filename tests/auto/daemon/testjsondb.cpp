@@ -2345,12 +2345,12 @@ void TestJsonDb::reduceDuplicate()
     reduce2.insert("add", reduce.value("add").toString());
     reduce2.insert("subtract", reduce.value("subtract").toString());
     QJsonObject result = mJsonDb->create(mOwner, reduce2);
-    verifyGoodResult(result);
+    verifyErrorResult(result);
 
     query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MyContactCount\"]"));
     queryResult = mJsonDb->find(mOwner, query);
     verifyGoodQueryResult(queryResult);
-    QCOMPARE(queryResult.data.size(), lastNameCount.keys().count() + firstNameCount.keys().count());
+    QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
 
     data = queryResult.data;
     for (int ii = 0; ii < data.size(); ii++) {
@@ -2360,7 +2360,6 @@ void TestJsonDb::reduceDuplicate()
     }
 
     verifyGoodResult(mJsonDb->remove(mOwner, reduce));
-    verifyGoodResult(mJsonDb->remove(mOwner, reduce2));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
     mJsonDb->removeIndex("MyContactCount");

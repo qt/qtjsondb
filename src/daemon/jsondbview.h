@@ -93,12 +93,15 @@ private:
     QString        mViewType;
     QStringList    mSourceTypes;
     typedef QMap<JsonDbObjectTable*,QSet<QString> > ObjectTableSourceTypeMap;
-    ObjectTableSourceTypeMap                mObjectTableSourceTypeMap;
-    QSet<JsonDbMapDefinition*>              mMapDefinitions;
-    QMultiMap<QString,JsonDbMapDefinition*> mMapDefinitionsBySource; // maps map source type to view definition
-    QSet<JsonDbReduceDefinition*>           mReduceDefinitions;
-    QMultiMap<QString,JsonDbReduceDefinition*> mReduceDefinitionsBySource; // maps reduce source type to view definition
+    ObjectTableSourceTypeMap              mObjectTableSourceTypeMap;
+    QSet<JsonDbMapDefinition*>            mMapDefinitions;
+    QMap<QString,JsonDbMapDefinition*>    mMapDefinitionsBySource; // maps map source type to view definition
+    QSet<JsonDbReduceDefinition*>         mReduceDefinitions;
+    QMap<QString,JsonDbReduceDefinition*> mReduceDefinitionsBySource; // maps reduce source type to view definition
     bool mUpdating;
+
+    friend class JsonDbMapDefinition;
+    friend class JsonDbReduceDefinition;
 };
 
 QT_END_NAMESPACE_JSONDB

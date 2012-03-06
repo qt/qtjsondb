@@ -959,10 +959,10 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         if (objectType == JsonDbString::kSchemaTypeStr)
             RETURN_IF_ERROR(errormap, checkCanAddSchema(master, oldMaster));
         else if (objectType == JsonDbString::kMapTypeStr &&
-                 !JsonDbMapDefinition::validateDefinition(master, mViewTypes, errorMsg))
+                 !JsonDbMapDefinition::validateDefinition(master, partition, errorMsg))
             return makeResponse(resultmap, makeError(JsonDbError::InvalidMap, errorMsg));
         else if (objectType == JsonDbString::kReduceTypeStr &&
-                 !JsonDbReduceDefinition::validateDefinition(master, mViewTypes, errorMsg))
+                 !JsonDbReduceDefinition::validateDefinition(master, partition, errorMsg))
             return makeResponse(resultmap, makeError(JsonDbError::InvalidReduce, errorMsg));
         else if (!forRemoval && objectType == kIndexTypeStr && !JsonDbIndex::validateIndex(master, oldMaster, errorMsg))
             return makeResponse(resultmap, makeError(JsonDbError::InvalidIndexOperation, errorMsg));

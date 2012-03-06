@@ -60,6 +60,7 @@
 #include "jsondbobjecttable.h"
 #include "jsondbmapdefinition.h"
 #include "jsondbsettings.h"
+#include "jsondbview.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -279,23 +280,32 @@ void JsonDbMapDefinition::setError(const QString &errorMsg)
     }
 }
 
-bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, const QSet<QString> &viewTypes, QString &message)
+bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message)
 {
     message.clear();
     QString targetType = map.value("targetType").toString();
+    QString uuid = map.value(JsonDbString::kUuidStr).toString();
+    JsonDbView *view = partition->findView(targetType);
+    QStringList sourceTypes;
 
     if (targetType.isEmpty()) {
         message = QLatin1Literal("targetType property for Map not specified");
-    } else if (!viewTypes.contains(targetType)) {
+    } else if (!view) {
         message = QLatin1Literal("targetType must be of a type that extends View");
     } else if (map.contains("join")) {
         QJsonObject sourceFunctions = map.value("join").toObject();
+        sourceTypes = sourceFunctions.keys();
         if (sourceFunctions.isEmpty())
             message = QLatin1Literal("sourceTypes and functions for Map with join not specified");
 
-        foreach (const QString &sourceType, sourceFunctions.keys()) {
+        foreach (const QString &sourceType, sourceTypes) {
             if (sourceFunctions.value(sourceType).toString().isEmpty())
                 message = QString("join function for source type '%1' not specified for Map").arg(sourceType);
+            if (view->mMapDefinitionsBySource.contains(sourceType)
+                && view->mMapDefinitionsBySource.value(sourceType)->uuid() != uuid)
+                message =
+                  QString("duplicate Map definition on source %1 and target %2")
+                    .arg(sourceType).arg(targetType);
         }
 
         if (map.contains("map"))

@@ -90,7 +90,7 @@ public:
 
     void setError(const QString &errorMsg);
 
-    static bool validateDefinition(const JsonDbObject &reduce, const QSet<QString> viewTypes, QString &message);
+    static bool validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message);
 
 private:
     JsonDb        *mJsonDb;

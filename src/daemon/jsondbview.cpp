@@ -144,8 +144,15 @@ void JsonDbView::createMapDefinition(QJsonObject mapDefinition, bool firstTime)
 
     const JsonDbOwner *owner = mJsonDb->findOwner(mapDefinition.value(JsonDbString::kOwnerStr).toString());
     JsonDbMapDefinition *def = new JsonDbMapDefinition(mJsonDb, owner, mPartition, mapDefinition, this);
-    for (int i = 0; i < sourceTypes.size(); i++)
-        mMapDefinitionsBySource.insert(sourceTypes[i], def);
+    for (int i = 0; i < sourceTypes.size(); i++) {
+        const QString sourceType = sourceTypes[i];
+        if (mMapDefinitionsBySource.contains(sourceType)) {
+            def->setError(QString("Duplicate Map definition on source %1 and target %2")
+                          .arg(sourceType).arg(targetType));
+            return;
+        }
+        mMapDefinitionsBySource.insert(sourceType, def);
+    }
     mMapDefinitions.insert(def);
 
     if (firstTime && def->isActive()) {
@@ -185,11 +192,14 @@ void JsonDbView::removeMapDefinition(QJsonObject mapDefinition)
             mMapDefinitions.remove(def);
             const QStringList &sourceTypes = def->sourceTypes();
             for (int i = 0; i < sourceTypes.size(); i++)
-                mMapDefinitionsBySource.remove(sourceTypes[i], def);
+                mMapDefinitionsBySource.remove(sourceTypes[i]);
 
             break;
         }
     }
+    updateSourceTypesList();
+    if (!def)
+        return;
 
     // remove the output objects
     GetObjectsResult getObjectResponse = mViewObjectTable->getObjects("_sourceUuids.*",
@@ -197,7 +207,6 @@ void JsonDbView::removeMapDefinition(QJsonObject mapDefinition)
     JsonDbObjectList objects = getObjectResponse.data;
     for (int i = 0; i < objects.size(); i++)
         mJsonDb->removeViewObject(def->owner(), objects.at(i), mPartition->name());
-    updateSourceTypesList();
     if (jsondbSettings->verbose())
         qDebug() << "removeMapDefinition" << uuid << targetType << "}";
 }
@@ -211,6 +220,12 @@ void JsonDbView::createReduceDefinition(QJsonObject reduceDefinition, bool first
 
     const JsonDbOwner *owner = mJsonDb->findOwner(reduceDefinition.value(JsonDbString::kOwnerStr).toString());
     JsonDbReduceDefinition *def = new JsonDbReduceDefinition(mJsonDb, owner, mPartition, reduceDefinition, this);
+    if (mReduceDefinitionsBySource.contains(sourceType)) {
+        def->setError(QString("Duplicate Reduce definition on source %1 and target %2")
+                      .arg(sourceType).arg(targetType));
+        return;
+    }
+
     mReduceDefinitionsBySource.insert(sourceType, def);
     mReduceDefinitions.insert(def);
 
@@ -242,26 +257,30 @@ void JsonDbView::removeReduceDefinition(QJsonObject reduceDefinition)
 {
     QString targetType = reduceDefinition.value("targetType").toString();
     QString sourceType = reduceDefinition.value("sourceType").toString();
+    QString uuid = reduceDefinition.value(JsonDbString::kUuidStr).toString();
 
     if (jsondbSettings->verbose())
         qDebug() << "removeReduceDefinition" << sourceType <<  targetType << "{";
 
     JsonDbReduceDefinition *def = 0;
     foreach (JsonDbReduceDefinition *d, mReduceDefinitionsBySource.values(sourceType)) {
-        if (d->uuid() == reduceDefinition.value(JsonDbString::kUuidStr).toString()) {
+        if (d->uuid() == uuid) {
             def = d;
-            mReduceDefinitionsBySource.remove(def->sourceType(), def);
+            mReduceDefinitionsBySource.remove(def->sourceType());
             mReduceDefinitions.remove(def);
             break;
         }
     }
+    updateSourceTypesList();
+    if (!def)
+        return;
+
     // remove the output objects
     GetObjectsResult getObjectResponse = mViewObjectTable->getObjects("_reduceUuid", reduceDefinition.value(JsonDbString::kUuidStr), targetType);
     JsonDbObjectList objects = getObjectResponse.data;
     for (int i = 0; i < objects.size(); i++)
         mJsonDb->removeViewObject(def->owner(), objects.at(i), mPartition->name());
     //TODO: actually remove the table
-    updateSourceTypesList();
     if (jsondbSettings->verbose())
         qDebug() << "removeReduceDefinition" << sourceType <<  targetType << "}";
 }
