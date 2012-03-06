@@ -29,4 +29,7 @@ config.pri
 tests/*/*/tst_*
 /bin/
 /module-paths/
-src/client/qtaddonjsondbversion.h
+src/client/qtjsondbversion.h
+src/clientcompat/qtjsondbcompatversion.h
+*.pro.user
+*.qmlproject.user
