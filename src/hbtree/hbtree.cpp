@@ -50,7 +50,6 @@
 #include "hbtree.h"
 #include "hbtree_p.h"
 
-bool gDebugHBtree = true;
 #define HBTREE_DEBUG_OUTPUT 0
 #define HBTREE_VERBOSE_OUTPUT 0
 
@@ -62,8 +61,8 @@ bool gDebugHBtree = true;
 #   define HBTREE_VERBOSE_OUTPUT 0
 #endif
 
-#define HBTREE_DEBUG(qDebugStatement) if (HBTREE_DEBUG_OUTPUT && gDebugHBtree) qDebug() << "HBtree::" << __FUNCTION__ << ":" << qDebugStatement
-#define HBTREE_VERBOSE(qDebugStatement) if (HBTREE_VERBOSE_OUTPUT && gDebugHBtree) HBTREE_DEBUG(qDebugStatement)
+#define HBTREE_DEBUG(qDebugStatement) if (HBTREE_DEBUG_OUTPUT) qDebug() << "HBtree::" << __FUNCTION__ << ":" << qDebugStatement
+#define HBTREE_VERBOSE(qDebugStatement) if (HBTREE_VERBOSE_OUTPUT) HBTREE_DEBUG(qDebugStatement)
 #define HBTREE_ERROR(qDebugStatement) qCritical() << "HBtree Error::" << __FUNCTION__ << ":" << qDebugStatement
 
 
@@ -446,7 +445,7 @@ HBtreePrivate::Page *HBtreePrivate::newDeserializePage(const QByteArray &buffer)
 void HBtreePrivate::serializeChecksum(quint32 checksum, QByteArray *buffer) const
 {
     Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-//    Q_ASSERT(checksum != 0);
+    Q_ASSERT(checksum != 0);
     Q_ASSERT(buffer->isDetached());
     Q_ASSERT(buffer->size() == (int)spec_.pageSize);
     memcpy(buffer->data() + PageInfo::OFFSETOF_CHECKSUM, &checksum, sizeof(quint32));
@@ -875,8 +874,8 @@ void HBtreePrivate::abort(HBtreeTransaction *transaction)
     HBTREE_DEBUG("aborting transaction with" << dirtyPages_.size() << "dirty pages");
     foreach (Page *page, dirtyPages_) {
         Q_ASSERT(cache_.contains(page->info.number));
-        deletePage(cache_[page->info.number]);
         cache_.remove(page->info.number);
+        deletePage(page);
     }
     dirtyPages_.clear();
     if (transaction->isReadWrite()) {
@@ -949,10 +948,6 @@ quint32 HBtreePrivate::calculateChecksum(const char *begin, const char *end) con
 
 quint32 HBtreePrivate::calculateChecksum(const QByteArray &buffer) const
 {
-    // TODO: Valgrind was complaining here
-    // FIXME
-    return 0;
-
     Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
     Q_ASSERT(buffer.size() == (int)spec_.pageSize);
 
@@ -975,7 +970,7 @@ quint32 HBtreePrivate::calculateChecksum(const QByteArray &buffer) const
         crc = calculateChecksum(begin + crcOffset, begin + info.headerSize());
     } else if (info.type == PageInfo::Overflow) {
         Q_ASSERT(info.hasPayload()); // lower offset represents size of overflow
-        crc = calculateChecksum(begin + crcOffset, end + info.lowerOffset);
+        crc = calculateChecksum(begin + crcOffset, begin + info.headerSize() + info.lowerOffset);
     } else
         Q_ASSERT(0);
 
@@ -1477,6 +1472,7 @@ HBtreePrivate::Page *HBtreePrivate::getPage(quint32 pageNumber)
 
 void HBtreePrivate::deletePage(HBtreePrivate::Page *page)
 {
+    HBTREE_DEBUG("deleting page" << page->info);
     switch (page->info.type) {
     case PageInfo::Overflow:
         delete static_cast<OverflowPage *>(page);
