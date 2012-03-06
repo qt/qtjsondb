@@ -129,6 +129,7 @@ See also \l{QJsonDbWatcher}
 
 \list
 \li \l{declarative/simplelistmodel}{Simple List Model}
+\li \l{declarative/streamingquery}{Streaming Query}
 \li \l{declarative/simpleindex}{Simple Object Indexing}
 \li \l{declarative/desktop-inspector}{Desktop Database Inspector Example}
 \li \l{declarative/map-phone}{Creating a Map View}

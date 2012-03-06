@@ -137,7 +137,7 @@ static QVariant qjsvalue_to_qvariant(const QJSValue &value)
         }
 
     }
-    nokiaSharedDb.create({"_type":"Contact", "firstName":firstName, "lastName":lastName }, createCallback)
+    myPartition.create({"_type":"Contact", "firstName":firstName, "lastName":lastName }, createCallback)
     \endcode
 
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
@@ -209,7 +209,7 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
         }
 
     }
-    nokiaSharedDb.update(updatedObject, updateCallback)
+    myPartition.update(updatedObject, updateCallback)
     \endcode
 
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
@@ -276,7 +276,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
         }
 
     }
-    nokiaSharedDb.remove({"_uuid":"xxxx-xxxx-xxxx", "_version":"1-xxxx-xxxx-xxxx"}, removeCallback)
+    myPartition.remove({"_uuid":"xxxx-xxxx-xxxx", "_version":"1-xxxx-xxxx-xxxx"}, removeCallback)
     \endcode
 
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
@@ -312,7 +312,7 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
 }
 
 /*!
-    \qmlmethod QtJsonDb::Partition::find(object query, object options, function callback)
+    \qmlmethod QtJsonDb::Partition::find(string query, object options, function callback)
 
     Finds the objects matching the \a query string in the partition. The \a options specifies
     how query should be handled. The \a query should be specified in JsonQuery format.

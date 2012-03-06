@@ -145,6 +145,13 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback)
 
     The uuid is generated using QtJsonDb UUID namespace on a value of the
     given \a identifier.
+
+    \code
+    var uuid1 = JsonDb.uuidFromString("person:Name1");
+    var uuid2 = JsonDb.uuidFromString("person:Name2");
+    myPartition.update([{"_uuid" : uuid1, "_type": "Person", "name" : "Name1", "knows": uuid2},
+                        {"_uuid" : uuid2, "_type": "Person", "name" : "Name2", "knows": uuid1}]);
+    \endcode
 */
 
 QString JsonDatabase::uuidFromString(const QString &identifier)
