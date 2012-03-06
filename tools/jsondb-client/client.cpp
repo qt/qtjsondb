@@ -77,12 +77,6 @@ InputThread *InputThread::instance()
 
 InputThread::~InputThread()
 {
-    if (hist && !historyFile.isEmpty())
-        history(hist, 0, H_SAVE, historyFile.toLocal8Bit().constData());
-    if (hist) {
-        history_end(hist);
-        hist = 0;
-    }
 }
 
 char const* InputThread::prompt(EditLine *e)
