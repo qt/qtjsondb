@@ -119,18 +119,8 @@ insensitive.
 \li \c {[?_type="MESSAGE"][?HasAttachments="true"][\DateTimeSent]}
 \li Message objects with attachments, sorted in reverse chronological order.
 \row
-\li \c {[?_type="MESSAGE"][= Subject ]}
-\li List of the subjects from message objects.
-\row
-\li \c {[?_type="MESSAGE"][= [ Subject, DateTimeSent, Sender.Mailbox.EmailAddress] ]}
-\li List of lists containing the subject, sent time, and sender email address
-from message objects.
-\row
 \li \c {[?_type="MESSAGE"][= { subject: Subject, sent: DateTimeSent, sender: Sender.Mailbox.EmailAddress } ]}
 \li List of new objects containing of subject, sent time, and sender email
 address from message objects.
-\row
-\li \c {[?_type="CALL"][= time, duration, contactUuid->name ][/time]}
-\li Time, duration and contact name from call log objects, sorted by time.
 \endtable
 */
