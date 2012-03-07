@@ -51,6 +51,7 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+class QJsonDbSyncQtWorkaround;
 class Q_JSONDB_EXPORT QJsonDbObject : public QJsonObject
 {
 public:
