@@ -366,10 +366,12 @@ void QJsonDbReadObjectRequest::setUuid(const QUuid &uuid)
 void QJsonDbReadObjectRequestPrivate::_q_onFinished()
 {
     Q_Q(QJsonDbReadObjectRequest);
-    if (results.size() != 1) {
+    if (results.size() > 1) {
         qWarning() << "QJsonDbReadObjectRequest: instead of 1 object, got" << results.size() << "object(s)";
         return;
     }
+    if (results.size() == 0)
+        return;
     QJsonObject object = results.at(0);
     emit q->objectAvailable(object);
 }
