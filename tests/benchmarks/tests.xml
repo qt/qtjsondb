@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <testdefinition version="0.1">
-  <suite domain="Performance" name="benchmarks" timeout="15000">
+  <suite domain="Performance" name="jsondb-benchmarks" timeout="15000">
     <set description=" Simple JSON DB performance tests " feature="JSONDB" level="System" name="jsondb-benchmarks" type="Integration" timeout="10000">
       <case name="tst_bench_client" timeout="5000" component="qt5jsondb">
         <description>Client API performance 01</description>
