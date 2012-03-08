@@ -250,7 +250,7 @@ bool HBtreePrivate::open(int fd)
 
         if (openMode_ == HBtree::ReadWrite) {
             off_t currentSize = lseek(fd_, 0, SEEK_END);
-            if (currentMarker().meta.size < currentSize) {// cut off garbage (TODO: check reverse case)
+            if (static_cast<off_t>(currentMarker().meta.size) < currentSize) {// cut off garbage (TODO: check reverse case)
                 if (ftruncate(fd_, currentMarker().meta.size) != 0) {
                     HBTREE_ERROR("failed to truncate from" << currentSize << "for" << currentMarker());
                     return false;
@@ -1250,7 +1250,7 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
         pageNumber = lastPage_++;
     }
 
-    Page *page;
+    Page *page = 0;
     switch (type) {
         case PageInfo::Leaf:
         case PageInfo::Branch: {
@@ -1268,7 +1268,9 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
         case PageInfo::Marker:
         case PageInfo::Spec:
         case PageInfo::Unknown:
+        default:
             Q_ASSERT(0);
+            return 0;
     }
 
     HBTREE_DEBUG("created new page" << page->info);
@@ -2549,10 +2551,10 @@ bool HBtreePrivate::verifyIntegrity(const HBtreePrivate::Page *page) const
         CHECK_TRUE(mp->info.upperOffset == 0);
         CHECK_TRUE(mp->meta.size <= size_);
         CHECK_TRUE(mp->meta.syncedRevision == lastSyncedRevision_ || mp->meta.syncedRevision == (lastSyncedRevision_ + 1));
-        if (mp->meta.syncedRevision == lastSyncedRevision_) // we just synced
-            ;
-        else // we've had a number of revisions since last sync
-            ;
+        //if (mp->meta.syncedRevision == lastSyncedRevision_) // we just synced
+        //    ;
+        //else // we've had a number of revisions since last sync
+        //    ;
         CHECK_TRUE(mp->meta.revision >= lastSyncedRevision_);
         if (mp->meta.rootPage != PageInfo::INVALID_PAGE)
             CHECK_TRUE(mp->meta.rootPage <= (size_ / spec_.pageSize));
@@ -2574,7 +2576,7 @@ bool HBtreePrivate::verifyIntegrity(const HBtreePrivate::Page *page) const
         Node it = np->nodes.constBegin();
 
         if (np->parent) {
-            Node node = np->parent->nodes.find(np->parentKey);
+//            Node node = np->parent->nodes.find(np->parentKey);
 //            CHECK_TRUE(node != np->parent->nodes.constEnd());
 //            CHECK_TRUE(np->nodes.constBegin().key() >= node.key());
         }
