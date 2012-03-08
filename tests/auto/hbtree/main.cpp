@@ -1703,7 +1703,7 @@ void TestHBtree::markerOnReopen()
 
     // First commit goes to marker on page 4
     const quint32 lastMarkerCommited = ((numCommits % 2) == 0 ? 3 : 4);
-    quint32 cPage = d->collectiblePages_[0];
+    quint32 cPage = *d->collectiblePages_.constBegin();
 
     // There should be 1 reusable page if numCommits is greater than 3
     // Plus the 3 copies of the leaf page
@@ -1721,7 +1721,7 @@ void TestHBtree::markerOnReopen()
 
     QCOMPARE(d->currentMarker().info.number, 3u); // On open markers are synced. Starts with page 3u (ping marker)
     QCOMPARE(d->collectiblePages_.size(), 1);
-    QCOMPARE(d->collectiblePages_[0], cPage);
+    QCOMPARE(*d->collectiblePages_.constBegin(), cPage);
     QCOMPARE(d->size_, quint32(pageSize * 9));
     QCOMPARE(d->currentMarker().meta.revision, numCommits);
     QCOMPARE(d->currentMarker().meta.syncedRevision, 1u);
@@ -1776,7 +1776,7 @@ void TestHBtree::corruptSyncMarker1()
     }
 
     QCOMPARE(d->collectiblePages_.size(), 1);
-    quint32 cPage = d->collectiblePages_[0];
+    quint32 cPage = *d->collectiblePages_.constBegin();
 
     for (int i = 0; i < 5; ++i) {
         db->close();
@@ -1786,7 +1786,7 @@ void TestHBtree::corruptSyncMarker1()
         QVERIFY(db->open());
 
         QCOMPARE(d->collectiblePages_.size(), 1);
-        QCOMPARE(d->collectiblePages_[0], cPage);
+        QCOMPARE(*d->collectiblePages_.constBegin(), cPage);
 
         for (quint32 i = 0; i < numCommits; ++i) {
             HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);

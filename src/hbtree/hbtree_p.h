@@ -200,7 +200,7 @@ public:
         } HBtree_ATTRIBUTE_PACKED;
         Q_STATIC_ASSERT(sizeof(Meta) == 24);
         Meta meta;
-        QStack<quint32> collectiblePages;
+        QSet<quint32> collectiblePages;
     };
 
     // Keeps track of revisions of touched node pages
@@ -379,7 +379,7 @@ public:
     PageMap dirtyPages_;
     HBtree::CompareFunction compareFunction_;
     HBtreeTransaction *writeTransaction_;
-    QStack<quint32> collectiblePages_;
+    QSet<quint32> collectiblePages_;
     PageMap cache_;
     quint32 lastPage_;
 

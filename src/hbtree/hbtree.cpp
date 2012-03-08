@@ -527,10 +527,13 @@ HBtreePrivate::MarkerPage HBtreePrivate::deserializeMarkerPage(const QByteArray 
     if (page.info.hasPayload()) {
         Q_ASSERT(page.info.lowerOffset > 0);
         Q_ASSERT(page.info.upperOffset == 0);
-        page.collectiblePages.resize(page.info.lowerOffset);
-        memcpy(page.collectiblePages.data(),
-               buffer.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta),
-               sizeof(quint32) * page.info.lowerOffset);
+        const char *ptr = buffer.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta);
+        for (int i = 0; i < page.info.lowerOffset; ++i) {
+            quint32 pgno;
+            memcpy(&pgno, ptr, sizeof(quint32));
+            page.collectiblePages.insert(pgno);
+            ptr += sizeof(quint32);
+        }
     }
 
     HBTREE_DEBUG("deserialized" << page);
@@ -551,9 +554,13 @@ QByteArray HBtreePrivate::serializeMarkerPage(const HBtreePrivate::MarkerPage &p
 
     Q_ASSERT(page.info.lowerOffset == page.collectiblePages.size());
     if (page.info.hasPayload()) {
-        memcpy(buffer.data() + sizeof(PageInfo) + sizeof(MarkerPage::Meta),
-               page.collectiblePages.constData(),
-               page.info.lowerOffset * sizeof(quint32));
+        Q_ASSERT(page.info.lowerOffset > 0);
+        Q_ASSERT(page.info.upperOffset == 0);
+        char *ptr = buffer.data() + sizeof(PageInfo) + sizeof(MarkerPage::Meta);
+        foreach (quint32 pgno, page.collectiblePages) {
+            memcpy(ptr, &pgno, sizeof(quint32));
+            ptr += sizeof(quint32);
+        }
     }
 
     HBTREE_VERBOSE("serialized" << page);
@@ -889,7 +896,7 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
 
                 if (canCollect) {
                     HBTREE_DEBUG("adding page from history" << *it << "to collectible list");
-                    collectiblePages_.push(it->pageNumber);
+                    collectiblePages_.insert(it->pageNumber);
                     if (cache_.contains(it->pageNumber)) {
                         // delete from cache since we'll be reusing... or
                         // maybe not delete and keep a bool collectible in Page?
@@ -1236,8 +1243,8 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
     int pageNumber = PageInfo::INVALID_PAGE;
 
     if (collectiblePages_.size()) {
-        quint32 n = collectiblePages_.top();
-        collectiblePages_.pop(); // TODO: remove from here after page is commited. Or use a different queue
+        quint32 n = *collectiblePages_.constBegin();
+        collectiblePages_.erase(collectiblePages_.begin()); // TODO: remove from here after page is commited. Or use a different queue
         pageNumber = n;
     } else {
         pageNumber = lastPage_++;
@@ -1492,12 +1499,12 @@ void HBtreePrivate::collectPages(const QList<quint32> &pagesUsedSorted)
     quint32 i = 0;
     while (n < numPages && i < (quint32)pagesUsedSorted.size()) {
         while (n < pagesUsedSorted.at(i)) {
-            collectiblePages_.append(n++);
+            collectiblePages_.insert(n++);
         }
         n = pagesUsedSorted.at(i++) + 1;
     }
     while (n < numPages)
-        collectiblePages_.append(n++);
+        collectiblePages_.insert(n++);
 }
 
 bool HBtreePrivate::searchPage(HBtreeCursor *cursor, HBtreeTransaction *transaction, const NodeKey &key, SearchType searchType,
