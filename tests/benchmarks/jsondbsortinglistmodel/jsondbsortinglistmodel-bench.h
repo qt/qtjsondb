@@ -59,8 +59,8 @@
 #include "../../shared/qmltestutil.h"
 
 QT_BEGIN_NAMESPACE
-class QDeclarativeEngine;
-class QDeclarativeComponent;
+class QQmlEngine;
+class QQmlComponent;
 QT_END_NAMESPACE
 
 QT_USE_NAMESPACE_JSONDB
@@ -71,10 +71,10 @@ class ModelData {
 public:
     ModelData();
     ~ModelData();
-    QDeclarativeEngine *engine;
-    QDeclarativeComponent *component;
-    QDeclarativeComponent *partitionComponent1;
-    QDeclarativeComponent *partitionComponent2;
+    QQmlEngine *engine;
+    QQmlComponent *component;
+    QQmlComponent *partitionComponent1;
+    QQmlComponent *partitionComponent2;
     QObject *model;
     QObject *partition1;
     QObject *partition2;

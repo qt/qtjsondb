@@ -1,6 +1,6 @@
 TARGET = tst_jsonstream
 
-QT = declarative network testlib
+QT = qml network testlib
 CONFIG -= app_bundle
 CONFIG += testcase
 

@@ -42,17 +42,17 @@
 #ifndef JSONDB_PLUGIN_H
 #define JSONDB_PLUGIN_H
 
-#include <QDeclarativeExtensionPlugin>
-#include <QDeclarativeEngine>
-#include <QtDeclarative/qdeclarative.h>
+#include <QQmlExtensionPlugin>
+#include <QQmlEngine>
+#include <QtQml/qqml.h>
 
-extern QDeclarativeEngine *g_declEngine;
+extern QQmlEngine *g_declEngine;
 
-class JsonDbPlugin : public QDeclarativeExtensionPlugin
+class JsonDbPlugin : public QQmlExtensionPlugin
 {
     Q_OBJECT
 public:
-    void initializeEngine(QDeclarativeEngine *engine, const char *uri);
+    void initializeEngine(QQmlEngine *engine, const char *uri);
     void registerTypes(const char *uri);
 };
 

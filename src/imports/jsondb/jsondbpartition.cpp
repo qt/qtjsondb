@@ -413,7 +413,7 @@ JsonDbNotify* JsonDbPartition::createNotification(const QString &query)
     notify->setPartition(this);
     notify->setQuery(query);
     notify->componentComplete();
-    QDeclarativeEngine::setObjectOwnership(notify, QDeclarativeEngine::JavaScriptOwnership);
+    QQmlEngine::setObjectOwnership(notify, QQmlEngine::JavaScriptOwnership);
     return notify;
 }
 
@@ -453,7 +453,7 @@ JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit,
     queryObject->setLimit(limit);
     queryObject->setPartition(this);
     queryObject->componentComplete();
-    QDeclarativeEngine::setObjectOwnership(queryObject, QDeclarativeEngine::JavaScriptOwnership);
+    QQmlEngine::setObjectOwnership(queryObject, QQmlEngine::JavaScriptOwnership);
     return queryObject;
 }
 
@@ -492,13 +492,13 @@ JsonDbChangesSinceObject* JsonDbPartition::createChangesSince(int stateNumber, c
     changesSinceObject->setStateNumber(stateNumber);
     changesSinceObject->setPartition(this);
     changesSinceObject->componentComplete();
-    QDeclarativeEngine::setObjectOwnership(changesSinceObject, QDeclarativeEngine::JavaScriptOwnership);
+    QQmlEngine::setObjectOwnership(changesSinceObject, QQmlEngine::JavaScriptOwnership);
     return changesSinceObject;
 }
 
-QDeclarativeListProperty<QObject> JsonDbPartition::childElements()
+QQmlListProperty<QObject> JsonDbPartition::childElements()
 {
-    return QDeclarativeListProperty<QObject>(this, childQMLElements);
+    return QQmlListProperty<QObject>(this, childQMLElements);
 }
 
 void JsonDbPartition::updateNotification(JsonDbNotify *notify)

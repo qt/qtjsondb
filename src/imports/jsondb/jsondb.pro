@@ -3,7 +3,7 @@ TARGETPATH = QtJsonDb
 
 include(../qimportbase.pri)
 
-QT += network declarative jsondbcompat-private
+QT += network qml jsondbcompat-private
 
 DESTDIR = $$QT.jsondbcompat.imports/$$TARGETPATH
 target.path = $$[QT_INSTALL_IMPORTS]/$$TARGETPATH

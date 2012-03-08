@@ -48,8 +48,8 @@
 #include <sstream>
 #include <iomanip>
 
-#include <QDeclarativeComponent>
-#include <QDeclarativeEngine>
+#include <QQmlComponent>
+#include <QQmlEngine>
 
 QT_USE_NAMESPACE
 
@@ -669,12 +669,12 @@ void Client::loadQmlFile(const QString &qmlFile)
     }
 
     if (!mEngine) {
-        mEngine = new QDeclarativeEngine(this);
+        mEngine = new QQmlEngine(this);
         connect(mEngine, SIGNAL(quit()), this, SLOT(fileLoadSuccess()));
     }
 
     qml.open(QFile::ReadOnly);
-    QDeclarativeComponent *component = new QDeclarativeComponent(mEngine, this);
+    QQmlComponent *component = new QQmlComponent(mEngine, this);
     component->setData(qml.readAll(), QUrl());
     qml.close();
 

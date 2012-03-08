@@ -48,7 +48,7 @@
 #include <histedit.h>
 
 QT_BEGIN_NAMESPACE
-class QDeclarativeEngine;
+class QQmlEngine;
 QT_END_NAMESPACE
 
 class InputThread : public QThread {
@@ -128,7 +128,7 @@ private:
     bool mTerminate;
     bool mDebug;
     QStringList mFilesToLoad;
-    QDeclarativeEngine *mEngine;
+    QQmlEngine *mEngine;
 };
 
 

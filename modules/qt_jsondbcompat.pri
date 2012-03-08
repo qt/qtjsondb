@@ -12,7 +12,7 @@ QT.jsondbcompat.sources = $$QT_MODULE_BASE/src
 QT.jsondbcompat.libs = $$QT_MODULE_LIB_BASE
 QT.jsondbcompat.plugins = $$QT_MODULE_PLUGIN_BASE
 QT.jsondbcompat.imports = $$QT_MODULE_IMPORT_BASE
-QT.jsondbcompat.depends = core network declarative
+QT.jsondbcompat.depends = core network qml
 
 QT_CONFIG += jsondbcompat
 }

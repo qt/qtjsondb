@@ -181,10 +181,10 @@ public:
     void _q_dbNotifyErrorResponse(int id, int code, const QString &message);
     void _q_verifyDefaultIndexType(int index);
 
-    static void partitions_append(QDeclarativeListProperty<JsonDbPartition> *p, JsonDbPartition *v);
-    static int partitions_count(QDeclarativeListProperty<JsonDbPartition> *p);
-    static JsonDbPartition* partitions_at(QDeclarativeListProperty<JsonDbPartition> *p, int idx);
-    static void partitions_clear(QDeclarativeListProperty<JsonDbPartition> *p);
+    static void partitions_append(QQmlListProperty<JsonDbPartition> *p, JsonDbPartition *v);
+    static int partitions_count(QQmlListProperty<JsonDbPartition> *p);
+    static JsonDbPartition* partitions_at(QQmlListProperty<JsonDbPartition> *p, int idx);
+    static void partitions_clear(QQmlListProperty<JsonDbPartition> *p);
 
 };
 

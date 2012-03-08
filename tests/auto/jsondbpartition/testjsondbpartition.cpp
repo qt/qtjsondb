@@ -131,14 +131,14 @@ void TestJsonDbPartition::initTestCase()
 ComponentData *TestJsonDbPartition::createComponent()
 {
     ComponentData *componentData = new ComponentData();
-    componentData->engine = new QDeclarativeEngine();
+    componentData->engine = new QQmlEngine();
     QString error;
     if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete componentData->engine;
         return 0;
     }
-    componentData->component = new QDeclarativeComponent(componentData->engine);
+    componentData->component = new QQmlComponent(componentData->engine);
     componentData->component->setData(qmlProgram.toLocal8Bit(), QUrl());
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
@@ -188,9 +188,9 @@ void TestJsonDbPartition::create()
     obj = createObject(__FUNCTION__);
     expression = QString(createString).arg(objectString(QString(), obj));
 
-    QDeclarativeExpression *expr;
+    QQmlExpression *expr;
     int id = 0;
-    expr = new QDeclarativeExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     id = expr->evaluate().toInt();
     waitForCallback();
     QCOMPARE(callbackError, false);
@@ -234,9 +234,9 @@ void TestJsonDbPartition::update()
     obj = createObject(__FUNCTION__);
     expression = QString(createString).arg(objectString(QString(), obj));
 
-    QDeclarativeExpression *expr;
+    QQmlExpression *expr;
     int id = 0;
-    expr = new QDeclarativeExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     id = expr->evaluate().toInt();
     waitForCallback();
     QCOMPARE(callbackError, false);
@@ -299,9 +299,9 @@ void TestJsonDbPartition::remove()
     obj = createObject(__FUNCTION__);
     expression = QString(createString).arg(objectString(QString(), obj));
 
-    QDeclarativeExpression *expr;
+    QQmlExpression *expr;
     int id = 0;
-    expr = new QDeclarativeExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     id = expr->evaluate().toInt();
     waitForCallback();
     QCOMPARE(callbackError, false);
@@ -355,9 +355,9 @@ void TestJsonDbPartition::find()
     obj = createObject(__FUNCTION__);
     expression = QString(createString).arg(objectString(QString(), obj));
 
-    QDeclarativeExpression *expr;
+    QQmlExpression *expr;
     int id = 0;
-    expr = new QDeclarativeExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     id = expr->evaluate().toInt();
     waitForCallback();
     QCOMPARE(callbackError, false);

@@ -43,7 +43,7 @@
 #include "jsondbpartition.h"
 #include "jsondb-object.h"
 #include <QJSEngine>
-#include <QDeclarativeEngine>
+#include <QQmlEngine>
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -100,7 +100,7 @@ JsonDatabase::~JsonDatabase()
 JsonDbPartition* JsonDatabase::partition(const QString &partitionName)
 {
     JsonDbPartition* newPartition = new JsonDbPartition(partitionName);
-    QDeclarativeEngine::setObjectOwnership(newPartition, QDeclarativeEngine::JavaScriptOwnership);
+    QQmlEngine::setObjectOwnership(newPartition, QQmlEngine::JavaScriptOwnership);
     return newPartition;
 }
 

@@ -53,9 +53,9 @@
 QT_USE_NAMESPACE_JSONDB
 
 Q_EXPORT_PLUGIN2(jsondbplugin, JsonDbPlugin)
-QDeclarativeEngine *g_declEngine = 0;
+QQmlEngine *g_declEngine = 0;
 
-static QObject *jsondb_new_module_api_provider(QDeclarativeEngine *engine, QJSEngine *scriptEngine)
+static QObject *jsondb_new_module_api_provider(QQmlEngine *engine, QJSEngine *scriptEngine)
 {
     Q_UNUSED(engine)
     Q_UNUSED(scriptEngine)
@@ -64,7 +64,7 @@ static QObject *jsondb_new_module_api_provider(QDeclarativeEngine *engine, QJSEn
     return database;
 }
 
-void JsonDbPlugin::initializeEngine(QDeclarativeEngine *engine, const char *uri)
+void JsonDbPlugin::initializeEngine(QQmlEngine *engine, const char *uri)
 {
     Q_UNUSED(uri);
     g_declEngine = engine;

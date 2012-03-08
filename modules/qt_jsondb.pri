@@ -12,7 +12,7 @@ QT.jsondb.sources = $$QT_MODULE_BASE/src
 QT.jsondb.libs = $$QT_MODULE_LIB_BASE
 QT.jsondb.plugins = $$QT_MODULE_PLUGIN_BASE
 QT.jsondb.imports = $$QT_MODULE_IMPORT_BASE
-QT.jsondb.depends = core network declarative
+QT.jsondb.depends = core network qml
 
 QT_CONFIG += jsondb
 }

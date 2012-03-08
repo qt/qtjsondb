@@ -46,8 +46,8 @@
 #include <QVariant>
 #include <QPointer>
 #include <QJSValue>
-#include <QDeclarativeParserStatus>
-#include <QDeclarativeListProperty>
+#include <QQmlParserStatus>
+#include <QQmlListProperty>
 #include "jsondb-client.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -55,10 +55,10 @@ QT_BEGIN_NAMESPACE_JSONDB
 class JsonDbPartition;
 class JsonDbPartitionPrivate;
 
-class JsonDbChangesSinceObject : public QObject, public QDeclarativeParserStatus
+class JsonDbChangesSinceObject : public QObject, public QQmlParserStatus
 {
     Q_OBJECT
-    Q_INTERFACES(QDeclarativeParserStatus)
+    Q_INTERFACES(QQmlParserStatus)
 
 public:
     Q_ENUMS(Status)

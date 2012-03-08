@@ -48,7 +48,7 @@
 #include <QSet>
 #include <QSharedDataPointer>
 #include <QStringList>
-#include <QDeclarativeParserStatus>
+#include <QQmlParserStatus>
 #include <QJSValue>
 #include <QScopedPointer>
 
@@ -75,10 +75,10 @@ bool operator <(const JsonDbSortKey &a, const JsonDbSortKey &b);
 class JsonDbListModelPrivate;
 class JsonDbPartition;
 
-class JsonDbListModel : public QAbstractListModel, public QDeclarativeParserStatus
+class JsonDbListModel : public QAbstractListModel, public QQmlParserStatus
 {
     Q_OBJECT
-    Q_INTERFACES(QDeclarativeParserStatus)
+    Q_INTERFACES(QQmlParserStatus)
 public:
     JsonDbListModel(QObject *parent = 0);
     virtual ~JsonDbListModel();

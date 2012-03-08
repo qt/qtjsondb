@@ -128,14 +128,14 @@ void TestJsonDbQueryObject::initTestCase()
 ComponentData *TestJsonDbQueryObject::createComponent()
 {
     ComponentData *componentData = new ComponentData();
-    componentData->engine = new QDeclarativeEngine();
+    componentData->engine = new QQmlEngine();
     QString error;
     if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete componentData->engine;
         return 0;
     }
-    componentData->component = new QDeclarativeComponent(componentData->engine);
+    componentData->component = new QQmlComponent(componentData->engine);
     componentData->component->setData(qmlProgram.toLocal8Bit(), QUrl());
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
@@ -151,14 +151,14 @@ ComponentData *TestJsonDbQueryObject::createComponent()
 ComponentData *TestJsonDbQueryObject::createPartitionComponent()
 {
     ComponentData *componentData = new ComponentData();
-    componentData->engine = new QDeclarativeEngine();
+    componentData->engine = new QQmlEngine();
     QString error;
     if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete componentData->engine;
         return 0;
     }
-    componentData->component = new QDeclarativeComponent(componentData->engine);
+    componentData->component = new QQmlComponent(componentData->engine);
     componentData->component->setData(qmlProgramForPartition.toLocal8Bit(), QUrl());
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
@@ -223,8 +223,8 @@ void TestJsonDbQueryObject::singleObject()
     QVariantMap item = createObject(__FUNCTION__).toMap();
     mClient->create(item,  "com.nokia.shared");
     const QString expression("start();");
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
     waitForCallback2();
     QCOMPARE(cbData.size(), 1);
@@ -254,8 +254,8 @@ void TestJsonDbQueryObject::multipleObjects()
     mClient->create(QVariant(items),  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
     waitForCallback2();
     QCOMPARE(callbackError, false);
@@ -278,8 +278,8 @@ void TestJsonDbQueryObject::createQuery()
     QString expression;
 
     expression = QString(createString).arg(__FUNCTION__);
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     QPointer<QObject> queryObject = expr->evaluate().value<QObject*>();
     QVERIFY(!queryObject.isNull());
     queryObject->setParent(partition->qmlElement);
@@ -318,8 +318,8 @@ void TestJsonDbQueryObject::queryBinding()
     mClient->create(QVariant(items),  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
     waitForCallback2();
 
@@ -351,8 +351,8 @@ void TestJsonDbQueryObject::queryError()
     mClient->create(QVariant(items),  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
     waitForCallback2();
 
@@ -383,8 +383,8 @@ void TestJsonDbQueryObject::queryLimit()
     mClient->create(QVariant(items),  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
     waitForCallback2();
     QCOMPARE(callbackError, false);

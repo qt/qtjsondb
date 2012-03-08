@@ -48,8 +48,8 @@
 #include <QSet>
 #include <QSharedDataPointer>
 #include <QStringList>
-#include <QDeclarativeParserStatus>
-#include <QDeclarativeListProperty>
+#include <QQmlParserStatus>
+#include <QQmlListProperty>
 #include <QJSValue>
 #include <QScopedPointer>
 
@@ -61,10 +61,10 @@ QT_BEGIN_NAMESPACE_JSONDB
 class JsonDbCachingListModelPrivate;
 class JsonDbPartition;
 
-class JsonDbCachingListModel : public QAbstractListModel, public QDeclarativeParserStatus
+class JsonDbCachingListModel : public QAbstractListModel, public QQmlParserStatus
 {
     Q_OBJECT
-    Q_INTERFACES(QDeclarativeParserStatus)
+    Q_INTERFACES(QQmlParserStatus)
     Q_ENUMS(State)
 public:
     enum State { None, Querying, Ready, Error };
@@ -78,7 +78,7 @@ public:
     Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
     Q_PROPERTY(QVariant roleNames READ scriptableRoleNames WRITE setScriptableRoleNames)
     Q_PROPERTY(int cacheSize READ cacheSize WRITE setCacheSize)
-    Q_PROPERTY(QDeclarativeListProperty<JsonDbPartition> partitions READ partitions)
+    Q_PROPERTY(QQmlListProperty<JsonDbPartition> partitions READ partitions)
     Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
 
     virtual void classBegin();
@@ -93,7 +93,7 @@ public:
     QString query() const;
     void setQuery(const QString &newQuery);
 
-    QDeclarativeListProperty<JsonDbPartition> partitions();
+    QQmlListProperty<JsonDbPartition> partitions();
 
     int cacheSize() const;
     void setCacheSize(int newCacheSize);

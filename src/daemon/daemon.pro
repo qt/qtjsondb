@@ -5,7 +5,7 @@ INSTALLS += target
 
 LIBS += -L$$QT.jsondb.libs
 
-QT = core network declarative
+QT = core network qml
 
 mac:CONFIG -= app_bundle
 

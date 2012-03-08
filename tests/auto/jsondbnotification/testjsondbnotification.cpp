@@ -132,14 +132,14 @@ void TestJsonDbNotification::initTestCase()
 ComponentData *TestJsonDbNotification::createComponent()
 {
     ComponentData *componentData = new ComponentData();
-    componentData->engine = new QDeclarativeEngine();
+    componentData->engine = new QQmlEngine();
     QString error;
     if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete componentData->engine;
         return 0;
     }
-    componentData->component = new QDeclarativeComponent(componentData->engine);
+    componentData->component = new QQmlComponent(componentData->engine);
     componentData->component->setData(qmlProgram.toLocal8Bit(), QUrl());
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
@@ -153,14 +153,14 @@ ComponentData *TestJsonDbNotification::createComponent()
 ComponentData *TestJsonDbNotification::createPartitionComponent()
 {
     ComponentData *componentData = new ComponentData();
-    componentData->engine = new QDeclarativeEngine();
+    componentData->engine = new QQmlEngine();
     QString error;
     if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete componentData->engine;
         return 0;
     }
-    componentData->component = new QDeclarativeComponent(componentData->engine);
+    componentData->component = new QQmlComponent(componentData->engine);
     componentData->component->setData(qmlProgramForPartition.toLocal8Bit(), QUrl());
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
@@ -336,8 +336,8 @@ void TestJsonDbNotification::createNotification()
     QString expression;
 
     expression = QString(createString).arg(__FUNCTION__);
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     QPointer<QObject> notification = expr->evaluate().value<QObject*>();
     QVERIFY(!notification.isNull());
     notification->setParent(partition->qmlElement);

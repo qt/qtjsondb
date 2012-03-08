@@ -44,7 +44,7 @@
 #include "testjsondbsortinglistmodel.h"
 
 #include "../../shared/util.h"
-#include <QDeclarativeListReference>
+#include <QQmlListReference>
 #include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-listmodel";
@@ -186,14 +186,14 @@ void TestJsonDbSortingListModel::initTestCase()
 QAbstractListModel *TestJsonDbSortingListModel::createModel()
 {
     ModelData *newModel = new ModelData();
-    newModel->engine = new QDeclarativeEngine();
+    newModel->engine = new QQmlEngine();
     QString error;
     if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete newModel->engine;
         return 0;
     }
-    newModel->component = new QDeclarativeComponent(newModel->engine);
+    newModel->component = new QQmlComponent(newModel->engine);
     newModel->component->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
                                  "JsonDb.JsonDbSortingListModel {id: contactsModel}",
                                  QUrl());
@@ -201,7 +201,7 @@ QAbstractListModel *TestJsonDbSortingListModel::createModel()
     if (newModel->component->isError())
         qDebug() << newModel->component->errors();
 
-    newModel->partitionComponent1 = new QDeclarativeComponent(newModel->engine);
+    newModel->partitionComponent1 = new QQmlComponent(newModel->engine);
     newModel->partitionComponent1->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
                                            "JsonDb.Partition {name: \"com.nokia.shared.1\"}",
                                            QUrl());
@@ -210,7 +210,7 @@ QAbstractListModel *TestJsonDbSortingListModel::createModel()
         qDebug() << newModel->partitionComponent1->errors();
 
 
-    newModel->partitionComponent2 = new QDeclarativeComponent(newModel->engine);
+    newModel->partitionComponent2 = new QQmlComponent(newModel->engine);
     newModel->partitionComponent2->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
                                            "JsonDb.Partition {name: \"com.nokia.shared.2\"}",
                                            QUrl());
@@ -218,7 +218,7 @@ QAbstractListModel *TestJsonDbSortingListModel::createModel()
     if (newModel->partitionComponent2->isError())
         qDebug() << newModel->partitionComponent2->errors();
 
-    QDeclarativeListReference partitions(newModel->model, "partitions", newModel->engine);
+    QQmlListReference partitions(newModel->model, "partitions", newModel->engine);
     partitions.append(newModel->parttion1);
     partitions.append(newModel->parttion2);
 

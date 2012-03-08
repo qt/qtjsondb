@@ -1017,7 +1017,7 @@ void JsonDbCachingListModelPrivate::_q_verifyDefaultIndexType(int index)
     }
 }
 
-void JsonDbCachingListModelPrivate::partitions_append(QDeclarativeListProperty<JsonDbPartition> *p, JsonDbPartition *v)
+void JsonDbCachingListModelPrivate::partitions_append(QQmlListProperty<JsonDbPartition> *p, JsonDbPartition *v)
 {
     JsonDbCachingListModel *q = qobject_cast<JsonDbCachingListModel *>(p->object);
     JsonDbCachingListModelPrivate *pThis = (q) ? q->d_func() : 0;
@@ -1037,7 +1037,7 @@ void JsonDbCachingListModelPrivate::partitions_append(QDeclarativeListProperty<J
     }
 }
 
-int JsonDbCachingListModelPrivate::partitions_count(QDeclarativeListProperty<JsonDbPartition> *p)
+int JsonDbCachingListModelPrivate::partitions_count(QQmlListProperty<JsonDbPartition> *p)
 {
     JsonDbCachingListModel *q = qobject_cast<JsonDbCachingListModel *>(p->object);
     JsonDbCachingListModelPrivate *pThis = (q) ? q->d_func() : 0;
@@ -1047,7 +1047,7 @@ int JsonDbCachingListModelPrivate::partitions_count(QDeclarativeListProperty<Jso
     return 0;
 }
 
-JsonDbPartition* JsonDbCachingListModelPrivate::partitions_at(QDeclarativeListProperty<JsonDbPartition> *p, int idx)
+JsonDbPartition* JsonDbCachingListModelPrivate::partitions_at(QQmlListProperty<JsonDbPartition> *p, int idx)
 {
     JsonDbCachingListModel *q = qobject_cast<JsonDbCachingListModel *>(p->object);
     JsonDbCachingListModelPrivate *pThis = (q) ? q->d_func() : 0;
@@ -1057,7 +1057,7 @@ JsonDbPartition* JsonDbCachingListModelPrivate::partitions_at(QDeclarativeListPr
     return 0;
 }
 
-void JsonDbCachingListModelPrivate::partitions_clear(QDeclarativeListProperty<JsonDbPartition> *p)
+void JsonDbCachingListModelPrivate::partitions_clear(QQmlListProperty<JsonDbPartition> *p)
 {
     JsonDbCachingListModel *q = qobject_cast<JsonDbCachingListModel *>(p->object);
     JsonDbCachingListModelPrivate *pThis = (q) ? q->d_func() : 0;
@@ -1362,9 +1362,9 @@ void JsonDbCachingListModel::partitionNameChanged(const QString &partitionName)
 */
 
 
-QDeclarativeListProperty<JsonDbPartition> JsonDbCachingListModel::partitions()
+QQmlListProperty<JsonDbPartition> JsonDbCachingListModel::partitions()
 {
-    return QDeclarativeListProperty<JsonDbPartition>(this, 0
+    return QQmlListProperty<JsonDbPartition>(this, 0
                                                      , &JsonDbCachingListModelPrivate::partitions_append
                                                      , &JsonDbCachingListModelPrivate::partitions_count
                                                      , &JsonDbCachingListModelPrivate::partitions_at

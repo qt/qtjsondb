@@ -44,7 +44,7 @@
 #include "testjsondbcachinglistmodel.h"
 
 #include "../../shared/util.h"
-#include <QDeclarativeListReference>
+#include <QQmlListReference>
 #include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-cached-listmodel";
@@ -165,14 +165,14 @@ void TestJsonDbCachingListModel::initTestCase()
 QAbstractListModel *TestJsonDbCachingListModel::createModel()
 {
     ModelData *newModel = new ModelData();
-    newModel->engine = new QDeclarativeEngine();
+    newModel->engine = new QQmlEngine();
     QString error;
     if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete newModel->engine;
         return 0;
     }
-    newModel->component = new QDeclarativeComponent(newModel->engine);
+    newModel->component = new QQmlComponent(newModel->engine);
     newModel->component->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
                                  "JsonDb.JsonDbCachingListModel {signal callbackSignal(variant index, variant response); id: contactsModel; cacheSize: 200;}",
                                  QUrl());
@@ -183,7 +183,7 @@ QAbstractListModel *TestJsonDbCachingListModel::createModel()
     QObject::connect(newModel->model, SIGNAL(callbackSignal(QVariant, QVariant)),
                          this, SLOT(callbackSlot(QVariant, QVariant)));
 
-    newModel->partitionComponent1 = new QDeclarativeComponent(newModel->engine);
+    newModel->partitionComponent1 = new QQmlComponent(newModel->engine);
     newModel->partitionComponent1->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
                                            "JsonDb.Partition {name: \"com.nokia.shared.1\"}",
                                            QUrl());
@@ -192,7 +192,7 @@ QAbstractListModel *TestJsonDbCachingListModel::createModel()
         qDebug() << newModel->partitionComponent1->errors();
 
 
-    newModel->partitionComponent2 = new QDeclarativeComponent(newModel->engine);
+    newModel->partitionComponent2 = new QQmlComponent(newModel->engine);
     newModel->partitionComponent2->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
                                            "JsonDb.Partition {name: \"com.nokia.shared.2\"}",
                                            QUrl());
@@ -200,7 +200,7 @@ QAbstractListModel *TestJsonDbCachingListModel::createModel()
     if (newModel->partitionComponent2->isError())
         qDebug() << newModel->partitionComponent2->errors();
 
-    QDeclarativeListReference partitions(newModel->model, "partitions", newModel->engine);
+    QQmlListReference partitions(newModel->model, "partitions", newModel->engine);
     partitions.append(newModel->partition1);
     partitions.append(newModel->partition2);
 
@@ -245,7 +245,7 @@ void TestJsonDbCachingListModel::getIndex(int index)
 
     const QString createString = QString("get(%1, function (error, response) {callbackSignal(error, response);});");
     const QString getString = QString(createString).arg(index);
-    QDeclarativeExpression expr(mModels.last()->engine->rootContext(), mModels.last()->model, getString);
+    QQmlExpression expr(mModels.last()->engine->rootContext(), mModels.last()->model, getString);
     expr.evaluate().toInt();
 
     if (!mCallbackReceived)
