@@ -161,9 +161,9 @@ void JsonDbMapDefinition::initScriptEngine()
         // even though "emit" is a Qt keyword
         if (mDefinition.contains("join"))
             // only joins can use lookup()
-            mScriptEngine->evaluate("var jsondb = { emit: _jsondb.create, lookup: _jsondb.lookup };");
+            mScriptEngine->evaluate("var jsondb = { emit: _jsondb.create, lookup: _jsondb.lookup, createUuidFromString: _jsondb.createUuidFromString};");
         else
-            mScriptEngine->evaluate("var jsondb = { emit: _jsondb.create };");
+            mScriptEngine->evaluate("var jsondb = { emit: _jsondb.create, createUuidFromString: _jsondb.createUuidFromString };");
 
     } else {
         const QString sourceType = mDefinition.value("sourceType").toString();
@@ -213,16 +213,17 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
         const JsonDbObject &unmappedObject = it.value();
         QString uuid = unmappedObject.value(JsonDbString::kUuidStr).toString();
         QJsonObject res;
-        //qDebug() << "unmappedObject" << unmappedObject << mEmittedObjects.contains(uuid);
         if (mEmittedObjects.contains(uuid)) {
             JsonDbObject emittedObject(mEmittedObjects.value(uuid));
+            emittedObject.insert(JsonDbString::kVersionStr, unmappedObject.value(JsonDbString::kVersionStr));
+            emittedObject.insert(JsonDbString::kOwnerStr, unmappedObject.value(JsonDbString::kOwnerStr));
             if (emittedObject == it.value()) {
                 // skip duplicates
-                qDebug() << "skipping dup";
                 continue;
-            } else
+            } else {
                 // update changed view objects
                 res = mJsonDb->updateViewObject(mOwner, emittedObject, mPartition->name());
+            }
 
             mEmittedObjects.remove(uuid);
         } else
@@ -230,7 +231,7 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
             res = mJsonDb->removeViewObject(mOwner, unmappedObject, mPartition->name());
 
         if (JsonDb::responseIsError(res))
-            setError("Error removing view object: " +
+            setError("Error updating view object: " +
                      res.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString());
     }
 

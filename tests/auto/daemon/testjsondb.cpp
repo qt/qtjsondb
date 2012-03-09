@@ -1697,8 +1697,35 @@ void TestJsonDb::map()
     }
     QCOMPARE(queryResult.data.size(), 3);
 
+    QSet<QString> versions;
     GetObjectsResult gor = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(gor.data.size(), 3);
+    foreach (const JsonDbObject &o, gor.data)
+        versions.insert(o.value(JsonDbString::kVersionStr).toString());
+
+    // now add a phone number to one of the source items
+    query2.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"Contact\"][?displayName=\"Joe Smith\"]"));
+    queryResult = mJsonDb->find(mOwner, query2);
+    verifyGoodQueryResult(queryResult);
+    firstItem = queryResult.data.at(0);
+    QJsonObject newInfo;
+    newInfo.insert(QLatin1String("type"), QLatin1String("satellite"));
+    newInfo.insert(QLatin1String("number"), QLatin1String("+22-555222222"));
+    QJsonArray phoneNumbers = firstItem.value("phoneNumbers").toArray();
+    phoneNumbers.append(newInfo);
+    firstItem.insert("phoneNumbers", phoneNumbers);
+
+    result = mJsonDb->update(mOwner, firstItem);
+    verifyGoodResult(result);
+
+    gor = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    QCOMPARE(gor.data.size(), 4);
+    // verify only one object got updated
+    int numChanges = 0;
+    foreach (const JsonDbObject &o, gor.data)
+        if (!versions.contains(o.value(JsonDbString::kVersionStr).toString()))
+            numChanges++;
+    QCOMPARE(numChanges, 1);
 
     for (int i = 0; i < mapsReduces.size(); ++i) {
         JsonDbObject object = mapsReduces.at(i);

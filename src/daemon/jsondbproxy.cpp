@@ -100,6 +100,14 @@ void JsonDbJoinProxy::lookup(const QJSValue &spec, const QJSValue &context)
     emit lookupRequested(spec, context);
 }
 
+QString JsonDbJoinProxy::createUuidFromString(const QString &id)
+{
+    JsonDbObject o;
+    o.insert(QLatin1String("_id"), id);
+    o.generateUuid();
+    return o.value(JsonDbString::kUuidStr).toString();
+}
+
 Console::Console()
 {
 }

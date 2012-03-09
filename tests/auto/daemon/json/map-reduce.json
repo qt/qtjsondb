@@ -60,7 +60,14 @@
   {
     "_type": "Map",
     "targetType": "Phone",
-    "map": {"Contact": "function (c) { for (var i in c.phoneNumbers) { var phone = c.phoneNumbers[i]; jsondb.emit({key: phone.number, displayName: c.displayName}); }}"}
+    "map": {"Contact": "function (c) {\
+                           for (var i in c.phoneNumbers) {\
+                              var phone = c.phoneNumbers[i];\
+                              var id = c.displayName + ':' + phone.number; \
+                              var uuid = jsondb.createUuidFromString(id); \
+                              jsondb.emit({_uuid: uuid, key: phone.number, displayName: c.displayName});\
+                           }\
+                        }"}
   },
   {
     "_type": "Reduce",

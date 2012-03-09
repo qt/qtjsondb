@@ -81,6 +81,7 @@ public:
 
     Q_SCRIPTABLE void create(const QJSValue &value );
     Q_SCRIPTABLE void lookup(const QJSValue &spec, const QJSValue &context );
+    Q_SCRIPTABLE QString createUuidFromString(const QString &id);
 
     void setOwner(const JsonDbOwner *owner) { mOwner = owner; }
 
