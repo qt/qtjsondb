@@ -84,15 +84,17 @@ public:
 
     void initScriptEngine();
     void releaseScriptEngine();
-    void mapObject(JsonDbObject object);
-    void unmapObject(const JsonDbObject &object);
     void setError(const QString &errorMsg);
-
+    void updateObject(const JsonDbObject &before, const JsonDbObject &after);
     static bool validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message);
 
 public slots:
     void viewObjectEmitted(const QJSValue &value);
     void lookupRequested(const QJSValue &spec, const QJSValue &context);
+
+private:
+    void mapObject(JsonDbObject object);
+    void unmapObject(const JsonDbObject &object);
 
 private:
     JsonDb        *mJsonDb;
@@ -109,6 +111,7 @@ private:
     JsonDbObjectTable   *mTargetTable;
     QMap<QString,JsonDbObjectTable *> mSourceTables;
     QList<QString> mSourceUuids;
+    QHash<QString,JsonDbObject> mEmittedObjects;
 };
 
 QT_END_NAMESPACE_JSONDB

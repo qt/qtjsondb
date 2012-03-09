@@ -98,23 +98,23 @@ void JsonDbMapDefinition::definitionCreated()
 
   mTargetTable->addIndexOnProperty(QLatin1String("_sourceUuids.*"), QLatin1String("string"), mTargetType);
 
-  foreach (const QString &sourceType, mSourceTypes) {
-    GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, sourceType);
-    if (!getObjectResponse.error.isNull()) {
-      if (jsondbSettings->verbose())
-        qDebug() << "createMapDefinition" << mSourceTypes << sourceType << mTargetType << getObjectResponse.error.toString();
-      setError(getObjectResponse.error.toString());
-      return;
+    foreach (const QString &sourceType, mSourceTypes) {
+        GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, sourceType);
+        if (!getObjectResponse.error.isNull()) {
+            if (jsondbSettings->verbose())
+                qDebug() << "createMapDefinition" << mSourceTypes << sourceType << mTargetType << getObjectResponse.error.toString();
+            setError(getObjectResponse.error.toString());
+            return;
+        }
+        JsonDbObjectList objects = getObjectResponse.data;
+        bool isJoin = mDefinition.contains(QLatin1String("join"));
+        for (int i = 0; i < objects.size(); i++) {
+            JsonDbObject object(objects.at(i));
+            if (isJoin)
+                unmapObject(object);
+            updateObject(JsonDbObject(), objects.at(i));
+        }
     }
-    JsonDbObjectList objects = getObjectResponse.data;
-    bool isJoin = mDefinition.contains(QLatin1String("join"));
-    for (int i = 0; i < objects.size(); i++) {
-      JsonDbObject object(objects.at(i));
-      if (isJoin)
-        unmapObject(object);
-      mapObject(objects.at(i));
-    }
-  }
 }
 
 void JsonDbMapDefinition::definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid)
@@ -189,6 +189,60 @@ void JsonDbMapDefinition::releaseScriptEngine()
     mMapFunctions.clear();
     delete mScriptEngine;
     mScriptEngine = 0;
+}
+
+void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const JsonDbObject &afterObject)
+{
+    QHash<QString, JsonDbObject> unmappedObjects;
+    mEmittedObjects.clear();
+
+    if (!beforeObject.isEmpty()) {
+        QJsonValue uuid = beforeObject.value(JsonDbString::kUuidStr);
+        GetObjectsResult getObjectResponse = mTargetTable->getObjects("_sourceUuids.*", uuid, mTargetType);
+        foreach (const JsonDbObject &unmappedObject, getObjectResponse.data) {
+            QString uuid = unmappedObject.value(JsonDbString::kUuidStr).toString();
+            unmappedObjects[uuid] = unmappedObject;
+        }
+    }
+
+    mapObject(afterObject);
+
+    for (QHash<QString, JsonDbObject>::const_iterator it = unmappedObjects.begin();
+         it != unmappedObjects.end();
+         ++it) {
+        const JsonDbObject &unmappedObject = it.value();
+        QString uuid = unmappedObject.value(JsonDbString::kUuidStr).toString();
+        QJsonObject res;
+        //qDebug() << "unmappedObject" << unmappedObject << mEmittedObjects.contains(uuid);
+        if (mEmittedObjects.contains(uuid)) {
+            JsonDbObject emittedObject(mEmittedObjects.value(uuid));
+            if (emittedObject == it.value()) {
+                // skip duplicates
+                qDebug() << "skipping dup";
+                continue;
+            } else
+                // update changed view objects
+                res = mJsonDb->updateViewObject(mOwner, emittedObject, mPartition->name());
+
+            mEmittedObjects.remove(uuid);
+        } else
+            // remove unmatched objects
+            res = mJsonDb->removeViewObject(mOwner, unmappedObject, mPartition->name());
+
+        if (JsonDb::responseIsError(res))
+            setError("Error removing view object: " +
+                     res.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString());
+    }
+
+    for (QHash<QString, JsonDbObject>::const_iterator it = mEmittedObjects.begin();
+         it != mEmittedObjects.end();
+         ++it) {
+        JsonDbObject newItem(it.value());
+        QJsonObject res = mJsonDb->updateViewObject(mOwner, newItem, mPartition->name());
+        if (JsonDb::responseIsError(res))
+            setError("Error creating view object: " +
+                     res.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString());
+    }
 }
 
 QJSValue JsonDbMapDefinition::mapFunction(const QString &sourceType) const
@@ -293,10 +347,11 @@ void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
         sourceUuids.append(str);
     newItem.insert("_sourceUuids", sourceUuids);
 
-    QJsonObject res = mJsonDb->createViewObject(mOwner, newItem, mPartition->name());
-    if (JsonDb::responseIsError(res))
-        setError("Error executing map function during emitViewObject: " +
-                 res.value(JsonDbString::kErrorStr).toObject().value(JsonDbString::kMessageStr).toString());
+    if (!newItem.contains(JsonDbString::kUuidStr))
+        newItem.generateUuid();
+
+    QString uuid = newItem.value(JsonDbString::kUuidStr).toString();
+    mEmittedObjects.insert(uuid, newItem);
 }
 
 bool JsonDbMapDefinition::isActive() const

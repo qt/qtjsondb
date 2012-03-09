@@ -340,34 +340,24 @@ void JsonDbView::updateView()
             QJsonObject change = changeList.at(i).toObject();
             QJsonValue before = change.value("before");
             QJsonValue after = change.value("after");
-            if (!before.isUndefined()) {
-                QJsonObject beforeObject = before.toObject();
-                QString sourceType = beforeObject.value(JsonDbString::kTypeStr).toString();
-                if (mMapDefinitionsBySource.contains(sourceType)) {
-                    JsonDbMapDefinition *def = mMapDefinitionsBySource.value(sourceType);
-                    if (processedDefinitionUuids.contains(def->uuid()))
-                        continue;
-                    def->unmapObject(beforeObject);
-                }
-            }
-            if (after.type() == QJsonValue::Object) {
-                QJsonObject afterObject = after.toObject();
-                if (!afterObject.isEmpty()
-                    && !afterObject.contains(JsonDbString::kDeletedStr)
-                    && !afterObject.value(JsonDbString::kDeletedStr).toBool()) {
-                    QString sourceType = afterObject.value(JsonDbString::kTypeStr).toString();
-                    if (mMapDefinitionsBySource.contains(sourceType)) {
-                        JsonDbMapDefinition *def = mMapDefinitionsBySource.value(sourceType);
-                        if (processedDefinitionUuids.contains(def->uuid()))
-                            continue;
-                        def->mapObject(afterObject);
-                    }
-                }
-            }
+
             QJsonObject beforeObject = before.toObject();
             QJsonObject afterObject = after.toObject();
             QString beforeType = beforeObject.value(JsonDbString::kTypeStr).toString();
             QString afterType = afterObject.value(JsonDbString::kTypeStr).toString();
+
+            if (mMapDefinitionsBySource.contains(beforeType)) {
+                JsonDbMapDefinition *def = mMapDefinitionsBySource.value(beforeType);
+                if (processedDefinitionUuids.contains(def->uuid()))
+                    continue;
+                def->updateObject(beforeObject, afterObject);
+            } else if (mMapDefinitionsBySource.contains(afterType)) {
+                JsonDbMapDefinition *def = mMapDefinitionsBySource.value(afterType);
+                if (processedDefinitionUuids.contains(def->uuid()))
+                    continue;
+                def->updateObject(beforeObject, afterObject);
+            }
+
             if (mReduceDefinitionsBySource.contains(beforeType)) {
                 JsonDbReduceDefinition *def = mReduceDefinitionsBySource.value(beforeType);
                 if (processedDefinitionUuids.contains(def->uuid()))
