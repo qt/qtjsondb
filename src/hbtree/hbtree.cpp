@@ -2037,7 +2037,6 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
             // TODO: add lonely page to its own history.
             HBTREE_DEBUG("making root invalid, btree empty");
             writeTransaction_->rootPage_ = PageInfo::INVALID_PAGE;
-            q->stats_.depth--;
         } else if (page->info.type == PageInfo::Branch && page->nodes.size() == 1) {
             // TODO: add branch page to history of leaf.
             // Will there be enough space?
@@ -2131,6 +2130,7 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
     return true;
 }
 
+// TODO: turn in to transferNode(src, dst) // only with same parents.
 bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePage *dst, HBtreePrivate::Node node)
 {
     Q_ASSERT(src->parent);
@@ -2149,10 +2149,7 @@ bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePa
     if (!src || !dst)
         return false;
 
-//    bool rightToLeft = node == src->nodes.constBegin();
-//    bool leftToRight = node == (src->nodes.constEnd() - 1);
-
-//    Q_ASSERT(rightToLeft || leftToRight);
+    bool decending = src->parentKey > dst->parentKey;
 
     NodeKey nkey = node.key();
 
@@ -2168,7 +2165,8 @@ bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePa
         insertNode(dst->parent, dst->parentKey, NodeValue(dst->info.number));
     }
 
-    if (src->parentKey == nkey) {
+    if (src->parentKey <= nkey && decending) {
+        Q_ASSERT(!src->parentKey.data.isEmpty());
         // must change source parent key
         NodePage *lowest;
         searchPageRoot(NULL, src, NodeKey(compareFunction_), SearchFirst, false, &lowest);
