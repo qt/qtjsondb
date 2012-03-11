@@ -272,6 +272,11 @@ bool HBtreePrivate::open(int fd)
             } else {
                 collectiblePages_ = currentMarker().collectiblePages;
             }
+
+            residueHistory_ = currentMarker().residueHistory;
+            markers_[mi_].residueHistory = QList<HistoryNode>();
+            markers_[mi_].info.upperOffset = 0;
+
         } else {
             size_ = currentMarker().meta.size;
         }
@@ -525,14 +530,20 @@ HBtreePrivate::MarkerPage HBtreePrivate::deserializeMarkerPage(const QByteArray 
     memcpy(&page.meta, buffer.constData() + sizeof(PageInfo), sizeof(MarkerPage::Meta));
 
     if (page.info.hasPayload()) {
-        Q_ASSERT(page.info.lowerOffset > 0);
-        Q_ASSERT(page.info.upperOffset == 0);
         const char *ptr = buffer.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta);
-        for (int i = 0; i < page.info.lowerOffset; ++i) {
+
+        for (int i = 0; i < page.info.lowerOffset; i += sizeof(quint32)) {
             quint32 pgno;
             memcpy(&pgno, ptr, sizeof(quint32));
             page.collectiblePages.insert(pgno);
             ptr += sizeof(quint32);
+        }
+
+        for (int i = 0; i < page.info.upperOffset; i += sizeof(HistoryNode)) {
+            HistoryNode hn;
+            memcpy(&hn, ptr, sizeof(HistoryNode));
+            page.residueHistory.append(hn);
+            ptr += sizeof(HistoryNode);
         }
     }
 
@@ -552,14 +563,19 @@ QByteArray HBtreePrivate::serializeMarkerPage(const HBtreePrivate::MarkerPage &p
     memcpy(buffer.data(), &page.info, sizeof(PageInfo));
     memcpy(buffer.data() + sizeof(PageInfo), &page.meta, sizeof(MarkerPage::Meta));
 
-    Q_ASSERT(page.info.lowerOffset == page.collectiblePages.size());
+    Q_ASSERT(page.info.lowerOffset == page.collectiblePages.size() * sizeof(quint32));
+    Q_ASSERT(page.info.upperOffset == page.residueHistory.size() * sizeof(HistoryNode));
+
     if (page.info.hasPayload()) {
-        Q_ASSERT(page.info.lowerOffset > 0);
-        Q_ASSERT(page.info.upperOffset == 0);
         char *ptr = buffer.data() + sizeof(PageInfo) + sizeof(MarkerPage::Meta);
         foreach (quint32 pgno, page.collectiblePages) {
             memcpy(ptr, &pgno, sizeof(quint32));
             ptr += sizeof(quint32);
+        }
+
+        foreach (const HistoryNode &hn, page.residueHistory) {
+            memcpy(ptr, &hn, sizeof(HistoryNode));
+            ptr += sizeof(HistoryNode);
         }
     }
 
@@ -879,37 +895,7 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
         case PageInfo::Branch:
         case PageInfo::Leaf: {
             NodePage *np = static_cast<NodePage *>(it.value());
-
-            // reclaim
-            QVector<HistoryNode>::iterator it = np->history.begin();
-            while (it != np->history.end()) {
-
-                // collect pages before last sync
-                bool canCollect = currentMarker().meta.syncedRevision && it->syncNumber < lastSyncedRevision_;
-
-                // or collect pages that have not been synced yet (sync revision greater than last sync)
-                // and are no longer referenced by the 2 ping pong markers (ie. commit number is less
-                // than current commit number - 1)
-                canCollect |= currentMarker().meta.revision
-                        && it->commitNumber < (currentMarker().meta.revision - 1)
-                        && it->commitNumber > lastSyncedRevision_;
-
-                if (canCollect) {
-                    HBTREE_DEBUG("adding page from history" << *it << "to collectible list");
-                    collectiblePages_.insert(it->pageNumber);
-                    if (cache_.contains(it->pageNumber)) {
-                        // delete from cache since we'll be reusing... or
-                        // maybe not delete and keep a bool collectible in Page?
-                        Q_ASSERT(cache_[it->pageNumber]->commited);
-                        deletePage(cache_[it->pageNumber]);
-                        cache_.remove(it->pageNumber);
-                    }
-                    it = np->history.erase(it);
-                    np->meta.historySize--;
-                    continue;
-                }
-                ++it;
-            }
+            np->meta.historySize -= collectHistory(&np->history);
             break;
         }
         case PageInfo::Overflow:
@@ -926,6 +912,8 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
         it = dirtyPages_.erase(it);
     }
 
+    collectHistory(&residueHistory_);
+
     size_ = lseek(fd_, 0, SEEK_END);
     dirtyPages_.clear();
 
@@ -937,12 +925,19 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
     mp.meta.rootPage = transaction->rootPage_;
     mp.meta.tag = tag;
     mp.meta.size = size_;
+
+    // TODO: check enough space...
     mp.collectiblePages = collectiblePages_;
-    mp.info.lowerOffset = collectiblePages_.size();
+    mp.info.lowerOffset = collectiblePages_.size() * sizeof(quint32);
+    mp.residueHistory = residueHistory_;
+    mp.info.upperOffset = residueHistory_.size() * sizeof(HistoryNode);
+
     QByteArray ba = serializePage(mp);
     if (!writePage(&ba))
         return false;
     mi_ = mi;
+
+    Q_ASSERT(verifyIntegrity(&currentMarker()));
 
     abort(transaction);
 
@@ -1166,7 +1161,7 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
     }
 
     bool ok = false;
-    if (spaceNeededForNode(keyData, valueData) <= nodeSpaceLeft(page))
+    if (spaceNeededForNode(keyData, valueData) <= spaceLeft(page))
         ok = insertNode(page, nkey, nval);
     else
         ok = split(page, nkey, nval);
@@ -1509,6 +1504,41 @@ void HBtreePrivate::collectPages(const QList<quint32> &pagesUsedSorted)
         collectiblePages_.insert(n++);
 }
 
+quint16 HBtreePrivate::collectHistory(QList<HBtreePrivate::HistoryNode> *history)
+{
+    quint16 numRemoved = 0;
+    QList<HistoryNode>::iterator it = history->begin();
+    while (it != history->end()) {
+
+        // collect pages before last sync
+        bool canCollect = currentMarker().meta.syncedRevision && it->syncNumber < lastSyncedRevision_;
+
+        // or collect pages that have not been synced yet (sync revision greater than last sync)
+        // and are no longer referenced by the 2 ping pong markers (ie. commit number is less
+        // than current commit number - 1)
+        canCollect |= currentMarker().meta.revision
+                && it->commitNumber < (currentMarker().meta.revision - 1)
+                && it->commitNumber > lastSyncedRevision_;
+
+        if (canCollect) {
+            HBTREE_DEBUG("adding page from history" << *it << "to collectible list");
+            collectiblePages_.insert(it->pageNumber);
+            if (cache_.contains(it->pageNumber)) {
+                // delete from cache since we'll be reusing... or
+                // maybe not delete and keep a bool collectible in Page?
+                Q_ASSERT(cache_[it->pageNumber]->commited);
+                deletePage(cache_[it->pageNumber]);
+                cache_.remove(it->pageNumber);
+            }
+            it = history->erase(it);
+            numRemoved++;
+            continue;
+        }
+        ++it;
+    }
+    return numRemoved;
+}
+
 bool HBtreePrivate::searchPage(HBtreeCursor *cursor, HBtreeTransaction *transaction, const NodeKey &key, SearchType searchType,
                                bool modify, HBtreePrivate::NodePage **pageOut)
 {
@@ -1750,13 +1780,13 @@ quint16 HBtreePrivate::headerSize(const Page *page) const
     return 0;
 }
 
-quint16 HBtreePrivate::nodeSpaceLeft(const NodePage *page) const
+quint16 HBtreePrivate::spaceLeft(const Page *page) const
 {
-    Q_ASSERT(nodeSpaceUsed(page) <= capacity(page));
-    return capacity(page) - nodeSpaceUsed(page);
+    Q_ASSERT(spaceUsed(page) <= capacity(page));
+    return capacity(page) - spaceUsed(page);
 }
 
-quint16 HBtreePrivate::nodeSpaceUsed(const NodePage *page) const
+quint16 HBtreePrivate::spaceUsed(const Page *page) const
 {
     return page->info.upperOffset + page->info.lowerOffset;
 }
@@ -1768,7 +1798,7 @@ quint16 HBtreePrivate::capacity(const Page *page) const
 
 quint32 HBtreePrivate::pageFullEnough(HBtreePrivate::NodePage *page) const
 {
-    double pageFill = 1.0 - (float)nodeSpaceLeft(page) / (float)capacity(page);
+    double pageFill = 1.0 - (float)spaceLeft(page) / (float)capacity(page);
     pageFill *= 100.0f;
     HBTREE_DEBUG("page fill" << pageFill << "is" << (pageFill > spec_.pageFillThreshold ? "" : "not") << "grater than fill threshold" << spec_.pageFillThreshold);
     return pageFill > spec_.pageFillThreshold;
@@ -1776,9 +1806,9 @@ quint32 HBtreePrivate::pageFullEnough(HBtreePrivate::NodePage *page) const
 
 bool HBtreePrivate::hasSpaceFor(HBtreePrivate::NodePage *page, const HBtreePrivate::NodeKey &key, const HBtreePrivate::NodeValue &value) const
 {
-    quint16 spaceLeft = nodeSpaceLeft(page);
+    quint16 left = spaceLeft(page);
     quint16 spaceRequired = spaceNeededForNode(key.data, value.data);
-    return spaceLeft >= spaceRequired;
+    return left >= spaceRequired;
 }
 
 bool HBtreePrivate::insertNode(NodePage *page, const NodeKey &key, const NodeValue &value)
@@ -1955,7 +1985,7 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
     HBTREE_DEBUG("set right parent to left parent");
 
     // split branch if no space
-    if (spaceNeededForNode(splitKey.data, splitValue.data) >= nodeSpaceLeft(right->parent)) {
+    if (spaceNeededForNode(splitKey.data, splitValue.data) >= spaceLeft(right->parent)) {
         HBTREE_DEBUG("not enough space in right parent - splitting:");
         if (!split(right->parent, splitKey, splitValue)) {
             HBTREE_ERROR("failed to split parent" << *right->parent);
@@ -1986,7 +2016,7 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
             // There's a corner case where a 3-way split becomes necessary, when the new node
             // is too big for the left page. If this is true then key should be <= than node.key
             // (since it may have been already inserted) and value should not be an overflow.
-            if (spaceNeededForNode(node.key().data, node.value().data) > nodeSpaceLeft(left)) {
+            if (spaceNeededForNode(node.key().data, node.value().data) > spaceLeft(left)) {
                 Q_ASSERT(left->info.type != PageInfo::Branch); // This should never happen with a branch page
                 Q_ASSERT(key <= node.key());
                 Q_ASSERT(willCauseOverflow(key.data, value.data) == false);
@@ -1998,7 +2028,7 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
                 continue;
             }
 
-            Q_ASSERT(spaceNeededForNode(node.key().data, node.value().data) <= nodeSpaceLeft(left));
+            Q_ASSERT(spaceNeededForNode(node.key().data, node.value().data) <= spaceLeft(left));
 
             if (!insertNode(left, node.key(), node.value())) {
                 HBTREE_ERROR("failed to insert key in to left");
@@ -2007,7 +2037,7 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
             HBTREE_VERBOSE("inserted" << node.key() << "in left");
         }
         else {
-            Q_ASSERT(spaceNeededForNode(node.key().data, node.value().data) <= nodeSpaceLeft(right));
+            Q_ASSERT(spaceNeededForNode(node.key().data, node.value().data) <= spaceLeft(right));
             if (!insertNode(right, node.key(), node.value())) {
                 HBTREE_ERROR("failed to insert key in to right");
                 return false;
@@ -2057,20 +2087,18 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
         Q_ASSERT(page->info.number == writeTransaction_->rootPage_);
         Q_Q(HBtree);
         if (page->nodes.size() == 0) {
-            // TODO: add lonely page to its own history.
             HBTREE_DEBUG("making root invalid, btree empty");
             writeTransaction_->rootPage_ = PageInfo::INVALID_PAGE;
+            distributeHistoryNodes(NULL, page->history);
+            distributeHistoryNodes(NULL, HistoryNode(page));
         } else if (page->info.type == PageInfo::Branch && page->nodes.size() == 1) {
-            // TODO: add branch page to history of leaf.
-            // Will there be enough space?
-
-            // Set parent to null since this baby might be in the cache
-            // TODO: add a better way to do this.
             NodePage *root = static_cast<NodePage *>(getPage(page->nodes.constBegin().value().overflowPage));
             root->parent = NULL;
             writeTransaction_->rootPage_ = page->nodes.constBegin().value().overflowPage;
             HBTREE_DEBUG("One node in root branch" << page->info << "setting root to page" << writeTransaction_->rootPage_);
             q->stats_.depth--;
+            distributeHistoryNodes(root, page->history);
+            distributeHistoryNodes(root, HistoryNode(page));
         } else {
             HBTREE_DEBUG("No need to rebalance root page");
         }
@@ -2117,7 +2145,7 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
             if (sourceNode.key().data.size() >
                     neighbour->parentKey.data.size()) {
                 quint16 diff = sourceNode.key().data.size() - neighbour->parentKey.data.size();
-                if (diff > nodeSpaceLeft(neighbour->parent))
+                if (diff > spaceLeft(neighbour->parent))
                     canUpdate = false;
             }
         }
@@ -2130,7 +2158,7 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
             if (sourceNode.key().data.size() >
                     page->parentKey.data.size()) {
                 quint16 diff = sourceNode.key().data.size() - page->parentKey.data.size();
-                if (diff > nodeSpaceLeft(page->parent))
+                if (diff > spaceLeft(page->parent))
                     canUpdate = false;
             }
         }
@@ -2141,10 +2169,10 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
     } else {
         // Account for transfer of history
         // Account for extra history node in dst page in the case of touch page.
-        if (nodeSpaceLeft(page) >= (nodeSpaceUsed(neighbour) + sizeof(HistoryNode) * (neighbour->history.size() + 1))) {
+        if (spaceLeft(page) >= (spaceUsed(neighbour) + sizeof(HistoryNode) * (neighbour->history.size() + 1))) {
             if (!mergePages(neighbour, page))
                 return false;
-        } else if (nodeSpaceLeft(neighbour) >= (nodeSpaceUsed(page) + sizeof(HistoryNode) * (page->history.size() + 1))) {
+        } else if (spaceLeft(neighbour) >= (spaceUsed(page) + sizeof(HistoryNode) * (page->history.size() + 1))) {
             if (!mergePages(page, neighbour))
                 return false;
         }
@@ -2299,54 +2327,46 @@ bool HBtreePrivate::mergePages(HBtreePrivate::NodePage *page, HBtreePrivate::Nod
     return rebalance(dst->parent);
 }
 
-bool HBtreePrivate::distributeHistoryNodes(HBtreePrivate::NodePage *primary, const QList<HBtreePrivate::HistoryNode> &historyNodes) const
+bool HBtreePrivate::distributeHistoryNodes(HBtreePrivate::NodePage *primary, const QList<HBtreePrivate::HistoryNode> &historyNodes)
 {
-    Q_ASSERT(!primary->commited);
     HBTREE_DEBUG("ditributing history nodes" << historyNodes);
 
-    // check primary.
-    // check other dirty pages...
-
-    int requiredBytes = historyNodes.size() * sizeof(HistoryNode);
-    if (nodeSpaceLeft(primary) >= requiredBytes) { // all good, add them all to primary candidate
-        HBTREE_DEBUG("adding to primary candidate" << primary->info);
-        foreach (const HistoryNode &hn, historyNodes) {
-            primary->history.append(hn);
-            primary->meta.historySize++;
-        }
-        return true;
-    }
-
-    HBTREE_DEBUG("could not fit in primary canddiate. Checking dirty pages");
-    // Brute force the dirty page queue
-    foreach (Page *page, dirtyPages_.values()) {
-        if (page != primary
-                && (page->info.type != PageInfo::Leaf || page->info.type != PageInfo::Branch)
-                && nodeSpaceLeft(static_cast<NodePage *>(page)) >= requiredBytes) {
-            NodePage *np = static_cast<NodePage *>(page);
-            HBTREE_DEBUG("found dirty node page" << np->info);
+    if (primary) {
+        int requiredBytes = historyNodes.size() * sizeof(HistoryNode);
+        Q_ASSERT(!primary->commited);
+        if (spaceLeft(primary) >= requiredBytes) { // all good, add them all to primary candidate
+            HBTREE_DEBUG("adding to primary candidate" << primary->info);
             foreach (const HistoryNode &hn, historyNodes) {
-                np->history.append(hn);
-                np->meta.historySize++;
+                primary->history.append(hn);
+                primary->meta.historySize++;
             }
             return true;
         }
+
+        HBTREE_DEBUG("could not fit in primary canddiate. Checking dirty pages");
+        // Brute force the dirty page queue
+        foreach (Page *page, dirtyPages_.values()) {
+            if (page != primary
+                    && (page->info.type == PageInfo::Leaf || page->info.type == PageInfo::Branch)
+                    && spaceLeft(static_cast<NodePage *>(page)) >= requiredBytes) {
+                NodePage *np = static_cast<NodePage *>(page);
+                HBTREE_DEBUG("found dirty node page" << np->info);
+                foreach (const HistoryNode &hn, historyNodes) {
+                    np->history.append(hn);
+                    np->meta.historySize++;
+                }
+                return true;
+            }
+        }
     }
 
-    // Pray we never hit this...
-    HBTREE_ERROR("Lost history pages" << historyNodes);
-    Q_ASSERT(0);
+    HBTREE_ERROR("putting history nodes in residue");
+    residueHistory_.append(historyNodes);
 
-    // Alternatively, build a list of candidates and check if it can be distributed around
-//    QList<NodePage *> candidates;
-    // Or... add them to a marker page?
-
-    // uh oh... now what? do we need some sort of compaction??
-    // or can we just lose out?
-    return false;
+    return true;
 }
 
-bool HBtreePrivate::distributeHistoryNodes(HBtreePrivate::NodePage *primary, const HBtreePrivate::HistoryNode &historyNode) const
+bool HBtreePrivate::distributeHistoryNodes(HBtreePrivate::NodePage *primary, const HBtreePrivate::HistoryNode &historyNode)
 {
     QList<HistoryNode> nodes;
     nodes.append(historyNode);
@@ -2565,11 +2585,14 @@ bool HBtreePrivate::verifyIntegrity(const HBtreePrivate::Page *page) const
     CHECK_TRUE(page->info.isTypeValid());
     CHECK_TRUE(page->info.isValid());
     CHECK_TRUE(capacity(page) >= (page->info.upperOffset + page->info.lowerOffset));
+    CHECK_TRUE(spaceLeft(page) <= capacity(page));
+    CHECK_TRUE(spaceUsed(page) <= capacity(page));
+    CHECK_TRUE((spaceUsed(page) + spaceLeft(page)) == capacity(page));
     if (page->info.type == PageInfo::Marker) {
         const MarkerPage *mp = static_cast<const MarkerPage *>(page);
         CHECK_TRUE(mp->info.number == currentMarker().info.number); // only verify current marker
-        CHECK_TRUE(mp->info.lowerOffset == mp->collectiblePages.size());
-        CHECK_TRUE(mp->info.upperOffset == 0);
+        CHECK_TRUE(mp->info.lowerOffset == mp->collectiblePages.size() * sizeof(quint32));
+        CHECK_TRUE(mp->info.upperOffset == mp->residueHistory.size() * sizeof(HistoryNode));
         CHECK_TRUE(mp->meta.size <= size_);
         CHECK_TRUE(mp->meta.syncedRevision == lastSyncedRevision_ || mp->meta.syncedRevision == (lastSyncedRevision_ + 1));
         //if (mp->meta.syncedRevision == lastSyncedRevision_) // we just synced
@@ -2590,9 +2613,6 @@ bool HBtreePrivate::verifyIntegrity(const HBtreePrivate::Page *page) const
             CHECK_TRUE(np->meta.commitId > currentMarker().meta.revision);
             CHECK_TRUE(np->meta.syncId == (lastSyncedRevision_ + 1));
         }
-        CHECK_TRUE(nodeSpaceLeft(np) <= capacity(np));
-        CHECK_TRUE(nodeSpaceUsed(np) <= capacity(np));
-        CHECK_TRUE((nodeSpaceUsed(np) + nodeSpaceLeft(np)) == capacity(np));
 
         Node it = np->nodes.constBegin();
 
