@@ -1921,8 +1921,31 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
 
     insertNode(&copy, key, value); // no need to insert full value here??
     HBTREE_DEBUG("inserted key/value" << key << "in copy");
-
-    int splitIndex = copy.nodes.size() / 2 + 1; // bias for left page
+    int splitIndex = 0;
+    if (copy.info.type == PageInfo::Branch) {
+        // Branch page should be fine to split in the middle since there's
+        // no data and just keys...
+        splitIndex = copy.nodes.size() / 2 + 1; // bias for left page
+    } else if (copy.info.type == PageInfo::Leaf) {
+        // Find node at which number of bytes exceeds half
+        // the capacity of the left page
+        quint16 threshold = capacity(left) / 2;
+        threshold -= (spec_.overflowThreshold / 2);
+        // Note: subtracting (spec_.overflowThreshold / 2) from the threshold seems to increase file size
+        // when inserting contigious data. Adding the same decreases the file size.
+        // Decreases file size with random data.
+        quint16 current = 0;
+        Node it = copy.nodes.constBegin();
+        while (current < threshold && it != copy.nodes.constEnd()) {
+            current += spaceNeededForNode(it.key().data, it.value().data);
+            ++it;
+            splitIndex++;
+        }
+    } else {
+        Q_ASSERT(0);
+        HBTREE_ERROR("Splitting unknown page type");
+        return false;
+    }
     HBTREE_DEBUG("splitIndex =" << splitIndex << "from" << copy.nodes.size() << "nodes in copy");
     Node splitIter = copy.nodes.constBegin() + splitIndex;
     NodeKey splitKey = splitIter.key();
