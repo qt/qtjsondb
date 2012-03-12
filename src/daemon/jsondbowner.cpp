@@ -50,10 +50,6 @@ QT_BEGIN_NAMESPACE_JSONDB
 JsonDbOwner::JsonDbOwner( QObject *parent )
     : QObject(parent), mStorageQuota(-1), mAllowAll(false)
 {
-    QList<QString> defaultQueries;
-    defaultQueries.append(".*");
-    setAllowedObjects("all", "read", defaultQueries);
-    setAllowedObjects("all", "write", defaultQueries);
 }
 
 JsonDbOwner::~JsonDbOwner()
@@ -145,6 +141,9 @@ bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
         query->bind(QString(QLatin1String("typeDomain")), tdval);
         if (query->match(object, NULL, NULL))
             return true;
+    }
+    if (jsondbSettings->verbose()) {
+        qDebug () << "Not allowed" << ownerId() << partition << _type << op;
     }
     return false;
 }

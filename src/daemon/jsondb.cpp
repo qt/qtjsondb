@@ -467,6 +467,7 @@ JsonDb::JsonDb(const QString &filePath, const QString &baseName, const QString &
 
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId(username);
+    mOwner->setAllowAll(true);
 }
 
 JsonDb::~JsonDb()

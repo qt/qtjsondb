@@ -124,6 +124,7 @@ private:
 #endif
     bool wasRoot;
     uid_t uidUsed;
+    uid_t uid2Used;
     QList<gid_t> gidsAdded;
     bool failed;
     void removeDbFiles();
@@ -351,19 +352,34 @@ void TestJsonDbClient::initTestCase()
             qDebug () << "user" << old_pwd->pw_name << "found from" << uid;
             uid++;
         }
+        uid_t uid2 = uid+1;
+        while ((old_pwd = getpwuid(uid2)) != NULL) {
+            qDebug () << "user" << old_pwd->pw_name << "found from" << uid2;
+            uid2++;
+        }
         gid_t gid = nextFreeGid(1042);
+        gid_t gid2 = nextFreeGid(gid+1);
         QString appName = QString("com.test.foo.%1").arg(getpid());
+        // Tes app name for app without any supplementary groups
+        QString app2Name = QString("com.test.bar.%1").arg(getpid());
         if (!errno) {
-            // Add primary group
+            // Add primary groups
             struct group grp;
             grp.gr_name = appName.toLocal8Bit().data();
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
             grp.gr_mem = (char *[]){NULL};
+            struct group grp2;
+            grp2.gr_name = app2Name.toLocal8Bit().data();
+            grp2.gr_passwd = NULL;
+            grp2.gr_gid = gid2;
+            grp2.gr_mem = (char *[]){NULL};
             FILE *grfile = ::fopen (etcigr.toLocal8Bit().data(), "a");
             ::putgrent(&grp, grfile);
+            ::putgrent(&grp2, grfile);
             ::fclose (grfile);
             gidsAdded.append(gid);
+            gidsAdded.append(gid2);
 
             // Add the user
             struct passwd pwd;
@@ -374,15 +390,25 @@ void TestJsonDbClient::initTestCase()
             pwd.pw_gecos = NULL;
             pwd.pw_dir = NULL;
             pwd.pw_shell = NULL;
+            struct passwd pwd2;
+            pwd2.pw_name = app2Name.toLocal8Bit().data();
+            pwd2.pw_passwd = NULL;
+            pwd2.pw_uid = uid2;
+            pwd2.pw_gid = gid2;
+            pwd2.pw_gecos = NULL;
+            pwd2.pw_dir = NULL;
+            pwd2.pw_shell = NULL;
             FILE *pwdfile = ::fopen (etcipwd.toLocal8Bit().data(), "a");
             ::putpwent(&pwd, pwdfile);
+            ::putpwent(&pwd2, pwdfile);
             ::fclose (pwdfile);
 
-            // Add 'User' supplementary group for
-            gid = nextFreeGid(gid+1);
+            // Add 'User' supplementary group
+            gid = nextFreeGid(gid2+1);
             grp.gr_name = const_cast<char *>("User");
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
+            // Add only the first user to it
             grp.gr_mem = (char *[]){appName.toLocal8Bit().data(), NULL};
             grfile = ::fopen (etcigr.toLocal8Bit(), "a");
             ::putgrent(&grp, grfile);
@@ -390,6 +416,7 @@ void TestJsonDbClient::initTestCase()
             gidsAdded.append(gid);
             ::seteuid (uid);
             uidUsed = uid;
+            uid2Used = uid2;
             qDebug() << "Setting euid to: " << uid;
 
         }
@@ -413,9 +440,35 @@ void TestJsonDbClient::cleanupTestCase()
 #endif
         ::kill(mProcess, SIGTERM);
 #if !defined(Q_OS_MAC)
-        // TODO clean passwd & group here
         if (wasRoot) {
-            ;
+            // Clean passwd
+            FILE *newpasswd = ::fopen("newpasswd", "w");
+            setpwent ();
+            struct passwd *pwd;
+            while ((pwd = ::getpwent())) {
+                if (pwd->pw_uid != uidUsed &&  pwd->pw_uid != uid2Used)
+                    ::putpwent (pwd, newpasswd);
+            }
+            ::fclose(newpasswd);
+            ::rename("newpasswd","/etc/passwd");
+            // Clean group
+            FILE *newgroup = ::fopen("newgroup", "w");
+            setgrent ();
+            struct group *grp;
+            while ((grp = ::getgrent())) {
+                bool found = false;
+                foreach (gid_t gid, gidsAdded) {
+                    if (grp->gr_gid ==  gid) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                    ::putgrent (grp, newgroup);
+            }
+            ::fclose(newgroup);
+            ::rename("newgroup","/etc/group");
         }
 #endif
     }
@@ -498,7 +551,6 @@ void TestJsonDbClient::createList()
         item.insert("name", names[count]);
         list << item;
     }
-
     int id = mClient->create(list);
     waitForResponse1(id);
     QCOMPARE(mData.toMap().value("count").toInt(), count);
@@ -509,6 +561,7 @@ void TestJsonDbClient::createList()
     id = mClient->find(query);
     waitForResponse1(id);
     QCOMPARE(mData.toMap().value("length").toInt(), count);
+
 
     // Extract the uuids and put into a separate list
     QVariantList toDelete;
@@ -655,7 +708,35 @@ void TestJsonDbClient::find()
         nameList << names[count - i - 1];
     }
     QCOMPARE(answerNames, nameList);
+#if !defined(Q_OS_MAC)
+    if (wasRoot) {
+        // Set user id that has no supplementary groups
+        mClient->disconnectFromServer();
+        delete mClient;
+        mClient = NULL;
 
+        qDebug() << "Setting uid to" << uid2Used;
+        ::seteuid(0);
+        ::seteuid(uid2Used);
+        connectToServer();
+
+        // Read should fail
+        query = QVariantMap();
+        query.insert("query", "[?_type=\"com.test.find-test\"][\\name]");
+        id = mClient->find(query);
+        waitForResponse1(id);
+        answer = mData.toMap().value("data").toList();
+        QCOMPARE(answer.size(), 0);
+
+        // Go back to 'capable' user
+        mClient->disconnectFromServer();
+        delete mClient;
+        mClient = NULL;
+        ::seteuid(0);
+        ::seteuid(uidUsed);
+        connectToServer();
+    }
+#endif
 }
 
 void TestJsonDbClient::index()

@@ -366,6 +366,8 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
         JsonDbOwner *owner = new JsonDbOwner(this);
         owner->setOwnerId(QString::fromLatin1("unknown app %1").arg((intptr_t)stream));
         owner->setDomain("unknown app domain");
+        owner->setAllowAll(true);
+        owner->setStorageQuota(-1);
         mOwners[device] = owner;
     }
 #endif
@@ -601,8 +603,6 @@ JsonDbOwner *DBServer::createDummyOwner( JsonStream *stream)
     owner = new JsonDbOwner(this);
     owner->setOwnerId(QString("unknown app"));
     owner->setDomain(QString("unknown domain"));
-    QJsonObject capabilities;
-    owner->setCapabilities(capabilities, mJsonDb);
     mOwners[stream->device()] = owner;
 
     return mOwners[stream->device()];
