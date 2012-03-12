@@ -72,6 +72,9 @@ private slots:
     void openClose_data();
     void openClose();
 
+    void insertItem_data();
+    void insertItem();
+
     void insert1000Items_data();
     void insert1000Items();
 
@@ -209,6 +212,40 @@ void TestBtrees::openClose()
         QBENCHMARK {
             appendOnlyDb->close();
             QVERIFY(appendOnlyDb->open());
+        }
+    }
+}
+
+void TestBtrees::insertItem_data()
+{
+    QTest::addColumn<int>("btreeType");
+    QTest::newRow(hybridDataTag) << (int)Hybrid;
+    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+}
+
+void TestBtrees::insertItem()
+{
+    QFETCH(int, btreeType);
+    int i = 0;
+    if (btreeType == Hybrid) {
+        QBENCHMARK {
+            ++i;
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            HBtreeTransaction *txn = hybridDb->beginWrite();
+            QVERIFY(txn);
+            QVERIFY(txn->put(key, value));
+            QVERIFY(txn->commit(i));
+        }
+    } else {
+        QBENCHMARK {
+            ++i;
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QBtreeTxn *txn = appendOnlyDb->beginWrite();
+            QVERIFY(txn);
+            QVERIFY(txn->put(key, value));
+            QVERIFY(txn->commit(i));
         }
     }
 }
