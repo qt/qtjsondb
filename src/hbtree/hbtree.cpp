@@ -248,12 +248,6 @@ bool HBtreePrivate::open(int fd)
                     }
                 }
             }
-
-            // TODO: Add a prune history page boolean. Since after this we collect all pages that are
-            // reusable. If one page has history and is not touched for along time, it's history may
-            // be invalid.
-            // Idea: keep a set of pages walked, and whenever they are read, cut out their history
-
         }
 
         if (openMode_ == HBtree::ReadWrite) {
@@ -277,6 +271,9 @@ bool HBtreePrivate::open(int fd)
                 QList<quint32> totalPagesWalked = syncedPagesWalked + pingPagesWalked + pongPagesWalked;
                 qSort(totalPagesWalked);
                 collectPages(totalPagesWalked);
+
+                pagesToPrune_ = totalPagesWalked.toSet();
+
             } else {
                 collectiblePages_ = currentMarker().collectiblePages;
             }
@@ -315,6 +312,7 @@ void HBtreePrivate::close(bool doSync)
         collectiblePages_.clear();
         spec_ = Spec();
         lastSyncedRevision_ = 0;
+        pagesToPrune_.clear();
     }
 }
 
@@ -1325,6 +1323,17 @@ HBtreePrivate::NodePage *HBtreePrivate::touchNodePage(HBtreePrivate::NodePage *p
         left->rightPageNumber = newPageNumber;
     }
     copy->commited = false;
+
+    // When we walk the tree because of an ungraceful shutdown, we store all the pages not referenced
+    // by the valid root in the collectiblePages. However, there is a chance that one of the referenced
+    // pages is touched to a page that is in the referenced page's history. The pagesToPrune accounts
+    // for this
+    if (pagesToPrune_.size() && pagesToPrune_.contains(page->info.number)) {
+        copy->meta.historySize = 0;
+        copy->history.clear();
+        pagesToPrune_.remove(page->info.number);
+    }
+
     distributeHistoryNodes(copy, HistoryNode(page));
 
     Q_ASSERT(verifyIntegrity(copy));
@@ -2369,7 +2378,7 @@ bool HBtreePrivate::distributeHistoryNodes(HBtreePrivate::NodePage *primary, con
         }
     }
 
-    HBTREE_ERROR("putting history nodes in residue");
+    HBTREE_DEBUG("putting history nodes in residue");
     residueHistory_.append(historyNodes);
 
     return true;

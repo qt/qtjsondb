@@ -385,6 +385,7 @@ public:
     PageMap cache_;
     quint32 lastPage_;
     QList<HistoryNode> residueHistory_;
+    QSet<quint32> pagesToPrune_;
 
     QByteArray qInitializedByteArray() const;
     QByteArray qUninitializedByteArray() const;

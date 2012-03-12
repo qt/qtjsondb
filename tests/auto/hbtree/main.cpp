@@ -2019,9 +2019,11 @@ void TestHBtree::epicCorruptionTest_data()
 
 void TestHBtree::epicCorruptionTest()
 {
+    db->setAutoSyncRate(0);
     QFETCH(quint32, numCommits);
     QFETCH(QList<int>, markers);
 
+    const int appendCount = 100;
     const int psize = db->pageSize();
     const quint32 halfway = numCommits / 2;
     QList<QByteArray> beforeSync;
@@ -2074,6 +2076,15 @@ void TestHBtree::epicCorruptionTest()
         QCOMPARE(db->tag(), (hasLastCommit ? numCommits - 1 : numCommits  - 2));
 
     if (openable) {
+
+        for (quint32 i = numCommits; i < numCommits + appendCount; ++i) {
+            HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+            QByteArray key = QByteArray::number(i);
+            QVERIFY(txn);
+            QVERIFY(txn->put(key, key));
+            QVERIFY(txn->commit(i));
+        }
+
         if (hasBeforeSync) {
             for (int i = 0; i < beforeSync.size(); ++i) {
                 HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
@@ -2092,6 +2103,14 @@ void TestHBtree::epicCorruptionTest()
                 QCOMPARE(txn->get(afterSync[i]), afterSync[i]);
                 txn->abort();
             }
+        }
+
+        for (quint32 i = numCommits; i < numCommits + appendCount; ++i) {
+            HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+            QByteArray key = QByteArray::number(i);
+            QVERIFY(txn);
+            QCOMPARE(txn->get(key), key);
+            txn->abort();
         }
     }
 }
