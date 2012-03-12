@@ -436,36 +436,29 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
             } while (tokenizer.peek() != "]");
             parsedQuery->queryTerms.append(oqt);
         } else if (token == "=") {
-            bool isMapObject = false;
-            bool isListObject = false;
-            bool inListObject = false;
+            QString curlyBraceToken = tokenizer.pop();
+            if (curlyBraceToken != "{") {
+                parsedQuery->queryExplanation.append(QString("Parse error: expecting '{' but got '%1'")
+                                                     .arg(curlyBraceToken));
+                parseError = true;
+                break;
+            }
             QString nextToken;
             while (!(nextToken = tokenizer.popIdentifier()).isEmpty()) {
-                if (nextToken == "{")
-                    isMapObject = true;
-                else if (nextToken == "[") {
-                    isListObject = true;
-                    inListObject = true;
-                } else if (nextToken == "]") {
-                    if (!inListObject)
-                        tokenizer.push(nextToken);
-                    else
-                        inListObject = false;
-                    break;
-                } else if (nextToken == "}") {
+                if (nextToken == "}") {
                     break;
                 } else {
-                    if (isMapObject) {
-                        //qDebug() << "isMapObject" << nextToken << tokenizer.peek();
-                        parsedQuery->mapKeyList.append(nextToken);
-                        QString colon = tokenizer.pop();
-                        if (colon != ":") {
-                            parsedQuery->queryExplanation.append(QString("Parse error: expecting ':' but got '%1'").arg(colon));
-                            parseError = true;
-                            break;
-                        }
-                        nextToken = tokenizer.popIdentifier();
+
+                    //qDebug() << "isMapObject" << nextToken << tokenizer.peek();
+                    parsedQuery->mapKeyList.append(nextToken);
+                    QString colon = tokenizer.pop();
+                    if (colon != ":") {
+                        parsedQuery->queryExplanation.append(QString("Parse error: expecting ':' but got '%1'").arg(colon));
+                        parseError = true;
+                        break;
                     }
+                    nextToken = tokenizer.popIdentifier();
+
                     while (tokenizer.peek() == "->") {
                         QString op = tokenizer.pop();
                         nextToken.append(op);
@@ -473,25 +466,17 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                     }
                     parsedQuery->mapExpressionList.append(nextToken);
                     QString maybeComma = tokenizer.pop();
-                    if ((maybeComma == "}") || (maybeComma == "]")) {
+                    if (maybeComma == "}") {
                         tokenizer.push(maybeComma);
                         continue;
                     } else if (maybeComma != ",") {
-                        parsedQuery->queryExplanation.append(QString("Parse error: expecting ',', ']', or '}' but got '%1'")
+                        parsedQuery->queryExplanation.append(QString("Parse error: expecting ',', or '}' but got '%1'")
                                                              .arg(maybeComma));
                         parseError = true;
                         break;
                     }
                 }
             }
-            if (jsondbSettings->debug())
-                qDebug() << "isListObject" << isListObject << parsedQuery->mapExpressionList;
-            if (isListObject)
-                parsedQuery->resultType = QJsonValue::Array;
-            else if (isMapObject)
-                parsedQuery->resultType = QJsonValue::Object;
-            else
-                parsedQuery->resultType = QJsonValue::String;
         } else if ((token == "/") || (token == "\\") || (token == ">") || (token == "<")) {
             QString ordering = token;
             OrderTerm term;

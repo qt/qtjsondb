@@ -655,18 +655,11 @@ void DBServer::processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonVa
         response.insert(JsonDbString::kResultStr, QJsonValue());
     } else {
         QJsonObject result;
-        if (queryResult.values.size()) {
-            result.insert(JsonDbString::kDataStr, queryResult.values);
-            result.insert(JsonDbString::kLengthStr, queryResult.values.size());
-        } else {
-            QJsonArray values;
-            for (int i = 0; i < queryResult.data.size(); i++) {
-                JsonDbObject d = queryResult.data.at(i);
-                values.append(d);
-            }
-            result.insert(JsonDbString::kDataStr, values);
-            result.insert(JsonDbString::kLengthStr, values.size());
-        }
+        QJsonArray data;
+        for (int i = 0; i < queryResult.data.size(); i++)
+            data.append(queryResult.data.at(i));
+        result.insert(JsonDbString::kDataStr, data);
+        result.insert(JsonDbString::kLengthStr, data.size());
         result.insert(JsonDbString::kOffsetStr, queryResult.offset);
         result.insert(JsonDbString::kExplanationStr, queryResult.explanation);
         result.insert("sortKeys", queryResult.sortKeys);

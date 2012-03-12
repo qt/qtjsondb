@@ -383,14 +383,20 @@ void TestJsonDbQueries::queryQuotedProperties()
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
 
     queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][= \"eye-color\"]"));
-    // single values are returned in queryResult.values
-    QCOMPARE(queryResult.values.size(), mDataStats["num-red-eyes"].toInt());
-    QCOMPARE(queryResult.values.at(0).toString(), QString("red"));
+    // no longer supported
+    QCOMPARE(queryResult.data.size(), 0);
+    QVERIFY(queryResult.error.isObject());
+    QVERIFY(queryResult.error.toObject().contains(QLatin1String("code")));
+    QCOMPARE((int)queryResult.error.toObject().value(QLatin1String("code")).toDouble(),
+             (int)JsonDbError::MissingQuery);
 
-    queryResult = find(mOwner,  QLatin1String("[?\"eye-color\" = \"red\"][= [\"eye-color\", age ]]"));
-    // array values are returned in queryResult.values
-    QCOMPARE(queryResult.values.size(), mDataStats["num-red-eyes"].toInt());
-    QCOMPARE(queryResult.values.at(0).toArray().at(0).toString(), QString("red"));
+    queryResult = find(mOwner, QLatin1String("[?\"eye-color\" = \"red\"][= [\"eye-color\", age ]]"));
+    // no longer supported
+    QCOMPARE(queryResult.data.size(), 0);
+    QVERIFY(queryResult.error.isObject());
+    QVERIFY(queryResult.error.toObject().contains(QLatin1String("code")));
+    QCOMPARE((int)queryResult.error.toObject().value(QLatin1String("code")).toDouble(),
+             (int)JsonDbError::MissingQuery);
 
     queryResult = find(mOwner, QLatin1String("[?_type=\"dragon\"][/_type][?\"eye-color\" = \"red\"][= {\"color-of-eyes\": \"eye-color\" }]"));
     // object values are returned in queryResult.data

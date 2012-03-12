@@ -271,7 +271,6 @@ void TestJson::queryThousandItems_data()
 {
     QTest::addColumn<QString>("queryString");
     QTest::newRow("Friends") << QString("[?_type=\"Friends\"]");
-    QTest::newRow("Friends[=_uuid]") << QString("[?_type=\"Friends\"][=_uuid]");
     QTest::newRow("Friends[={_uuid:_uuid}]") << QString("[?_type=\"Friends\"][={_uuid:_uuid}]");
 }
 

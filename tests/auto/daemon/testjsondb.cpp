@@ -3139,19 +3139,13 @@ void TestJsonDb::findFields()
 
     QJsonObject query, result, map;
 
-    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?firstName=\"Wilma\"][=firstName]"));
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?firstName=\"Wilma\"][= {firstName:firstName,lastName:lastName}]"));
     verifyGoodQueryResult(queryResult);
-    QCOMPARE(queryResult.values.at(0).toString(), QString("Wilma"));
-
-    queryResult = find(mOwner, QLatin1String("[?firstName=\"Wilma\"][= [firstName,lastName]]"));
-    verifyGoodQueryResult(queryResult);
-    QCOMPARE(queryResult.values.size(), 1);
-    QJsonArray data = queryResult.values.at(0).toArray();
-    QCOMPARE(data.at(0).toString(), QString("Wilma"));
-    QCOMPARE(data.at(1).toString(), QString("Flintstone"));
+    QCOMPARE(queryResult.data.size(), 1);
+    QJsonObject data = queryResult.data.at(0);
+    QCOMPARE(data.value(QLatin1String("firstName")).toString(), QString("Wilma"));
+    QCOMPARE(data.value(QLatin1String("lastName")).toString(), QString("Flintstone"));
     mJsonDbPartition->removeIndex(QLatin1String("firstName"));
-    //mJsonDbPartition->removeIndex(QLatin1String("name"));
-    //mJsonDbPartition->removeIndex(QLatin1String("_type")); //crash here
 }
 
 void TestJsonDb::orderedFind1_data()
@@ -3278,7 +3272,7 @@ void TestJsonDb::wildcardIndex()
     JsonDbQueryResult queryResult = find(mOwner, QString("[?telephoneNumbers.*.number=\"%1\"]").arg(mobileNumberString));
     verifyGoodQueryResult(queryResult);
 
-    queryResult = find(mOwner, QString("[?%1=\"%2\"][= .telephoneNumbers[*].number]").arg(JsonDbString::kTypeStr).arg(kContactStr));
+    queryResult = find(mOwner, QString("[?%1=\"%2\"][? telephoneNumbers[*].number exists ]").arg(JsonDbString::kTypeStr).arg(kContactStr));
     verifyGoodQueryResult(queryResult);
     mJsonDbPartition->removeIndex("telephoneNumbers.*.number");
 }
@@ -3332,22 +3326,9 @@ void TestJsonDb::uuidJoin()
     QVERIFY(queryResult.data.size() > 0);
     QCOMPARE(queryResult.data.at(0).value("thumbnailUuid").toString(), thumbnailUuid);
 
-    queryResult = find(mOwner, QLatin1String("[?name=\"Betty\"][= [ name, thumbnailUuid->url ]]"));
+    queryResult = find(mOwner, QLatin1String("[?name=\"Betty\"][= { name:name, url:thumbnailUuid->url }]"));
     verifyGoodQueryResult(queryResult);
-    QCOMPARE(queryResult.values.at(0).toArray().at(1).toString(), thumbnailUrl);
-
-    queryResult = find(mOwner, QString("[?_type=\"%1\"][= [ name, thumbnailUuid->url ]]").arg(__FUNCTION__));
-    verifyGoodQueryResult(queryResult);
-    QJsonArray values = queryResult.values;
-    for (int ii = 0; ii < values.size(); ii++) {
-        QJsonArray item = values.at(ii).toArray();
-        QString name = item.at(0).toString();
-        QString url = item.at(1).toString();
-        if (name == "Pebbles")
-            QVERIFY(url.isEmpty());
-        else
-            QCOMPARE(url, thumbnailUrl);
-    }
+    QCOMPARE(queryResult.data.at(0).value(QLatin1String("url")).toString(), thumbnailUrl);
 
     queryResult = find(mOwner, QString("[?_type=\"%1\"][= { name: name, url: thumbnailUuid->url } ]").arg(__FUNCTION__));
     verifyGoodQueryResult(queryResult);
@@ -3363,15 +3344,15 @@ void TestJsonDb::uuidJoin()
             QCOMPARE(url, thumbnailUrl);
     }
 
-
-    queryResult = find(mOwner, QLatin1String("[?bettyUuid exists][= bettyUuid->thumbnailUuid]"));
+    queryResult = find(mOwner, QLatin1String("[?bettyUuid exists][=  { thumbnailUuid : bettyUuid->thumbnailUuid }]"));
     verifyGoodQueryResult(queryResult);
-    QCOMPARE(queryResult.values.at(0).toString(),
+    QCOMPARE(queryResult.data.at(0).value(QLatin1String("thumbnailUuid")).toString(),
              thumbnailUuid);
 
-    queryResult = find(mOwner, QLatin1String("[?bettyUuid exists][= bettyUuid->thumbnailUuid->url]"));
+    queryResult = find(mOwner, QLatin1String("[?bettyUuid exists][= { thumbnailUuid : bettyUuid->thumbnailUuid->url }]"));
     verifyGoodQueryResult(queryResult);
-    QCOMPARE(queryResult.values.at(0).toString(), thumbnail.value("url").toString());
+    QCOMPARE(queryResult.data.at(0).value(QLatin1String("thumbnailUuid")).toString(),
+             thumbnail.value("url").toString());
     mJsonDbPartition->removeIndex("name");
     mJsonDbPartition->removeIndex("thumbnailUuid");
     mJsonDbPartition->removeIndex("url");
@@ -3588,8 +3569,8 @@ void TestJsonDb::startsWith()
     queryResult = find(mOwner, QLatin1String("[?_type startsWith \"startsWith\"][/name]"));
     QCOMPARE(queryResult.data.size(), 4);
 
-    queryResult = find(mOwner, QLatin1String("[?_type startsWith \"startsWith\"][= _type ]"));
-    QCOMPARE(queryResult.values.size(), 4);
+    queryResult = find(mOwner, QLatin1String("[?_type startsWith \"startsWith\"][= { _type: _type } ]"));
+    QCOMPARE(queryResult.data.size(), 4);
 }
 
 void TestJsonDb::comparison()

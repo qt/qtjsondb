@@ -1145,7 +1145,6 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
 
     delete indexQuery;
 
-    QJsonValue::Type resultType = query->resultType;
     QStringList mapExpressions = query->mapExpressionList;
     QStringList mapKeys = query->mapKeyList;
 
@@ -1166,10 +1165,8 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
         }
 
         QList<JsonDbObject> mappedResult;
-        QJsonArray valueArray;
         for (int r = 0; r < results.size(); r++) {
             const JsonDbObject obj = results.at(r);
-            QJsonArray list;
             QJsonObject map;
             for (int i = 0; i < nExpressions; i++) {
                 QJsonValue v;
@@ -1199,23 +1196,13 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
                     v = baseObject.propertyLookup(joinPath[joinPathSize-1]);
                 }
 
-                if (resultType == QJsonValue::Object)
-                    map.insert(mapKeys[i], v);
-                else if (resultType == QJsonValue::Array)
-                    list.append(v);
-                else
-                    valueArray.append(v);
+                map.insert(mapKeys[i], v);
             }
 
-            if (resultType == QJsonValue::Object) {
-                mappedResult.append(map);
-            } else if (resultType == QJsonValue::Array) {
-                valueArray.append(list);
-            }
+            mappedResult.append(map);
         }
 
         result.data = mappedResult;
-        result.values = valueArray;
     } else {
         result.data = results;
     }

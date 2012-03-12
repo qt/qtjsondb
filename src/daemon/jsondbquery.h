@@ -170,7 +170,6 @@ public:
     QList<OrQueryTerm> queryTerms;
     QList<OrderTerm> orderTerms;
     QString query;
-    QJsonValue::Type resultType;
     QStringList mapExpressionList;
     QStringList mapKeyList;
     QStringList queryExplanation;
@@ -196,7 +195,6 @@ typedef QList<JsonDbObject> JsonDbObjectList;
 class JsonDbQueryResult {
 public:
     JsonDbObjectList data;
-    QJsonArray values; // for queries returning single values or arrays of values
     QJsonValue length;
     QJsonValue offset;
     QJsonValue explanation;

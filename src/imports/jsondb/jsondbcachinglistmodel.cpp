@@ -376,10 +376,9 @@ void JsonDbCachingListModelPrivate::fillKeys(const QVariant &v, int partitionInd
     RequestInfo &r = partitionKeyRequestDetails[partitionIndex];
     r.lastSize = items.size();
     for (int i = 0; i < r.lastSize; i++) {
-        const QVariantList &item = items.at(i).toList();
-        const QString &uuid = item.at(0).toString();
-
-        SortingKey key(partitionIndex, item, ascendingOrders, partitionIndexDetails[0].spec);
+        const QVariantMap &item = items.at(i).toMap();
+        const QString &uuid = item.value(QLatin1String("_uuid")).toString();
+        SortingKey key(partitionIndex, item, ascendingOrders, orderPaths, partitionIndexDetails[0].spec);
         objectUuids.insert(key, uuid);
         partitionObjectUuids[partitionIndex].insert(key, uuid);
         objectSortValues.insert(uuid, key);
@@ -759,13 +758,9 @@ void JsonDbCachingListModelPrivate::parseSortOrder()
 void JsonDbCachingListModelPrivate::setQueryForSortKeys()
 {
     // Query to retrieve the sortKeys
-    // TODO remove the "[= {}]" from query
-    queryForSortKeys = query + QLatin1String("[= [ _uuid");
-    for (int i = 0; i < orderProperties.count() ; i++) {
-        queryForSortKeys += QLatin1String(", ") + orderProperties[i];
-    }
-    queryForSortKeys += QLatin1String("]]");
-    queryForSortKeys += sortOrder;
+    queryForSortKeys = (QString("%1%2")
+                        .arg(query)
+                        .arg(sortOrder));
 }
 
 int JsonDbCachingListModelPrivate::indexOfKeyIndexSpecId(int requestId)

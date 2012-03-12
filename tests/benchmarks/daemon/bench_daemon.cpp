@@ -119,10 +119,8 @@ private slots:
     void benchmarkFindUnindexed();
     void benchmarkFindReindexed();
     void benchmarkFindNames();
-    void findNamesMapL();
-    void benchmarkFindNamesMapL();
-    void findNamesMapO();
-    void benchmarkFindNamesMapO();
+    void findNamesMapObject();
+    void benchmarkFindNamesMapObject();
     void benchmarkCursorCount();
     void benchmarkQueryCount();
     void benchmarkScriptEngineCreation();
@@ -436,17 +434,11 @@ void TestJsonDb::benchmarkParseQuery_data()
     QTest::newRow("7")  << "[?foo=%bar]";
     QTest::newRow("8")  << "[?foo=\"bar\" | foo=\"baz\"]";
     QTest::newRow("9")  << "[?foo=\"bar\"][/foo]";
-    QTest::newRow("10") << "[?foo=\"bar\"][= a ]";
     QTest::newRow("11") << "[?foo =~ \"/a\\//\"]";
-    QTest::newRow("12") << "[?foo=\"bar\"][= a,b,c]";
-    QTest::newRow("13") << "[?foo=\"bar\"][= a->foreign,b,c]";
-    QTest::newRow("14") << "[?foo=\"bar\"][=[ a,b,c]]";
     QTest::newRow("15") << "[?foo=\"bar\"][={ a:x, b:y, c:z}]";
     QTest::newRow("16") << "[?foo=\"bar\"][={ a:x->foreign, b:y, c:z}]";
-    QTest::newRow("17") << "[?foo=\"bar\"][= _uuid, name.first, name.last ]";
     QTest::newRow("18") << "[?_type=\"contact\"][= { uuid: _uuid, first: name.first, last: name.last } ]";
     QTest::newRow("19") << "[?telephoneNumbers.*.number=\"6175551212\"]";
-    QTest::newRow("20") << "[?_type=\"contact\"][= .telephoneNumbers[*].number]";
     QTest::newRow("21") << "[?_type=\"contact\"][?foo startsWith \"bar\"]";
 }
 
@@ -487,10 +479,6 @@ void TestJsonDb::benchmarkTokenizer()
                            << "[?abc->def=\"ghi\"]"
                            << "[?abc.def=\"ghi\"][/abc.def]"
                            << "[?abc.def=\"ghi\"][\\foo]"
-                           << "[?abc.def=\"ghi\"][=foo]"
-                           << "[?abc.def=\"ghi\"][=foo,bar]"
-                           << "[?abc.def=\"ghi\"][=.foo,.bar]"
-                           << "[?abc.def=\"ghi\"][=[.foo,.bar]]"
                            << "[?abc.def=\"ghi\"][={foo:Foo,bar:Bar}][/foo]"
         );
     foreach (QString query, queries) {
@@ -950,34 +938,7 @@ void TestJsonDb::benchmarkFindNames()
     }
 }
 
-void TestJsonDb::findNamesMapL()
-{
-    QBENCHMARK_ONCE {
-        QString query = QString("[?%1=\"%2\"][= [_uuid, name.first, name.last] ]")
-                .arg(JsonDbString::kTypeStr)
-                .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
-        verifyGoodQueryResult(queryResult);
-        QCOMPARE(queryResult.values.size(), mContactList.size());
-    }
-}
-
-void TestJsonDb::benchmarkFindNamesMapL()
-{
-    QBENCHMARK {
-        QString query = QString("[?%1=\"%2\"][= [_uuid, name.first, name.last] ]")
-                .arg(JsonDbString::kTypeStr)
-                .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
-        verifyGoodQueryResult(queryResult);
-        QCOMPARE(queryResult.values.size(), 1);
-    }
-}
-
-
-void TestJsonDb::findNamesMapO()
+void TestJsonDb::findNamesMapObject()
 {
     QBENCHMARK_ONCE {
         QString query = QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
@@ -990,7 +951,7 @@ void TestJsonDb::findNamesMapO()
     }
 }
 
-void TestJsonDb::benchmarkFindNamesMapO()
+void TestJsonDb::benchmarkFindNamesMapObject()
 {
     QBENCHMARK {
         QString query = QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
