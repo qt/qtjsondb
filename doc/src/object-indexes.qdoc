@@ -74,6 +74,17 @@ of elements emitted by the propertyFunction.
 
 Defaults to "string".
 
+\row
+\li locale
+\li A string, naming the locale type of the values to be indexed for
+the collation index. \l {QLocale::} {QLocale(QString)}
+
+\row
+\li collation
+\li A string, naming the collation type of the values to be indexed, used
+for collation index. Please read Collation type section in
+\l {Unicode Locale Data Markup Language (LDML): Key Type Definitions}.
+
 \endtable
 
 \section2 JsonDb Proxy

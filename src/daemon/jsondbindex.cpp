@@ -45,6 +45,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QLocale>
 
 #include "jsondb-strings.h"
 #include "jsondb.h"
@@ -56,13 +57,73 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+static const int collationStringsCount = 13;
+static const char * const collationStrings[collationStringsCount] = {
+    "default",
+    "big5han",
+    "dict",
+    "direct",
+    "gb2312",
+    "phonebk",
+    "pinyin",
+    "phonetic",
+    "reformed",
+    "standard",
+    "stroke",
+    "trad",
+    "unihan"
+};
+
+#ifndef NO_COLLATION_SUPPORT
+JsonDbCollator::Collation _q_correctCollationString(const QString &s)
+{
+    for (int i = 0; i < collationStringsCount; ++i) {
+        if (s == collationStrings[i])
+            return JsonDbCollator::Collation(i);
+    }
+    return JsonDbCollator::Default;
+}
+#else
+int _q_correctCollationString(const QString &s)
+{
+    return 0;
+}
+#endif //NO_COLLATION_SUPPORT
+
+QString _q_bytesToHexString(const QByteArray &ba)
+{
+    static const ushort digits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+    uint len = ba.size();
+    const char *data = ba.constData();
+    uint idx = 0;
+
+    QString result(len*2, Qt::Uninitialized);
+    QChar *resultData = result.data();
+
+    for (uint i = 0; i < len; ++i, idx += 2) {
+        uint j = (data[i] >> 4) & 0xf;
+        resultData[idx] = QChar(digits[j]);
+        j = data[i] & 0xf;
+        resultData[idx+1] = QChar(digits[j]);
+    }
+
+    return result;
+}
+
 JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
-                         const QString &propertyType, JsonDbObjectTable *objectTable)
+                         const QString &propertyType, const QString &locale, const QString &collation,
+                         JsonDbObjectTable *objectTable)
     : QObject(objectTable)
     , mObjectTable(objectTable)
     , mPropertyName(propertyName)
     , mPath(propertyName.split('.'))
     , mPropertyType(propertyType)
+    , mLocale(locale)
+    , mCollation(collation)
+#ifndef NO_COLLATION_SUPPORT
+    , mCollator(JsonDbCollator(QLocale(locale), _q_correctCollationString(collation)))
+#endif
     , mStateNumber(0)
     , mBdb(0)
     , mScriptEngine(0)
@@ -189,12 +250,34 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
             QJsonValue v = JsonDb::propertyLookup(object, mPath.mid(0, size-1));
             QJsonArray array = v.toArray();
             mFieldValues.reserve(array.size());
-            for (int i = 0; i < array.size(); ++i)
-                mFieldValues.append(array.at(i));
+            for (int i = 0; i < array.size(); ++i) {
+                if (!mCollation.isEmpty() && !mLocale.isEmpty()) {
+                    mFieldValues.append(
+#ifndef NO_COLLATION_SUPPORT
+                        _q_bytesToHexString(mCollator.sortKey(array.at(i).toString()))
+#else
+                        array.at(i)
+#endif
+                    );
+                } else {
+                    mFieldValues.append(array.at(i));
+                }
+            }
         } else {
             QJsonValue v = JsonDb::propertyLookup(object, mPath);
-            if (!v.isUndefined())
-                mFieldValues.append(v);
+            if (!v.isUndefined()) {
+                if (!mCollation.isEmpty() && !mLocale.isEmpty()) {
+                    mFieldValues.append(
+#ifndef NO_COLLATION_SUPPORT
+                        _q_bytesToHexString(mCollator.sortKey(v.toString()))
+#else
+                        v
+#endif
+                    );
+                } else {
+                    mFieldValues.append(v);
+                }
+            }
         }
     } else {
         QJSValueList args;

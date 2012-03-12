@@ -959,10 +959,10 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
         if (objectType == JsonDbString::kSchemaTypeStr)
             RETURN_IF_ERROR(errormap, checkCanAddSchema(master, oldMaster));
         else if (objectType == JsonDbString::kMapTypeStr &&
-                 !JsonDbMapDefinition::validateDefinition(master, mViewTypes, errorMsg))
+                 !JsonDbMapDefinition::validateDefinition(master, partition, errorMsg))
             return makeResponse(resultmap, makeError(JsonDbError::InvalidMap, errorMsg));
         else if (objectType == JsonDbString::kReduceTypeStr &&
-                 !JsonDbReduceDefinition::validateDefinition(master, mViewTypes, errorMsg))
+                 !JsonDbReduceDefinition::validateDefinition(master, partition, errorMsg))
             return makeResponse(resultmap, makeError(JsonDbError::InvalidReduce, errorMsg));
         else if (!forRemoval && objectType == kIndexTypeStr && !JsonDbIndex::validateIndex(master, oldMaster, errorMsg))
             return makeResponse(resultmap, makeError(JsonDbError::InvalidIndexOperation, errorMsg));
@@ -1011,12 +1011,16 @@ QJsonObject JsonDb::update(const JsonDbOwner *owner, JsonDbObject& object, const
             removeSchema(oldMaster.value("name").toString());
         else if (oldType == kIndexTypeStr)
             removeIndex(oldMaster, partitionId);
+        else if (oldType == JsonDbString::kMapTypeStr || oldType == JsonDbString::kReduceTypeStr)
+            JsonDbView::removeDefinition(partition, oldMaster);
 
         if (!forRemoval) {
             if (objectType == JsonDbString::kSchemaTypeStr)
                 setSchema(master.value("name").toString(), object.value("schema").toObject());
             else if (objectType == kIndexTypeStr)
                 addIndex(master, partitionId);
+            else if (objectType == JsonDbString::kMapTypeStr || objectType == JsonDbString::kReduceTypeStr)
+                JsonDbView::createDefinition(partition, master);
         }
     }
 
@@ -1118,7 +1122,7 @@ void JsonDb::checkNotifications(const QString &partitionName, JsonDbObject objec
         if (mEagerViewSourceTypes.contains(objectType)) {
             const QSet<QString> &targetTypes = mEagerViewSourceTypes[objectType];
             for (QSet<QString>::const_iterator it = targetTypes.begin(); it != targetTypes.end(); ++it)
-                emit requestViewUpdate(*it, mSystemPartitionName);
+                updateView(*it);
         }
     }
     if (object.contains(JsonDbString::kUuidStr))
@@ -1175,6 +1179,8 @@ bool JsonDb::addIndex(JsonDbObject indexObject, const QString &partitionName)
     QString propertyType = indexObject.value(kPropertyTypeStr).toString();
     QString objectType = indexObject.value(kObjectTypeStr).toString();
     QString propertyFunction = indexObject.value(kPropertyFunctionStr).toString();
+    QString locale = indexObject.value(kLocaleStr).toString();
+    QString collation = indexObject.value(kCollationStr).toString();
 
     Q_ASSERT(propertyName.isEmpty() ^ propertyFunction.isEmpty());
     Q_ASSERT(!propertyFunction.isEmpty() ? !indexName.isEmpty() : true);
@@ -1183,7 +1189,7 @@ bool JsonDb::addIndex(JsonDbObject indexObject, const QString &partitionName)
         indexName = propertyName;
 
     if (JsonDbPartition *partition = findPartition(partitionName))
-        return partition->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
+        return partition->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation);
     qWarning() << "addIndex" << "did not find partition" << partitionName;
     return false;
 }
@@ -1585,8 +1591,7 @@ void JsonDb::updateEagerViewTypes(const QString &objectType)
     if (!view)
         return;
     foreach (const QString sourceType, view->sourceTypes()) {
-        QSet<QString> &targetTypes = mEagerViewSourceTypes[sourceType];
-        targetTypes.insert(objectType);
+        mEagerViewSourceTypes[sourceType].insert(objectType);
         // now recurse until we get to a non-view sourceType
         updateEagerViewTypes(sourceType);
     }

@@ -48,8 +48,8 @@
 #include <QSet>
 #include <QSharedDataPointer>
 #include <QStringList>
-#include <QDeclarativeParserStatus>
-#include <QDeclarativeListProperty>
+#include <QQmlParserStatus>
+#include <QQmlListProperty>
 #include <QJSValue>
 #include <QScopedPointer>
 
@@ -61,10 +61,10 @@ QT_BEGIN_NAMESPACE_JSONDB
 class JsonDbSortingListModelPrivate;
 class JsonDbPartition;
 
-class JsonDbSortingListModel : public QAbstractListModel, public QDeclarativeParserStatus
+class JsonDbSortingListModel : public QAbstractListModel, public QQmlParserStatus
 {
     Q_OBJECT
-    Q_INTERFACES(QDeclarativeParserStatus)
+    Q_INTERFACES(QQmlParserStatus)
     Q_ENUMS(State)
 public:
     enum State { None, Querying, Ready };
@@ -80,7 +80,7 @@ public:
     Q_PROPERTY(int queryLimit READ queryLimit WRITE setQueryLimit)
     Q_PROPERTY(bool overflow READ overflow)
 
-    Q_PROPERTY(QDeclarativeListProperty<JsonDbPartition> partitions READ partitions)
+    Q_PROPERTY(QQmlListProperty<JsonDbPartition> partitions READ partitions)
 
     virtual void classBegin();
     virtual void componentComplete();
@@ -94,7 +94,7 @@ public:
     QString query() const;
     void setQuery(const QString &newQuery);
 
-    QDeclarativeListProperty<JsonDbPartition> partitions();
+    QQmlListProperty<JsonDbPartition> partitions();
 
     int queryLimit() const;
     void setQueryLimit(int newQueryLimit);

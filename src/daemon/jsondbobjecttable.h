@@ -119,6 +119,7 @@ public:
     QString filename() const { return mFilename; }
     bool open(const QString &filename, JsonDbBtree::OpenFlags flags);
     void close();
+    JsonDbPartition *partition() const { return mPartition; }
     JsonDbBtree *bdb() const { return mBdb; }
     bool begin();
     void begin(JsonDbIndex *btree);
@@ -142,7 +143,9 @@ public:
                   const QString &propertyName = QString(),
                   const QString &propertyType = QString("string"),
                   const QString &objectType = QString(),
-                  const QString &propertyFunction = QString());
+                  const QString &propertyFunction = QString(),
+                  const QString &locale = QString(),
+                  const QString &collation = QString());
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
                             const QString &objectType = QString())

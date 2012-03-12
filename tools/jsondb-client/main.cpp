@@ -62,7 +62,7 @@ static void usage(const QString &name, int exitCode = 0)
 int main(int argc, char * argv[])
 {
     // Hack to avoid making people specify a platform plugin.
-    // We only need QGuiApplication so that we can use QDeclarativeEngine.
+    // We only need QGuiApplication so that we can use QQmlEngine.
     bool platformSpecified = false;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-platform") == 0)

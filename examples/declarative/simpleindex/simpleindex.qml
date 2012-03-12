@@ -91,9 +91,25 @@ Rectangle {
         systemPartition.create(indexDefinition, createCallback);
     }
 //! [Creating an Index Using a Property Function]
+
+    function createCollationIndex(cb)
+    {
+        var indexDefinition = {
+            "_type": "Index",
+            "name": "identifier",
+            "propertyName": "identifier",
+            "propertyType": "string",
+            "locale" : "zh_CN",
+            "collation" : "pinyin"
+        };
+        systemPartition.create(indexDefinition, createCallback);
+    }
+
     Component.onCompleted: {
         createIdentifierIndex(createCallback)
         console.log("The simple index was created!")
+        createCollationIndex(createCallback)
+        console.log("The collation index was created!")
         create(createCallback)
         console.log("The property function index was created!")
     }

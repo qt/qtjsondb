@@ -1,6 +1,6 @@
 TARGET = tst_bench_daemon
 
-QT = network declarative testlib
+QT = network qml testlib
 CONFIG -= app_bundle
 CONFIG += testcase
 

@@ -1,6 +1,6 @@
 TARGET = tst_queries
 
-QT = network declarative testlib
+QT = network qml testlib
 CONFIG -= app_bundle
 CONFIG += testcase
 

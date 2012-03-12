@@ -42,12 +42,12 @@
 #ifndef QMLTESTUTIL_H
 #define QMLTESTUTIL_H
 
-#include <QDeclarativeEngine>
-#include <QDeclarativeComponent>
-#include <QDeclarativeContext>
-#include <QDeclarativeExpression>
-#include <QDeclarativeError>
-#include <QDeclarativeProperty>
+#include <QQmlEngine>
+#include <QQmlComponent>
+#include <QQmlContext>
+#include <QQmlExpression>
+#include <QQmlError>
+#include <QQmlProperty>
 #include <QDir>
 
 #define waitForCallbackGeneric(eventloop) \
@@ -166,7 +166,7 @@ inline QString findQMLPluginPath(const QString &pluginName)
 {
     QString pluginPath;
     qsrand(QTime::currentTime().msec());
-    QDeclarativeEngine *engine = new QDeclarativeEngine();
+    QQmlEngine *engine = new QQmlEngine();
     QStringList pluginPaths = engine->importPathList();
     for (int i=0; (i<pluginPaths.count() && pluginPath.isEmpty()); i++) {
         QDir dir(pluginPaths[i]+"/"+pluginName);
@@ -193,8 +193,8 @@ public:
         delete component;
         delete engine;
     }
-    QDeclarativeEngine *engine;
-    QDeclarativeComponent *component;
+    QQmlEngine *engine;
+    QQmlComponent *component;
     QObject *qmlElement;
 };
 

@@ -48,8 +48,8 @@
 #include <sstream>
 #include <iomanip>
 
-#include <QDeclarativeComponent>
-#include <QDeclarativeEngine>
+#include <QQmlComponent>
+#include <QQmlEngine>
 
 QT_USE_NAMESPACE
 
@@ -63,6 +63,7 @@ const char* InputThread::commands[] = { "changesSince",
                                         "query [?",
                                         "quit",
                                         "remove",
+                                        "remove [?",
                                         "update",
                                         0 };
 
@@ -346,6 +347,31 @@ void Client::onRequestFinished()
     InputThread::print(message);
 }
 
+void Client::aboutToRemove(void)
+{
+    QtJsonDb::QJsonDbRequest *queryRequest = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
+    Q_ASSERT(queryRequest != 0);
+    if (!queryRequest)
+        return;
+
+    QList<QJsonObject> objects = queryRequest->takeResults();
+
+    QString message = QLatin1String("Query result: received ") + QString::number(objects.size()) + QLatin1String(" object(s):\n");
+    InputThread::print(message);
+    if (objects.isEmpty()) {
+        InputThread::print("No object matches your query. Nothing to remove.");
+        return;
+    }
+    InputThread::print("The object(s) matching your query are about to be removed.");
+    //we get the objects, remove them now
+    QtJsonDb::QJsonDbRemoveRequest* request = new QtJsonDb::QJsonDbRemoveRequest(objects);
+    connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
+    connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    pushRequest(request);
+    mConnection->send(request);
+}
 
 void Client::onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
 {
@@ -374,6 +400,7 @@ void Client::usage()
               << "   create [partition:<name>] OBJECT" << std::endl
               << "   update [partition:<name>] OBJECT" << std::endl
               << "   remove [partition:<name>] OBJECT" << std::endl
+              << "   remove [partition:<name>] STRING [limit]" << std::endl
               << "   query [partition:<name>] STRING [limit]" << std::endl
               << "   notify [partition:<name>] ACTIONS QUERY" << std::endl
               << "   changesSince [partition:<name>] STATENUMBER [type1 type2 ...]" << std::endl
@@ -389,6 +416,7 @@ void Client::usage()
               << "   create {\"_type\": \"duck\", \"name\": \"Fred\"}" << std::endl
               << "   query [?_type=\"duck\"]" << std::endl
               << "   remove {\"_uuid\": \"{18c9d905-5860-464e-a6dd-951464e366de}\", \"_version\": \"1-134f23dbb2\"}" << std::endl
+              << "   remove [?_type=\"duck\"]" << std::endl
               << "   notify create,remove [?_type=\"duck\"]" << std::endl;
 
     QString usageInfo = QString::fromStdString(out.str());
@@ -418,7 +446,7 @@ bool Client::processCommand(const QString &command)
         exit(0);
     } else if (cmd == "help") {
         usage();
-    } else if (cmd == "query") {
+    } else if (cmd == "query" || ((cmd == "remove") && (rest.left(2) == "[?"))) {
         int limit = -1;
         int idx = rest.lastIndexOf(']');
         if (idx != -1) {
@@ -439,8 +467,13 @@ bool Client::processCommand(const QString &command)
         request->setPartition(partition);
         request->setQuery(rest);
         request->setQueryLimit(limit);
-        connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
-        connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+        if (cmd == "remove") {
+            connect(request, SIGNAL(finished()), this, SLOT(aboutToRemove()));
+        }
+        else {
+            connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
+            connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+        }
         connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                 this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
         pushRequest(request);
@@ -636,12 +669,12 @@ void Client::loadQmlFile(const QString &qmlFile)
     }
 
     if (!mEngine) {
-        mEngine = new QDeclarativeEngine(this);
+        mEngine = new QQmlEngine(this);
         connect(mEngine, SIGNAL(quit()), this, SLOT(fileLoadSuccess()));
     }
 
     qml.open(QFile::ReadOnly);
-    QDeclarativeComponent *component = new QDeclarativeComponent(mEngine, this);
+    QQmlComponent *component = new QQmlComponent(mEngine, this);
     component->setData(qml.readAll(), QUrl());
     qml.close();
 

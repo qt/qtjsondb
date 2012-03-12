@@ -552,7 +552,7 @@ void JsonDbSortingListModelPrivate::_q_dbNotifyErrorResponse(int id, int code, c
     qWarning() << QString("JsonDbSortingListModel Notification error: %1 %2").arg(code).arg(message);
 }
 
-void JsonDbSortingListModelPrivate::partitions_append(QDeclarativeListProperty<JsonDbPartition> *p, JsonDbPartition *v)
+void JsonDbSortingListModelPrivate::partitions_append(QQmlListProperty<JsonDbPartition> *p, JsonDbPartition *v)
 {
     JsonDbSortingListModel *q = qobject_cast<JsonDbSortingListModel *>(p->object);
     JsonDbSortingListModelPrivate *pThis = (q) ? q->d_func() : 0;
@@ -569,7 +569,7 @@ void JsonDbSortingListModelPrivate::partitions_append(QDeclarativeListProperty<J
     }
 }
 
-int JsonDbSortingListModelPrivate::partitions_count(QDeclarativeListProperty<JsonDbPartition> *p)
+int JsonDbSortingListModelPrivate::partitions_count(QQmlListProperty<JsonDbPartition> *p)
 {
     JsonDbSortingListModel *q = qobject_cast<JsonDbSortingListModel *>(p->object);
     JsonDbSortingListModelPrivate *pThis = (q) ? q->d_func() : 0;
@@ -579,7 +579,7 @@ int JsonDbSortingListModelPrivate::partitions_count(QDeclarativeListProperty<Jso
     return 0;
 }
 
-JsonDbPartition* JsonDbSortingListModelPrivate::partitions_at(QDeclarativeListProperty<JsonDbPartition> *p, int idx)
+JsonDbPartition* JsonDbSortingListModelPrivate::partitions_at(QQmlListProperty<JsonDbPartition> *p, int idx)
 {
     JsonDbSortingListModel *q = qobject_cast<JsonDbSortingListModel *>(p->object);
     JsonDbSortingListModelPrivate *pThis = (q) ? q->d_func() : 0;
@@ -589,7 +589,7 @@ JsonDbPartition* JsonDbSortingListModelPrivate::partitions_at(QDeclarativeListPr
     return 0;
 }
 
-void JsonDbSortingListModelPrivate::partitions_clear(QDeclarativeListProperty<JsonDbPartition> *p)
+void JsonDbSortingListModelPrivate::partitions_clear(QQmlListProperty<JsonDbPartition> *p)
 {
     JsonDbSortingListModel *q = qobject_cast<JsonDbSortingListModel *>(p->object);
     JsonDbSortingListModelPrivate *pThis = (q) ? q->d_func() : 0;
@@ -896,9 +896,9 @@ void JsonDbSortingListModel::partitionNameChanged(const QString &partitionName)
 */
 
 
-QDeclarativeListProperty<JsonDbPartition> JsonDbSortingListModel::partitions()
+QQmlListProperty<JsonDbPartition> JsonDbSortingListModel::partitions()
 {
-    return QDeclarativeListProperty<JsonDbPartition>(this, 0
+    return QQmlListProperty<JsonDbPartition>(this, 0
                                                      , &JsonDbSortingListModelPrivate::partitions_append
                                                      , &JsonDbSortingListModelPrivate::partitions_count
                                                      , &JsonDbSortingListModelPrivate::partitions_at

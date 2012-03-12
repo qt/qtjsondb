@@ -137,7 +137,7 @@ static QVariant qjsvalue_to_qvariant(const QJSValue &value)
         }
 
     }
-    nokiaSharedDb.create({"_type":"Contact", "firstName":firstName, "lastName":lastName }, createCallback)
+    myPartition.create({"_type":"Contact", "firstName":firstName, "lastName":lastName }, createCallback)
     \endcode
 
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
@@ -209,7 +209,7 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
         }
 
     }
-    nokiaSharedDb.update(updatedObject, updateCallback)
+    myPartition.update(updatedObject, updateCallback)
     \endcode
 
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
@@ -276,7 +276,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
         }
 
     }
-    nokiaSharedDb.remove({"_uuid":"xxxx-xxxx-xxxx", "_version":"1-xxxx-xxxx-xxxx"}, removeCallback)
+    myPartition.remove({"_uuid":"xxxx-xxxx-xxxx", "_version":"1-xxxx-xxxx-xxxx"}, removeCallback)
     \endcode
 
     The \a error is an object of type  {code: errorCode, message: "plain text" }. This is
@@ -312,7 +312,7 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
 }
 
 /*!
-    \qmlmethod QtJsonDb::Partition::find(object query, object options, function callback)
+    \qmlmethod QtJsonDb::Partition::find(string query, object options, function callback)
 
     Finds the objects matching the \a query string in the partition. The \a options specifies
     how query should be handled. The \a query should be specified in JsonQuery format.
@@ -413,7 +413,7 @@ JsonDbNotify* JsonDbPartition::createNotification(const QString &query)
     notify->setPartition(this);
     notify->setQuery(query);
     notify->componentComplete();
-    QDeclarativeEngine::setObjectOwnership(notify, QDeclarativeEngine::JavaScriptOwnership);
+    QQmlEngine::setObjectOwnership(notify, QQmlEngine::JavaScriptOwnership);
     return notify;
 }
 
@@ -453,7 +453,7 @@ JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit,
     queryObject->setLimit(limit);
     queryObject->setPartition(this);
     queryObject->componentComplete();
-    QDeclarativeEngine::setObjectOwnership(queryObject, QDeclarativeEngine::JavaScriptOwnership);
+    QQmlEngine::setObjectOwnership(queryObject, QQmlEngine::JavaScriptOwnership);
     return queryObject;
 }
 
@@ -492,13 +492,13 @@ JsonDbChangesSinceObject* JsonDbPartition::createChangesSince(int stateNumber, c
     changesSinceObject->setStateNumber(stateNumber);
     changesSinceObject->setPartition(this);
     changesSinceObject->componentComplete();
-    QDeclarativeEngine::setObjectOwnership(changesSinceObject, QDeclarativeEngine::JavaScriptOwnership);
+    QQmlEngine::setObjectOwnership(changesSinceObject, QQmlEngine::JavaScriptOwnership);
     return changesSinceObject;
 }
 
-QDeclarativeListProperty<QObject> JsonDbPartition::childElements()
+QQmlListProperty<QObject> JsonDbPartition::childElements()
 {
-    return QDeclarativeListProperty<QObject>(this, childQMLElements);
+    return QQmlListProperty<QObject>(this, childQMLElements);
 }
 
 void JsonDbPartition::updateNotification(JsonDbNotify *notify)

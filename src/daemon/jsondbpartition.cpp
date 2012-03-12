@@ -74,6 +74,8 @@ const QString kDbidTypeStr("DatabaseId");
 const QString kIndexTypeStr("Index");
 const QString kPropertyNameStr("propertyName");
 const QString kPropertyTypeStr("propertyType");
+const QString kLocaleStr("locale");
+const QString kCollationStr("collation");
 const QString kNameStr("name");
 const QString kObjectTypeStr("objectType");
 const QString kDatabaseSchemaVersionStr("databaseSchemaVersion");
@@ -829,7 +831,8 @@ void JsonDbPartition::initIndexes()
 }
 
 bool JsonDbPartition::addIndex(const QString &indexName, const QString &propertyName,
-                                  const QString &propertyType, const QString &objectType, const QString &propertyFunction)
+                                  const QString &propertyType, const QString &objectType, const QString &propertyFunction,
+                                  const QString &locale, const QString &collation)
 {
     Q_ASSERT(!indexName.isEmpty());
     //qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
@@ -838,7 +841,7 @@ bool JsonDbPartition::addIndex(const QString &indexName, const QString &property
     if (indexSpec)
         return true;
     //if (gVerbose) qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
-    return table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction);
+    return table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation);
 }
 
 bool JsonDbPartition::removeIndex(const QString &indexName, const QString &objectType)

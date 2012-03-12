@@ -3,7 +3,7 @@ TARGET = tst_jsondbqueryobject
 DEPENDPATH += .
 INCLUDEPATH += .
 
-QT = core network testlib gui declarative jsondbcompat-private
+QT = core network testlib gui qml jsondbcompat-private
 CONFIG -= app_bundle
 CONFIG += testcase
 

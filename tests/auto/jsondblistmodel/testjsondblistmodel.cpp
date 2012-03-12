@@ -164,7 +164,7 @@ void TestJsonDbListModel::initTestCase()
 QAbstractItemModel *TestJsonDbListModel::createModel()
 {
     ModelData *newModel = new ModelData();
-    newModel->engine = new QDeclarativeEngine();
+    newModel->engine = new QQmlEngine();
     QString error;
     Q_ASSERT(!mPluginPath.isEmpty());
     if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
@@ -172,7 +172,7 @@ QAbstractItemModel *TestJsonDbListModel::createModel()
         delete newModel->engine;
         return 0;
     }
-    newModel->component = new QDeclarativeComponent(newModel->engine);
+    newModel->component = new QQmlComponent(newModel->engine);
     newModel->component->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n JsonDb.JsonDbListModel {id: contactsModel; partition: JsonDb.Partition {name: \"com.example.shared.1\"}}", QUrl());
     newModel->model = newModel->component->create();
     if (newModel->component->isError())

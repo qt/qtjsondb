@@ -56,6 +56,7 @@
 #include "jsondb-global.h"
 #include "jsondbobjectkey.h"
 #include "jsondbbtree.h"
+#include "jsondbcollator.h"
 
 QT_BEGIN_HEADER
 
@@ -69,7 +70,8 @@ class JsonDbIndex : public QObject
     Q_OBJECT
 public:
     JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
-                const QString &propertyType, JsonDbObjectTable *objectTable);
+                const QString &propertyType, const QString &locale, const QString &collation,
+                JsonDbObjectTable *objectTable);
     ~JsonDbIndex();
 
     QString propertyName() const { return mPropertyName; }
@@ -109,6 +111,11 @@ private:
     QString mPropertyName;
     QStringList mPath;
     QString mPropertyType;
+    QString mLocale;
+    QString mCollation;
+#ifndef NO_COLLATION_SUPPORT
+    JsonDbCollator mCollator;
+#endif
     quint32 mStateNumber;
     QScopedPointer<JsonDbBtree> mBdb;
     QJSEngine *mScriptEngine;
@@ -145,6 +152,8 @@ public:
     QString propertyName;
     QStringList path;
     QString propertyType;
+    QString locale;
+    QString collation;
     QString objectType;
     bool    lazy;
     QPointer<JsonDbIndex> index;

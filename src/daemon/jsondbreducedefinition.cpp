@@ -56,8 +56,10 @@
 
 #include "jsondb.h"
 #include "jsondbproxy.h"
+#include "jsondbsettings.h"
 #include "jsondbobjecttable.h"
 #include "jsondbreducedefinition.h"
+#include "jsondbview.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -78,6 +80,35 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(JsonDb *jsonDb, const JsonDbOwner
     , mSourceKeyName(mDefinition.contains("sourceKeyName") ? mDefinition.value("sourceKeyName").toString() : QString("key"))
     , mSourceKeyNameList(mSourceKeyName.split("."))
 {
+}
+
+void JsonDbReduceDefinition::definitionCreated()
+{
+    // TODO: this index should not be automatic
+    mTargetTable->addIndexOnProperty(mSourceKeyName, QLatin1String("string"), mSourceType);
+    // TODO: this index should not be automatic
+    mTargetTable->addIndexOnProperty(mTargetKeyName, QLatin1String("string"), mTargetType);
+    mTargetTable->addIndexOnProperty(QLatin1String("_reduceUuid"), QLatin1String("string"), mTargetType);
+
+    initScriptEngine();
+    GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, mSourceType);
+    if (!getObjectResponse.error.isNull()) {
+        if (jsondbSettings->verbose())
+            qDebug() << "createReduceDefinition" << mTargetType << getObjectResponse.error.toString();
+        setError(getObjectResponse.error.toString());
+    }
+    JsonDbObjectList objects = getObjectResponse.data;
+    for (int i = 0; i < objects.size(); i++)
+        updateObject(QJsonObject(), objects.at(i));
+}
+
+void JsonDbReduceDefinition::definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid)
+{
+    // remove the output objects
+    GetObjectsResult getObjectResponse = table->getObjects(QLatin1String("_reduceUuid"), definitionUuid, targetType);
+    JsonDbObjectList objects = getObjectResponse.data;
+    for (int i = 0; i < objects.size(); i++)
+        jsonDb->removeViewObject(jsonDb->owner(), objects.at(i), table->partition()->name());
 }
 
 void JsonDbReduceDefinition::initScriptEngine()
@@ -266,18 +297,24 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
     }
 }
 
-bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, const QSet<QString> viewTypes, QString &message)
+bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message)
 {
     message.clear();
     QString targetType = reduce.value("targetType").toString();
     QString sourceType = reduce.value("sourceType").toString();
+    QString uuid = reduce.value(JsonDbString::kUuidStr).toString();
+    JsonDbView *view = partition->findView(targetType);
 
     if (targetType.isEmpty())
         message = QLatin1Literal("targetType property for Reduce not specified");
-    else if (!viewTypes.contains(targetType))
+    else if (!view)
         message = QLatin1Literal("targetType must be of a type that extends View");
     else if (sourceType.isEmpty())
         message = QLatin1Literal("sourceType property for Reduce not specified");
+    else if (view->mReduceDefinitionsBySource.contains(sourceType)
+             && view->mReduceDefinitionsBySource.value(sourceType)->uuid() != uuid)
+        message = QString("duplicate Reduce definition on source %1 and target %2")
+            .arg(sourceType).arg(targetType);
     else if (reduce.value("sourceKeyName").toString().isEmpty())
         message = QLatin1Literal("sourceKeyName property for Reduce not specified");
     else if (reduce.value("add").toString().isEmpty())

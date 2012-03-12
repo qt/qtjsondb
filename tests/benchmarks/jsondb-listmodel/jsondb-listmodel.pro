@@ -1,11 +1,10 @@
 TEMPLATE = app
 TARGET = tst_bench_listmodel
 
-QT = core network testlib gui declarative jsondbcompat-private
+QT = core network testlib gui qml jsondbcompat-private
 CONFIG -= app_bundle
 
 include($$PWD/../../shared/shared.pri)
-include($$PWD/../../../qtjsondb.pri)
 include($$PWD/../../../src/3rdparty/qjson/qjson.pri)
 
 DEFINES += JSONDB_DAEMON_BASE=\\\"$$QT.jsondb.bins\\\"

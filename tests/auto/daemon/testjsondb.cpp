@@ -192,6 +192,7 @@ private slots:
     void reduceInvalidAddSubtractFuncs();
 
     void map();
+    void mapNotification();
     void mapDuplicateSourceAndTarget();
     void mapRemoval();
     void mapUpdate();
@@ -223,6 +224,7 @@ private slots:
     void find2();
     void findFields();
     void testNotify1();
+    void testNotifyViewType();
 
     void findLikeRegexp_data();
     void findLikeRegexp();
@@ -256,6 +258,7 @@ private slots:
     void removeIndexes();
     void setOwner();
     void indexPropertyFunction();
+    void indexCollation();
 
     void settings();
 
@@ -1709,6 +1712,77 @@ void TestJsonDb::map()
     //mJsonDb->removeIndex(QLatin1String("phoneNumber"));
 }
 
+void TestJsonDb::mapNotification()
+{
+    addIndex(QLatin1String("phoneNumber"));
+
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
+
+    JsonDbObjectList mapsReduces;
+    JsonDbObjectList schemas;
+    QMap<QString, JsonDbObject> toDelete;
+    for (int i = 0; i < objects.size(); ++i) {
+        QJsonObject object(objects.at(i).toObject());
+        JsonDbObject doc(object);
+        QJsonObject result = mJsonDb->create(mOwner, doc);
+        verifyGoodResult(result);
+
+        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr ||
+            object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr)
+            mapsReduces.append(doc);
+        else if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
+            schemas.append(doc);
+        else
+            toDelete.insert(doc.value("_uuid").toString(), doc);
+    }
+
+    QJsonArray actions;
+    actions.append(QLatin1String("create"));
+    actions.append(QLatin1String("remove"));
+    actions.append(QLatin1String("update"));
+
+    JsonDbObject notification;
+    notification.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
+    notification.insert(QLatin1String("query"), QLatin1String("[?_type=\"Phone\"]"));
+    notification.insert(QLatin1String("actions"), actions);
+
+    QJsonObject result = mJsonDb->create(mOwner, notification);
+    QVERIFY(result.contains(JsonDbString::kResultStr));
+    QVERIFY(result.value(JsonDbString::kResultStr).toObject().contains(JsonDbString::kUuidStr));
+    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+
+    connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
+            this, SLOT(notified(QString,JsonDbObject,QString)));
+
+    mNotificationsReceived.clear();
+
+    // now remove one of the source items
+    QJsonObject query2;
+    query2.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"Contact\"][?displayName=\"Nancy Doe\"]"));
+    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query2);
+    JsonDbObject firstItem = queryResult.data.at(0);
+    QVERIFY(!firstItem.value("_uuid").toString().isEmpty());
+    toDelete.remove(firstItem.value("_uuid").toString());
+    result = mJsonDb->remove(mOwner, firstItem);
+    verifyGoodResult(result);
+
+    QVERIFY(mNotificationsReceived.contains(uuid));
+
+    result = mJsonDb->remove(mOwner, notification);
+    verifyGoodResult(result);
+
+    for (int i = 0; i < mapsReduces.size(); ++i) {
+        JsonDbObject object = mapsReduces.at(i);
+        verifyGoodResult(mJsonDb->remove(mOwner, object));
+    }
+    for (int i = 0; i < schemas.size(); ++i) {
+        JsonDbObject object = schemas.at(i);
+        verifyGoodResult(mJsonDb->remove(mOwner, object));
+    }
+    foreach (JsonDbObject map, toDelete.values())
+        verifyGoodResult(mJsonDb->remove(mOwner, map));
+}
+
 void TestJsonDb::mapDuplicateSourceAndTarget()
 {
     QJsonArray objects(readJsonFile(":/daemon/json/map-sametarget.json").toArray());
@@ -2344,12 +2418,12 @@ void TestJsonDb::reduceDuplicate()
     reduce2.insert("add", reduce.value("add").toString());
     reduce2.insert("subtract", reduce.value("subtract").toString());
     QJsonObject result = mJsonDb->create(mOwner, reduce2);
-    verifyGoodResult(result);
+    verifyErrorResult(result);
 
     query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MyContactCount\"]"));
     queryResult = mJsonDb->find(mOwner, query);
     verifyGoodQueryResult(queryResult);
-    QCOMPARE(queryResult.data.size(), lastNameCount.keys().count() + firstNameCount.keys().count());
+    QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
 
     data = queryResult.data;
     for (int ii = 0; ii < data.size(); ii++) {
@@ -2359,7 +2433,6 @@ void TestJsonDb::reduceDuplicate()
     }
 
     verifyGoodResult(mJsonDb->remove(mOwner, reduce));
-    verifyGoodResult(mJsonDb->remove(mOwner, reduce2));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
     mJsonDb->removeIndex("MyContactCount");
@@ -3277,6 +3350,7 @@ void TestJsonDb::testNotify1()
 
     result = mJsonDb->remove(mOwner, notification);
     verifyGoodResult(result);
+    disconnect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)));
 }
 
 void TestJsonDb::notified(const QString nid, const JsonDbObject &o, const QString action)
@@ -3284,6 +3358,39 @@ void TestJsonDb::notified(const QString nid, const JsonDbObject &o, const QStrin
     Q_UNUSED(o);
     Q_UNUSED(action);
     mNotificationsReceived.append(nid);
+}
+
+void TestJsonDb::testNotifyViewType()
+{
+    QString query = QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg(kContactStr);
+
+    QJsonArray actions;
+    actions.append(QLatin1String("create"));
+
+    JsonDbObject notification;
+    notification.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
+    notification.insert(QLatin1String("query"), query);
+    notification.insert(QLatin1String("actions"), actions);
+
+    QJsonObject result = mJsonDb->create(mOwner, notification);
+    QVERIFY(result.contains(JsonDbString::kResultStr));
+    QVERIFY(result.value(JsonDbString::kResultStr).toObject().contains(JsonDbString::kUuidStr));
+    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+
+    connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
+            this, SLOT(notified(QString,JsonDbObject,QString)));
+
+    mNotificationsReceived.clear();
+
+    JsonDbObject item;
+    item.insert("name", QString("Wilma"));
+    item.insert(JsonDbString::kTypeStr, kContactStr);
+    mJsonDb->create(mOwner, item);
+
+    QVERIFY(mNotificationsReceived.contains(uuid));
+
+    result = mJsonDb->remove(mOwner, notification);
+    verifyGoodResult(result);
 }
 
 void TestJsonDb::orQuery_data()
@@ -4045,6 +4152,106 @@ void TestJsonDb::indexPropertyFunction()
     queryResult = mJsonDb->find(mOwner, query);
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("to").toDouble(), (double)-64);
+}
+
+void TestJsonDb::indexCollation()
+{
+#ifndef NO_COLLATION_SUPPORT
+    JsonDbObject item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u4e00"));
+    item.insert("lastName", QLatin1String("1-Yi"));
+    QJsonObject result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u4e8c"));
+    item.insert("lastName", QLatin1String("2-Er"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u4e09"));
+    item.insert("lastName", QLatin1String("3-San"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u82b1"));
+    item.insert("lastName", QLatin1String("4-Hua"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u9489"));
+    item.insert("lastName", QLatin1String("5-Ding"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u516d"));
+    item.insert("lastName", QLatin1String("6-Liu"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
+    item.insert("firstName", QString::fromUtf8("\u5b54"));
+    item.insert("lastName", QLatin1String("7-Kong"));
+    result = mJsonDb->create(mOwner, item);
+    verifyGoodResult(result);
+
+    JsonDbObject pinyinIndex;
+    pinyinIndex.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
+    pinyinIndex.insert(QLatin1String("name"), QLatin1String("pinyinIndex"));
+    pinyinIndex.insert(QLatin1String("propertyName"), QLatin1String("firstName"));
+    pinyinIndex.insert(QLatin1String("propertyType"), QLatin1String("string"));
+    pinyinIndex.insert(QLatin1String("locale"), QLatin1String("zh_CN"));
+    pinyinIndex.insert(QLatin1String("collation"), QLatin1String("pinyin"));
+    result = mJsonDb->create(mOwner, pinyinIndex);
+    verifyGoodResult(result);
+
+    JsonDbObject strokeIndex;
+    strokeIndex.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
+    strokeIndex.insert(QLatin1String("name"), QLatin1String("strokeIndex"));
+    strokeIndex.insert(QLatin1String("propertyName"), QLatin1String("firstName"));
+    strokeIndex.insert(QLatin1String("propertyType"), QLatin1String("string"));
+    strokeIndex.insert(QLatin1String("locale"), QLatin1String("zh_CN"));
+    strokeIndex.insert(QLatin1String("collation"), QLatin1String("stroke"));
+    result = mJsonDb->create(mOwner, strokeIndex);
+    verifyGoodResult(result);
+
+    QJsonObject query1;
+    query1.insert("query", QString("[?_type=\"IndexCollation\"][/pinyinIndex]"));
+    JsonDbQueryResult queryResult1 = mJsonDb->find(mOwner, query1);
+    QCOMPARE(queryResult1.data.size(), 7);
+    QCOMPARE(queryResult1.data.at(0).value("lastName").toString(), QLatin1String("5-Ding"));
+    QCOMPARE(queryResult1.data.at(1).value("lastName").toString(), QLatin1String("2-Er"));
+    QCOMPARE(queryResult1.data.at(2).value("lastName").toString(), QLatin1String("4-Hua"));
+    QCOMPARE(queryResult1.data.at(3).value("lastName").toString(), QLatin1String("7-Kong"));
+    QCOMPARE(queryResult1.data.at(4).value("lastName").toString(), QLatin1String("6-Liu"));
+    QCOMPARE(queryResult1.data.at(5).value("lastName").toString(), QLatin1String("3-San"));
+    QCOMPARE(queryResult1.data.at(6).value("lastName").toString(), QLatin1String("1-Yi"));
+
+    QJsonObject query2;
+    query2.insert("query", QString("[?_type=\"IndexCollation\"][/strokeIndex]"));
+    JsonDbQueryResult queryResult2 = mJsonDb->find(mOwner, query2);
+    QCOMPARE(queryResult2.data.size(), 7);
+    QCOMPARE(queryResult2.data.at(0).value("lastName").toString(), QLatin1String("1-Yi"));
+    QCOMPARE(queryResult2.data.at(1).value("lastName").toString(), QLatin1String("2-Er"));
+    QCOMPARE(queryResult2.data.at(2).value("lastName").toString(), QLatin1String("3-San"));
+    QCOMPARE(queryResult2.data.at(3).value("lastName").toString(), QLatin1String("6-Liu"));
+    QCOMPARE(queryResult2.data.at(4).value("lastName").toString(), QLatin1String("7-Kong"));
+    QCOMPARE(queryResult2.data.at(5).value("lastName").toString(), QLatin1String("4-Hua"));
+    QCOMPARE(queryResult2.data.at(6).value("lastName").toString(), QLatin1String("5-Ding"));
+#else
+    QSKIP("This test requires NO_COLLATION_SUPPORT is not defined!");
+#endif
 }
 
 void TestJsonDb::settings()

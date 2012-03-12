@@ -44,9 +44,9 @@
 #include "listmodel-benchmark.h"
 
 #include "../../shared/util.h"
-#include <QDeclarativeEngine>
-#include <QDeclarativeComponent>
-#include <QDeclarativeContext>
+#include <QQmlEngine>
+#include <QQmlComponent>
+#include <QQmlContext>
 
 static const char dbfile[] = "dbFile-test-jsondb";
 ModelData::ModelData(): engine(0), component(0), model(0)
@@ -108,7 +108,7 @@ void TestListModel::initTestCase()
     QVERIFY(mClient!= 0);
     connectToServer();
 
-    QDeclarativeEngine *engine = new QDeclarativeEngine();
+    QQmlEngine *engine = new QQmlEngine();
     QStringList pluginPaths = engine->importPathList();
     for (int i=0; (i<pluginPaths.count() && mPluginPath.isEmpty()); i++) {
         QDir dir(pluginPaths[i]+"/QtAddOn/JsonDb");
@@ -170,14 +170,14 @@ void TestListModel::initTestCase()
 JsonDbListModel *TestListModel::createModel()
 {
     ModelData *newModel = new ModelData();
-    newModel->engine = new QDeclarativeEngine();
+    newModel->engine = new QQmlEngine();
     QString error;
     if (!newModel->engine->importPlugin(mPluginPath, QString("QtAddOn.JsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete newModel->engine;
         return 0;
     }
-    newModel->component = new QDeclarativeComponent(newModel->engine);
+    newModel->component = new QQmlComponent(newModel->engine);
     newModel->component->setData("import QtQuick 2.0\nimport QtAddOn.JsonDb 1.0 \n JsonDbListModel {id: contactsModel}", QUrl());
     newModel->model = newModel->component->create();
     mModels.append(newModel);

@@ -126,14 +126,14 @@ void TestJsonDbChangesSinceObject::initTestCase()
 ComponentData *TestJsonDbChangesSinceObject::createComponent()
 {
     ComponentData *componentData = new ComponentData();
-    componentData->engine = new QDeclarativeEngine();
+    componentData->engine = new QQmlEngine();
     QString error;
     if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete componentData->engine;
         return 0;
     }
-    componentData->component = new QDeclarativeComponent(componentData->engine);
+    componentData->component = new QQmlComponent(componentData->engine);
     componentData->component->setData(qmlProgram.toUtf8(), QUrl());
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
@@ -149,14 +149,14 @@ ComponentData *TestJsonDbChangesSinceObject::createComponent()
 ComponentData *TestJsonDbChangesSinceObject::createPartitionComponent()
 {
     ComponentData *componentData = new ComponentData();
-    componentData->engine = new QDeclarativeEngine();
+    componentData->engine = new QQmlEngine();
     QString error;
     if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
         qDebug()<<"Unable to load the plugin :"<<error;
         delete componentData->engine;
         return 0;
     }
-    componentData->component = new QDeclarativeComponent(componentData->engine);
+    componentData->component = new QQmlComponent(componentData->engine);
     componentData->component->setData(qmlProgramForPartition.toUtf8(), QUrl());
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
@@ -222,8 +222,8 @@ void TestJsonDbChangesSinceObject::singleType()
     int id = mClient->create(item,  "com.nokia.shared");
     waitForResponse1(id);
     const QString expression("start();");
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
     expr->evaluate();
     waitForCallback2();
     QCOMPARE(cbData.size(), 1);
@@ -247,8 +247,8 @@ void TestJsonDbChangesSinceObject::multipleObjects()
     waitForResponse1(id);
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
     expr->evaluate();
     waitForCallback2();
     QCOMPARE(callbackError, false);
@@ -288,8 +288,8 @@ void TestJsonDbChangesSinceObject::multipleTypes()
     id = mClient->create(item,  "com.nokia.shared");
     waitForResponse1(id);
     const QString expression("start();");
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(changesSinceObject->engine->rootContext(), changesSinceObject->qmlElement, expression);
     expr->evaluate();
     waitForCallback2();
     QCOMPARE(cbData.size(), 2);
@@ -306,8 +306,8 @@ void TestJsonDbChangesSinceObject::createChangesSince()
     QString expression;
 
     expression = QString(createString).arg(__FUNCTION__);
-    QDeclarativeExpression *expr;
-    expr = new QDeclarativeExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    QQmlExpression *expr;
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     QPointer<QObject> queryObject = expr->evaluate().value<QObject*>();
     QVERIFY(!queryObject.isNull());
     queryObject->setParent(partition->qmlElement);

@@ -57,8 +57,8 @@
 #include "jsondb-listmodel.h"
 
 QT_BEGIN_NAMESPACE
-class QDeclarativeEngine;
-class QDeclarativeComponent;
+class QQmlEngine;
+class QQmlComponent;
 QT_END_NAMESPACE
 
 QT_USE_NAMESPACE_JSONDB
@@ -68,8 +68,8 @@ class ModelData {
 public:
     ModelData();
     ~ModelData();
-    QDeclarativeEngine *engine;
-    QDeclarativeComponent *component;
+    QQmlEngine *engine;
+    QQmlComponent *component;
     QObject *model;
 };
 

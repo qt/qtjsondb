@@ -48,7 +48,7 @@
 #include <histedit.h>
 
 QT_BEGIN_NAMESPACE
-class QDeclarativeEngine;
+class QQmlEngine;
 QT_END_NAMESPACE
 
 class InputThread : public QThread {
@@ -100,6 +100,7 @@ protected slots:
 
     void onRequestFinished();
     void onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
+    void aboutToRemove();
 
     void pushRequest(QtJsonDb::QJsonDbRequest *);
     void popRequest();
@@ -127,7 +128,7 @@ private:
     bool mTerminate;
     bool mDebug;
     QStringList mFilesToLoad;
-    QDeclarativeEngine *mEngine;
+    QQmlEngine *mEngine;
 };
 
 

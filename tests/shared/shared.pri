@@ -1,7 +1,5 @@
 INCLUDEPATH += $$PWD
 
-include(../../qtjsondb.pri)
-
 HEADERS += $$PWD/util.h $$PWD/qmltestutil.h
 
 contains(QT, jsondbcompat|jsondbcompat-private) {

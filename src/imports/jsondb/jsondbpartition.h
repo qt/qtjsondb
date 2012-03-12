@@ -48,7 +48,7 @@
 #include <QPointer>
 #include <QJSValue>
 #include <QJSEngine>
-#include <QDeclarativeListProperty>
+#include <QQmlListProperty>
 
 #include "jsondb-client.h"
 
@@ -94,9 +94,9 @@ public:
     QString name() const;
     void setName(const QString &partitionName);
 
-    Q_PROPERTY(QDeclarativeListProperty<QObject> childElements READ childElements)
+    Q_PROPERTY(QQmlListProperty<QObject> childElements READ childElements)
     Q_CLASSINFO("DefaultProperty", "childElements")
-    QDeclarativeListProperty<QObject> childElements();
+    QQmlListProperty<QObject> childElements();
 
 Q_SIGNALS:
     void nameChanged(const QString &partitionName);

@@ -1,7 +1,7 @@
 TARGET = tst_daemon
 CONFIG += debug
 
-QT = network declarative testlib
+QT = network qml testlib
 CONFIG -= app_bundle
 CONFIG += testcase
 

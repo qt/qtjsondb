@@ -249,7 +249,8 @@ QHash<QString, IndexSpec> JsonDbObjectTable::indexSpecs() const
 }
 
 bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &propertyName,
-                           const QString &propertyType, const QString &objectType, const QString &propertyFunction)
+                           const QString &propertyType, const QString &objectType, const QString &propertyFunction,
+                           const QString &locale, const QString &collation)
 {
     Q_ASSERT(propertyName.isEmpty() ^ propertyFunction.isEmpty());
 
@@ -267,9 +268,11 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     indexSpec.propertyName = propertyName;
     indexSpec.path = path;
     indexSpec.propertyType = propertyType;
+    indexSpec.locale = locale;
+    indexSpec.collation = collation;
     indexSpec.objectType = objectType;
     indexSpec.lazy = false; //lazy;
-    indexSpec.index = new JsonDbIndex(mFilename, name, propertyName, propertyType, this);
+    indexSpec.index = new JsonDbIndex(mFilename, name, propertyName, propertyType, locale, collation, this);
     if (!propertyFunction.isEmpty() && propertyName.isEmpty()) // propertyName takes precedence
         indexSpec.index->setPropertyFunction(propertyFunction);
     indexSpec.index->setCacheSize(jsondbSettings->cacheSize());
@@ -281,6 +284,8 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     indexObject.insert(kNameStr, name);
     indexObject.insert(kPropertyNameStr, propertyName);
     indexObject.insert(kPropertyTypeStr, propertyType);
+    indexObject.insert(kLocaleStr, locale);
+    indexObject.insert(kCollationStr, collation);
     indexObject.insert(kObjectTypeStr, objectType);
     indexObject.insert("lazy", false);
     indexObject.insert(kPropertyFunctionStr, propertyFunction);
