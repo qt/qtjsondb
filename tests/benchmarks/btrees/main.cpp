@@ -200,11 +200,13 @@ void TestBtrees::openClose()
 {
     QFETCH(int, btreeType);
 
-    QBENCHMARK {
-        if (btreeType == Hybrid) {
+    if (btreeType == Hybrid) {
+        QBENCHMARK {
             hybridDb->close();
             QVERIFY(hybridDb->open());
-        } else if (btreeType == AppendOnly) {
+        }
+    } else {
+        QBENCHMARK {
             appendOnlyDb->close();
             QVERIFY(appendOnlyDb->open());
         }
@@ -223,16 +225,22 @@ void TestBtrees::insert1000Items()
     QFETCH(int, btreeType);
     int numItems = 1000;
 
-    QBENCHMARK {
-        for (int i = 0; i < numItems; ++i) {
-            QByteArray key = QByteArray::number(i);
-            QByteArray value = QByteArray::number(i);
-            if (btreeType == Hybrid) {
+    if (btreeType == Hybrid) {
+        QBENCHMARK {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QByteArray value = QByteArray::number(i);
                 HBtreeTransaction *txn = hybridDb->beginWrite();
                 QVERIFY(txn);
                 QVERIFY(txn->put(key, value));
                 QVERIFY(txn->commit(i));
-            } else if (btreeType == AppendOnly) {
+            }
+        }
+    } else {
+        QBENCHMARK {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QByteArray value = QByteArray::number(i);
                 QBtreeTxn *txn = appendOnlyDb->beginWrite();
                 QVERIFY(txn);
                 QVERIFY(txn->put(key, value));
@@ -274,15 +282,20 @@ void TestBtrees::delete1000Items()
         QVERIFY(txn->commit(0));
     }
 
-    QBENCHMARK_ONCE {
-        for (int i = 0; i < numItems; ++i) {
-            QByteArray key = QByteArray::number(i);
-            if (btreeType == Hybrid) {
+    if (btreeType == Hybrid) {
+        QBENCHMARK_ONCE {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
                 HBtreeTransaction *txn = hybridDb->beginWrite();
                 QVERIFY(txn);
                 QVERIFY(txn->remove(key));
                 QVERIFY(txn->commit(i));
-            } else if (btreeType == AppendOnly) {
+            }
+        }
+    } else if (btreeType == AppendOnly) {
+        QBENCHMARK_ONCE {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
                 QBtreeTxn *txn = appendOnlyDb->beginWrite();
                 QVERIFY(txn);
                 QVERIFY(txn->remove(key));
@@ -324,16 +337,22 @@ void TestBtrees::find1000Items()
         QVERIFY(txn->commit(0));
     }
 
-    QBENCHMARK {
-        for (int i = 0; i < numItems; ++i) {
-            QByteArray key = QByteArray::number(i);
-            QByteArray value = QByteArray::number(i);
-            if (btreeType == Hybrid) {
+    if (btreeType == Hybrid) {
+        QBENCHMARK {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QByteArray value = QByteArray::number(i);
                 HBtreeTransaction *txn = hybridDb->beginRead();
                 QVERIFY(txn);
                 QCOMPARE(txn->get(key), value);
                 txn->abort();
-            } else if (btreeType == AppendOnly) {
+            }
+        }
+    } else if (btreeType == AppendOnly) {
+        QBENCHMARK {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QByteArray value = QByteArray::number(i);
                 QByteArray baOut;
                 QBtreeTxn *txn = appendOnlyDb->beginRead();
                 QVERIFY(txn);
@@ -379,16 +398,21 @@ void TestBtrees::searchRange()
     }
 
 
-    QBENCHMARK {
-        for (int i = 0; i < (numItems * gapLength) - (gapLength); i += (gapLength / 10)) {
-            QByteArray key = QByteArray::number(i);
-            if (btreeType == Hybrid) {
+    if (btreeType == Hybrid) {
+        QBENCHMARK {
+            for (int i = 0; i < (numItems * gapLength) - (gapLength); i += (gapLength / 10)) {
+                QByteArray key = QByteArray::number(i);
                 HBtreeTransaction *txn = hybridDb->beginRead();
                 QVERIFY(txn);
                 HBtreeCursor cursor(txn);
                 QVERIFY(cursor.seekRange(key));
                 txn->abort();
-            } else if (btreeType == AppendOnly) {
+            }
+        }
+    } else if (btreeType == AppendOnly) {
+        QBENCHMARK {
+            for (int i = 0; i < (numItems * gapLength) - (gapLength); i += (gapLength / 10)) {
+                QByteArray key = QByteArray::number(i);
                 QByteArray baOut;
                 QBtreeTxn *txn = appendOnlyDb->beginRead();
                 QBtreeCursor cursor(txn);
