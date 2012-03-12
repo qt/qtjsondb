@@ -1854,6 +1854,7 @@ bool HBtreePrivate::insertNode(NodePage *page, const NodeKey &key, const NodeVal
             // or mergePages or moveNode
             valueCopy.flags = value.flags;
             valueCopy.overflowPage = value.overflowPage;
+            page->meta.flags |= NodeHeader::Overflow;
         } else {
             valueCopy.data = value.data;
         }
