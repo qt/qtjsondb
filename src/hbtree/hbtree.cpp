@@ -224,6 +224,8 @@ bool HBtreePrivate::open(int fd)
 
         mi_ = 0;
 
+        // TODO: Check file size if multiple of page size. Extend temporarily if not and do the walk.
+
         // 3 levels of awesomeness
         // If we have a synced marker and the revision of the marker we decided to use matches it,
         // then we don't need to verify the tree
@@ -246,6 +248,12 @@ bool HBtreePrivate::open(int fd)
                     }
                 }
             }
+
+            // TODO: Add a prune history page boolean. Since after this we collect all pages that are
+            // reusable. If one page has history and is not touched for along time, it's history may
+            // be invalid.
+            // Idea: keep a set of pages walked, and whenever they are read, cut out their history
+
         }
 
         if (openMode_ == HBtree::ReadWrite) {
@@ -306,6 +314,7 @@ void HBtreePrivate::close(bool doSync)
         cache_.clear();
         collectiblePages_.clear();
         spec_ = Spec();
+        lastSyncedRevision_ = 0;
     }
 }
 
@@ -830,7 +839,7 @@ bool HBtreePrivate::sync(const MarkerPage &mp)
 
     lastSyncedRevision_++;
 
-    HBTREE_VERBOSE("synced marker 1 and upped revision to" << lastSyncedRevision_);
+    HBTREE_DEBUG("synced marker 1 and upped revision to" << lastSyncedRevision_);
 
     copy(synced0, &markers_[0]);
     copy(synced0, &markers_[1]);
@@ -1518,10 +1527,10 @@ quint16 HBtreePrivate::collectHistory(QList<HBtreePrivate::HistoryNode> *history
         // than current commit number - 1)
         canCollect |= currentMarker().meta.revision
                 && it->commitNumber < (currentMarker().meta.revision - 1)
-                && it->commitNumber > lastSyncedRevision_;
+                && it->syncNumber > lastSyncedRevision_;
 
         if (canCollect) {
-            HBTREE_DEBUG("adding page from history" << *it << "to collectible list");
+            HBTREE_DEBUG("marking" << *it << "as collectible. Last sync =" << lastSyncedRevision_);
             collectiblePages_.insert(it->pageNumber);
             if (cache_.contains(it->pageNumber)) {
                 // delete from cache since we'll be reusing... or
