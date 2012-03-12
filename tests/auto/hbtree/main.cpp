@@ -120,6 +120,8 @@ private slots:
     void corruptPongMarker();
     void corruptPingAndPongMarker_data();
     void corruptPingAndPongMarker();
+    void epicCorruptionTest_data();
+    void epicCorruptionTest();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 type = -1);
@@ -1964,6 +1966,134 @@ void TestHBtree::corruptPingAndPongMarker()
     QVERIFY(txn);
     QCOMPARE(txn->get(QByteArray("foo")), QByteArray("bar"));
     txn->abort();
+}
+
+struct CorruptionTestInfo
+{
+    CorruptionTestInfo(const QList<int> &list)
+        : markers(list)
+    {}
+    QList<int> markers;
+};
+
+void TestHBtree::epicCorruptionTest_data()
+{
+    const quint32 numOddCommits = 13;
+    const quint32 numEvenCommits = 10;
+
+    CorruptionTestInfo info[] = {
+        CorruptionTestInfo((QList<int>() << 1)),
+        CorruptionTestInfo((QList<int>() << 2)),
+        CorruptionTestInfo((QList<int>() << 3)),
+        CorruptionTestInfo((QList<int>() << 4)),
+        CorruptionTestInfo((QList<int>() << 1 << 2)),
+        CorruptionTestInfo((QList<int>() << 1 << 3)),
+        CorruptionTestInfo((QList<int>() << 1 << 4)),
+        CorruptionTestInfo((QList<int>() << 2 << 3)),
+        CorruptionTestInfo((QList<int>() << 2 << 4)),
+        CorruptionTestInfo((QList<int>() << 3 << 4)),
+        CorruptionTestInfo((QList<int>() << 1 << 2 << 3)),
+        CorruptionTestInfo((QList<int>() << 1 << 2 << 4)),
+        CorruptionTestInfo((QList<int>() << 1 << 3 << 4)),
+        CorruptionTestInfo((QList<int>() << 2 << 3 << 4)),
+        CorruptionTestInfo((QList<int>() << 1 << 2 << 3 << 4)),
+    };
+
+    const int numItems = sizeof(info) / sizeof(CorruptionTestInfo);
+
+    QTest::addColumn<quint32>("numCommits");
+    QTest::addColumn<QList<int> >("markers");
+    QTest::addColumn<bool>("openable");
+
+    for (int i = 0; i < numItems; ++i) {
+        QString evenTag = QString("Even commits corrupted m");
+        QString oddTag = QString("Odd commits corrupted m");
+        foreach (int j, info[i].markers) {
+            evenTag += QString::number(j);
+            oddTag += QString::number(j);
+        }
+        QTest::newRow(evenTag.toAscii()) << numEvenCommits << info[i].markers;
+        QTest::newRow(oddTag.toAscii()) << numOddCommits << info[i].markers;
+    }
+}
+
+void TestHBtree::epicCorruptionTest()
+{
+    QFETCH(quint32, numCommits);
+    QFETCH(QList<int>, markers);
+
+    const int psize = db->pageSize();
+    const quint32 halfway = numCommits / 2;
+    QList<QByteArray> beforeSync;
+    QList<QByteArray> afterSync;
+
+    for (quint32 i = 0; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QByteArray key = QByteArray::number(i);
+        QVERIFY(txn);
+        QVERIFY(txn->put(key, key));
+        QVERIFY(txn->commit(i));
+
+        if (i == halfway)
+            db->sync();
+
+        if (i > halfway)
+            afterSync.append(key);
+        else
+            beforeSync.append(key);
+    }
+
+    d->close(false);
+
+    bool hasSync1 = true;
+    bool hasSync2 = true;
+    bool hasPing = true;
+    bool hasPong = true;
+    foreach (int pgno, markers) {
+        if (pgno == 1)
+            hasSync1 = false;
+        if (pgno == 2)
+            hasSync2 = false;
+        if (pgno == 3)
+            hasPing = false;
+        if (pgno == 4)
+            hasPong = false;
+        corruptSinglePage(psize, pgno, HBtreePrivate::PageInfo::Marker);
+    }
+
+    bool hasBeforeSync = hasSync1 || hasSync2 || hasPing || hasPong;
+    bool hasAfterSync = hasPing || hasPong;
+    bool openable = hasBeforeSync || hasAfterSync;
+    bool hasLastCommit = ((numCommits % 2) == 0 && hasPing) || ((numCommits % 2) == 1 && hasPong);
+
+    QCOMPARE(db->open(), openable);
+
+    if (!hasAfterSync && hasBeforeSync)
+        QCOMPARE(db->tag(), (quint32)halfway);
+    else if (hasAfterSync)
+        QCOMPARE(db->tag(), (hasLastCommit ? numCommits - 1 : numCommits  - 2));
+
+    if (openable) {
+        if (hasBeforeSync) {
+            for (int i = 0; i < beforeSync.size(); ++i) {
+                HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+                QVERIFY(txn);
+                QCOMPARE(txn->get(beforeSync[i]), beforeSync[i]);
+                txn->abort();
+            }
+        }
+
+        if (hasAfterSync) {
+            for (int i = 0; i < afterSync.size(); ++i) {
+                if (!hasLastCommit && i == (afterSync.size() - 1))
+                    continue;
+                HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+                QVERIFY(txn);
+                QCOMPARE(txn->get(afterSync[i]), afterSync[i]);
+                txn->abort();
+            }
+        }
+    }
 }
 
 void TestHBtree::orderedList()
