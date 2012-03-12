@@ -795,10 +795,7 @@ bool HBtreePrivate::writePage(QByteArray *buffer) const
     Q_ASSERT(pageNumber != PageInfo::INVALID_PAGE);
 
     const off_t offset = pageNumber * spec_.pageSize;
-    if (lseek(fd_, offset, SEEK_SET) != offset)
-        return false;
-
-    ssize_t rc = write(fd_, (const void *)buffer->constData(), spec_.pageSize);
+    ssize_t rc = pwrite(fd_, (const void *)buffer->constData(), spec_.pageSize, offset);
     if (rc != spec_.pageSize)
         return false;
 
