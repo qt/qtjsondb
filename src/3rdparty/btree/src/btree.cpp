@@ -1258,6 +1258,11 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
                                                         return BT_SUCCESS;
                                                 }
                                                 rest_pgno--;
+                                                if (mp) {
+                                                        mpage_del(bt, mp);
+                                                        mpage_free(mp);
+                                                        mp = 0;
+                                                }
                                         }
                                 }
                         } else {
@@ -1265,6 +1270,10 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
                                 bcopy(meta, &bt->meta, sizeof(bt->meta));
                                 return BT_SUCCESS;
                         }
+                }
+                if (mp) {
+                        mpage_del(bt, mp);
+                        mpage_free(mp);
                 }
                 --meta_pgno;    /* scan backwards to first valid meta page */
         }
