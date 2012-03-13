@@ -58,8 +58,9 @@ indexed. Mutually exclusive with propertyFunction.
 
 \row
 \li propertyFunction
-\li A string or array of strings, naming the properties to be
-indexed. Mutually exclusive with propertyName.
+\li A string containing a JavaScript function which emits a custom
+sort key for an object using jsondb.emit(). Mutually exclusive with
+propertyName.
 
 \row
 \li propertyType
