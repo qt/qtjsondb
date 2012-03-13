@@ -716,6 +716,7 @@ QJsonObject JsonDbPartition::removePersistentObject(const JsonDbObject &oldObjec
 
     QJsonObject item;
     item.insert(JsonDbString::kUuidStr, uuid);
+    item.insert(JsonDbString::kVersionStr, version);
 
     QJsonArray data;
     data.append(item);
