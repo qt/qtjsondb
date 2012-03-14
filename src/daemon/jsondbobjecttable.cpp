@@ -348,7 +348,13 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringLi
     IndexSpec &indexSpec = mIndexes[indexName];
     JsonDbIndex *index = indexSpec.index;
     bool inTransaction = index->bdb()->isWriteTxnActive();
-    QBtreeCursor cursor(mBdb->btree());
+    bool inObjectTableTransaction = mBdb->isWriteTxnActive();
+    QBtreeTxn *bdbTxn = 0;
+    if (!inObjectTableTransaction)
+         bdbTxn = mBdb->btree()->beginRead();
+    else
+         bdbTxn = const_cast<QBtreeTxn *>(mBdb->existingWriteTxn().txn());
+    QBtreeCursor cursor(bdbTxn);
     if (!inTransaction)
         index->begin();
     for (bool ok = cursor.first(); ok; ok = cursor.next()) {
@@ -367,6 +373,8 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringLi
     }
     if (!inTransaction)
         index->commit(stateNumber);
+    if (!inObjectTableTransaction)
+        bdbTxn->abort();
     if (jsondbSettings->verbose())
         qDebug() << "} reindexObjects";
 }
@@ -494,7 +502,8 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     }
 
     if (!mIndexes.contains(keyName) && (keyName == JsonDbString::kTypeStr)) {
-        QBtreeCursor cursor(mBdb->btree());
+        QBtreeTxn *txn = mBdb->btree()->beginRead();
+        QBtreeCursor cursor(txn);
         for (bool ok = cursor.first(); ok; ok = cursor.next()) {
             QByteArray baKey, baObject;
             ok = cursor.current(&baKey, &baObject);
@@ -507,6 +516,7 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
                 continue;
             objectList.append(object);
         }
+        txn->abort();
         result.data = objectList;
         return result;
     }
@@ -516,7 +526,13 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     //fprintf(stderr, "getObject bdb=%p\n", indexSpec->index->bdb());
     if (indexSpec->lazy)
         updateIndex(indexSpec->index);
-    QBtreeCursor cursor(indexSpec->index->bdb()->btree());
+    QBtreeTxn *txn;
+    bool activeWriteTransaction = indexSpec->index->bdb()->isWriteTxnActive();
+    if (activeWriteTransaction)
+        txn = const_cast<QBtreeTxn *>(indexSpec->index->bdb()->existingWriteTxn().txn());
+    else
+        txn = indexSpec->index->bdb()->btree()->beginRead();
+    QBtreeCursor cursor(txn);
     if (cursor.seekRange(forwardKey)) {
         do {
             QByteArray checkKey;
@@ -547,6 +563,8 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
             }
         } while (cursor.next());
     }
+    if (!activeWriteTransaction)
+        txn->abort();
 
     result.data = objectList;
     return result;
@@ -592,7 +610,8 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectC
     QElapsedTimer timer;
     if (jsondbSettings->performanceLog())
         timer.start();
-    QBtreeCursor cursor(mBdb->btree());
+    QBtreeTxn *txn = mBdb->btree()->beginRead();
+    QBtreeCursor cursor(txn);
     QByteArray baStateKey(5, 0);
     makeStateKey(baStateKey, stateNumber);
 
@@ -649,6 +668,7 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectC
         } while (cursor.next());
     }
     *changes = changeMap;
+    txn->abort();
 
     if (jsondbSettings->performanceLog())
         qDebug() << "changesSince" << mFilename << timer.elapsed() << "ms";

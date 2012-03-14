@@ -411,7 +411,8 @@ void JsonDbIndex::checkIndex()
 
     qDebug() << "checkIndex" << mPropertyName;
     int countf = 0;
-    QBtreeCursor cursorf(mBdb.data()->btree());
+    QBtreeTxn *txnf = mBdb.data()->btree()->beginRead();
+    QBtreeCursor cursorf(txnf);
     bool ok = cursorf.first();
     if (ok) {
         countf++;
@@ -430,11 +431,13 @@ void JsonDbIndex::checkIndex()
             outkey1 = outkey2;
         }
     }
+    txnf->abort();
 
     qDebug() << "checkIndex" << mPropertyName << "reversed";
     // now check other direction
     int countr = 0;
-    QBtreeCursor cursorr(mBdb.data()->btree());
+    QBtreeTxn *txnr = mBdb.data()->btree()->beginRead();
+    QBtreeCursor cursorr(txnr);
     ok = cursorr.last();
     if (ok) {
         countr++;
@@ -453,6 +456,7 @@ void JsonDbIndex::checkIndex()
             outkey1 = outkey2;
         }
     }
+    txnr->abort();
     qDebug() << "checkIndex" << mPropertyName << "done" << countf << countr << "entries checked";
 
 }
@@ -464,9 +468,15 @@ void JsonDbIndex::setCacheSize(quint32 cacheSize)
         mBdb->setCacheSize(cacheSize);
 }
 
-JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index)
-    : mCursor(index->bdb()->btree())
+JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index) :
+    mTxn(index->bdb()->btree()->beginRead()),
+    mCursor(mTxn)
 {
+}
+
+JsonDbIndexCursor::~JsonDbIndexCursor()
+{
+    mTxn->abort();
 }
 
 bool JsonDbIndexCursor::seek(const QJsonValue &value)

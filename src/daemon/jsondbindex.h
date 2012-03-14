@@ -57,6 +57,7 @@
 #include "jsondbobjectkey.h"
 #include "jsondbmanagedbtreetxn.h"
 #include "qbtreecursor.h"
+#include "qbtreetxn.h"
 #include "jsondbcollator.h"
 
 QT_BEGIN_HEADER
@@ -134,6 +135,7 @@ class JsonDbIndexCursor
 {
 public:
     JsonDbIndexCursor(JsonDbIndex *index);
+    ~JsonDbIndexCursor();
 
     bool seek(const QJsonValue &value);
     bool seekRange(const QJsonValue &value);
@@ -146,6 +148,7 @@ public:
     bool prev();
 
 private:
+    QBtreeTxn *mTxn;
     QBtreeCursor mCursor;
     JsonDbIndex *mIndex;
 
