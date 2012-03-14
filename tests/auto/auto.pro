@@ -13,4 +13,5 @@ SUBDIRS = \
     jsondbqueryobject \
     jsondbchangessinceobject \
     queries \
+    qjsondbwatcher \
     jsonstream
