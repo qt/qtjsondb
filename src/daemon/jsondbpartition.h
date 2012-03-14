@@ -60,6 +60,7 @@ QT_BEGIN_HEADER
 
 class TestJsonDb;
 class QBtreeCursor;
+class QBtreeTxn;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -131,6 +132,7 @@ protected:
     JsonDbPartition *mPartition;
     JsonDbObjectTable   *mObjectTable;
     JsonDbManagedBtree *mBdbIndex;
+    QBtreeTxn *mTxn;
     QBtreeCursor  *mCursor;
     const JsonDbOwner *mOwner;
     QJsonValue      mMin, mMax;

@@ -927,9 +927,11 @@ IndexQuery::IndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
 {
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->indexSpec(propertyName)->index->bdb();
-        mCursor = new QBtreeCursor(mBdbIndex->btree());
+        mTxn = mBdbIndex->btree()->beginRead();
+        mCursor = new QBtreeCursor(mTxn);
     } else {
-        mCursor = new QBtreeCursor(table->bdb()->btree(), true);
+        mTxn = table->bdb()->btree()->beginRead();
+        mCursor = new QBtreeCursor(mTxn);
     }
 }
 IndexQuery::~IndexQuery()
@@ -938,7 +940,8 @@ IndexQuery::~IndexQuery()
         delete mResidualQuery;
         mResidualQuery = 0;
     }
-    if (mCursor) {
+    if (mTxn && mCursor) {
+        mTxn->abort();
         delete mCursor;
         mCursor = 0;
     }
