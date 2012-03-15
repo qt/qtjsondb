@@ -114,6 +114,7 @@ public:
     static const QString kLocaleStr;
     static const QString kCollationStr;
     static const QString kCaseSensitiveStr;
+    static const QString kCasePreferenceStr;
     static const QString kDatabaseSchemaVersionStr;
 };
 

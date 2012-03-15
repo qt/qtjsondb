@@ -54,6 +54,7 @@
 #include "jsondbnotification.h"
 #include "jsondbowner.h"
 #include "jsondbstat.h"
+#include "jsondbindex.h"
 #include "jsondbschemamanager_p.h"
 #include "qbtree.h"
 
@@ -66,7 +67,6 @@ QT_BEGIN_NAMESPACE_JSONDB
 class JsonDbManagedBtree;
 class JsonDbOwner;
 class JsonDbObjectTable;
-class JsonDbIndex;
 class JsonDbIndexQuery;
 class JsonDbView;
 
@@ -120,6 +120,7 @@ public:
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
                   const QString &collation = QString(),
+                  const QString &casePreference = QString(),
                   Qt::CaseSensitivity caseSensitive = Qt::CaseSensitive);
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),

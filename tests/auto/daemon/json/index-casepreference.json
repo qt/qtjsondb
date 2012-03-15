@@ -1,0 +1,57 @@
+[
+  {
+    "_type": "IndexCasePreference",
+    "field": "aaa"
+  },
+  {
+    "_type": "IndexCasePreference",
+    "field": "aBB"
+  },
+  {
+    "_type": "IndexCasePreference",
+    "field": "Aba"
+  },
+  {
+    "_type": "IndexCasePreference",
+    "field": "Aab"
+  },
+  {
+    "_type": "IndexCasePreference",
+    "field": "AAA"
+  },
+  {
+    "_type": "IndexCasePreference",
+    "field": "Aaa"
+  },
+  {
+    "_type": "IndexCasePreference",
+    "field": "AAa"
+  },
+  {
+    "_type": "Index",
+    "name": "casePreferenceIndex1",
+    "propertyName": "field",
+    "propertyType": "string",
+    "locale": "en_US",
+    "collation": "default",
+    "casePreference": "IgnoreCase"
+  },
+  {
+    "_type": "Index",
+    "name": "casePreferenceIndex2",
+    "propertyName": "field",
+    "propertyType": "string",
+    "locale": "en_US",
+    "collation": "default",
+    "casePreference": "PreferUpperCase"
+  },
+  {
+    "_type": "Index",
+    "name": "casePreferenceIndex3",
+    "propertyName": "field",
+    "propertyType": "string",
+    "locale": "en_US",
+    "collation": "default",
+    "casePreference": "PreferLowerCase"
+  }
+]

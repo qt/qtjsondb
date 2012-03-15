@@ -73,6 +73,13 @@ static const char * const collationStrings[collationStringsCount] = {
     "unihan"
 };
 
+static const int casePreferenceStringsCount = 3;
+static const char * const casePreferenceStrings[casePreferenceStringsCount] = {
+    "IgnoreCase",
+    "PreferUpperCase",
+    "PreferLowerCase"
+};
+
 #ifndef NO_COLLATION_SUPPORT
 JsonDbCollator::Collation _q_correctCollationString(const QString &s)
 {
@@ -82,8 +89,20 @@ JsonDbCollator::Collation _q_correctCollationString(const QString &s)
     }
     return JsonDbCollator::Default;
 }
+JsonDbCollator::CasePreference _q_correctCasePreferenceString(const QString &s)
+{
+    for (int i = 0; i < casePreferenceStringsCount; ++i) {
+        if (s == casePreferenceStrings[i])
+            return JsonDbCollator::CasePreference(i);
+    }
+    return JsonDbCollator::IgnoreCase;
+}
 #else
 int _q_correctCollationString(const QString &s)
+{
+    return 0;
+}
+int _q_correctCasePreferenceString(const QString &s)
 {
     return 0;
 }
@@ -112,7 +131,7 @@ QString _q_bytesToHexString(const QByteArray &ba)
 
 JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
                          const QString &propertyType, const QString &locale, const QString &collation,
-                         Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable)
+                         const QString &casePreference, Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable)
     : QObject(objectTable)
     , mObjectTable(objectTable)
     , mPropertyName(propertyName)
@@ -120,6 +139,7 @@ JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, cons
     , mPropertyType(propertyType)
     , mLocale(locale)
     , mCollation(collation)
+    , mCasePreference(casePreference)
     , mCaseSensitivity(caseSensitivity)
 #ifndef NO_COLLATION_SUPPORT
     , mCollator(JsonDbCollator(QLocale(locale), _q_correctCollationString(collation)))
@@ -135,6 +155,9 @@ JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, cons
     if (baseName.endsWith(".db"))
         baseName.chop(3);
     mFileName = QString("%1/%2-%3-Index.db").arg(dirName).arg(baseName).arg(indexName);
+#ifndef NO_COLLATION_SUPPORT
+    mCollator.setCasePreference(_q_correctCasePreferenceString(mCasePreference));
+#endif
 }
 
 JsonDbIndex::~JsonDbIndex()

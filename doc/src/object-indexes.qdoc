@@ -91,6 +91,12 @@ for collation index. Please read Collation type section in
 \li A bool. This property defines whether this index is sorted using case
 sensitive string comparison.
 
+\row
+\li casePreference
+\li A string, naming the case preference type of the values to be indexed,
+used for collation index. Allowed values are "IgnoreCase", "PreferUpperCase"
+and "PreferLowerCase".
+
 \endtable
 
 \section2 JsonDb Proxy

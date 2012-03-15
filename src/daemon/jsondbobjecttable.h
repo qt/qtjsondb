@@ -58,15 +58,13 @@
 
 #include <jsondbobject.h>
 #include "jsondbpartition.h"
+#include "jsondbindex.h"
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class IndexSpec;
 class JsonDbManagedBtree;
-class JsonDbPartition;
-class JsonDbIndex;
 
 struct ObjectChange
 {
@@ -147,6 +145,7 @@ public:
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
                   const QString &collation = QString(),
+                  const QString &casePreference = QString(),
                   Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive);
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
