@@ -73,46 +73,45 @@ public:
 
     inline void reload() { loadEnvironment(); }
 
-    inline bool rejectStaleUpdates() { return mRejectStaleUpdates; }
+    inline bool rejectStaleUpdates() const { return mRejectStaleUpdates; }
     inline void setRejectStaleUpdates(bool reject) { mRejectStaleUpdates = reject; }
 
-    inline bool debug() { return mDebug; }
+    inline bool debug() const { return mDebug; }
     inline void setDebug(bool debug) { mDebug = debug; }
 
-    inline bool verbose() { return mVerbose; }
+    inline bool verbose() const { return mVerbose; }
     inline void setVerbose(bool verbose) { mVerbose = verbose; }
 
-    inline bool performanceLog() { return mPerformanceLog; }
+    inline bool performanceLog() const { return mPerformanceLog; }
     inline void setPerformanceLog(bool performanceLog) { mPerformanceLog = performanceLog; }
 
-    inline int cacheSize() { return mCacheSize; }
+    inline int cacheSize() const { return mCacheSize; }
     inline void setCacheSize(int cacheSize) { mCacheSize = cacheSize; }
 
-    inline int compactRate() { return mCompactRate; }
+    inline int compactRate() const { return mCompactRate; }
     inline void setCompactRate(int compactRate) { mCompactRate = compactRate; }
 
-    inline bool enforceAccessControl() { return mEnforceAccessControl; }
+    inline bool enforceAccessControl() const { return mEnforceAccessControl; }
     inline void setEnforceAccessControl(bool enforce) { mEnforceAccessControl = enforce; }
 
-    inline int transactionSize() { return mTransactionSize; }
+    inline int transactionSize() const { return mTransactionSize; }
     inline void setTransactionSize(int transactionSize) { mTransactionSize = transactionSize; }
 
-    inline bool validateSchemas() { return mValidateSchemas; }
+    inline bool validateSchemas() const { return mValidateSchemas; }
     inline void setValidateSchemas(bool validate) { mValidateSchemas = validate; }
 
-    inline int syncInterval() { return mSyncInterval; }
+    inline int syncInterval() const { return mSyncInterval; }
     inline void setSyncInterval(int interval) { mSyncInterval = interval; }
 
-    inline int indexSyncInterval() { return mIndexSyncInterval; }
+    inline int indexSyncInterval() const { return mIndexSyncInterval; }
     inline void setIndexSyncInterval(int interval) { mIndexSyncInterval = interval; }
 
-    inline bool debugQuery() { return mDebugQuery; }
+    inline bool debugQuery() const { return mDebugQuery; }
     inline void setDebugQuery(bool debug) { mDebugQuery = debug; }
 
     JsonDbSettings();
 
 private:
-
     void loadEnvironment();
 
     bool mRejectStaleUpdates;
