@@ -73,6 +73,7 @@ public:
           options(0),
           collator(0)
     { ref.store(1); }
+    ~JsonDbCollatorPrivate();
 
     int compare(ushort *s1, int len1, ushort *s2, int len2);
 };
