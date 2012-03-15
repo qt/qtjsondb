@@ -905,7 +905,8 @@ void DBServer::updateEagerViewTypes(const QString &objectType, JsonDbPartition *
 JsonDbPartition *DBServer::findPartition(const QString &partitionName)
 {
     JsonDbPartition *partition = mDefaultPartition;
-    if (!partitionName.isEmpty()) {
+    // default partition is not in mPartitions
+    if (!partitionName.isEmpty() && partitionName != mDefaultPartition->name()) {
         if (mPartitions.contains(partitionName))
             partition = mPartitions[partitionName];
         else
