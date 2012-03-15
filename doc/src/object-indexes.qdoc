@@ -86,6 +86,11 @@ the collation index. \l {QLocale::} {QLocale(QString)}
 for collation index. Please read Collation type section in
 \l {Unicode Locale Data Markup Language (LDML): Key Type Definitions}.
 
+\row
+\li caseSensitive
+\li A bool. This property defines whether this index is sorted using case
+sensitive string comparison.
+
 \endtable
 
 \section2 JsonDb Proxy

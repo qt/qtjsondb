@@ -119,7 +119,8 @@ public:
                   const QString &objectType = QString(),
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
-                  const QString &collation = QString());
+                  const QString &collation = QString(),
+                  Qt::CaseSensitivity caseSensitive = Qt::CaseSensitive);
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
                             const QString &objectType = QString())

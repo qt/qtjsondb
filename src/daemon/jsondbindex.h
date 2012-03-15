@@ -73,7 +73,7 @@ class JsonDbIndex : public QObject
 public:
     JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
                 const QString &propertyType, const QString &locale, const QString &collation,
-                JsonDbObjectTable *objectTable);
+                Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable);
     ~JsonDbIndex();
 
     QString propertyName() const { return mPropertyName; }
@@ -103,6 +103,7 @@ public:
 
 private:
     QList<QJsonValue> indexValues(JsonDbObject &object);
+    QJsonValue indexValue(const QJsonValue &v);
 
 private slots:
     void propertyValueEmitted(QJSValue);
@@ -115,6 +116,7 @@ private:
     QString mPropertyType;
     QString mLocale;
     QString mCollation;
+    Qt::CaseSensitivity mCaseSensitivity;
 #ifndef NO_COLLATION_SUPPORT
     JsonDbCollator mCollator;
 #endif
@@ -157,6 +159,7 @@ public:
     QString propertyType;
     QString locale;
     QString collation;
+    Qt::CaseSensitivity caseSensitivity;
     QString objectType;
     bool    lazy;
     QPointer<JsonDbIndex> index;

@@ -112,7 +112,7 @@ QString _q_bytesToHexString(const QByteArray &ba)
 
 JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
                          const QString &propertyType, const QString &locale, const QString &collation,
-                         JsonDbObjectTable *objectTable)
+                         Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable)
     : QObject(objectTable)
     , mObjectTable(objectTable)
     , mPropertyName(propertyName)
@@ -120,6 +120,7 @@ JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, cons
     , mPropertyType(propertyType)
     , mLocale(locale)
     , mCollation(collation)
+    , mCaseSensitivity(caseSensitivity)
 #ifndef NO_COLLATION_SUPPORT
     , mCollator(JsonDbCollator(QLocale(locale), _q_correctCollationString(collation)))
 #endif
@@ -240,6 +241,25 @@ JsonDbManagedBtree *JsonDbIndex::bdb()
     return mBdb.data();
 }
 
+QJsonValue JsonDbIndex::indexValue(const QJsonValue &v)
+{
+    if (!v.isString())
+        return v;
+
+    QJsonValue result;
+    if (mCaseSensitivity == Qt::CaseInsensitive)
+        result = v.toString().toLower();
+    else
+        result = v;
+
+#ifndef NO_COLLATION_SUPPORT
+    if (!mCollation.isEmpty() && !mLocale.isEmpty())
+        result = _q_bytesToHexString(mCollator.sortKey(v.toString()));
+#endif
+
+    return result;
+}
+
 QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 {
     mFieldValues.clear();
@@ -250,32 +270,12 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
             QJsonArray array = v.toArray();
             mFieldValues.reserve(array.size());
             for (int i = 0; i < array.size(); ++i) {
-                if (!mCollation.isEmpty() && !mLocale.isEmpty()) {
-                    mFieldValues.append(
-#ifndef NO_COLLATION_SUPPORT
-                        _q_bytesToHexString(mCollator.sortKey(array.at(i).toString()))
-#else
-                        array.at(i)
-#endif
-                    );
-                } else {
-                    mFieldValues.append(array.at(i));
-                }
+                mFieldValues.append(indexValue(array.at(i)));
             }
         } else {
             QJsonValue v = object.propertyLookup(mPath);
             if (!v.isUndefined()) {
-                if (!mCollation.isEmpty() && !mLocale.isEmpty()) {
-                    mFieldValues.append(
-#ifndef NO_COLLATION_SUPPORT
-                        _q_bytesToHexString(mCollator.sortKey(v.toString()))
-#else
-                        v
-#endif
-                    );
-                } else {
-                    mFieldValues.append(v);
-                }
+                mFieldValues.append(indexValue(v));
             }
         }
     } else {

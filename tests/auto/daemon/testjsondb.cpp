@@ -226,6 +226,7 @@ private slots:
     void setOwner();
     void indexPropertyFunction();
     void indexCollation();
+    void indexCaseSensitive();
     void managedBtree();
 
     void settings();
@@ -3921,6 +3922,32 @@ void TestJsonDb::indexCollation()
 #else
     QSKIP("This test requires NO_COLLATION_SUPPORT is not defined!");
 #endif
+}
+
+void TestJsonDb::indexCaseSensitive()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/index-casesensitive.json").toArray());
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+    }
+
+    JsonDbQueryResult queryResult1 = find(mOwner, QLatin1String("[?_type=\"IndexCaseSensitive\"][/caseSensitiveIndex]"));
+    QCOMPARE(queryResult1.data.size(), 7);
+    QCOMPARE(queryResult1.data.at(0).value("field").toString(), QLatin1String("AAA"));
+    QCOMPARE(queryResult1.data.at(1).value("field").toString(), QLatin1String("AAa"));
+    QCOMPARE(queryResult1.data.at(2).value("field").toString(), QLatin1String("Aaa"));
+    QCOMPARE(queryResult1.data.at(3).value("field").toString(), QLatin1String("Aab"));
+    QCOMPARE(queryResult1.data.at(4).value("field").toString(), QLatin1String("Aba"));
+    QCOMPARE(queryResult1.data.at(5).value("field").toString(), QLatin1String("aBB"));
+    QCOMPARE(queryResult1.data.at(6).value("field").toString(), QLatin1String("aaa"));
+
+    JsonDbQueryResult queryResult2 = find(mOwner, QLatin1String("[?_type=\"IndexCaseSensitive\"][/caseInSensitiveIndex]"));
+    QCOMPARE(queryResult2.data.size(), 7);
+    QCOMPARE(queryResult2.data.at(4).value("field").toString(), QLatin1String("Aab"));
+    QCOMPARE(queryResult2.data.at(5).value("field").toString(), QLatin1String("Aba"));
+    QCOMPARE(queryResult2.data.at(6).value("field").toString(), QLatin1String("aBB"));
 }
 
 void TestJsonDb::managedBtree()
