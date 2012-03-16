@@ -71,18 +71,6 @@ class JsonDbObjectTable;
 class JsonDbIndex;
 class JsonDbView;
 
-extern const QString kDbidTypeStr;
-extern const QString kIndexTypeStr;
-extern const QString kPropertyNameStr;
-extern const QString kPropertyTypeStr;
-extern const QString kLocaleStr;
-extern const QString kCollationStr;
-extern const QString kNameStr;
-extern const QString kObjectTypeStr;
-extern const QString kDatabaseSchemaVersionStr;
-extern const QString kPropertyFunctionStr;
-extern const QString gDatabaseSchemaVersion;
-
 class QueryConstraint {
 public:
     virtual ~QueryConstraint() { }
