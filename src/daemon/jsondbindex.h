@@ -100,6 +100,7 @@ public:
     bool exists() const;
 
     static bool validateIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex, QString &message);
+    static QString determineName(const JsonDbObject &index);
 
 private:
     QList<QJsonValue> indexValues(JsonDbObject &object);

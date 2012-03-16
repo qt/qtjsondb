@@ -681,19 +681,19 @@ void JsonDbPartition::initIndexes()
             qDebug() << "initIndexes" << "index" << indexObject;
         QString indexObjectType = indexObject.value(JsonDbString::kTypeStr).toString();
         if (indexObjectType == JsonDbString::kIndexTypeStr) {
-            QString indexName = indexObject.value(JsonDbString::kNameStr).toString();
+            QString indexName = JsonDbIndex::determineName(indexObject);
             QString propertyName = indexObject.value(JsonDbString::kPropertyNameStr).toString();
             QString propertyType = indexObject.value(JsonDbString::kPropertyTypeStr).toString();
             QString objectType = indexObject.value(JsonDbString::kObjectTypeStr).toString();
             QString propertyFunction = indexObject.value(JsonDbString::kPropertyFunctionStr).toString();
             QString locale = indexObject.value(JsonDbString::kLocaleStr).toString();
             QString collation = indexObject.value(JsonDbString::kCollationStr).toString();
+
             Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive;
             if (indexObject.contains(JsonDbString::kCaseSensitiveStr))
                 caseSensitivity = (indexObject.value(JsonDbString::kCaseSensitiveStr).toBool() == true ? Qt::CaseSensitive : Qt::CaseInsensitive);
 
-            JsonDbObjectTable *table = findObjectTable(objectType);
-            table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation, caseSensitivity);
+            addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation, caseSensitivity);
         }
     }
 }
@@ -1562,27 +1562,20 @@ JsonDbError::ErrorCode JsonDbPartition::checkBuiltInTypeValidity(const JsonDbObj
 void JsonDbPartition::updateBuiltInTypes(const JsonDbObject &object, const JsonDbObject &oldObject)
 {
     if (oldObject.type() == JsonDbString::kIndexTypeStr) {
-        QString indexName = oldObject.value(JsonDbString::kNameStr).toString();
-        QString propertyName = oldObject.value(JsonDbString::kPropertyNameStr).toString();
-
-        if (indexName.isEmpty())
-            indexName = propertyName;
-
+        QString indexName = JsonDbIndex::determineName(oldObject);
         removeIndex(indexName, oldObject.value(JsonDbString::kObjectTypeStr).toString());
     }
 
     if (object.type() == JsonDbString::kIndexTypeStr && !object.isDeleted()) {
-        QString indexName = object.value(JsonDbString::kNameStr).toString();
-        QString propertyName = object.value(JsonDbString::kPropertyNameStr).toString();
-
-        if (indexName.isEmpty())
-            indexName = propertyName;
+        QString indexName = JsonDbIndex::determineName(object);
 
         bool caseSensitivity = true;
         if (object.contains(JsonDbString::kCaseSensitiveStr))
             caseSensitivity = object.value(JsonDbString::kCaseSensitiveStr).toBool();
 
-        addIndex(indexName, propertyName, object.value(JsonDbString::kPropertyTypeStr).toString(),
+        addIndex(indexName,
+                 object.value(JsonDbString::kPropertyNameStr).toString(),
+                 object.value(JsonDbString::kPropertyTypeStr).toString(),
                  object.value(JsonDbString::kObjectTypeStr).toString(),
                  object.value(JsonDbString::kPropertyFunctionStr).toString(),
                  object.value(JsonDbString::kLocaleStr).toString(),

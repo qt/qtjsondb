@@ -234,6 +234,16 @@ bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject
     return message.isEmpty();
 }
 
+QString JsonDbIndex::determineName(const JsonDbObject &index)
+{
+    QString indexName = index.value(JsonDbString::kNameStr).toString();
+    QString propertyName = index.value(JsonDbString::kPropertyNameStr).toString();
+
+    if (indexName.isEmpty())
+        return propertyName;
+    return indexName;
+}
+
 JsonDbManagedBtree *JsonDbIndex::bdb()
 {
     if (!mBdb)
