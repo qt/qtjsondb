@@ -73,6 +73,7 @@ public:
     void markDeleted();
 
     void generateUuid();
+    static QUuid createUuidFromString(const QString &id);
     QString computeVersion();
 
     bool updateVersionOptimistic(const JsonDbObject &other, QString *versionWritten);

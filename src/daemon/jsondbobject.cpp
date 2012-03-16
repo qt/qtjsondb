@@ -53,23 +53,6 @@
 
 QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
-static QUuid generateUUIDv3(const QString &uri)
-{
-    QCryptographicHash hash(QCryptographicHash::Md5);
-    hash.addData(QUuid(0x6ba7b810, 0x9dad, 0x11d1, 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8).toRfc4122());
-    hash.addData(uri.toUtf8());
-    QByteArray hashResult = hash.result();
-
-    QUuid result = QUuid::fromRfc4122(hashResult);
-
-    result.data3 &= 0x0FFF;
-    result.data3 |= (3 << 12);
-    result.data4[0] &= 0x3F;
-    result.data4[0] |= 0x80;
-
-    return result;
-}
-
 JsonDbObject::JsonDbObject()
 {
 }
@@ -118,12 +101,39 @@ void JsonDbObject::markDeleted()
     insert(JsonDbString::kDeletedStr, true);
 }
 
+struct Uuid
+{
+    uint    data1;
+    ushort  data2;
+    ushort  data3;
+    uchar   data4[8];
+};
+
+// copied from src/client/qjsondbobject.cpp:
+static const Uuid JsonDbNamespace = {0x6ba7b810, 0x9dad, 0x11d1, { 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8} };
+
+/*!
+    Returns deterministic uuid that can be used to identify given \a identifier.
+
+    The uuid is generated using QtJsonDb UUID namespace on a value of the
+    given \a identifier.
+
+    \sa QJsonDbObject::createUuidFromString(), QJsonDbObject::createUuid()
+*/
+QUuid JsonDbObject::createUuidFromString(const QString &identifier)
+{
+    const QUuid ns(JsonDbNamespace.data1, JsonDbNamespace.data2, JsonDbNamespace.data3,
+                   JsonDbNamespace.data4[0], JsonDbNamespace.data4[1], JsonDbNamespace.data4[2],
+                   JsonDbNamespace.data4[3], JsonDbNamespace.data4[4], JsonDbNamespace.data4[5],
+                   JsonDbNamespace.data4[6], JsonDbNamespace.data4[7]);
+    return QUuid::createUuidV3(ns, identifier);
+}
+
 void JsonDbObject::generateUuid()
 {
     QLatin1String idStr("_id");
     if (contains(idStr)) {
-        QByteArray rfc4122 = generateUUIDv3(value(idStr).toString()).toRfc4122();
-        QUuid uuid(QUuid::fromRfc4122((rfc4122)));
+        QUuid uuid(createUuidFromString(value(idStr).toString()));
         insert(JsonDbString::kUuidStr, uuid.toString());
     } else {
         QUuid uuid(QUuid::createUuid());
