@@ -2102,10 +2102,17 @@ void TestJsonDb::mapSchemaViolation()
 
     getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjects.data.size(), 0);
+
+    // get the version out of the database since the Map erroring out causes a
+    //_version increment
+    JsonDbObject updatedMap;
+    QVERIFY(mJsonDbPartition->getObject(map.uuid().toString(), updatedMap));
+
     // fix the map function
     map.insert("map", workingMap);
     map.insert(JsonDbString::kActiveStr, true);
     map.insert(JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
+    map.insert(JsonDbString::kVersionStr, updatedMap.value(JsonDbString::kVersionStr).toString());
 
     verifyGoodResult(update(mOwner, map));
 
@@ -2451,10 +2458,16 @@ void TestJsonDb::reduceSchemaViolation()
     getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(getObjects.data.size(), 0);
 
+    // get the version out of the database since the Reduce erroring out causes a
+    //_version increment
+    JsonDbObject updatedReduce;
+    QVERIFY(mJsonDbPartition->getObject(reduce.uuid().toString(), updatedReduce ));
+
     // fix the add function
     reduce.insert("add", workingAdd);
     reduce.insert(JsonDbString::kActiveStr, true);
     reduce.insert(JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
+    reduce.insert(JsonDbString::kVersionStr, updatedReduce.value(JsonDbString::kVersionStr).toString());
 
     verifyGoodResult(update(mOwner, reduce));
 

@@ -133,10 +133,6 @@ public:
     JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, WriteMode mode = OptimisticWrite);
     JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, WriteMode mode = OptimisticWrite);
 
-    QJsonObject createPersistentObject(JsonDbObject & );
-    QJsonObject updatePersistentObject(const JsonDbObject& oldObject, const JsonDbObject& object);
-    QJsonObject removePersistentObject(const JsonDbObject& oldObject, const JsonDbObject &tombStone );
-
     QJsonObject flush();
 
     JsonDbView *addView(const QString &viewType);

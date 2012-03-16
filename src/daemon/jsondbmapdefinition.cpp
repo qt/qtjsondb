@@ -367,16 +367,8 @@ void JsonDbMapDefinition::setError(const QString &errorMsg)
 {
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
-    if (mPartition) {
-        WithTransaction transaction(mPartition, "JsonDbMapDefinition::setError");
-        JsonDbObjectTable *objectTable = mPartition->findObjectTable(JsonDbString::kMapTypeStr);
-        transaction.addObjectTable(objectTable);
-        JsonDbObject doc(mDefinition);
-        JsonDbObject _delrec;
-        mPartition->getObject(mUuid, _delrec, JsonDbString::kMapTypeStr);
-        mPartition->updatePersistentObject(_delrec, doc);
-        transaction.commit();
-    }
+    if (mPartition)
+        mPartition->updateObject(mOwner, mDefinition, JsonDbPartition::ForcedWrite);
 }
 
 bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message)

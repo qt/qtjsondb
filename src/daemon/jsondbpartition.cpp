@@ -440,38 +440,6 @@ void forwardValueSplit(const QByteArray &forwardValue, ObjectKey &objectKey)
     objectKey = qFromBigEndian<ObjectKey>(&data[0]);
 }
 
-QJsonObject JsonDbPartition::createPersistentObject(JsonDbObject &object)
-{
-    QJsonObject resultmap, errormap;
-
-    if (!object.contains(JsonDbString::kUuidStr)) {
-        object.generateUuid();
-        object.computeVersion();
-    }
-
-    QString uuid = object.value(JsonDbString::kUuidStr).toString();
-    QString version = object.value(JsonDbString::kVersionStr).toString();
-    QString objectType = object.value(JsonDbString::kTypeStr).toString();
-
-    ObjectKey objectKey(object.value(JsonDbString::kUuidStr).toString());
-    JsonDbObjectTable *table = findObjectTable(objectType);
-
-    bool ok = table->put(objectKey, object);
-    if (!ok)
-        return makeErrorResponse(resultmap, JsonDbError::DatabaseError,
-                                 table->errorMessage());
-
-    quint32 stateNumber = table->storeStateChange(objectKey, ObjectChange::Created);
-    table->indexObject(objectKey, object, table->stateNumber());
-
-    resultmap.insert(JsonDbString::kUuidStr, uuid);
-    resultmap.insert(JsonDbString::kVersionStr, version);
-    resultmap.insert(JsonDbString::kCountStr, 1);
-    resultmap.insert(JsonDbString::kStateNumberStr, (int)stateNumber);
-
-    return makeResponse(resultmap, errormap);
-}
-
 JsonDbView *JsonDbPartition::addView(const QString &viewType)
 {
     JsonDbView *view = mViews.value(viewType);
@@ -631,92 +599,6 @@ void JsonDbPartition::timerEvent(QTimerEvent *event)
         killTimer(mIndexSyncTimerId);
         mIndexSyncTimerId = -1;
     }
-}
-
-QJsonObject JsonDbPartition::updatePersistentObject(const JsonDbObject &oldObject, const JsonDbObject &object)
-{
-    QJsonObject resultmap, errormap;
-
-    QString uuid = object.value(JsonDbString::kUuidStr).toString();
-    QString version = object.value(JsonDbString::kVersionStr).toString();
-    QString objectType = object.value(JsonDbString::kTypeStr).toString();
-    JsonDbObjectTable *table = findObjectTable(objectType);
-    ObjectKey objectKey(uuid);
-
-    objectKey = ObjectKey(object.value(JsonDbString::kUuidStr).toString());
-
-    if (!oldObject.isEmpty())
-        table->deindexObject(objectKey, oldObject, table->stateNumber());
-
-    if (!table->put(objectKey, object))
-        return makeErrorResponse(resultmap, JsonDbError::DatabaseError,
-                                 table->errorMessage());
-
-    if (jsondbSettings->debug())
-        qDebug() << "updateObject" << objectKey << endl << object << endl << oldObject;
-
-    quint32 stateNumber;
-    if (!oldObject.isEmpty()) {
-        stateNumber = table->storeStateChange(objectKey, ObjectChange::Updated, oldObject);
-    } else {
-        stateNumber = table->storeStateChange(objectKey, ObjectChange::Created);
-    }
-
-    table->indexObject(objectKey, object, table->stateNumber());
-
-    resultmap.insert( JsonDbString::kCountStr, 1 );
-    resultmap.insert( JsonDbString::kUuidStr, uuid );
-    resultmap.insert( JsonDbString::kVersionStr, version );
-    resultmap.insert( JsonDbString::kStateNumberStr, (int)stateNumber );
-
-    return makeResponse(resultmap, errormap);
-}
-
-QJsonObject JsonDbPartition::removePersistentObject(const JsonDbObject &oldObject, const JsonDbObject &ts)
-{
-    if (jsondbSettings->debug())
-        qDebug() << "removePersistentObject" << endl << oldObject << endl << "    tombstone" << ts;
-
-    QJsonObject resultmap, errormap;
-    QString uuid = oldObject.value(JsonDbString::kUuidStr).toString();
-    QString version = oldObject.value(JsonDbString::kVersionStr).toString();
-    QString objectType = oldObject.value(JsonDbString::kTypeStr).toString();
-
-    JsonDbObjectTable *table = findObjectTable(objectType);
-
-    ObjectKey objectKey(uuid);
-
-    Q_ASSERT(ts.contains(JsonDbString::kUuidStr) && (oldObject.value(JsonDbString::kUuidStr) == ts.value(JsonDbString::kUuidStr)));
-    Q_ASSERT(ts.contains(JsonDbString::kVersionStr));
-    Q_ASSERT(ts.contains(JsonDbString::kDeletedStr) && ts.value(JsonDbString::kDeletedStr).toBool());
-
-    bool ok = table->put(objectKey, ts);
-    Q_ASSERT(ok);
-    if (!ok) {
-        return makeErrorResponse(resultmap,
-                                 JsonDbError::DatabaseError,
-                                 table->errorMessage());
-    }
-    JsonDbObject testing;
-    ok = table->get(objectKey, &testing, true);
-    Q_ASSERT(ok);
-    Q_ASSERT(testing == ts);
-
-    quint32 stateNumber = table->storeStateChange(objectKey, ObjectChange::Deleted, oldObject);
-    table->deindexObject(objectKey, oldObject, table->stateNumber());
-
-    QJsonObject item;
-    item.insert(JsonDbString::kUuidStr, uuid);
-    item.insert(JsonDbString::kVersionStr, version);
-
-    QJsonArray data;
-    data.append(item);
-    resultmap.insert(JsonDbString::kCountStr, 1);
-    resultmap.insert(JsonDbString::kDataStr, data);
-    resultmap.insert(JsonDbString::kErrorStr, QJsonValue());
-    resultmap.insert(JsonDbString::kStateNumberStr, (int)stateNumber);
-    QJsonObject result = makeResponse(resultmap, errormap);
-    return result;
 }
 
 bool JsonDbPartition::getObject(const QString &uuid, JsonDbObject &object, const QString &objectType) const

@@ -287,16 +287,8 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
 {
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
-    if (mPartition) {
-        WithTransaction transaction(mPartition, "JsonDbReduceDefinition::setError");
-        JsonDbObjectTable *objectTable = mPartition->findObjectTable(JsonDbString::kReduceTypeStr);
-        transaction.addObjectTable(objectTable);
-        JsonDbObject doc(mDefinition);
-        JsonDbObject _delrec;
-        mPartition->getObject(mUuid, _delrec, JsonDbString::kReduceTypeStr);
-        mPartition->updatePersistentObject(_delrec, doc);
-        transaction.commit();
-    }
+    if (mPartition)
+        mPartition->updateObject(mOwner, mDefinition, JsonDbPartition::ForcedWrite);
 }
 
 bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message)
