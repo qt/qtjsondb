@@ -280,8 +280,6 @@ protected:
 
     void doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
                       IndexQuery *indexQuery);
-    void doMultiIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
-                           const QList<IndexQuery *> &indexQueries);
 
     static void sortValues(const JsonDbQuery *query, JsonDbObjectList &results, JsonDbObjectList &joinedResults);
 
