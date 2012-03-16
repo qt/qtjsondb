@@ -1980,15 +1980,6 @@ struct JsonDbStat JsonDbPartition::stat() const
     return result;
 }
 
-QString JsonDbPartition::name() const
-{
-    return mPartitionName;
-}
-void JsonDbPartition::setName(const QString &name)
-{
-    mPartitionName = name;
-}
-
 struct QJsonSortable {
     QJsonValue key;
     QJsonObject result;

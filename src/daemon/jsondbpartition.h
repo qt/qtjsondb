@@ -231,8 +231,8 @@ public:
 
     QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
 
-    QString name() const;
-    void setName(const QString &name);
+    inline QString name() const { return mPartitionName; }
+    inline void setName(const QString &name) { mPartitionName = name; }
     inline JsonDbOwner *defaultOwner() { return mDefaultOwner; }
 
     void checkIndex(const QString &propertyName);
