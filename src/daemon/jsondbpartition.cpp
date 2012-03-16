@@ -270,19 +270,6 @@ void memcpyFieldValue(QJsonValue::Type vt, QJsonValue &fieldValue, const char *d
     }
 }
 
-int objectKeyCmp(const char *aptr, size_t alen, const char *bptr, size_t blen, void *)
-{
-    Q_UNUSED(alen);
-    Q_UNUSED(blen);
-    quint32 a = qFromBigEndian<quint32>((const uchar *)aptr);
-    quint32 b = qFromBigEndian<quint32>((const uchar *)bptr);
-    if (a < b)
-        return -1;
-    if (a > b)
-        return 1;
-    return 0;
-}
-
 int intcmp(const uchar *aptr, const uchar *bptr)
 {
     qint32 a = qFromBigEndian<qint32>((const uchar *)aptr);
