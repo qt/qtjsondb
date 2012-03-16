@@ -64,8 +64,8 @@
 #include "jsondb-error.h"
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
+#include "jsondbindexquery.h"
 #include "jsondbobjecttable.h"
-#include "qbtreetxn.h"
 #include "jsondbmanagedbtree.h"
 #include "jsondbsettings.h"
 #include "jsondbview.h"
@@ -898,441 +898,7 @@ QHash<QString, qint64> JsonDbPartition::fileSizes() const
     return result;
 }
 
-static bool sDebugQuery = jsondbSettings->debugQuery();
-
-IndexQuery *IndexQuery::indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
-                                   const QString &propertyName, const QString &propertyType,
-                                   const JsonDbOwner *owner, bool ascending)
-{
-    if (propertyName == JsonDbString::kUuidStr)
-        return new UuidQuery(partition, table, propertyName, owner, ascending);
-    else
-        return new IndexQuery(partition, table, propertyName, propertyType, owner, ascending);
-}
-
-UuidQuery::UuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending)
-    : IndexQuery(partition, table, propertyName, QString(), owner, ascending)
-{
-}
-
-IndexQuery::IndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
-                       const QString &propertyName, const QString &propertyType,
-                       const JsonDbOwner *owner, bool ascending)
-    : mPartition(partition)
-    , mObjectTable(table)
-    , mBdbIndex(0)
-    , mCursor(0)
-    , mOwner(owner)
-    , mMin(QJsonValue::Undefined)
-    , mMax(QJsonValue::Undefined)
-    , mAscending(ascending)
-    , mPropertyName(propertyName)
-    , mPropertyType(propertyType)
-    , mSparseMatchPossible(false)
-    , mResidualQuery(0)
-{
-    if (propertyName != JsonDbString::kUuidStr) {
-        mBdbIndex = table->indexSpec(propertyName)->index->bdb();
-        mTxn = mBdbIndex->btree()->beginRead();
-        mCursor = new QBtreeCursor(mTxn);
-    } else {
-        mTxn = table->bdb()->btree()->beginRead();
-        mCursor = new QBtreeCursor(mTxn);
-    }
-}
-IndexQuery::~IndexQuery()
-{
-    if (mResidualQuery) {
-        delete mResidualQuery;
-        mResidualQuery = 0;
-    }
-    if (mTxn && mCursor) {
-        mTxn->abort();
-        delete mCursor;
-        mCursor = 0;
-    }
-    for (int i = 0; i < mQueryConstraints.size(); i++) {
-        delete mQueryConstraints[i];
-    }
-}
-
-QString IndexQuery::partition() const
-{
-    return mPartition->name();
-}
-
-quint32 IndexQuery::stateNumber() const
-{
-    return mBdbIndex->tag();
-}
-
-bool IndexQuery::matches(const QJsonValue &fieldValue)
-{
-    for (int i = 0; i < mQueryConstraints.size(); i++) {
-        if (!mQueryConstraints[i]->matches(fieldValue))
-            return false;
-    }
-    return true;
-}
-
-void IndexQuery::setMin(const QJsonValue &value)
-{
-    mMin = makeFieldValue(value, mPropertyType);
-}
-
-void IndexQuery::setMax(const QJsonValue &value)
-{
-    mMax = makeFieldValue(value, mPropertyType);
-}
-
-bool IndexQuery::seekToStart(QJsonValue &fieldValue)
-{
-    QByteArray forwardKey;
-    if (mAscending) {
-        forwardKey = makeForwardKey(mMin, ObjectKey());
-        if (sDebugQuery) qDebug() << __FUNCTION__ << __LINE__ << "mMin" << mMin << "key" << forwardKey.toHex();
-    } else {
-        forwardKey = makeForwardKey(mMax, ObjectKey());
-        if (sDebugQuery) qDebug() << __FUNCTION__ << __LINE__ << "mMax" << mMin << "key" << forwardKey.toHex();
-    }
-
-    bool ok = false;
-    if (mAscending) {
-        if (!mMin.isUndefined()) {
-            ok = mCursor->seekRange(forwardKey);
-            if (sDebugQuery) qDebug() << "IndexQuery::first" << __LINE__ << "ok after seekRange" << ok;
-        }
-        if (!ok) {
-            ok = mCursor->first();
-        }
-    } else {
-        // need a seekDescending
-        ok = mCursor->last();
-    }
-    if (ok) {
-        QByteArray baKey;
-        mCursor->current(&baKey, 0);
-        forwardKeySplit(baKey, fieldValue);
-    }
-    //qDebug() << "IndexQuery::seekToStart" << (mAscending ? mMin : mMax) << "ok" << ok << fieldValue;
-    return ok;
-}
-
-bool IndexQuery::seekToNext(QJsonValue &fieldValue)
-{
-    bool ok = mAscending ? mCursor->next() : mCursor->prev();
-    if (ok) {
-        QByteArray baKey;
-        mCursor->current(&baKey, 0);
-        forwardKeySplit(baKey, fieldValue);
-    }
-    //qDebug() << "IndexQuery::seekToNext" << "ok" << ok << fieldValue;
-    return ok;
-}
-
-JsonDbObject IndexQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
-{
-    QByteArray baValue;
-    mCursor->current(0, &baValue);
-    forwardValueSplit(baValue, objectKey);
-
-    if (sDebugQuery) qDebug() << __FILE__ << __LINE__ << "objectKey" << objectKey << baValue.toHex();
-    JsonDbObject object;
-    mObjectTable->get(objectKey, &object);
-    return object;
-}
-
-quint32 UuidQuery::stateNumber() const
-{
-    return mObjectTable->stateNumber();
-}
-
-bool UuidQuery::seekToStart(QJsonValue &fieldValue)
-{
-    bool ok;
-    if (mAscending) {
-        if (!mMin.isUndefined()) {
-            ObjectKey objectKey(mMin.toString());
-            ok = mCursor->seekRange(objectKey.toByteArray());
-        } else {
-            ok = mCursor->first();
-        }
-    } else {
-        if (!mMax.isUndefined()) {
-            ObjectKey objectKey(mMax.toString());
-            ok = mCursor->seekRange(objectKey.toByteArray());
-        } else {
-            ok = mCursor->last();
-        }
-    }
-    QByteArray baKey;
-    while (ok) {
-        mCursor->current(&baKey, 0);
-        if (baKey.size() == 16)
-            break;
-        if (mAscending)
-            ok = mCursor->next();
-        else
-            ok = mCursor->prev();
-    }
-    if (ok) {
-        QUuid quuid(QUuid::fromRfc4122(baKey));
-        ObjectKey objectKey(quuid);
-        fieldValue = objectKey.key.toString();
-    }
-    return ok;
-}
-
-bool UuidQuery::seekToNext(QJsonValue &fieldValue)
-{
-    bool ok = mAscending ? mCursor->next() : mCursor->prev();
-    QByteArray baKey;
-    while (ok) {
-        mCursor->current(&baKey, 0);
-        if (baKey.size() == 16)
-            break;
-        if (mAscending)
-            ok = mCursor->next();
-        else
-            ok = mCursor->prev();
-    }
-    if (ok) {
-        QUuid quuid(QUuid::fromRfc4122(baKey));
-        ObjectKey objectKey(quuid);
-        fieldValue = objectKey.key.toString();
-    }
-    return ok;
-}
-
-JsonDbObject UuidQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
-{
-    QByteArray baKey, baValue;
-    mCursor->current(&baKey, &baValue);
-    objectKey = ObjectKey(baKey);
-
-    if (sDebugQuery) qDebug() << __FILE__ << __LINE__ << "objectKey" << objectKey << baKey.toHex();
-    JsonDbObject object(QJsonDocument::fromBinaryData(baValue).object());
-    return object;
-}
-
-JsonDbObject IndexQuery::first()
-{
-    mSparseMatchPossible = false;
-    for (int i = 0; i < mQueryConstraints.size(); i++) {
-        mSparseMatchPossible |= mQueryConstraints[i]->sparseMatchPossible();
-    }
-
-    QJsonValue fieldValue;
-    bool ok = seekToStart(fieldValue);
-    if (sDebugQuery) qDebug() << "IndexQuery::first" << __LINE__ << "ok after first/last()" << ok;
-    for (; ok; ok = seekToNext(fieldValue)) {
-        mFieldValue = fieldValue;
-        if (sDebugQuery) qDebug() << "IndexQuery::first()"
-                                  << "mPropertyName" << mPropertyName
-                                  << "fieldValue" << fieldValue
-                                  << (mAscending ? "ascending" : "descending");
-
-        if (sDebugQuery) qDebug() << "IndexQuery::first()" << "matches(fieldValue)" << matches(fieldValue);
-
-        if (!matches(fieldValue))
-            continue;
-
-        ObjectKey objectKey;
-        JsonDbObject object(currentObjectAndTypeNumber(objectKey));
-        if (sDebugQuery) qDebug() << "IndexQuery::first()" << __LINE__ << "objectKey" << objectKey << object.value(JsonDbString::kDeletedStr).toBool();
-        if (object.contains(JsonDbString::kDeletedStr) && object.value(JsonDbString::kDeletedStr).toBool())
-            continue;
-
-        if (!mTypeNames.isEmpty() && !mTypeNames.contains(object.value(JsonDbString::kTypeStr).toString()))
-            continue;
-        if (sDebugQuery) qDebug() << "mTypeName" << mTypeNames << "!contains" << object << "->" << object.value(JsonDbString::kTypeStr);
-
-        if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mPartition))
-            continue;
-
-        if (sDebugQuery) qDebug() << "IndexQuery::first()" << "returning objectKey" << objectKey;
-
-        return object;
-    }
-    mUuid.clear();
-    return QJsonObject();
-}
-JsonDbObject IndexQuery::next()
-{
-    QJsonValue fieldValue;
-    while (seekToNext(fieldValue)) {
-        if (sDebugQuery) qDebug() << "IndexQuery::next()" << "mPropertyName" << mPropertyName
-                                  << "fieldValue" << fieldValue
-                                  << (mAscending ? "ascending" : "descending");
-        if (sDebugQuery) qDebug() << "IndexQuery::next()" << "matches(fieldValue)" << matches(fieldValue);
-        if (!matches(fieldValue)) {
-            if (mSparseMatchPossible)
-                continue;
-            else
-                break;
-        }
-
-        ObjectKey objectKey;
-        JsonDbObject object(currentObjectAndTypeNumber(objectKey));
-        if (object.contains(JsonDbString::kDeletedStr) && object.value(JsonDbString::kDeletedStr).toBool())
-            continue;
-
-        if (!mTypeNames.isEmpty() && !mTypeNames.contains(object.value(JsonDbString::kTypeStr).toString()))
-            continue;
-
-        if (sDebugQuery) qDebug() << "IndexQuery::next()" << "objectKey" << objectKey;
-
-        if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mPartition))
-            continue;
-
-        return object;
-    }
-    mUuid.clear();
-    return QJsonObject();
-}
-
-bool lessThan(const QJsonValue &a, const QJsonValue &b)
-{
-    if (a.type() == b.type()) {
-        if (a.type() == QJsonValue::Double) {
-            return a.toDouble() < b.toDouble();
-        } else if (a.type() == QJsonValue::String) {
-            return a.toString() < b.toString();
-        } else if (a.type() == QJsonValue::Bool) {
-            return a.toBool() < b.toBool();
-        } else {
-            return false;
-        }
-    } else {
-        return false;
-    }
-}
-
-bool greaterThan(const QJsonValue &a, const QJsonValue &b)
-{
-    if (a.type() == b.type()) {
-        if (a.type() == QJsonValue::Double) {
-            return a.toDouble() > b.toDouble();
-        } else if (a.type() == QJsonValue::String) {
-            return a.toString() > b.toString();
-        } else if (a.type() == QJsonValue::Bool) {
-            return a.toBool() > b.toBool();
-        } else {
-            return false;
-        }
-    } else {
-        return false;
-    }
-}
-
-class QueryConstraintGt: public QueryConstraint {
-public:
-    QueryConstraintGt(const QJsonValue &v) { mValue = v; }
-    bool matches(const QJsonValue &v) { return greaterThan(v, mValue); }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintGe: public QueryConstraint {
-public:
-    QueryConstraintGe(const QJsonValue &v) { mValue = v; }
-    bool matches(const QJsonValue &v) { return greaterThan(v, mValue) || (v == mValue); }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintLt: public QueryConstraint {
-public:
-    QueryConstraintLt(const QJsonValue &v) { mValue = v; }
-    bool matches(const QJsonValue &v) { return lessThan(v, mValue); }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintLe: public QueryConstraint {
-public:
-    QueryConstraintLe(const QJsonValue &v) { mValue = v; }
-    bool matches(const QJsonValue &v) { return lessThan(v, mValue) || (v == mValue); }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintEq: public QueryConstraint {
-public:
-    QueryConstraintEq(const QJsonValue &v) { mValue = v; }
-    bool matches(const QJsonValue &v) { return v == mValue; }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintNe: public QueryConstraint {
-public:
-    QueryConstraintNe(const QJsonValue &v) { mValue = v; }
-    bool sparseMatchPossible() const { return true; }
-    bool matches(const QJsonValue &v) { return v != mValue; }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintExists: public QueryConstraint {
-public:
-    QueryConstraintExists() { }
-    bool matches(const QJsonValue &v) { return !v.isUndefined(); }
-private:
-};
-class QueryConstraintNotExists: public QueryConstraint {
-public:
-    QueryConstraintNotExists() { }
-    // this will never match
-    bool matches(const QJsonValue &v) { return v.isUndefined(); }
-private:
-};
-class QueryConstraintIn: public QueryConstraint {
-public:
-    QueryConstraintIn(const QJsonValue &v) { mList = v.toArray();}
-    bool sparseMatchPossible() const { return true; }
-
-    bool matches(const QJsonValue &v) {
-        return mList.contains(v);
-    }
-private:
-    QJsonArray mList;
-};
-class QueryConstraintNotIn: public QueryConstraint {
-public:
-    QueryConstraintNotIn(const QJsonValue &v) { mList = v.toArray();}
-    bool sparseMatchPossible() const { return true; }
-    bool matches(const QJsonValue &v) {
-        return !mList.contains(v);
-    }
-private:
-    QJsonArray mList;
-};
-class QueryConstraintContains: public QueryConstraint {
-public:
-    QueryConstraintContains(const QJsonValue &v) { mValue = v;}
-    bool sparseMatchPossible() const { return true; }
-    bool matches(const QJsonValue &v) {
-        return v.toArray().contains(mValue);
-    }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintStartsWith: public QueryConstraint {
-public:
-    QueryConstraintStartsWith(const QString &v) { mValue = v;}
-    bool sparseMatchPossible() const { return true; }
-    bool matches(const QJsonValue &v) {
-        return (v.type() == QJsonValue::String) && v.toString().startsWith(mValue);
-    }
-private:
-    QString mValue;
-};
-class QueryConstraintRegExp: public QueryConstraint {
-public:
-    QueryConstraintRegExp(const QRegExp &regexp) : mRegExp(regexp) {}
-    bool matches(const QJsonValue &v) { return mRegExp.exactMatch(v.toString()); }
-    bool sparseMatchPossible() const { return true; }
-private:
-    QString mValue;
-    QRegExp mRegExp;
-};
-
-void JsonDbPartition::compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm)
+void JsonDbPartition::compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const QueryTerm &queryTerm)
 {
     QString op = queryTerm.op();
     QJsonValue fieldValue = queryTerm.value();
@@ -1391,9 +957,9 @@ void JsonDbPartition::compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm
     }
 }
 
-IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query)
+JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query)
 {
-    IndexQuery *indexQuery = 0;
+    JsonDbIndexQuery *indexQuery = 0;
     JsonDbQuery *residualQuery = new JsonDbQuery();
     QString orderField;
     QSet<QString> typeNames;
@@ -1508,7 +1074,7 @@ IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const J
             if (view)
                 view->updateView();
 
-            indexQuery = IndexQuery::indexQuery(this, table, propertyName, indexSpec->propertyType,
+            indexQuery = JsonDbIndexQuery::indexQuery(this, table, propertyName, indexSpec->propertyType,
                                                 owner, orderTerm.ascending);
         } else if (orderField != propertyName) {
             qCritical() << QString("unimplemented: multiple order terms. Sorting on '%1'").arg(orderField);
@@ -1547,7 +1113,7 @@ IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const J
                 const IndexSpec *indexSpec = table->indexSpec(propertyName);
                 if (view)
                     view->updateView();
-                indexQuery = IndexQuery::indexQuery(this, table, propertyName, indexSpec->propertyType, owner);
+                indexQuery = JsonDbIndexQuery::indexQuery(this, table, propertyName, indexSpec->propertyType, owner);
             }
 
             if (propertyName == orderField) {
@@ -1576,7 +1142,7 @@ IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const J
 
         if (view)
             view->updateView();
-        indexQuery = IndexQuery::indexQuery(this, table, defaultIndex, indexSpec->propertyType, owner);
+        indexQuery = JsonDbIndexQuery::indexQuery(this, table, defaultIndex, indexSpec->propertyType, owner);
         if (typeNames.size() == 0)
             qCritical() << "searching all objects" << query->query;
 
@@ -1601,9 +1167,11 @@ IndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, const J
 }
 
 void JsonDbPartition::doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
-                                      IndexQuery *indexQuery)
+                                      JsonDbIndexQuery *indexQuery)
 {
-    if (sDebugQuery) qDebug() << "doIndexQuery" << "limit" << limit << "offset" << offset;
+    if (jsondbSettings->debugQuery())
+        qDebug() << "doIndexQuery" << "limit" << limit << "offset" << offset;
+
     bool countOnly = (indexQuery->aggregateOperation() == "count");
     int count = 0;
     for (JsonDbObject object = indexQuery->first();
@@ -1613,7 +1181,8 @@ void JsonDbPartition::doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &r
             continue;
         if (limit && (offset <= 0)) {
             if (!countOnly) {
-                if (sDebugQuery) qDebug() << "appending result" << object << endl;
+                if (jsondbSettings->debugQuery())
+                    qDebug() << "appending result" << object << endl;
                 results.append(object);
             }
             limit--;
@@ -1652,7 +1221,7 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
 
     QElapsedTimer time;
     time.start();
-    IndexQuery *indexQuery = compileIndexQuery(owner, query);
+    JsonDbIndexQuery *indexQuery = compileIndexQuery(owner, query);
 
     int elapsedToCompile = time.elapsed();
     doIndexQuery(owner, results, limit, offset, indexQuery);
@@ -1988,11 +1557,11 @@ struct QJsonSortable {
 
 bool sortableLessThan(const QJsonSortable &a, const QJsonSortable &b)
 {
-    return lessThan(a.key, b.key);
+    return JsonDbIndexQuery::lessThan(a.key, b.key);
 }
 bool sortableGreaterThan(const QJsonSortable &a, const QJsonSortable &b)
 {
-    return greaterThan(a.key, b.key);
+    return JsonDbIndexQuery::greaterThan(a.key, b.key);
 }
 
 void JsonDbPartition::sortValues(const JsonDbQuery *parsedQuery, JsonDbObjectList &results, JsonDbObjectList &joinedResults)

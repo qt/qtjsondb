@@ -51,6 +51,7 @@
 
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
+#include "jsondbindexquery.h"
 #include "jsondbsettings.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
@@ -987,7 +988,7 @@ void TestJsonDb::benchmarkCursorCount()
     QJsonObject bindings;
     foreach (QString query, queries) {
         QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
-        IndexQuery *indexQuery = mJsonDbPartition->compileIndexQuery(mOwner, parsedQuery.data());
+        JsonDbIndexQuery *indexQuery = mJsonDbPartition->compileIndexQuery(mOwner, parsedQuery.data());
         int count = 0;
         //qDebug() << "query" << query;
         QBENCHMARK {

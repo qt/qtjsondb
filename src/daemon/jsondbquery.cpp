@@ -45,6 +45,7 @@
 #include <QStringList>
 
 #include "jsondb-strings.h"
+#include "jsondbindexquery.h"
 #include "jsondbpartition.h"
 #include "jsondbquery.h"
 #include "jsondbsettings.h"
@@ -532,13 +533,13 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 if (term.regExpConst().exactMatch(objectFieldValue.toString()))
                     matches = true;
             } else if (op == "<=") {
-                matches = lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
+                matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
             } else if (op == "<") {
-                matches = lessThan(objectFieldValue, termValue);
+                matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue);
             } else if (op == ">=") {
-                matches = greaterThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
+                matches = JsonDbIndexQuery::greaterThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
             } else if (op == ">") {
-                matches = greaterThan(objectFieldValue, termValue);
+                matches = JsonDbIndexQuery::greaterThan(objectFieldValue, termValue);
             } else if (op == "exists") {
                 if (objectFieldValue.type() != QJsonValue::Undefined)
                     matches = true;

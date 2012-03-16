@@ -60,8 +60,6 @@
 QT_BEGIN_HEADER
 
 class TestJsonDb;
-class QBtreeCursor;
-class QBtreeTxn;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -69,84 +67,8 @@ class JsonDbManagedBtree;
 class JsonDbOwner;
 class JsonDbObjectTable;
 class JsonDbIndex;
+class JsonDbIndexQuery;
 class JsonDbView;
-
-class QueryConstraint {
-public:
-    virtual ~QueryConstraint() { }
-    virtual bool matches(const QJsonValue &value) = 0;
-    virtual bool sparseMatchPossible() const
-        { return false; }
-};
-
-bool lessThan(const QJsonValue &a, const QJsonValue &b);
-bool greaterThan(const QJsonValue &a, const QJsonValue &b);
-
-class IndexQuery {
-protected:
-    IndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
-               const QString &propertyName, const QString &propertyType,
-               const JsonDbOwner *owner, bool ascending = true);
-public:
-    static IndexQuery *indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
-                                  const QString &propertyName, const QString &propertyType,
-                                  const JsonDbOwner *owner, bool ascending = true);
-    ~IndexQuery();
-
-    JsonDbObjectTable *objectTable() const { return mObjectTable; }
-    QString partition() const;
-    void addConstraint(QueryConstraint *qc) { mQueryConstraints.append(qc); }
-    bool ascending() const { return mAscending; }
-    QString propertyName() const { return mPropertyName; }
-    void setTypeNames(const QSet<QString> typeNames) { mTypeNames = typeNames; }
-    void setMin(const QJsonValue &minv);
-    void setMax(const QJsonValue &maxv);
-    QString aggregateOperation() const { return mAggregateOperation; }
-    void setAggregateOperation(QString op) { mAggregateOperation = op; }
-
-    JsonDbObject first(); // returns first matching object
-    JsonDbObject next(); // returns next matching object
-    bool matches(const QJsonValue &value);
-    QJsonValue fieldValue() const { return mFieldValue; }
-    JsonDbQuery *residualQuery() const { return mResidualQuery; }
-    void setResidualQuery(JsonDbQuery *residualQuery) { mResidualQuery = residualQuery; }
-    virtual quint32 stateNumber() const;
-
-protected:
-    virtual bool seekToStart(QJsonValue &fieldValue);
-    virtual bool seekToNext(QJsonValue &fieldValue);
-    virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
-
-protected:
-    JsonDbPartition *mPartition;
-    JsonDbObjectTable   *mObjectTable;
-    JsonDbManagedBtree *mBdbIndex;
-    QBtreeTxn *mTxn;
-    QBtreeCursor  *mCursor;
-    const JsonDbOwner *mOwner;
-    QJsonValue      mMin, mMax;
-    QSet<QString> mTypeNames;
-    bool          mAscending;
-    QString       mUuid;
-    QVector<QueryConstraint*> mQueryConstraints;
-    QString       mAggregateOperation;
-    QString       mPropertyName;
-    QString       mPropertyType;
-    QJsonValue     mFieldValue; // value of field for the object the cursor is pointing at
-    bool          mSparseMatchPossible;
-    QHash<QString, JsonDbObject> mObjectCache;
-    JsonDbQuery  *mResidualQuery;
-};
-
-class UuidQuery : public IndexQuery {
-protected:
-    UuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
-    virtual bool seekToStart(QJsonValue &fieldValue);
-    virtual bool seekToNext(QJsonValue &fieldValue);
-    virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
-    virtual quint32 stateNumber() const;
-    friend class IndexQuery;
-};
 
 struct JsonDbUpdate {
     JsonDbUpdate(const JsonDbObject &oldObj, const JsonDbObject &newObj, JsonDbNotification::Action act) :
@@ -263,11 +185,11 @@ protected:
     bool checkStateConsistency();
     void checkIndexConsistency(JsonDbObjectTable *table, JsonDbIndex *index);
 
-    IndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
-    void compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm);
+    JsonDbIndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
+    void compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const QueryTerm &queryTerm);
 
     void doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
-                      IndexQuery *indexQuery);
+                      JsonDbIndexQuery *indexQuery);
 
     static void sortValues(const JsonDbQuery *query, JsonDbObjectList &results, JsonDbObjectList &joinedResults);
 
@@ -301,7 +223,7 @@ private:
     int          mIndexSyncInterval;
     JsonDbOwner *mDefaultOwner;
 
-    friend class IndexQuery;
+    friend class JsonDbIndexQuery;
     friend class JsonDbObjectTable;
     friend class JsonDbMapDefinition;
     friend class WithTransaction;
