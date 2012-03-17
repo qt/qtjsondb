@@ -57,7 +57,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 class JsonDbCollatorPrivate
 {
 public:
-    QBasicAtomicInt ref;
+    QAtomicInt ref;
     bool modified;
     QLocale locale;
     JsonDbCollator::Collation collation;
