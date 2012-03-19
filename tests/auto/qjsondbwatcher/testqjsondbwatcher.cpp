@@ -95,7 +95,7 @@ public slots:
     // from a watcher
     void onWatcherNotificationsAvailable(int);
     void onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status);
-    void onWatcherError(int,QString);
+    void onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString);
 private:
     void removeDbFiles();
 
@@ -183,7 +183,7 @@ void TestQJsonDbWatcher::onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status
 }
 
 // this should go into a new version of clientwrapper.h
-void TestQJsonDbWatcher::onWatcherError(int code, QString message)
+void TestQJsonDbWatcher::onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode code, QString message)
 {
     qCritical() << "onWatcherError" << code << message;
     mEventLoop.quit();
@@ -256,7 +256,7 @@ void TestQJsonDbWatcher::createAndRemove()
             this, SLOT(onWatcherNotificationsAvailable(int)));
     connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
             this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
-    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+    connect(&watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)), this, SLOT(onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
     mConnection->addWatcher(&watcher);
 
     QJsonObject item;
@@ -354,7 +354,7 @@ void TestQJsonDbWatcher::history()
             this, SLOT(onWatcherNotificationsAvailable(int)));
     connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
             this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
-    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+    connect(&watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)), this, SLOT(onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
 
     // set the starting state
     watcher.setInitialStateNumber(firstStateNumber-1);
@@ -383,7 +383,7 @@ void TestQJsonDbWatcher::currentState()
             this, SLOT(onWatcherNotificationsAvailable(int)));
     connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
             this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
-    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+    connect(&watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)), this, SLOT(onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
 
     // set the starting state to -1 to get the current state
     watcher.setInitialStateNumber(static_cast<quint32>(-1));

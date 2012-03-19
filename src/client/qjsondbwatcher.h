@@ -115,7 +115,7 @@ public:
 Q_SIGNALS:
     void notificationsAvailable(int count);
     void statusChanged(QtJsonDb::QJsonDbWatcher::Status newStatus);
-    void error(int code, const QString &message);
+    void error(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
 
     // signals for properties
     void lastStateNumberChanged(int stateNumber);
