@@ -207,6 +207,7 @@ void TestQJsonDbWatcher::initTestCase()
 #ifndef DONT_START_SERVER
     QStringList arg_list = (QStringList()
                             << "-validate-schemas");
+    arg_list << "-base-name";
     arg_list << QString::fromLatin1(dbfileprefix);
     mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, QString("testjsondb_%1").arg(getpid()), arg_list);
 #endif
