@@ -553,17 +553,15 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
                 JsonDbNotification *n = it.value();
                 if (jsondbSettings->debug())
                     qDebug() << "Notification" << n->query() << n->actions();
-
-                objectUpdated(partition, stateNumber, n, action, oldObject, object);
+                objectUpdated(partitionName, stateNumber, n, action, oldObject, object);
             }
         }
     }
 }
 
-void DBServer::objectUpdated(JsonDbPartition *partition, quint32 stateNumber, JsonDbNotification *n,
+void DBServer::objectUpdated(const QString &partitionName, quint32 stateNumber, JsonDbNotification *n,
                              JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object)
 {
-    QString partitionName = partition->name();
     JsonDbNotification::Action effectiveAction = action;
     if (n->partition() == partitionName) {
         JsonDbObject r;
@@ -943,7 +941,7 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
             JsonDbObject oldObject;
             for (JsonDbObject o = indexQuery->first(); !o.isEmpty(); o = indexQuery->next()) {
                 JsonDbNotification::Action action = JsonDbNotification::Create;
-                objectUpdated(partition, stateNumber, n, action, oldObject, o);
+                objectUpdated(partition->name(), stateNumber, n, action, oldObject, o);
             }
         }
     } else {
@@ -962,7 +960,7 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
                 action = JsonDbNotification::Create;
             else if (after.contains(JsonDbString::kDeletedStr))
                 action = JsonDbNotification::Delete;
-            objectUpdated(partition, stateNumber, n, action, before, after);
+            objectUpdated(partition->name(), stateNumber, n, action, before, after);
         }
     }
     QJsonObject stateChange;

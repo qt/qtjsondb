@@ -94,7 +94,7 @@ protected slots:
     void objectsUpdated(const JsonDbUpdateList &objects);
 
 private:
-    void objectUpdated(JsonDbPartition *partition, quint32 stateNumber, JsonDbNotification *n, JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object);
+    void objectUpdated(const QString &partitionName, quint32 stateNumber, JsonDbNotification *n, JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object);
 
     bool loadPartitions();
     void reduceMemoryUsage();

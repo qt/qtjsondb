@@ -100,6 +100,7 @@ private slots:
     void index();
 
     void registerNotification();
+    void notify_data();
     void notify();
     void notifyUpdate();
     void notifyViaCreate();
@@ -793,21 +794,31 @@ void TestJsonDbClient::index()
     waitForResponse1(id);
 }
 
+void TestJsonDbClient::notify_data()
+{
+    QTest::addColumn<QString>("partition");
+
+    QTest::newRow("persistent") << "";
+    QTest::newRow("ephemeral") << "Ephemeral";
+}
+
 void TestJsonDbClient::notify()
 {
     int id = 400;
 
+    QFETCH(QString, partition);
+
     // Create a notification object
     JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
     const QString query = "[?_type=\"com.test.notify-test\"]";
-    QString notifyUuid = addNotification(actions, query);
+    QString notifyUuid = addNotification(actions, query, partition);
 
     // Create a notify-test object
     QVariantMap object;
     object.insert("_type","com.test.notify-test");
     object.insert("name","test1");
     mNotifications.clear();
-    id = mClient->create(object);
+    id = mClient->create(object, partition);
     waitForResponse4(id, -1, notifyUuid, 1);
     QVariant uuid = mData.toMap().value("_uuid");
     QString version = mData.toMap().value("_version").toString();
@@ -821,7 +832,7 @@ void TestJsonDbClient::notify()
     object.insert("_uuid",uuid);
     object.insert("_version", version);
     object.insert("name","test2");
-    id = mClient->update(object);
+    id = mClient->update(object, partition);
     waitForResponse4(id, -1, notifyUuid, 1);
 
     QCOMPARE(mNotifications.size(), 1);
@@ -830,7 +841,7 @@ void TestJsonDbClient::notify()
     QCOMPARE(n.mAction, QLatin1String("update"));
 
     // Remove the notify-test object
-    id = mClient->remove(object);
+    id = mClient->remove(object, partition);
     waitForResponse4(id, -1, notifyUuid, 1);
 
     QCOMPARE(mNotifications.size(), 1);
@@ -993,7 +1004,6 @@ void TestJsonDbClient::registerNotification()
     // Remove the notification object
     mClient->unregisterNotification(notifyUuid);
 }
-
 
 static const char *rbnames[] = { "Fred", "Joe", "Sam", NULL };
 
