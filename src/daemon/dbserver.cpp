@@ -116,7 +116,9 @@ DBServer::DBServer(const QString &filePath, const QString &baseName, QObject *pa
     if (mFilePath.isEmpty())
         mFilePath = QDir::currentPath();
     if (mBaseName.isEmpty())
-        mBaseName = QLatin1String("default");
+        mBaseName = QLatin1String("default.System");
+    if (!mBaseName.endsWith(QLatin1String(".System")))
+        mBaseName += QLatin1String(".System");
 
     QDir(mFilePath).mkpath(QString("."));
 
