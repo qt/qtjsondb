@@ -318,11 +318,10 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 {
     QIODevice *device = stream->device();
 
-    if (!jsondbSettings->enforceAccessControl()) {
+    if (!(jsondbSettings->enforceAccessControl() || mOwners.contains(stream->device()))) {
         // We are not enforcing policies here, allow requests
         // from all applications.
-        // ### TODO: We will have to remove this afterwards
-        return createDummyOwner(stream);
+        mOwners[device] = createDummyOwner(stream);
     }
 
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
@@ -1159,6 +1158,8 @@ void DBServer::removeConnection()
             owner->deleteLater();
         mOwners.remove(connection);
     }
+
+    connection->deleteLater();
 }
 
 #include "moc_dbserver.cpp"
