@@ -117,11 +117,11 @@ public:
             Overflow = (1 << 0)     // If set in flags, the overflowPage is used instead of valueSize
         };
         quint16 keySize;
+        quint16 flags;
         union {
             quint32 overflowPage;   // Used for overflow page number, or in the case of a branch page for child page number
             quint32 valueSize;      // In the case of a leaf page, size of data
         } context;
-        quint16 flags;
     } HBTREE_ATTRIBUTE_PACKED;
     Q_STATIC_ASSERT(sizeof(NodeHeader) == 8);
 
@@ -185,39 +185,43 @@ public:
     struct NodePage;
     struct HistoryNode {
         HistoryNode()
-            : pageNumber(PageInfo::INVALID_PAGE), commitNumber(0), syncNumber(0)
+            : pageNumber(PageInfo::INVALID_PAGE), syncId(0)
         {}
-        HistoryNode(quint32 pageNo, quint32 commitNo, quint32 syncNo)
-            : pageNumber(pageNo), commitNumber(commitNo), syncNumber(syncNo)
+        HistoryNode(quint32 pageNo, quint32 syncNo)
+            : pageNumber(pageNo), syncId(syncNo)
         {}
         explicit HistoryNode(NodePage *np);
         quint32 pageNumber;
-        quint32 commitNumber;
-        quint32 syncNumber;
+        quint32 syncId;
     } HBTREE_ATTRIBUTE_PACKED;
-    Q_STATIC_ASSERT(sizeof(HistoryNode) == 12);
+    Q_STATIC_ASSERT(sizeof(HistoryNode) == 8);
 
     struct MarkerPage : Page {
+        enum Flags {
+            DataOnOverflow = (1 << 0)
+        };
+
         MarkerPage()
-            : Page(PageInfo::Marker)
+            : Page(PageInfo::Marker), overflowPage(PageInfo::INVALID_PAGE)
         {}
         explicit MarkerPage(quint32 pageNumber)
-            : Page(PageInfo::Marker, pageNumber)
+            : Page(PageInfo::Marker, pageNumber), overflowPage(PageInfo::INVALID_PAGE)
         {}
         struct Meta {
             Meta()
-                : rootPage(PageInfo::INVALID_PAGE), revision(0), syncedRevision(0), tag(0), size(0)
+                : root(PageInfo::INVALID_PAGE), revision(0), syncId(0), tag(0), size(0), flags(0)
             {}
-            quint32 rootPage;
+            quint32 root;
             quint32 revision;
-            quint32 syncedRevision;
+            quint32 syncId;
             quint64 tag;
-            quint32 size; // TODO: this should be max page number instead
+            quint32 size; // size of file at time of commit
+            quint32 flags; // If marker has this, it was synced.
         } HBTREE_ATTRIBUTE_PACKED;
-        Q_STATIC_ASSERT(sizeof(Meta) == 24);
+        Q_STATIC_ASSERT(sizeof(Meta) == 28);
         Meta meta;
-        QSet<quint32> collectiblePages;
-        QList<HistoryNode> residueHistory;
+        QSet<quint32> residueHistory; // history nodes that don't have a home. usable after sync.
+        quint32 overflowPage;
     };
 
     struct NodePage : Page {
@@ -233,14 +237,13 @@ public:
 
         struct Meta {
             Meta()
-                : syncId(0), commitId(0), historySize(0), flags(0)
+                : syncId(0), historySize(0), flags(0)
             {}
             quint32 syncId;         // Which revision it was synced at
-            quint32 commitId;       // Which revision it was commited at
-            quint16 historySize;    // Number of revisions of this page (or other pages)
-            quint16 flags;          // Not used. Contains NodeHeader::Overflow when this node page has a node referencing overflows
+            quint16 historySize;    // Number of revisions of this page
+            quint16 flags;          // Contains NodeHeader::Overflow when this node page has a node referencing overflows
         } HBTREE_ATTRIBUTE_PACKED;
-        Q_STATIC_ASSERT(sizeof(Meta) == 12);
+        Q_STATIC_ASSERT(sizeof(Meta) == 8);
 
         Meta meta;
         KeyValueMap nodes;
@@ -249,6 +252,8 @@ public:
         NodeKey parentKey;
         quint32 leftPageNumber;
         quint32 rightPageNumber;
+
+        void clearHistory();
     };
 
     struct OverflowPage : Page {
@@ -288,8 +293,8 @@ public:
     quint32 deserializePageType(const QByteArray &buffer) const;
     quint32 deserializePageChecksum(const QByteArray &buffer) const;
 
-    MarkerPage deserializeMarkerPage(const QByteArray &buffer) const;
-    QByteArray serializeMarkerPage(const MarkerPage &page) const;
+    bool writeMarker(MarkerPage *page);
+    bool readMarker(quint32 pgno, MarkerPage *markerOut);
 
     NodePage deserializeNodePage(const QByteArray &buffer) const;
     QByteArray serializeNodePage(const NodePage &page) const;
@@ -307,7 +312,7 @@ public:
     bool del(HBtreeTransaction *transaction, const QByteArray &keyData);
     bool commit(HBtreeTransaction *transaction, quint64 tag);
     void abort(HBtreeTransaction *transaction);
-    bool sync(const MarkerPage &mp);
+    bool sync();
     bool readSyncedMarker(MarkerPage *markerOut);
     bool rollback();
 
@@ -319,11 +324,12 @@ public:
     QByteArray getDataFromNode(const NodeValue &nval) const;
     bool getOverflowData(quint32 startPage, QByteArray *data) const;
     bool getOverflowPageNumbers(quint32 startPage, QList<quint32> *pages) const;
-    bool walkTree(const MarkerPage &marker, QList<quint32> *pagesWalked) const;
-    bool walkBranch(NodePage *branch, QList<quint32> *pagesWalked) const;
-    bool walkLeaf(NodePage *leaf, QList<quint32> *overflowPages) const;
-    void collectPages(const QList<quint32> &pagesUsedSorted);
-    quint16 collectHistory(QList<HistoryNode> *history);
+    quint16 collectHistory(NodePage *page);
+    Page *cacheFind(quint32 pgno) const;
+    Page *cacheRemove(quint32 pgno);
+    void cacheDelete(quint32 pgno);
+    void cacheClear();
+    void cacheInsert(quint32 pgno, Page *page);
 
     enum SearchType {
         SearchKey,
@@ -351,10 +357,7 @@ public:
     bool rebalance(NodePage *page);
     bool moveNode(NodePage *src, NodePage *dst, Node node);
     bool mergePages(NodePage *page, NodePage *dst);
-    bool distributeHistoryNodes(NodePage *primary, const QList<HistoryNode> &historyNodes);
-    bool distributeHistoryNodes(NodePage *primary, const HistoryNode &historyNode);
-
-    const MarkerPage &currentMarker() const { return markers_[mi_]; }
+    bool addHistoryNode(NodePage *src, const HistoryNode &hn);
 
     void dump();
     void dumpPage(NodePage *page, int depth);
@@ -365,27 +368,25 @@ public:
     bool cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut, const QByteArray &matchKey, bool exact);
 
-    void copy(const MarkerPage &src, MarkerPage *dst);
+    void copy(const Page &src, Page *dst);
 
     HBtree              *q_ptr;
     QString              fileName_;
     int                  fd_;
     HBtree::OpenMode     openMode_;
     quint32              size_;
-    quint32              lastSyncedRevision_;
+    quint32              lastSyncedId_;
 
     typedef QMap<quint32, Page *> PageMap;
     Spec spec_;
-    MarkerPage markers_[2];
-    uint mi_;
+    MarkerPage marker_;
     PageMap dirtyPages_;
     HBtree::CompareFunction compareFunction_;
     HBtreeTransaction *writeTransaction_;
     QSet<quint32> collectiblePages_;
     PageMap cache_;
     quint32 lastPage_;
-    QList<HistoryNode> residueHistory_;
-    QSet<quint32> pagesToPrune_;
+    QSet<quint32> residueHistory_;
 
     QByteArray qInitializedByteArray() const;
     QByteArray qUninitializedByteArray() const;
