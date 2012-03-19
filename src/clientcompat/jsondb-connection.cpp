@@ -371,6 +371,11 @@ bool JsonDbConnection::request(int requestId, const QVariantMap &request)
 
     QVariantMap r = request;
     r.insert(JsonDbString::kIdStr, requestId);
+
+    if (r.value(JsonDbString::kActionStr).toString() == JsonDbString::kCreateStr ||
+            r.value(JsonDbString::kActionStr).toString() == JsonDbString::kUpdateStr)
+        d->protocolAdaptionRequests.append(requestId);
+
     if (!d->mStream.send(QJsonObject::fromVariantMap(r)))
         return false;
     return true;
@@ -398,7 +403,32 @@ void JsonDbConnectionPrivate::_q_onReceiveMessage(const QJsonObject &qjsonMsg)
     } else {
         QJsonValue qjsonResult = qjsonMsg.value(JsonDbString::kResultStr);
         if (qjsonResult.type() == QJsonValue::Object) {
-            emit q->response(id, qjsonResult.toObject().toVariantMap());
+            QJsonObject result = qjsonResult.toObject();
+            if (protocolAdaptionRequests.contains(id)) {
+                QJsonObject newResult;
+                if (static_cast<int>(result.value(JsonDbString::kCountStr).toDouble()) == 1) {
+                    newResult = result.value(JsonDbString::kDataStr).toArray().at(0).toObject();
+                    newResult.insert(JsonDbString::kCountStr, result.value(JsonDbString::kCountStr));
+                    newResult.insert(JsonDbString::kStateNumberStr, result.value(JsonDbString::kStateNumberStr));
+                } else {
+                    QJsonArray newData;
+                    QJsonArray oldData = result.value(JsonDbString::kDataStr).toArray();
+                    for (int i = 0; i < oldData.count(); i++) {
+                        QJsonObject d = oldData.at(i).toObject();
+                        d.insert(JsonDbString::kCountStr, 1);
+                        d.insert(JsonDbString::kStateNumberStr, result.value(JsonDbString::kStateNumberStr));
+                        newData.append(d);
+                    }
+
+                    newResult.insert(JsonDbString::kCountStr, result.value(JsonDbString::kCountStr));
+                    newResult.insert(JsonDbString::kStateNumberStr, result.value(JsonDbString::kStateNumberStr));
+                    newResult.insert(JsonDbString::kDataStr, newData);
+                }
+                protocolAdaptionRequests.removeOne(id);
+                result = newResult;
+            }
+
+            emit q->response(id, result.toVariantMap());
         } else {
             QVariantMap emap  = qjsonMsg.value(JsonDbString::kErrorStr).toObject().toVariantMap();
             emit q->error(id,

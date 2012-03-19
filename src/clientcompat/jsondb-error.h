@@ -71,7 +71,8 @@ public:
         InvalidReduce            = 17, // The Reduce definition is invalid
         InvalidSchemaOperation   = 18,
         InvalidPartition         = 19,
-        InvalidIndexOperation    = 20
+        InvalidIndexOperation    = 20,
+        InvalidType              = 21
     };
 };
 

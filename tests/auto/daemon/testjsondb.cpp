@@ -50,9 +50,6 @@
 
 #include "json.h"
 
-#include "jsondb.h"
-
-#include "jsondb.h"
 #include "jsondbbtree.h"
 #include "jsondbobjecttable.h"
 #include "jsondbpartition.h"
@@ -78,22 +75,21 @@ static QString kContactStr = "com.example.unittest.contact";
 /*
   Ensure that a good result object contains the correct fields
  */
-
 #define verifyGoodResult(result) \
 { \
-    QJsonObject __result = result; \
-    QVERIFY(__result.contains(JsonDbString::kErrorStr)); \
-    QVERIFY2(__result.value(JsonDbString::kErrorStr).type() == QJsonValue::Null,  \
-             __result.value(JsonDbString::kErrorStr).toObject().value("message").toString().toLocal8Bit()); \
-    QVERIFY(__result.contains(JsonDbString::kResultStr)); \
+    JsonDbWriteResult __result = result; \
+    QVERIFY2(__result.message.isEmpty(), __result.message.toLatin1()); \
+    QVERIFY(__result.code == JsonDbError::NoError); \
 }
 
-// QJsonObject result, QString field, QVariant expectedValue
-#define verifyResultField(result, field, expectedValue) \
-{ \
-    QJsonObject map = result.value(JsonDbString::kResultStr).toObject(); \
-    QVERIFY(map.contains(field)); \
-    QCOMPARE(map.value(field).toVariant(), QVariant(expectedValue));    \
+/*
+  Ensure that a error result contains the correct fields
+ */
+#define verifyErrorResult(result) \
+{\
+    JsonDbWriteResult __result = result; \
+    QVERIFY(!__result.message.isEmpty()); \
+    QVERIFY(__result.code != JsonDbError::NoError); \
 }
 
 #define verifyGoodQueryResult(result) \
@@ -101,26 +97,6 @@ static QString kContactStr = "com.example.unittest.contact";
     JsonDbQueryResult __result = result; \
     QVERIFY2(__result.error.type() == QJsonValue::Null,  \
          __result.error.toObject().value("message").toString().toLocal8Bit()); \
-}
-/*
-  Ensure that a error result contains the correct fields
- */
-
-#define verifyErrorResult(result) \
-{\
-    QVERIFY(result.contains(JsonDbString::kErrorStr)); \
-    if (result.value(JsonDbString::kErrorStr).type() != QJsonValue::Object )   \
-        qDebug() << "verifyErrorResult" << result; \
-    QCOMPARE(result.value(JsonDbString::kErrorStr).type(), QJsonValue::Object ); \
-    QJsonObject errormap = result.value(JsonDbString::kErrorStr).toObject(); \
-    QVERIFY(errormap.contains(JsonDbString::kCodeStr)); \
-    QCOMPARE(errormap.value(JsonDbString::kCodeStr).type(), QJsonValue::Double ); \
-    QVERIFY(errormap.contains(JsonDbString::kMessageStr)); \
-    QCOMPARE(errormap.value(JsonDbString::kMessageStr).type(), QJsonValue::String ); \
-    QVERIFY(result.contains(JsonDbString::kResultStr)); \
-    QVERIFY(result.value(JsonDbString::kResultStr).toObject().isEmpty() \
-            || (result.value(JsonDbString::kResultStr).toObject().contains("count") \
-                && result.value(JsonDbString::kResultStr).toObject().value("count").toDouble() == 0)); \
 }
 
 template<class T>
@@ -146,8 +122,6 @@ class TestJsonDb: public QObject
 public:
     TestJsonDb();
 
-public slots:
-    void notified(const QString, const JsonDbObject &, const QString);
 
 private slots:
     void initTestCase();
@@ -192,7 +166,6 @@ private slots:
     void reduceInvalidAddSubtractFuncs();
 
     void map();
-    void mapNotification();
     void mapDuplicateSourceAndTarget();
     void mapRemoval();
     void mapUpdate();
@@ -223,8 +196,6 @@ private slots:
     void find1();
     void find2();
     void findFields();
-    void testNotify1();
-    void testNotifyViewType();
 
     void findLikeRegexp_data();
     void findLikeRegexp();
@@ -242,14 +213,10 @@ private slots:
     void findEQ();
     void find10();
 
-    void testPrimaryKey();
-    void testStoredProcedure();
-
     void startsWith();
     void comparison();
 
     void removedObjects();
-    void partition();
     void arrayIndexQuery();
     void deindexError();
     void expectedOrder();
@@ -259,13 +226,18 @@ private slots:
     void setOwner();
     void indexPropertyFunction();
     void indexCollation();
+    void indexCaseSensitive();
 
     void settings();
 
-public:
-    void createContacts();
-
 private:
+    void createContacts();
+    JsonDbQueryResult find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings = QJsonObject());
+    JsonDbWriteResult create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
+    JsonDbWriteResult update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
+    JsonDbWriteResult remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
+    JsonDbWriteResult remove(JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
+
     void addSchema(const QString &schemaName, JsonDbObject &schemaObject);
     void addIndex(const QString &propertyName, const QString &propertyType=QString(), const QString &objectType=QString());
 
@@ -274,9 +246,7 @@ private:
     void removeDbFiles();
 
 private:
-    JsonDb *mJsonDb;
     JsonDbPartition *mJsonDbPartition;
-    QStringList mNotificationsReceived;
     QList<JsonDbObject> mContactList;
     JsonDbOwner *mOwner;
 };
@@ -287,8 +257,9 @@ const QString kReplica1Name = QString("replica1");
 const QString kReplica2Name = QString("replica2");
 const QStringList kReplicaNames = (QStringList() << kReplica1Name << kReplica2Name);
 
-TestJsonDb::TestJsonDb()
-    : mJsonDb(NULL), mJsonDbPartition(0), mOwner(0)
+TestJsonDb::TestJsonDb() :
+    mJsonDbPartition(0)
+  , mOwner(0)
 {
 }
 
@@ -311,27 +282,27 @@ void TestJsonDb::initTestCase()
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
-    mJsonDb = new JsonDb(QString (), kFilename, QStringLiteral("com.example.JsonDbTest"), this);
+
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId(QStringLiteral("com.example.JsonDbTest"));
 
-    mJsonDb->open();
+    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
+    mJsonDbPartition->open();
 }
 
 void TestJsonDb::cleanupTestCase()
 {
-    if (mJsonDb) {
-        mJsonDb->close();
-        delete mJsonDb;
-        mJsonDb = 0;
+    if (mJsonDbPartition) {
+        mJsonDbPartition->close();
+        delete mJsonDbPartition;
+        mJsonDbPartition = 0;
     }
     removeDbFiles();
 }
 
 void TestJsonDb::cleanup()
 {
-    foreach (JsonDbPartition *partition, mJsonDb->mPartitions)
-        QCOMPARE(partition->mTransactionDepth, 0);
+    QCOMPARE(mJsonDbPartition->mTransactionDepth, 0);
 }
 
 void TestJsonDb::reopen()
@@ -341,20 +312,18 @@ void TestJsonDb::reopen()
         JsonDbObject item;
         item.insert(QLatin1String("_type"), QLatin1String("reopentest"));
         item.insert("create-string", QString("string"));
-        QJsonObject result = mJsonDb->create(mOwner, item);
+        Q_UNUSED(mJsonDbPartition->updateObject(mOwner, item));
 
-        mJsonDb->close();
-        delete mJsonDb;
+        mJsonDbPartition->close();
+        delete mJsonDbPartition;
 
-        mJsonDb = new JsonDb(QString (), kFilename, QStringLiteral("com.example.JsonDbTest"), this);
-        mJsonDb->open();
+        mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
+        mJsonDbPartition->open();
 
-        QJsonObject request;
-        request.insert("query", QLatin1String("[?_type=\"reopentest\"]"));
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner,
+                                                                       JsonDbQuery::parse(QLatin1String("[?_type=\"reopentest\"]")));
         QCOMPARE(queryResult.data.size(), counter);
     }
-    mJsonDb->removeIndex("reopentest");
 }
 
 void TestJsonDb::createContacts()
@@ -382,7 +351,7 @@ void TestJsonDb::createContacts()
         nameObject.insert("last", names[names.size()-1]);
         contact.insert("name", nameObject);
         contact.insert(JsonDbString::kTypeStr, QString("contact"));
-        verifyGoodResult(mJsonDb->create(mOwner, contact));
+        verifyGoodResult(create(mOwner, contact));
         newContactList.append(contact);
     }
     mContactList = newContactList;
@@ -394,6 +363,49 @@ void TestJsonDb::createContacts()
 
 }
 
+JsonDbQueryResult TestJsonDb::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
+{
+    return mJsonDbPartition->queryObjects(owner, JsonDbQuery::parse(query, bindings));
+}
+
+JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+{
+    JsonDbWriteResult result =  mJsonDbPartition->updateObject(owner, object, mode);
+    if (result.code == JsonDbError::NoError) {
+        object.insert(JsonDbString::kUuidStr, result.objectsWritten[0].uuid().toString());
+        object.insert(JsonDbString::kVersionStr, result.objectsWritten[0].version());
+    }
+    return result;
+}
+
+JsonDbWriteResult TestJsonDb::update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+{
+    JsonDbWriteResult result =  mJsonDbPartition->updateObject(owner, object, mode);
+    if (result.code == JsonDbError::NoError)
+        object.insert(JsonDbString::kVersionStr, result.objectsWritten[0].version());
+    return result;
+}
+
+JsonDbWriteResult TestJsonDb::remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+{
+    JsonDbObject toDelete = object;
+    toDelete.insert(JsonDbString::kDeletedStr, true);
+    JsonDbWriteResult result = mJsonDbPartition->updateObject(owner, toDelete, mode);
+    if (result.code == JsonDbError::NoError)
+        object = result.objectsWritten[0];
+    return result;
+}
+
+/*
+ * const version for all the cleanup code that doesn't care about updated properties
+ */
+JsonDbWriteResult TestJsonDb::remove(JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::WriteMode mode)
+{
+    JsonDbObject toDelete = object;
+    toDelete.insert(JsonDbString::kDeletedStr, true);
+    return mJsonDbPartition->updateObject(owner, toDelete, mode);
+}
+
 void TestJsonDb::addSchema(const QString &schemaName, JsonDbObject &schemaObject)
 {
     QJsonValue schema = readJsonFile(QString(":/daemon/schemas/%1.json").arg(schemaName));
@@ -402,20 +414,19 @@ void TestJsonDb::addSchema(const QString &schemaName, JsonDbObject &schemaObject
     schemaObject.insert("name", schemaName);
     schemaObject.insert("schema", schema);
 
-    QJsonObject result = mJsonDb->create(mOwner, schemaObject);
-    verifyGoodResult(result);
+    verifyGoodResult(create(mOwner, schemaObject));
 }
 
 void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyType, const QString &objectType)
 {
     JsonDbObject index;
-    index.insert(JsonDbString::kTypeStr, kIndexTypeStr);
-    index.insert(kPropertyNameStr, propertyName);
+    index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    index.insert(JsonDbString::kPropertyNameStr, propertyName);
     if (!propertyType.isEmpty())
-        index.insert(kPropertyTypeStr, propertyType);
+        index.insert(JsonDbString::kPropertyTypeStr, propertyType);
     if (!objectType.isEmpty())
-        index.insert(kObjectTypeStr, objectType);
-    QVERIFY(mJsonDb->addIndex(index, mJsonDb->mSystemPartitionName));
+        index.insert(JsonDbString::kObjectTypeStr, objectType);
+    verifyGoodResult(create(mOwner, index));
 }
 
 void TestJsonDb::computeVersion()
@@ -739,10 +750,10 @@ void TestJsonDb::create()
     item.insert("create-test", 22);
     item.insert("create-string", QString("string"));
 
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
 
-    QJsonObject map = result.value(JsonDbString::kResultStr).toObject();
+    QJsonObject map = result.objectsWritten[0];
     QVERIFY(map.contains(JsonDbString::kUuidStr));
     QVERIFY(!map.value(JsonDbString::kUuidStr).toString().isEmpty());
     QCOMPARE(map.value(JsonDbString::kUuidStr).type(), QJsonValue::String);
@@ -751,10 +762,8 @@ void TestJsonDb::create()
     QVERIFY(!map.value(JsonDbString::kVersionStr).toString().isEmpty());
     QCOMPARE(map.value(JsonDbString::kVersionStr).type(), QJsonValue::String);
 
-    QJsonObject query;
     QString querystr(QString("[?_uuid=\"%1\"]").arg(map.value(JsonDbString::kUuidStr).toString()));
-    query.insert("query", querystr);
-    JsonDbQueryResult findResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult findResult = find(mOwner, querystr);
     QCOMPARE(findResult.data.size(), 1);
     QCOMPARE(findResult.data.at(0).value(JsonDbString::kUuidStr).toString(), map.value(JsonDbString::kUuidStr).toString());
     QCOMPARE(findResult.data.at(0).value(JsonDbString::kVersionStr).toString(), map.value(JsonDbString::kVersionStr).toString());
@@ -772,16 +781,16 @@ void TestJsonDb::update()
     item.insert("update-test", 100);
     item.insert("update-string", QLatin1String("update-test-100"));
 
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
-    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+    QString uuid = result.objectsWritten[0].uuid().toString();
 
     item.insert(JsonDbString::kUuidStr, uuid);
     item.insert("update-test", 101);
 
-    result = mJsonDb->update(mOwner, item);
+    result = update(mOwner, item);
     verifyGoodResult(result);
-    verifyResultField(result,JsonDbString::kCountStr,1);
+    QCOMPARE(result.objectsWritten.count(), 1);
 }
 
 /*
@@ -795,9 +804,9 @@ void TestJsonDb::update2()
     item.insert("_type", QString("update-from-null"));
     item.generateUuid();
 
-    QJsonObject result = mJsonDb->update(mOwner, item);
+    JsonDbWriteResult result = update(mOwner, item);
     verifyGoodResult(result);
-    verifyResultField(result,JsonDbString::kCountStr,1);
+    QCOMPARE(result.objectsWritten.count(), 1);
 }
 
 /*
@@ -809,7 +818,7 @@ void TestJsonDb::update3()
     JsonDbObject item;
     item.insert("update2-test", 100);
 
-    QJsonObject result = mJsonDb->update(mOwner, item);
+    JsonDbWriteResult result = update(mOwner, item);
     verifyErrorResult(result);
 }
 
@@ -819,18 +828,16 @@ void TestJsonDb::update3()
 
 void TestJsonDb::update4()
 {
-    jsondbSettings->setRejectStaleUpdates(true);
-
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("update-test-type"));
     item.insert("update-test", 100);
     item.insert("update-string", QLatin1String("update-test-100"));
 
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
-    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+    QString uuid = result.objectsWritten[0].uuid().toString();
 
-    QString version1 = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kVersionStr).toString();
+    QString version1 = result.objectsWritten[0].version();
 
     item.insert(JsonDbString::kUuidStr, uuid);
     JsonDbObject replay(item);
@@ -840,45 +847,40 @@ void TestJsonDb::update4()
 
     item.insert("update-test", 101);
 
-    result = mJsonDb->update(mOwner, item);
+    result = update(mOwner, item);
     verifyGoodResult(result);
-    verifyResultField(result,JsonDbString::kCountStr,1);
-    verifyResultField(result,JsonDbString::kUuidStr, uuid);
+    QCOMPARE(result.objectsWritten.count(), 1);
+    QCOMPARE(result.objectsWritten[0].uuid().toString(), uuid);
 
-    QString version2 = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kVersionStr).toString();
+    QString version2 = result.objectsWritten[0].version();
     QVERIFY(version1 != version2);
 
-    QJsonObject query;
-    query.insert("query", QString("[?_uuid=\"%1\"]").arg(uuid));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?_uuid=\"%1\"]").arg(uuid));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value(JsonDbString::kUuidStr).toString(), uuid);
     QCOMPARE(queryResult.data.at(0).value(JsonDbString::kVersionStr).toString(), version2);
 
-
     item.insert("update-test", 202);
     item.insert("_version", version2);
-    result = mJsonDb->update(mOwner, item);
+    result = update(mOwner, item);
     verifyGoodResult(result);
-    verifyResultField(result,JsonDbString::kCountStr,1);
-    verifyResultField(result,JsonDbString::kUuidStr, uuid);
-    QString version3 = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kVersionStr).toString();
+    QCOMPARE(result.objectsWritten.count(), 1);
+    QCOMPARE(result.objectsWritten[0].uuid().toString(), uuid);
+    QString version3 = result.objectsWritten[0].version();
     QVERIFY(version3 != version2);
 
     // replay
-    result = mJsonDb->update(mOwner, replay);
+    result = update(mOwner, replay);
     verifyGoodResult(result);
-    verifyResultField(result, JsonDbString::kCountStr,1);
-    verifyResultField(result, JsonDbString::kUuidStr, uuid);
-    verifyResultField(result, JsonDbString::kVersionStr, version1);
+    QCOMPARE(result.objectsWritten.count(), 1);
+    QCOMPARE(result.objectsWritten[0].uuid().toString(), uuid);
+    QCOMPARE(result.objectsWritten[0].version(), version1);
 
     // conflict
     item.insert(JsonDbString::kVersionStr, version2);
     item.insert("update-test", 102);
-    result = mJsonDb->update(mOwner, item);
+    result = update(mOwner, item);
     verifyErrorResult(result);
-
-    jsondbSettings->setRejectStaleUpdates(false);
 }
 
 /*
@@ -891,23 +893,20 @@ void TestJsonDb::remove()
     item.insert(JsonDbString::kTypeStr, QLatin1String("remove-test-type"));
     item.insert("remove-test", 100);
 
-    QJsonObject response = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult response = create(mOwner, item);
     verifyGoodResult(response);
-    QJsonObject result = response.value(JsonDbString::kResultStr).toObject();
 
-    QString uuid = result.value(JsonDbString::kUuidStr).toString();
-    QString version = result.value(JsonDbString::kVersionStr).toString();
+    QString uuid = response.objectsWritten[0].uuid().toString();
+    QString version = response.objectsWritten[0].version();
 
     item.insert(JsonDbString::kUuidStr, uuid);
     //item.insert(JsonDbString::kVersionStr, version);
 
-    result = mJsonDb->remove(mOwner, item);
-    verifyGoodResult(result);
-    verifyResultField(result,JsonDbString::kCountStr, 1);
+    response = remove(mOwner, item);
+    verifyGoodResult(response);
+    QCOMPARE(response.objectsWritten.count(), 1);
 
-    QJsonObject query;
-    query.insert("query", QString("[?_uuid=\"%1\"]").arg(uuid));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?_uuid=\"%1\"]").arg(uuid));
     QCOMPARE(queryResult.data.size(), 0);
 }
 
@@ -922,7 +921,7 @@ void TestJsonDb::remove2()
     item.insert(JsonDbString::kTypeStr, QLatin1String("Remove2Type"));
     item.insert(JsonDbString::kUuidStr, QUuid::createUuid().toString());
 
-    QJsonObject result = mJsonDb->remove(mOwner, item);
+    JsonDbWriteResult result = remove(mOwner, item);
     verifyErrorResult(result);
 }
 
@@ -935,7 +934,7 @@ void TestJsonDb::remove3()
     JsonDbObject item;
     item.insert("remove3-test", 100);
 
-    QJsonObject result = mJsonDb->remove(mOwner, item);
+    JsonDbWriteResult result = remove(mOwner, item);
     verifyErrorResult(result);
 }
 
@@ -948,18 +947,18 @@ void TestJsonDb::remove4()
     item.insert(JsonDbString::kTypeStr, QLatin1String("remove-test-type"));
     item.insert("remove-test", 100);
 
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
-    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+    QString uuid = result.objectsWritten[0].uuid().toString();
     item.insert(JsonDbString::kUuidStr, uuid);
 
-    result = mJsonDb->remove(mOwner, item);
+    result = remove(mOwner, item);
     verifyGoodResult(result);
-    verifyResultField(result,JsonDbString::kCountStr, 1);
+    QCOMPARE(result.objectsWritten.count(), 1);
 
-    result = mJsonDb->remove(mOwner, item);
+    result = remove(mOwner, item);
     verifyErrorResult(result);
-    result = mJsonDb->remove(mOwner, item);
+    result = remove(mOwner, item);
     verifyErrorResult(result);
 }
 
@@ -973,17 +972,15 @@ void TestJsonDb::remove5()
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("update-test-type"));
 
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
 
-    qDebug() << result;
-
     QString version = item.take(JsonDbString::kVersionStr).toString();
-    result = mJsonDb->remove(mOwner, item);
+    result = remove(mOwner, item);
     verifyErrorResult(result);
 
     item.insert(JsonDbString::kVersionStr, version);
-    result = mJsonDb->remove(mOwner, item);
+    result = remove(mOwner, item);
     verifyGoodResult(result);
 
     jsondbSettings->setRejectStaleUpdates(false);
@@ -1041,24 +1038,25 @@ void TestJsonDb::schemaValidation()
     schemaObject.insert("name", schemaName);
     schemaObject.insert("schema", schemaBody);
 
-    QJsonObject qResult = mJsonDb->create(mOwner, schemaObject);
+    JsonDbWriteResult qResult = create(mOwner, schemaObject);
     verifyGoodResult(qResult);
 
     JsonDbObject item = readJson(object).toObject();
     item.insert(JsonDbString::kTypeStr, schemaName);
 
     // Create an item that matches the schema
-    qResult = mJsonDb->create(mOwner, item);
+    qResult = create(mOwner, item);
     if (result) {
         verifyGoodResult(qResult);
+
     } else {
         verifyErrorResult(qResult);
     }
     if (result) {
-        qResult = mJsonDb->remove(mOwner, item);
+        qResult = remove(mOwner, item);
         verifyGoodResult(qResult);
     }
-    qResult = mJsonDb->remove(mOwner, schemaObject);
+    qResult = remove(mOwner, schemaObject);
     verifyGoodResult(qResult);
 
     jsondbSettings->setValidateSchemas(false);
@@ -1098,7 +1096,7 @@ void TestJsonDb::schemaValidationExtends()
     const QString adultSchemaName = QString::fromLatin1("adult") + QString::number(id);
 
     // init schemas
-    QJsonObject qResult;
+    JsonDbWriteResult qResult;
     {
         const QByteArray person =
                 "{"
@@ -1128,9 +1126,9 @@ void TestJsonDb::schemaValidationExtends()
         adultSchemaObject.insert("name", adultSchemaName);
         adultSchemaObject.insert("schema", adultSchemaBody);
 
-        qResult = mJsonDb->create(mOwner, personSchemaObject);
+        qResult = create(mOwner, personSchemaObject);
         verifyGoodResult(qResult);
-        qResult = mJsonDb->create(mOwner, adultSchemaObject);
+        qResult = create(mOwner, adultSchemaObject);
         verifyGoodResult(qResult);
     }
 
@@ -1138,7 +1136,7 @@ void TestJsonDb::schemaValidationExtends()
         JsonDbObject object = readJson(item).toObject();
         object.insert("testingForPerson", isPerson);
         object.insert(JsonDbString::kTypeStr, personSchemaName);
-        qResult = mJsonDb->create(mOwner, object);
+        qResult = create(mOwner, object);
         if (isPerson) {
             verifyGoodResult(qResult);
         } else {
@@ -1150,7 +1148,7 @@ void TestJsonDb::schemaValidationExtends()
         JsonDbObject object = readJson(item).toObject();
         object.insert("testingForAdult", isAdult);
         object.insert(JsonDbString::kTypeStr, adultSchemaName);
-        qResult = mJsonDb->create(mOwner, object);
+        qResult = create(mOwner, object);
         if (isAdult) {
             verifyGoodResult(qResult);
         } else {
@@ -1193,7 +1191,7 @@ void TestJsonDb::schemaValidationExtendsArray()
     const QString boatSchemaName = QString::fromLatin1("boat") + QString::number(id);
 
     // init schemas
-    QJsonObject qResult;
+    JsonDbWriteResult qResult;
     {
         const QByteArray car =
                 "{"
@@ -1233,11 +1231,11 @@ void TestJsonDb::schemaValidationExtendsArray()
         amphibiousSchemaObject.insert("name", amphibiousSchemaName);
         amphibiousSchemaObject.insert("schema", amphibiousSchemaBody);
 
-        qResult = mJsonDb->create(mOwner, carSchemaObject);
+        qResult = create(mOwner, carSchemaObject);
         verifyGoodResult(qResult);
-        qResult = mJsonDb->create(mOwner, boatSchemaObject);
+        qResult = create(mOwner, boatSchemaObject);
         verifyGoodResult(qResult);
-        qResult = mJsonDb->create(mOwner, amphibiousSchemaObject);
+        qResult = create(mOwner, amphibiousSchemaObject);
         verifyGoodResult(qResult);
     }
 
@@ -1245,7 +1243,7 @@ void TestJsonDb::schemaValidationExtendsArray()
         JsonDbObject object = readJson(item).toObject();
         object.insert("testingForAmphibious", isValid);
         object.insert(JsonDbString::kTypeStr, amphibiousSchemaName);
-        qResult = mJsonDb->create(mOwner, object);
+        qResult = create(mOwner, object);
         if (isValid) {
             verifyGoodResult(qResult);
         } else {
@@ -1294,10 +1292,10 @@ void TestJsonDb::schemaValidationLazyInit()
 
     // Without lazy compilation this operation fails, because adult schema referece unexisting yet
     // person schema
-    QJsonObject qResult;
-    qResult = mJsonDb->create(mOwner, adultSchemaObject);
+    JsonDbWriteResult qResult;
+    qResult = create(mOwner, adultSchemaObject);
     verifyGoodResult(qResult);
-    qResult = mJsonDb->create(mOwner, personSchemaObject);
+    qResult = create(mOwner, personSchemaObject);
     verifyGoodResult(qResult);
 
     // Insert some objects to force full schema compilation
@@ -1305,35 +1303,35 @@ void TestJsonDb::schemaValidationLazyInit()
         const QByteArray item = "{ \"name\":\"Nierob\", \"age\":99 }";
         JsonDbObject object = readJson(item).toObject();
         object.insert(JsonDbString::kTypeStr, adultSchemaName);
-        qResult = mJsonDb->create(mOwner, object);
+        qResult = create(mOwner, object);
         verifyGoodResult(qResult);
     }
     {
         const QByteArray item = "{ \"name\":\"Nierob\", \"age\":12 }";
         JsonDbObject object = readJson(item).toObject();
         object.insert(JsonDbString::kTypeStr, adultSchemaName);
-        qResult = mJsonDb->create(mOwner, object);
+        qResult = create(mOwner, object);
         verifyErrorResult(qResult);
     }
     {
         const QByteArray item = "{ \"age\":19 }";
         JsonDbObject object = readJson(item).toObject();
         object.insert(JsonDbString::kTypeStr, adultSchemaName);
-        qResult = mJsonDb->create(mOwner, object);
+        qResult = create(mOwner, object);
         verifyErrorResult(qResult);
     }
     {
         const QByteArray item = "{ \"name\":\"Nierob\", \"age\":12 }";
         JsonDbObject object = readJson(item).toObject();
         object.insert(JsonDbString::kTypeStr, personSchemaName);
-        qResult = mJsonDb->create(mOwner, object);
+        qResult = create(mOwner, object);
         verifyGoodResult(qResult);
     }
     {
         const QByteArray item = "{ \"age\":12 }";
         JsonDbObject object = readJson(item).toObject();
         object.insert(JsonDbString::kTypeStr, personSchemaName);
-        qResult = mJsonDb->create(mOwner, object);
+        qResult = create(mOwner, object);
         verifyErrorResult(qResult);
     }
 
@@ -1357,9 +1355,9 @@ void TestJsonDb::createList()
         list.append(map);
     }
 
-    QJsonObject result = mJsonDb->createList(mOwner, list);
+    JsonDbWriteResult result = mJsonDbPartition->updateObjects(mOwner, list);
     verifyGoodResult(result);
-    verifyResultField(result,JsonDbString::kCountStr, LIST_TEST_ITEMS);
+    QCOMPARE(result.objectsWritten.count(), LIST_TEST_ITEMS);
 }
 /*
  * Create a list of items and then update them
@@ -1372,17 +1370,17 @@ void TestJsonDb::updateList()
         JsonDbObject map;
         map.insert(JsonDbString::kTypeStr, QLatin1String("update-list-type"));
         map.insert("update-list-test", i + 100);
-        QJsonObject result = mJsonDb->create(mOwner, map);
+        JsonDbWriteResult result = create(mOwner, map);
         verifyGoodResult(result);
-        QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
+        QString uuid = result.objectsWritten[0].uuid().toString();
         map.insert(JsonDbString::kUuidStr, uuid);
         map.insert("fuzzyduck", QLatin1String("Duck test"));
         list.append(map);
     }
 
-    QJsonObject result = mJsonDb->updateList(mOwner, list);
+    JsonDbWriteResult result = mJsonDbPartition->updateObjects(mOwner, list);
     verifyGoodResult(result);
-    verifyResultField(result,JsonDbString::kCountStr, LIST_TEST_ITEMS);
+    QCOMPARE(result.objectsWritten.count(), LIST_TEST_ITEMS);
 }
 
 void TestJsonDb::mapDefinition()
@@ -1395,7 +1393,7 @@ void TestJsonDb::mapDefinition()
     schemaSub.insert("type", QLatin1String("object"));
     schemaSub.insert("extends", QLatin1String("View"));
     schema.insert("schema", schemaSub);
-    QJsonObject schemaRes = mJsonDb->create(mOwner, schema);
+    JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
     JsonDbObject mapDefinition;
@@ -1404,11 +1402,11 @@ void TestJsonDb::mapDefinition()
     JsonDbObject sourceToMapFunctions;
     sourceToMapFunctions.insert("Contact", QLatin1String("function map (c) { }"));
     mapDefinition.insert("map", sourceToMapFunctions);
-    QJsonObject res = mJsonDb->create(mOwner, mapDefinition);
+    JsonDbWriteResult res = create(mOwner, mapDefinition);
     verifyGoodResult(res);
 
-    verifyGoodResult(mJsonDb->remove(mOwner, mapDefinition));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, mapDefinition));
+    verifyGoodResult(remove(mOwner, schema));
 }
 
 void TestJsonDb::mapDefinitionInvalid()
@@ -1421,28 +1419,28 @@ void TestJsonDb::mapDefinitionInvalid()
     schemaSub.insert("type", QLatin1String("object"));
     schemaSub.insert("extends", QLatin1String("View"));
     schema.insert("schema", schemaSub);
-    QJsonObject schemaRes = mJsonDb->create(mOwner, schema);
+    JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
     JsonDbObject mapDefinition;
     mapDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
     mapDefinition.insert("sourceType", QLatin1String("Contact"));
     mapDefinition.insert("map", QLatin1String("function map (c) { }"));
-    QJsonObject res = mJsonDb->create(mOwner, mapDefinition);
+    JsonDbWriteResult res = create(mOwner, mapDefinition);
     verifyErrorResult(res);
 
     mapDefinition = JsonDbObject();
     mapDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
     mapDefinition.insert("targetType", QLatin1String("MyViewType"));
     mapDefinition.insert("map", QLatin1String("function map (c) { }"));
-    res = mJsonDb->create(mOwner, mapDefinition);
+    res = create(mOwner, mapDefinition);
     verifyErrorResult(res);
 
     mapDefinition = JsonDbObject();
     mapDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
     mapDefinition.insert("targetType", QLatin1String("MyViewType"));
     mapDefinition.insert("sourceType", QLatin1String("Contact"));
-    res = mJsonDb->create(mOwner, mapDefinition);
+    res = create(mOwner, mapDefinition);
     verifyErrorResult(res);
 
     // fail because targetType doesn't extend View
@@ -1451,11 +1449,11 @@ void TestJsonDb::mapDefinitionInvalid()
     mapDefinition.insert("targetType", QLatin1String("MyViewType2"));
     mapDefinition.insert("sourceType", QLatin1String("Contact"));
     mapDefinition.insert("map", QLatin1String("function map (c) { }"));
-    res = mJsonDb->create(mOwner, mapDefinition);
+    res = create(mOwner, mapDefinition);
     verifyErrorResult(res);
-    QVERIFY(res.value("error").toObject().value(JsonDbString::kMessageStr).toString().contains("View"));
+    QVERIFY(res.message.contains("View"));
 
-    res = mJsonDb->remove(mOwner, schema);
+    res = remove(mOwner, schema);
     verifyGoodResult(res);
 }
 
@@ -1469,7 +1467,7 @@ void TestJsonDb::reduceDefinition()
     schemaSub.insert("type", QLatin1String("object"));
     schemaSub.insert("extends", QLatin1String("View"));
     schema.insert("schema", schemaSub);
-    QJsonObject schemaRes = mJsonDb->create(mOwner, schema);
+    JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
     JsonDbObject reduceDefinition;
@@ -1479,11 +1477,11 @@ void TestJsonDb::reduceDefinition()
     reduceDefinition.insert("sourceKeyName", QLatin1String("phoneNumber"));
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { }"));
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
-    QJsonObject res = mJsonDb->create(mOwner, reduceDefinition);
+    JsonDbWriteResult res = create(mOwner, reduceDefinition);
     verifyGoodResult(res);
 
-    verifyGoodResult(mJsonDb->remove(mOwner, reduceDefinition));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, reduceDefinition));
+    verifyGoodResult(remove(mOwner, schema));
 }
 
 void TestJsonDb::reduceDefinitionInvalid()
@@ -1496,7 +1494,7 @@ void TestJsonDb::reduceDefinitionInvalid()
     schemaSub.insert("type", QLatin1String("object"));
     schemaSub.insert("extends", QLatin1String("View"));
     schema.insert("schema", schemaSub);
-    QJsonObject schemaRes = mJsonDb->create(mOwner, schema);
+    JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
     JsonDbObject reduceDefinition;
@@ -1505,7 +1503,7 @@ void TestJsonDb::reduceDefinitionInvalid()
     reduceDefinition.insert("sourceKeyName", QLatin1String("phoneNumber"));
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { }"));
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
-    QJsonObject res = mJsonDb->create(mOwner, reduceDefinition);
+    JsonDbWriteResult res = create(mOwner, reduceDefinition);
     verifyErrorResult(res);
 
     reduceDefinition = JsonDbObject();
@@ -1514,7 +1512,7 @@ void TestJsonDb::reduceDefinitionInvalid()
     reduceDefinition.insert("sourceKeyName", QLatin1String("phoneNumber"));
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { }"));
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
-    res = mJsonDb->create(mOwner, reduceDefinition);
+    res = create(mOwner, reduceDefinition);
     verifyErrorResult(res);
 
     reduceDefinition = JsonDbObject();
@@ -1523,7 +1521,7 @@ void TestJsonDb::reduceDefinitionInvalid()
     reduceDefinition.insert("sourceType", QLatin1String("Contact"));
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { }"));
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
-    res = mJsonDb->create(mOwner, reduceDefinition);
+    res = create(mOwner, reduceDefinition);
     verifyErrorResult(res);
 
     reduceDefinition = JsonDbObject();
@@ -1532,7 +1530,7 @@ void TestJsonDb::reduceDefinitionInvalid()
     reduceDefinition.insert("sourceType", QLatin1String("Contact"));
     reduceDefinition.insert("sourceKeyName", QLatin1String("phoneNumber"));
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
-    res = mJsonDb->create(mOwner, reduceDefinition);
+    res = create(mOwner, reduceDefinition);
     verifyErrorResult(res);
 
     reduceDefinition = JsonDbObject();
@@ -1541,7 +1539,7 @@ void TestJsonDb::reduceDefinitionInvalid()
     reduceDefinition.insert("sourceType", QLatin1String("Contact"));
     reduceDefinition.insert("sourceKeyName", QLatin1String("phoneNumber"));
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { }"));
-    res = mJsonDb->create(mOwner, reduceDefinition);
+    res = create(mOwner, reduceDefinition);
     verifyErrorResult(res);
 
     // fail because targetType doesn't extend View
@@ -1552,12 +1550,12 @@ void TestJsonDb::reduceDefinitionInvalid()
     reduceDefinition.insert("sourceKeyName", QLatin1String("phoneNumber"));
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { }"));
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
-    res = mJsonDb->create(mOwner, reduceDefinition);
+    res = create(mOwner, reduceDefinition);
     verifyErrorResult(res);
-    QVERIFY(res.value("error").toObject().value(JsonDbString::kMessageStr).toString().contains("View"));
+    QVERIFY(res.message.contains("View"));
 
     //schemaRes.value("result").toObject()
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, schema));
 }
 
 void TestJsonDb::mapInvalidMapFunc()
@@ -1569,7 +1567,7 @@ void TestJsonDb::mapInvalidMapFunc()
     schemaSub.insert("type", QLatin1String("object"));
     schemaSub.insert("extends", QLatin1String("View"));
     schema.insert("schema", schemaSub);
-    QJsonObject schemaRes = mJsonDb->create(mOwner, schema);
+    JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
     JsonDbObject mapDefinition;
@@ -1579,23 +1577,22 @@ void TestJsonDb::mapInvalidMapFunc()
     sourceToMapFunctions.insert("Contact", QLatin1String("function map (c) { ;")); // non-parsable map function
     mapDefinition.insert("map", sourceToMapFunctions);
 
-    qDebug() << "mapDefinition" << mapDefinition;
-    QJsonObject defRes = mJsonDb->create(mOwner, mapDefinition);
+    JsonDbWriteResult defRes = create(mOwner, mapDefinition);
     verifyGoodResult(defRes);
-    QString uuid = defRes.value("result").toObject().value("_uuid").toString();
+    QString uuid = defRes.objectsWritten[0].uuid().toString();
 
     // force the view to be updated
-    mJsonDb->updateView("InvalidMapViewType");
+    mJsonDbPartition->updateView("InvalidMapViewType");
 
     // now check for an error
-    GetObjectsResult res = mJsonDb->getObjects("_uuid", uuid, JsonDbString::kMapTypeStr);
+    GetObjectsResult res = mJsonDbPartition->getObjects("_uuid", uuid, JsonDbString::kMapTypeStr);
     QVERIFY(res.data.size() > 0);
     mapDefinition = res.data.at(0);
     QVERIFY(mapDefinition.contains(JsonDbString::kActiveStr) && !mapDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(!mapDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
 
-    verifyGoodResult(mJsonDb->remove(mOwner, mapDefinition));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, mapDefinition));
+    verifyGoodResult(remove(mOwner, schema));
 }
 
 void TestJsonDb::reduceInvalidAddSubtractFuncs()
@@ -1607,7 +1604,7 @@ void TestJsonDb::reduceInvalidAddSubtractFuncs()
     schemaSub.insert("type", QLatin1String("object"));
     schemaSub.insert("extends", QLatin1String("View"));
     schema.insert("schema", schemaSub);
-    QJsonObject schemaRes = mJsonDb->create(mOwner, schema);
+    JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
     JsonDbObject reduceDefinition;
@@ -1617,18 +1614,18 @@ void TestJsonDb::reduceInvalidAddSubtractFuncs()
     reduceDefinition.insert("sourceKeyName", QLatin1String("phoneNumber"));
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { ;")); // non-parsable add function
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
-    QJsonObject res = mJsonDb->create(mOwner, reduceDefinition);
+    JsonDbWriteResult res = create(mOwner, reduceDefinition);
     verifyGoodResult(res);
 
-    mJsonDb->updateView("MyViewType");
+    mJsonDbPartition->updateView("MyViewType");
 
-    GetObjectsResult getObjects = mJsonDb->getObjects("_uuid", res.value("result").toObject().value("_uuid").toString());
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", res.objectsWritten[0].uuid().toString());
     reduceDefinition = getObjects.data.at(0);
     QVERIFY(reduceDefinition.contains(JsonDbString::kActiveStr) && !reduceDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(!reduceDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
 
-    verifyGoodResult(mJsonDb->remove(mOwner, reduceDefinition));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, reduceDefinition));
+    verifyGoodResult(remove(mOwner, schema));
 }
 
 void TestJsonDb::map()
@@ -1643,7 +1640,7 @@ void TestJsonDb::map()
     for (int i = 0; i < objects.size(); ++i) {
         QJsonObject object(objects.at(i).toObject());
         JsonDbObject doc(object);
-        QJsonObject result = mJsonDb->create(mOwner, doc);
+        JsonDbWriteResult result = create(mOwner, doc);
         verifyGoodResult(result);
 
         if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr ||
@@ -1655,24 +1652,20 @@ void TestJsonDb::map()
             toDelete.insert(doc.value("_uuid").toString(), doc);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"Phone\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 5);
 
     // now remove one of the source items
-    QJsonObject query2;
-    query2.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"Contact\"][?displayName=\"Nancy Doe\"]"));
-    queryResult = mJsonDb->find(mOwner, query2);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"Contact\"][?displayName=\"Nancy Doe\"]"));
     JsonDbObject firstItem = queryResult.data.at(0);
     QVERIFY(!firstItem.value("_uuid").toString().isEmpty());
     toDelete.remove(firstItem.value("_uuid").toString());
-    QJsonObject result = mJsonDb->remove(mOwner, firstItem);
+    JsonDbWriteResult result = remove(mOwner, firstItem);
     verifyGoodResult(result);
 
     // get results with getObjects()
-    GetObjectsResult getObjectsResult = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    GetObjectsResult getObjectsResult = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjectsResult.data.size(), 3);
     if (jsondbSettings->verbose()) {
         JsonDbObjectList vs = getObjectsResult.data;
@@ -1681,13 +1674,11 @@ void TestJsonDb::map()
     }
 
     // query for results
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 3);
 
-    QJsonObject query3;
-    query3.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"PhoneCount\"][/key]"));
-    queryResult = mJsonDb->find(mOwner, query3);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"PhoneCount\"][/key]"));
     verifyGoodQueryResult(queryResult);
     if (jsondbSettings->verbose()) {
         JsonDbObjectList vs = queryResult.data;
@@ -1696,92 +1687,50 @@ void TestJsonDb::map()
     }
     QCOMPARE(queryResult.data.size(), 3);
 
-    GetObjectsResult gor = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    QSet<QString> versions;
+    GetObjectsResult gor = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(gor.data.size(), 3);
+    foreach (const JsonDbObject &o, gor.data)
+        versions.insert(o.value(JsonDbString::kVersionStr).toString());
+
+    // now add a phone number to one of the source items
+    QString query2 = QLatin1String("[?_type=\"Contact\"][?displayName=\"Joe Smith\"]");
+    queryResult = find(mOwner, query2);
+    verifyGoodQueryResult(queryResult);
+    firstItem = queryResult.data.at(0);
+    QJsonObject newInfo;
+    newInfo.insert(QLatin1String("type"), QLatin1String("satellite"));
+    newInfo.insert(QLatin1String("number"), QLatin1String("+22-555222222"));
+    QJsonArray phoneNumbers = firstItem.value("phoneNumbers").toArray();
+    phoneNumbers.append(newInfo);
+    firstItem.insert("phoneNumbers", phoneNumbers);
+
+    result = update(mOwner, firstItem);
+    verifyGoodResult(result);
+    toDelete[firstItem.uuid().toString()] = firstItem;
+
+    gor = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    QCOMPARE(gor.data.size(), 4);
+    // verify only one object got updated
+    int numChanges = 0;
+    foreach (const JsonDbObject &o, gor.data)
+        if (!versions.contains(o.value(JsonDbString::kVersionStr).toString()))
+            numChanges++;
+    QCOMPARE(numChanges, 1);
 
     for (int i = 0; i < mapsReduces.size(); ++i) {
         JsonDbObject object = mapsReduces.at(i);
-        verifyGoodResult(mJsonDb->remove(mOwner, object));
+        verifyGoodResult(remove(mOwner, object));
     }
     for (int i = 0; i < schemas.size(); ++i) {
         JsonDbObject object = schemas.at(i);
-        verifyGoodResult(mJsonDb->remove(mOwner, object));
+        verifyGoodResult(remove(mOwner, object));
     }
-    foreach (JsonDbObject map, toDelete.values())
-        verifyGoodResult(mJsonDb->remove(mOwner, map));
-    //mJsonDb->removeIndex(QLatin1String("phoneNumber"));
+    foreach (JsonDbObject del, toDelete.values())
+        verifyGoodResult(remove(mOwner, del));
+    //mJsonDbPartition->removeIndex(QLatin1String("phoneNumber"));
 }
 
-void TestJsonDb::mapNotification()
-{
-    addIndex(QLatin1String("phoneNumber"));
-
-    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
-
-    JsonDbObjectList mapsReduces;
-    JsonDbObjectList schemas;
-    QMap<QString, JsonDbObject> toDelete;
-    for (int i = 0; i < objects.size(); ++i) {
-        QJsonObject object(objects.at(i).toObject());
-        JsonDbObject doc(object);
-        QJsonObject result = mJsonDb->create(mOwner, doc);
-        verifyGoodResult(result);
-
-        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr ||
-            object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr)
-            mapsReduces.append(doc);
-        else if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
-            schemas.append(doc);
-        else
-            toDelete.insert(doc.value("_uuid").toString(), doc);
-    }
-
-    QJsonArray actions;
-    actions.append(QLatin1String("create"));
-    actions.append(QLatin1String("remove"));
-    actions.append(QLatin1String("update"));
-
-    JsonDbObject notification;
-    notification.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
-    notification.insert(QLatin1String("query"), QLatin1String("[?_type=\"Phone\"]"));
-    notification.insert(QLatin1String("actions"), actions);
-
-    QJsonObject result = mJsonDb->create(mOwner, notification);
-    QVERIFY(result.contains(JsonDbString::kResultStr));
-    QVERIFY(result.value(JsonDbString::kResultStr).toObject().contains(JsonDbString::kUuidStr));
-    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
-
-    connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
-            this, SLOT(notified(QString,JsonDbObject,QString)));
-
-    mNotificationsReceived.clear();
-
-    // now remove one of the source items
-    QJsonObject query2;
-    query2.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"Contact\"][?displayName=\"Nancy Doe\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query2);
-    JsonDbObject firstItem = queryResult.data.at(0);
-    QVERIFY(!firstItem.value("_uuid").toString().isEmpty());
-    toDelete.remove(firstItem.value("_uuid").toString());
-    result = mJsonDb->remove(mOwner, firstItem);
-    verifyGoodResult(result);
-
-    QVERIFY(mNotificationsReceived.contains(uuid));
-
-    result = mJsonDb->remove(mOwner, notification);
-    verifyGoodResult(result);
-
-    for (int i = 0; i < mapsReduces.size(); ++i) {
-        JsonDbObject object = mapsReduces.at(i);
-        verifyGoodResult(mJsonDb->remove(mOwner, object));
-    }
-    for (int i = 0; i < schemas.size(); ++i) {
-        JsonDbObject object = schemas.at(i);
-        verifyGoodResult(mJsonDb->remove(mOwner, object));
-    }
-    foreach (JsonDbObject map, toDelete.values())
-        verifyGoodResult(mJsonDb->remove(mOwner, map));
-}
 
 void TestJsonDb::mapDuplicateSourceAndTarget()
 {
@@ -1791,7 +1740,7 @@ void TestJsonDb::mapDuplicateSourceAndTarget()
 
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Map")
             maps.append(object);
@@ -1799,9 +1748,7 @@ void TestJsonDb::mapDuplicateSourceAndTarget()
             toDelete.append(object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"ContactView\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"ContactView\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 4);
 
@@ -1813,10 +1760,10 @@ void TestJsonDb::mapDuplicateSourceAndTarget()
     QCOMPARE(firstNameCount, 2);
 
     for (int ii = 0; ii < maps.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, maps.at(ii)));
+        verifyGoodResult(remove(mOwner, maps.at(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
-    mJsonDb->removeIndex("ContactView");
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+    mJsonDbPartition->removeIndex("ContactView");
 }
 
 void TestJsonDb::mapRemoval()
@@ -1828,7 +1775,7 @@ void TestJsonDb::mapRemoval()
 
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Map")
             maps.append(object);
@@ -1836,30 +1783,29 @@ void TestJsonDb::mapRemoval()
             toDelete.append(object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"ContactView\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    QLatin1String query("[?_type=\"ContactView\"]");
+    JsonDbQueryResult queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 4);
 
     // remove a map
-    QJsonObject result = mJsonDb->remove(mOwner, maps.takeAt(0));
+    JsonDbWriteResult result = remove(mOwner, maps.takeAt(0));
     verifyGoodResult(result);
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 2);
 
     // an now the other
-    result = mJsonDb->remove(mOwner, maps.takeAt(0));
+    result = remove(mOwner, maps.takeAt(0));
     verifyGoodResult(result);
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 0);
 
     for (int ii = 0; ii < maps.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, maps.at(ii)));
+        verifyGoodResult(remove(mOwner, maps.at(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
 }
 
 void TestJsonDb::mapUpdate()
@@ -1871,7 +1817,7 @@ void TestJsonDb::mapUpdate()
 
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Map")
             maps.append(object);
@@ -1879,53 +1825,50 @@ void TestJsonDb::mapUpdate()
             toDelete.append(object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"ContactView\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    QLatin1String query("[?_type=\"ContactView\"]");
+    JsonDbQueryResult queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 4);
 
     // remove a map
-    JsonDbObject map1 = maps.at(1);
-    QJsonObject result1 = mJsonDb->remove(mOwner, map1);
-    maps.removeOne(map1);
+    JsonDbObject map1 = maps.takeAt(1);
+    JsonDbWriteResult result1 = remove(mOwner, map1);
     verifyGoodResult(result1);
 
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 2);
 
     // update a map
-    JsonDbObject map0 = maps.at(0);
+    JsonDbObject map0 = maps.takeAt(0);
     QJsonObject sourceMap = map0.value("map").toObject();
     sourceMap.insert("Contact3", sourceMap.value("Contact2"));;
     map0.insert("map", sourceMap);
-    QJsonObject result0 = mJsonDb->update(mOwner, map0);
+    JsonDbWriteResult result0 = update(mOwner, map0);
     verifyGoodResult(result0);
 
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 4);
 
     // update the targetType
     map0.insert("targetType", QLatin1String("ContactView2"));
-    result0 = mJsonDb->update(mOwner, map0);
+    result0 = update(mOwner, map0);
     verifyGoodResult(result0);
+    maps.prepend(map0);
 
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 0);
 
-    QJsonObject query2;
-    query2.insert(JsonDbString::kQueryStr, QString("[?_type=\"ContactView2\"]"));
-    queryResult = mJsonDb->find(mOwner, query2);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"ContactView2\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 4);
 
     for (int ii = 0; ii < maps.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, maps.at(ii)));
+        verifyGoodResult(remove(mOwner, maps.at(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
 
 }
 
@@ -1939,9 +1882,9 @@ void TestJsonDb::mapJoin()
 
     for (int i = 0; i < objects.size(); ++i) {
         JsonDbObject object(objects.at(i).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
-        object.insert(JsonDbString::kUuidStr, result.value("result").toObject().value(JsonDbString::kUuidStr).toString());
+        object.insert(JsonDbString::kUuidStr, result.objectsWritten[0].uuid().toString());
 
         if (object.value(JsonDbString::kTypeStr).toString() == "Map")
             join = object;
@@ -1954,7 +1897,7 @@ void TestJsonDb::mapJoin()
     addIndex("foaf", "string", "FoafPerson");
     addIndex("friend", "string", "Person");
 
-    GetObjectsResult getObjects = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));
     QCOMPARE(getObjects.data.size(), 0);
 
     // set some friends
@@ -1966,16 +1909,14 @@ void TestJsonDb::mapJoin()
 
         previous = person.value(JsonDbString::kUuidStr).toString();
         QCOMPARE(person.value(JsonDbString::kTypeStr).toString(), QLatin1String("Person"));
-        verifyGoodResult(mJsonDb->update(mOwner, person));
+        verifyGoodResult(update(mOwner, person));
     }
 
-    getObjects = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("Person"));
+    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Person"));
     JsonDbObjectList peopleWithFriends = getObjects.data;
 
-    QJsonObject queryFoafPerson;
     // sort the list by key to make ordering deterministic
-    queryFoafPerson.insert("query", QString::fromLatin1("[?_type=\"FoafPerson\"][?foaf exists][/friend]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, queryFoafPerson);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"FoafPerson\"][?foaf exists][/friend]"));
     QCOMPARE(queryResult.data.size(), people.size()-2); // one has no friend and one is friends with the one with no friends
 
     JsonDbObjectList resultList = queryResult.data;
@@ -2001,13 +1942,13 @@ void TestJsonDb::mapJoin()
 
     QVERIFY(fr.value(JsonDbString::kUuidStr).toString() == p.value("friend").toString());
     fr.insert("friend", QJsonValue(QJsonValue::Undefined));
-    verifyGoodResult(mJsonDb->update(mOwner, fr));
+    verifyGoodResult(update(mOwner, fr));
 
-    GetObjectsResult foafRes = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));
+    GetObjectsResult foafRes = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));
     JsonDbObjectList foafs = foafRes.data;
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"FoafPerson\"][?name=\"%1\"]").arg(p.value("name").toString()));
-    queryResult = mJsonDb->find(mOwner, query);
+    QString query = QString("[?_type=\"FoafPerson\"][?name=\"%1\"]").arg(p.value("name").toString());
+
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
 
@@ -2015,27 +1956,23 @@ void TestJsonDb::mapJoin()
     QVERIFY(!p.value("friend").toString().isEmpty());
     QVERIFY(!p.contains("foaf"));
 
-    query = QJsonObject();
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"FoafPerson\"][/key]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"FoafPerson\"][/key]"));
     verifyGoodQueryResult(queryResult);
 
-    query = QJsonObject();
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"FoafPerson\"][/friend]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"FoafPerson\"][/friend]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 8); // two have no friends
 
-    verifyGoodResult(mJsonDb->remove(mOwner, join));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, join));
+    verifyGoodResult(remove(mOwner, schema));
     for (int i = 0; i < people.size(); ++i) {
         JsonDbObject object = people.at(i);
         if (object == join || object == schema)
             continue;
-        mJsonDb->remove(mOwner, object);
+        remove(mOwner, object);
     }
-    mJsonDb->removeIndex("value.friend", "string", "FoafPerson");
-    mJsonDb->removeIndex("value.foaf", "string", "FoafPerson");
+    mJsonDbPartition->removeIndex("value.friend", "FoafPerson");
+    mJsonDbPartition->removeIndex("value.foaf", "FoafPerson");
 }
 
 void TestJsonDb::mapSelfJoinSourceUuids()
@@ -2048,33 +1985,35 @@ void TestJsonDb::mapSelfJoinSourceUuids()
 
     for (int i = 0; i < objects.size(); ++i) {
         JsonDbObject object(objects.at(i).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
-        object.insert(JsonDbString::kUuidStr, result.value("result").toObject().value(JsonDbString::kUuidStr).toString());
-        toDelete.append(object);
+        object.insert(JsonDbString::kUuidStr, result.objectsWritten[0].uuid().toString());
+        object.insert(JsonDbString::kVersionStr, result.objectsWritten[0].version());
 
         if (object.value(JsonDbString::kTypeStr).toString() == "Bar")
             toUpdate = object;
+        else
+            toDelete.append(object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MagicView\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    QLatin1String query("[?_type=\"MagicView\"]");
+    JsonDbQueryResult queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
 
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("_sourceUuids").toArray().size(), 3);
 
     toUpdate.insert("extra", QString("123123"));
-    verifyGoodResult(mJsonDb->update(mOwner, toUpdate));
+    verifyGoodResult(update(mOwner, toUpdate));
 
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
 
     QCOMPARE(queryResult.data.at(0).value("_sourceUuids").toArray().size(), 3);
+    verifyGoodResult(remove(mOwner, toUpdate));
     for (int i = toDelete.size() - 1; i >= 0; i--)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(i)))
-    mJsonDb->removeIndex("magic", "string");
+        verifyGoodResult(remove(mOwner, toDelete.at(i)));
+    mJsonDbPartition->removeIndex("magic", "string");
 }
 
 void TestJsonDb::mapMapFunctionError()
@@ -2086,7 +2025,7 @@ void TestJsonDb::mapMapFunctionError()
     schemaSub.insert("type", QString("object"));
     schemaSub.insert("extends", QString("View"));
     schema.insert("schema", schemaSub);
-    QJsonObject schemaRes = mJsonDb->create(mOwner, schema);
+    JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
     JsonDbObject mapDefinition;
@@ -2096,33 +2035,35 @@ void TestJsonDb::mapMapFunctionError()
     sourceToMapFunctions.insert("Contact", QString("function map (c) { invalidobject.fail(); }")); // error in map function
     mapDefinition.insert("map", sourceToMapFunctions);
 
-    QJsonObject defRes = mJsonDb->create(mOwner, mapDefinition);
+    JsonDbWriteResult defRes = create(mOwner, mapDefinition);
     verifyGoodResult(defRes);
 
     JsonDbObject contact;
     contact.insert(JsonDbString::kTypeStr, QString("Contact"));
-    QJsonObject res = mJsonDb->create(mOwner, contact);
+    JsonDbWriteResult res = create(mOwner, contact);
 
     // trigger the view update
-    mJsonDb->updateView("MapFunctionErrorViewType");
+    mJsonDbPartition->updateView("MapFunctionErrorViewType");
 
     // see if the map definition is still active
-    GetObjectsResult getObjects = mJsonDb->getObjects("_uuid", defRes.value("result").toObject().value("_uuid").toString());
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", defRes.objectsWritten[0].uuid().toString());
     mapDefinition = getObjects.data.at(0);
     QVERIFY(mapDefinition.contains(JsonDbString::kActiveStr) && !mapDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(mapDefinition.value(JsonDbString::kErrorStr).toString().contains("invalidobject"));
 
-    verifyGoodResult(mJsonDb->remove(mOwner, mapDefinition));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, mapDefinition));
+    verifyGoodResult(remove(mOwner, schema));
 }
 
 void TestJsonDb::mapSchemaViolation()
 {
     jsondbSettings->setValidateSchemas(true);
 
-    GetObjectsResult contactsRes = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
-    if (contactsRes.data.size() > 0)
-      verifyGoodResult(mJsonDb->removeList(mOwner, contactsRes.data));
+    GetObjectsResult contactsRes = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
+    if (contactsRes.data.size() > 0) {
+        foreach (const JsonDbObject &toRemove, contactsRes.data)
+            remove(mOwner, toRemove);
+    }
 
     QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
     JsonDbObjectList toDelete;
@@ -2139,7 +2080,7 @@ void TestJsonDb::mapSchemaViolation()
                 object.insert("map", object.value("brokenMap"));
             }
 
-            QJsonObject result = mJsonDb->create(mOwner, object);
+            JsonDbWriteResult result = create(mOwner, object);
             if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr) {
                 map = object;
             }
@@ -2150,37 +2091,44 @@ void TestJsonDb::mapSchemaViolation()
         }
     }
 
-    mJsonDb->updateView(map.value("targetType").toString());
+    mJsonDbPartition->updateView(map.value("targetType").toString());
 
-    GetObjectsResult getObjects = mJsonDb->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
     QCOMPARE(getObjects.data.size(), 1);
     JsonDbObject mapDefinition = getObjects.data.at(0);
     QVERIFY(mapDefinition.contains(JsonDbString::kActiveStr));
     QVERIFY(!mapDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(mapDefinition.value(JsonDbString::kErrorStr).toString().contains("Schema"));
 
-    getObjects = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjects.data.size(), 0);
+
+    // get the version out of the database since the Map erroring out causes a
+    //_version increment
+    JsonDbObject updatedMap;
+    QVERIFY(mJsonDbPartition->getObject(map.uuid().toString(), updatedMap));
+
     // fix the map function
     map.insert("map", workingMap);
     map.insert(JsonDbString::kActiveStr, true);
     map.insert(JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
+    map.insert(JsonDbString::kVersionStr, updatedMap.value(JsonDbString::kVersionStr).toString());
 
-    verifyGoodResult(mJsonDb->update(mOwner, map));
+    verifyGoodResult(update(mOwner, map));
 
-    mJsonDb->updateView(map.value("targetType").toString());
+    mJsonDbPartition->updateView(map.value("targetType").toString());
 
-    getObjects = mJsonDb->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
+    getObjects = mJsonDbPartition->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
     mapDefinition = getObjects.data.at(0);
     QVERIFY(!mapDefinition.contains(JsonDbString::kActiveStr)|| mapDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(!mapDefinition.contains(JsonDbString::kErrorStr) || mapDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
 
-    getObjects = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjects.data.size(), 5);
 
-    verifyGoodResult(mJsonDb->remove(mOwner, map));
+    verifyGoodResult(remove(mOwner, map));
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
 
     jsondbSettings->setValidateSchemas(false);
 }
@@ -2191,24 +2139,21 @@ void TestJsonDb::mapArrayConversion()
     JsonDbObjectList toDelete;
     for (int i = 0; i < objects.size(); i++) {
         JsonDbObject object(objects.at(i).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         toDelete.append(object);
     }
 
     JsonDbObject testObject;
     testObject.insert(JsonDbString::kTypeStr, QLatin1String("Test"));
-    QJsonObject result = mJsonDb->create(mOwner, testObject);
+    JsonDbWriteResult result = create(mOwner, testObject);
     verifyGoodResult(result);
 
-    QJsonObject request;
-    request.insert("query", QLatin1String("[?_type=\"TestView\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"TestView\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
     JsonDbObject o = queryResult.data.at(0);
     QVERIFY(o.value("result").isArray());
-
 }
 
 void TestJsonDb::reduce()
@@ -2221,7 +2166,7 @@ void TestJsonDb::reduce()
     QHash<QString, int> firstNameCount;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         firstNameCount[object.value("firstName").toString()]++;
         toDelete.append(object);
@@ -2230,7 +2175,7 @@ void TestJsonDb::reduce()
     objects = readJsonFile(":/daemon/json/reduce.json").toArray();
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
             reduces.append(object);
@@ -2238,9 +2183,7 @@ void TestJsonDb::reduce()
             toDelete.append(object);
     }
 
-    QJsonObject query, result;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MyContactCount\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
 
@@ -2250,10 +2193,10 @@ void TestJsonDb::reduce()
                  firstNameCount[data.at(ii).value("firstName").toString()]);
     }
     for (int ii = 0; ii < reduces.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, reduces.at(ii)));
+        verifyGoodResult(remove(mOwner, reduces.at(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
-    mJsonDb->removeIndex("MyContactCount");
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+    mJsonDbPartition->removeIndex("MyContactCount");
 }
 
 void TestJsonDb::reduceRemoval()
@@ -2264,7 +2207,7 @@ void TestJsonDb::reduceRemoval()
     QHash<QString, int> firstNameCount;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         firstNameCount[object.value("firstName").toString()]++;
         toDelete.append(object);
@@ -2274,7 +2217,7 @@ void TestJsonDb::reduceRemoval()
     JsonDbObject reduce;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
             reduce = object;
@@ -2282,22 +2225,20 @@ void TestJsonDb::reduceRemoval()
             toDelete.append(object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MyContactCount\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    QLatin1String query("[?_type=\"MyContactCount\"]");
+    JsonDbQueryResult queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
 
-    QJsonObject result = mJsonDb->remove(mOwner, reduce);
+    JsonDbWriteResult result = remove(mOwner, reduce);
     verifyGoodResult(result);
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 0);
 
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii).toObject(),
-                                         mJsonDb->mSystemPartitionName));
-    mJsonDb->removeIndex("MyContactCount");
+        verifyGoodResult(remove(mOwner, toDelete.at(ii).toObject()));
+    mJsonDbPartition->removeIndex("MyContactCount");
 }
 
 void TestJsonDb::reduceUpdate()
@@ -2309,7 +2250,7 @@ void TestJsonDb::reduceUpdate()
     QHash<QString, int> lastNameCount;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         firstNameCount[object.value("firstName").toString()]++;
         lastNameCount[object.value("lastName").toString()]++;
@@ -2321,7 +2262,7 @@ void TestJsonDb::reduceUpdate()
     JsonDbObject schema;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
             reduce = object;
@@ -2331,9 +2272,8 @@ void TestJsonDb::reduceUpdate()
             toDelete.append(object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MyContactCount\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    QLatin1String query("[?_type=\"MyContactCount\"]");
+    JsonDbQueryResult queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     JsonDbObjectList data = queryResult.data;
     QCOMPARE(data.size(), firstNameCount.keys().count());
@@ -2343,10 +2283,10 @@ void TestJsonDb::reduceUpdate()
                  firstNameCount[data.at(ii).value("key").toString()]);
 
     reduce.insert("sourceKeyName", QString("lastName"));
-    QJsonObject result = mJsonDb->update(mOwner, reduce);
+    JsonDbWriteResult result = update(mOwner, reduce);
 
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MyContactCount\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    query = QLatin1String("[?_type=\"MyContactCount\"]");
+    queryResult = find(mOwner, query);
     verifyGoodQueryResult(queryResult);
     data = queryResult.data;
 
@@ -2357,12 +2297,11 @@ void TestJsonDb::reduceUpdate()
         QCOMPARE((int)data.at(ii).value("value").toObject().value("count").toDouble(),
                  lastNameCount[data.at(ii).value("key").toString()]);
 
-    verifyGoodResult(mJsonDb->remove(mOwner, reduce));
+    verifyGoodResult(remove(mOwner, reduce));
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii).toObject(),
-                                         mJsonDb->mSystemPartitionName));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
-    mJsonDb->removeIndex("MyContactCount");
+        verifyGoodResult(remove(mOwner, toDelete.at(ii).toObject()));
+    verifyGoodResult(remove(mOwner, schema));
+    mJsonDbPartition->removeIndex("MyContactCount");
 }
 
 void TestJsonDb::reduceDuplicate()
@@ -2374,7 +2313,7 @@ void TestJsonDb::reduceDuplicate()
     QHash<QString, int> lastNameCount;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         firstNameCount[object.value("firstName").toString()]++;
         lastNameCount[object.value("lastName").toString()]++;
@@ -2387,7 +2326,7 @@ void TestJsonDb::reduceDuplicate()
         JsonDbObject object(objects.at(ii).toObject());
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
             object.insert("targetKeyName", QString("key"));
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
             reduce = object;
@@ -2395,9 +2334,7 @@ void TestJsonDb::reduceDuplicate()
             toDelete.append(object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MyContactCount\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
 
@@ -2417,11 +2354,11 @@ void TestJsonDb::reduceDuplicate()
     reduce2.insert("targetValueName", QString("count"));
     reduce2.insert("add", reduce.value("add").toString());
     reduce2.insert("subtract", reduce.value("subtract").toString());
-    QJsonObject result = mJsonDb->create(mOwner, reduce2);
+
+    JsonDbWriteResult result = create(mOwner, reduce2);
     verifyErrorResult(result);
 
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"MyContactCount\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
 
@@ -2432,10 +2369,10 @@ void TestJsonDb::reduceDuplicate()
                 || object.value("count").toDouble() == lastNameCount[object.value("key").toString()]);
     }
 
-    verifyGoodResult(mJsonDb->remove(mOwner, reduce));
+    verifyGoodResult(remove(mOwner, reduce));
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii)));
-    mJsonDb->removeIndex("MyContactCount");
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+    mJsonDbPartition->removeIndex("MyContactCount");
 }
 
 void TestJsonDb::reduceFunctionError()
@@ -2448,7 +2385,7 @@ void TestJsonDb::reduceFunctionError()
     schemaSub.insert("type", QString("object"));
     schemaSub.insert("extends", QString("View"));
     schema.insert("schema", schemaSub);
-    QJsonObject schemaRes = mJsonDb->create(mOwner, schema);
+    JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
     JsonDbObject reduceDefinition;
@@ -2458,23 +2395,23 @@ void TestJsonDb::reduceFunctionError()
     reduceDefinition.insert("sourceKeyName", QString("phoneNumber"));
     reduceDefinition.insert("add", QString("function add (k, z, c) { invalidobject.test(); }")); // invalid add function
     reduceDefinition.insert("subtract", QString("function subtract (k, z, c) { }"));
-    QJsonObject defRes = mJsonDb->create(mOwner, reduceDefinition);
+    JsonDbWriteResult defRes = create(mOwner, reduceDefinition);
     verifyGoodResult(defRes);
 
     JsonDbObject contact;
     contact.insert(JsonDbString::kTypeStr, QString("Contact"));
     contact.insert("phoneNumber", QString("+1234567890"));
-    QJsonObject res = mJsonDb->create(mOwner, contact);
+    JsonDbWriteResult res = create(mOwner, contact);
     verifyGoodResult(res);
 
-    mJsonDb->updateView(viewTypeStr);
-    GetObjectsResult getObjects = mJsonDb->getObjects("_uuid", defRes.value("result").toObject().value("_uuid").toString(), JsonDbString::kReduceTypeStr);
+    mJsonDbPartition->updateView(viewTypeStr);
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", defRes.objectsWritten[0].uuid().toString(), JsonDbString::kReduceTypeStr);
     reduceDefinition = getObjects.data.at(0);
     QVERIFY(!reduceDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(reduceDefinition.value(JsonDbString::kErrorStr).toString().contains("invalidobject"));
 
-    verifyGoodResult(mJsonDb->remove(mOwner, reduceDefinition));
-    verifyGoodResult(mJsonDb->remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, reduceDefinition));
+    verifyGoodResult(remove(mOwner, schema));
 }
 
 void TestJsonDb::reduceSchemaViolation()
@@ -2497,7 +2434,7 @@ void TestJsonDb::reduceSchemaViolation()
             object.insert("add", object.value("brokenAdd").toString());
         }
 
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
 
         if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr) {
@@ -2510,39 +2447,44 @@ void TestJsonDb::reduceSchemaViolation()
 
     }
 
-    mJsonDb->updateView(reduce.value("targetType").toString());
+    mJsonDbPartition->updateView(reduce.value("targetType").toString());
 
-    GetObjectsResult getObjects = mJsonDb->getObjects("_uuid", reduce.value(JsonDbString::kUuidStr).toString());
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", reduce.value(JsonDbString::kUuidStr).toString());
     QCOMPARE(getObjects.data.size(), 1);
     JsonDbObject reduceDefinition = getObjects.data.at(0);
     QVERIFY(reduceDefinition.contains(JsonDbString::kActiveStr) && !reduceDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(reduceDefinition.value(JsonDbString::kErrorStr).toString().contains("Schema"));
 
-
-    getObjects = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(getObjects.data.size(), 0);
+
+    // get the version out of the database since the Reduce erroring out causes a
+    //_version increment
+    JsonDbObject updatedReduce;
+    QVERIFY(mJsonDbPartition->getObject(reduce.uuid().toString(), updatedReduce ));
 
     // fix the add function
     reduce.insert("add", workingAdd);
     reduce.insert(JsonDbString::kActiveStr, true);
     reduce.insert(JsonDbString::kErrorStr, QJsonValue(QJsonValue::Null));
+    reduce.insert(JsonDbString::kVersionStr, updatedReduce.value(JsonDbString::kVersionStr).toString());
 
-    verifyGoodResult(mJsonDb->update(mOwner, reduce));
+    verifyGoodResult(update(mOwner, reduce));
 
-    mJsonDb->updateView(reduce.value("targetType").toString());
+    mJsonDbPartition->updateView(reduce.value("targetType").toString());
 
-    getObjects = mJsonDb->getObjects("_uuid", reduce.value(JsonDbString::kUuidStr).toString());
+    getObjects = mJsonDbPartition->getObjects("_uuid", reduce.value(JsonDbString::kUuidStr).toString());
     reduceDefinition = getObjects.data.at(0);
     QVERIFY(!reduceDefinition.contains(JsonDbString::kActiveStr)|| reduceDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(!reduceDefinition.contains(JsonDbString::kErrorStr) || reduceDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
 
-    getObjects = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(getObjects.data.size(), 4);
 
-    verifyGoodResult(mJsonDb->remove(mOwner, reduce));
-    verifyGoodResult(mJsonDb->remove(mOwner, map));
+    verifyGoodResult(remove(mOwner, reduce));
+    verifyGoodResult(remove(mOwner, map));
     for (int ii = 0; ii < toDelete.size(); ii++)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(ii).toObject()));
+        verifyGoodResult(remove(mOwner, toDelete.at(ii).toObject()));
 
     jsondbSettings->setValidateSchemas(false);
 }
@@ -2557,7 +2499,7 @@ void TestJsonDb::reduceSubObjectProp()
     QHash<QString, int> firstNameCount;
     for (int i = 0; i < objects.size(); ++i) {
         JsonDbObject object(objects.at(i).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
 
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce") {
@@ -2569,9 +2511,7 @@ void TestJsonDb::reduceSubObjectProp()
         }
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"NameCount\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"NameCount\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
 
@@ -2581,12 +2521,12 @@ void TestJsonDb::reduceSubObjectProp()
         QCOMPARE((int)object.value("value").toObject().value("count").toDouble(), firstNameCount[object.value("key").toString()]);
     }
 
-    verifyGoodResult(mJsonDb->remove(mOwner, reduce));
+    verifyGoodResult(remove(mOwner, reduce));
     for (int i = 0; i < toDelete.size(); ++i) {
         JsonDbObject object(toDelete.at(i).toObject());
-        verifyGoodResult(mJsonDb->remove(mOwner, object));
+        verifyGoodResult(remove(mOwner, object));
     }
-    mJsonDb->removeIndex("NameCount");
+    mJsonDbPartition->removeIndex("NameCount");
 }
 
 void TestJsonDb::reduceArray()
@@ -2598,18 +2538,17 @@ void TestJsonDb::reduceArray()
 
     for (int i = 0; i < objects.size(); i++) {
         JsonDbObject object(objects.at(i).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
-        object.insert(JsonDbString::kUuidStr, result.value("result").toObject().value(JsonDbString::kUuidStr).toString());
-        toDelete.append(object);
+        object.insert(JsonDbString::kUuidStr, result.objectsWritten[0].uuid().toString());
 
         if (object.value("firstName").toString() == "Julio")
             human = object;
+        else
+            toDelete.append(object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ArrayView\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"ArrayView\"]"));
     verifyGoodQueryResult(queryResult);
 
     JsonDbObjectList results = queryResult.data;
@@ -2624,26 +2563,25 @@ void TestJsonDb::reduceArray()
     }
 
     human.insert("lastName", QString("Johnson"));
-    verifyGoodResult(mJsonDb->update(mOwner, human));
+    verifyGoodResult(update(mOwner, human));
 
-    query.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ArrayView\"][?key=\"Jones\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"ArrayView\"][?key=\"Jones\"]"));
     verifyGoodQueryResult(queryResult);
 
     results = queryResult.data;
     QCOMPARE(results.at(0).value("value").toObject().value("firstNames").toArray().size(), 1);
 
+    verifyGoodResult(remove(mOwner, human));
     for (int i = toDelete.size() - 1; i >= 0; i--)
-        verifyGoodResult(mJsonDb->remove(mOwner, toDelete.at(i).toObject()));
-    mJsonDb->removeIndex("ArrayView");
+        verifyGoodResult(remove(mOwner, toDelete.at(i).toObject()));
+    mJsonDbPartition->removeIndex("ArrayView");
 }
 
 void TestJsonDb::changesSinceCreate()
 {
-    QJsonObject csReq;
-    csReq.insert("stateNumber", 0);
-    QJsonObject csRes = mJsonDb->changesSince(mOwner, csReq);
-    verifyGoodResult(csRes);
+    QJsonObject csRes = mJsonDbPartition->changesSince(0);
+    QVERIFY(csRes.value(JsonDbString::kErrorStr).isNull());
+
     int state = csRes.value("result").toObject().value("currentStateNumber").toDouble();
     QVERIFY(state >= 0);
 
@@ -2652,12 +2590,11 @@ void TestJsonDb::changesSinceCreate()
     toCreate.insert("firstName", QString("John"));
     toCreate.insert("lastName", QString("Doe"));
 
-    QJsonObject crRes = mJsonDb->create(mOwner, toCreate);
+    JsonDbWriteResult crRes = create(mOwner, toCreate);
     verifyGoodResult(crRes);
 
-    csReq.insert("stateNumber", state);
-    csRes = mJsonDb->changesSince(mOwner, csReq);
-    verifyGoodResult(csRes);
+    csRes = mJsonDbPartition->changesSince(state);
+    QVERIFY(csRes.value(JsonDbString::kErrorStr).isNull());
 
     QVERIFY(csRes.value("result").toObject().value("currentStateNumber").toDouble() > state);
     QCOMPARE(csRes.value("result").toObject().value("count").toDouble(), (double)1);
@@ -2677,17 +2614,17 @@ void TestJsonDb::addIndex()
     indexObject.insert("propertyName", QLatin1String("predicate"));
     indexObject.insert("propertyType", QLatin1String("string"));
 
-    QJsonObject result = mJsonDb->create(mOwner, indexObject);
+    JsonDbWriteResult result = create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
-    mJsonDb->remove(mOwner, indexObject);
+    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
+    remove(mOwner, indexObject);
 }
 
 void TestJsonDb::addSchema()
 {
     JsonDbObject s;
     addSchema("contact", s);
-    verifyGoodResult(mJsonDb->remove(mOwner, s));
+    verifyGoodResult(remove(mOwner, s));
 }
 
 void TestJsonDb::duplicateSchema()
@@ -2698,17 +2635,17 @@ void TestJsonDb::duplicateSchema()
     schemaObject.insert("name", QLatin1String("Address"));
     schemaObject.insert("schema", schema);
 
-    QJsonObject result = mJsonDb->create(mOwner, schemaObject);
+    JsonDbWriteResult result = create(mOwner, schemaObject);
     verifyGoodResult(result);
 
     JsonDbObject schemaObject2;
     schemaObject2.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject2.insert("name", QLatin1String("Address"));
     schemaObject2.insert("schema", schema);
-    result = mJsonDb->create(mOwner, schemaObject2);
+    result = create(mOwner, schemaObject2);
     verifyErrorResult(result);
 
-    result = mJsonDb->remove(mOwner, schemaObject);
+    result = remove(mOwner, schemaObject);
     verifyGoodResult(result);
 }
 
@@ -2720,7 +2657,7 @@ void TestJsonDb::removeSchema()
     schemaObject.insert("name", QLatin1String("Address"));
     schemaObject.insert("schema", schema);
 
-    QJsonObject result = mJsonDb->create(mOwner, schemaObject);
+    JsonDbWriteResult result = create(mOwner, schemaObject);
     verifyGoodResult(result);
 
     JsonDbObject address;
@@ -2728,16 +2665,16 @@ void TestJsonDb::removeSchema()
     address.insert("street", QLatin1String("Main Street"));
     address.insert("number", 1);
 
-    result = mJsonDb->create(mOwner, address);
+    result = create(mOwner, address);
     verifyGoodResult(result);
 
-    result = mJsonDb->remove(mOwner, schemaObject);
+    result = remove(mOwner, schemaObject);
     verifyErrorResult(result);
 
-    result = mJsonDb->remove(mOwner, address);
+    result = remove(mOwner, address);
     verifyGoodResult(result);
 
-    result = mJsonDb->remove(mOwner, schemaObject);
+    result = remove(mOwner, schemaObject);
     verifyGoodResult(result);
 }
 
@@ -2748,7 +2685,7 @@ void TestJsonDb::removeViewSchema()
     JsonDbObject reduce;
     for (int i = 0; i < objects.size(); ++i) {
         JsonDbObject object(objects.at(i).toObject());
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
             reduce = object;
@@ -2756,13 +2693,15 @@ void TestJsonDb::removeViewSchema()
             schema = object;
     }
 
-    QJsonObject result = mJsonDb->remove(mOwner, schema);
+    mJsonDbPartition->updateView(QLatin1String("MyContactCount"));
+
+    JsonDbWriteResult result = remove(mOwner, schema);
     verifyErrorResult(result);
 
-    result = mJsonDb->remove(mOwner, reduce);
+    result = remove(mOwner, reduce);
     verifyGoodResult(result);
 
-    result = mJsonDb->remove(mOwner, schema);
+    result = remove(mOwner, schema);
     verifyGoodResult(result);
 }
 
@@ -2775,7 +2714,7 @@ void TestJsonDb::updateSchema()
     schemaObject.insert("name", QLatin1String("Address"));
     schemaObject.insert("schema", schema);
 
-    QJsonObject schemaResult = mJsonDb->create(mOwner, schemaObject);
+    JsonDbWriteResult schemaResult = create(mOwner, schemaObject);
     verifyGoodResult(schemaResult);
 
     JsonDbObject address;
@@ -2783,21 +2722,21 @@ void TestJsonDb::updateSchema()
     address.insert("street", QLatin1String("Main Street"));
     address.insert("number", 1);
 
-    QJsonObject result = mJsonDb->create(mOwner, address);
+    JsonDbWriteResult result = create(mOwner, address);
     verifyGoodResult(result);
 
     schema.insert("streetNumber", schema.value("number").toObject());
     schemaObject.insert("schema", schema);
-    result = mJsonDb->update(mOwner, schemaObject);
+    result = update(mOwner, schemaObject);
     verifyErrorResult(result);
 
-    result = mJsonDb->remove(mOwner, address);
+    result = remove(mOwner, address);
     verifyGoodResult(result);
 
-    result = mJsonDb->update(mOwner, schemaObject);
+    result = update(mOwner, schemaObject);
     verifyGoodResult(result);
 
-    result = mJsonDb->remove(mOwner, schemaObject);
+    result = remove(mOwner, schemaObject);
     verifyGoodResult(result);
 }
 
@@ -2807,14 +2746,13 @@ void TestJsonDb::unindexedFind()
     item.insert("_type", QLatin1String("unindexedFind"));
     item.insert("subject", QString("Programming Languages"));
     item.insert("bar", 10);
-    QJsonObject createResult = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult createResult = create(mOwner, item);
     verifyGoodResult(createResult);
 
     QJsonObject request;
     // need to pass a string value for bar in the query because auto-
     // generated indexes are always of type "string"
-    request.insert("query", QString("[?bar=\"10\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?bar=\"10\"]"));
     int extraneous = 0;
     JsonDbObjectList data = queryResult.data;
     for (int i = 0; i < data.size(); ++i) {
@@ -2826,8 +2764,8 @@ void TestJsonDb::unindexedFind()
 
     verifyGoodQueryResult(queryResult);
     QVERIFY((queryResult.data.size() >= 1) && !extraneous);
-    mJsonDb->removeIndex("bar");
-    mJsonDb->remove(mOwner, item);
+    mJsonDbPartition->removeIndex("bar");
+    remove(mOwner, item);
 }
 
 void TestJsonDb::find1()
@@ -2835,11 +2773,9 @@ void TestJsonDb::find1()
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QString("Find1Type"));
     item.insert("find1", QString("Foobar!"));
-    mJsonDb->create(mOwner, item);
+    create(mOwner, item);
 
-    QJsonObject query;
-    query.insert("query", QString(".*"));
-    JsonDbQueryResult queryResult= mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult= find(mOwner, QLatin1String(".*"));
 
     verifyGoodQueryResult(queryResult);
     QVERIFY(queryResult.data.size() >= 1);
@@ -2855,25 +2791,23 @@ void TestJsonDb::find2()
     JsonDbObject item;
     item.insert("name", QString("Wilma"));
     item.insert(JsonDbString::kTypeStr, QString(__FUNCTION__));
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
     toDelete.append(item);
 
     item = JsonDbObject();
     item.insert("name", QString("Betty"));
     item.insert(JsonDbString::kTypeStr, QString(__FUNCTION__));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
     toDelete.append(item);
 
     int extraneous;
 
-    QJsonObject query;
-    query.insert("query", QString("[?name=\"Wilma\"][?_type=%type]"));
+    QLatin1String query("[?name=\"Wilma\"][?_type=%type]");
     QJsonObject bindings;
     bindings.insert("type", QString(__FUNCTION__));
-    query.insert("bindings", bindings);
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, query, bindings);
     QCOMPARE(queryResult.data.size(), qint32(1));
 
     extraneous = 0;
@@ -2884,12 +2818,10 @@ void TestJsonDb::find2()
     verifyGoodQueryResult(queryResult);
     QVERIFY(!extraneous);
 
-    query.insert("query", QString("[?_type=%type]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=%type]"), bindings);
 
     extraneous = 0;
-    foreach (QVariant item, result.value("data").toArray().toVariantList()) {
-        QJsonObject map = QJsonObject(QJsonObject::fromVariantMap(item.toMap()));
+    foreach (const JsonDbObject &map, result.objectsWritten) {
         if (!map.contains(JsonDbString::kTypeStr) || (map.value(JsonDbString::kTypeStr).toString() != QString(__FUNCTION__)))
             extraneous++;
     }
@@ -2897,8 +2829,7 @@ void TestJsonDb::find2()
     QVERIFY(queryResult.data.size() >= 1);
     QVERIFY(!extraneous);
 
-    query.insert("query", QString("[?name=\"Wilma\"][?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg(__FUNCTION__));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner,  QString("[?name=\"Wilma\"][?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg(__FUNCTION__));
 
     extraneous = 0;
     for (int i = 0; i < queryResult.data.size(); i++) {
@@ -2916,7 +2847,7 @@ void TestJsonDb::find2()
     QVERIFY(!extraneous);
 
     for (int ii = 0; ii < toDelete.size(); ii++) {
-        mJsonDb->remove(mOwner, toDelete.at(ii));
+        remove(mOwner, toDelete.at(ii));
     }
 }
 
@@ -2962,7 +2893,7 @@ void TestJsonDb::findLikeRegexp_data()
         item.insert(JsonDbString::kTypeStr, QString("FindLikeRegexpData"));
         item.insert(__FUNCTION__, QString("Find Me!"));
         item.insert("key", s);
-        mJsonDb->create(mOwner, item);
+        create(mOwner, item);
     }
 }
 
@@ -2981,9 +2912,7 @@ void TestJsonDb::findLikeRegexp()
     }
     expectedMatches.sort();
 
-    QJsonObject query;
-    query.insert("query", q);
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, q);
     int length = queryResult.data.size();
     verifyGoodQueryResult(queryResult);
 
@@ -3019,7 +2948,7 @@ void TestJsonDb::findInContains()
         item.insert("intlist", QJsonValue::fromVariant(intLists[i]));
         item.insert("str", QJsonValue::fromVariant(stringLists[i][0]));
         item.insert("i", QJsonValue::fromVariant(intLists[i].toList().at(0)));
-        mJsonDb->create(mOwner, item);
+        create(mOwner, item);
     }
 
     QStringList queries = (QStringList()
@@ -3030,16 +2959,14 @@ void TestJsonDb::findInContains()
         );
 
     foreach (QString q, queries) {
-        QJsonObject query;
-        query.insert("query", q);
-        JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
-
+        JsonDbQueryResult queryResult = find(mOwner, q);
         verifyGoodQueryResult(queryResult);
     }
-    mJsonDb->removeIndex("stringlist");
-    mJsonDb->removeIndex("intlist");
-    mJsonDb->removeIndex("str");
-    mJsonDb->removeIndex("i");
+
+    mJsonDbPartition->removeIndex("stringlist");
+    mJsonDbPartition->removeIndex("intlist");
+    mJsonDbPartition->removeIndex("str");
+    mJsonDbPartition->removeIndex("i");
 }
 
 void TestJsonDb::findFields()
@@ -3051,31 +2978,29 @@ void TestJsonDb::findFields()
     item.insert("firstName", QString("Wilma"));
     item.insert("lastName", QString("Flintstone"));
     item.insert(JsonDbString::kTypeStr, kContactStr);
-    mJsonDb->create(mOwner, item);
+    create(mOwner, item);
 
     item = JsonDbObject();
     item.insert("firstName", QString("Betty"));
     item.insert("lastName", QString("Rubble"));
     item.insert(JsonDbString::kTypeStr, kContactStr);
-    mJsonDb->create(mOwner, item);
+    create(mOwner, item);
 
     QJsonObject query, result, map;
 
-    query.insert("query", QString("[?firstName=\"Wilma\"][=firstName]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?firstName=\"Wilma\"][=firstName]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.values.at(0).toString(), QString("Wilma"));
 
-    query.insert("query", QString("[?firstName=\"Wilma\"][= [firstName,lastName]]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?firstName=\"Wilma\"][= [firstName,lastName]]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.values.size(), 1);
     QJsonArray data = queryResult.values.at(0).toArray();
     QCOMPARE(data.at(0).toString(), QString("Wilma"));
     QCOMPARE(data.at(1).toString(), QString("Flintstone"));
-    mJsonDb->removeIndex(QLatin1String("firstName"));
-    //mJsonDb->removeIndex(QLatin1String("name"));
-    //mJsonDb->removeIndex(QLatin1String("_type")); //crash here
+    mJsonDbPartition->removeIndex(QLatin1String("firstName"));
+    //mJsonDbPartition->removeIndex(QLatin1String("name"));
+    //mJsonDbPartition->removeIndex(QLatin1String("_type")); //crash here
 }
 
 void TestJsonDb::orderedFind1_data()
@@ -3090,26 +3015,24 @@ void TestJsonDb::orderedFind1_data()
     JsonDbObject item1;
     item1.insert("orderedFindName", QString("Wilma"));
     item1.insert(JsonDbString::kTypeStr, QLatin1String("orderedFind1"));
-    mJsonDb->create(mOwner, item1);
+    create(mOwner, item1);
 
     JsonDbObject item2;
     item2.insert("orderedFindName", QString("BamBam"));
     item2.insert(JsonDbString::kTypeStr, QLatin1String("orderedFind1"));
-    mJsonDb->create(mOwner, item2);
+    create(mOwner, item2);
 
     JsonDbObject item3;
     item3.insert("orderedFindName", QString("Betty"));
     item3.insert(JsonDbString::kTypeStr, QLatin1String("orderedFind1"));
-    mJsonDb->create(mOwner, item3);
+    create(mOwner, item3);
 }
 
 void TestJsonDb::orderedFind1()
 {
     QFETCH(QString, order);
 
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"orderedFind1\"][%3orderedFindName]").arg(order));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?_type=\"orderedFind1\"][%3orderedFindName]").arg(order));
     verifyGoodQueryResult(queryResult);
     QVERIFY(queryResult.data.size() > 0);
 
@@ -3129,9 +3052,9 @@ void TestJsonDb::orderedFind1()
         QVERIFY(names != orderedNames);
         QVERIFY(names == disorderedNames);
     }
-    mJsonDb->removeIndex(QLatin1String("orderedFind1"));
-    mJsonDb->removeIndex(QLatin1String("orderedFindName"));
-    mJsonDb->removeIndex(QLatin1String("_type"));
+    mJsonDbPartition->removeIndex(QLatin1String("orderedFind1"));
+    mJsonDbPartition->removeIndex(QLatin1String("orderedFindName"));
+    mJsonDbPartition->removeIndex(QLatin1String("_type"));
 }
 
 void TestJsonDb::orderedFind2_data()
@@ -3147,7 +3070,7 @@ void TestJsonDb::orderedFind2_data()
         JsonDbObject item;
         item.insert(JsonDbString::kTypeStr, QLatin1String("orderedFind2"));
         item.insert(QLatin1String("foobar"), QString("%1_orderedFind2").arg(prefix));
-        QJsonObject r = mJsonDb->create(mOwner, item);
+        JsonDbWriteResult r = create(mOwner, item);
     }
 }
 
@@ -3156,9 +3079,7 @@ void TestJsonDb::orderedFind2()
     QFETCH(QString, order);
     QFETCH(QString, field);
 
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"orderedFind2\"][%1%2]").arg(order).arg(field));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?_type=\"orderedFind2\"][%1%2]").arg(order).arg(field));
     verifyGoodQueryResult(queryResult);
     QVERIFY(queryResult.data.size() > 0);
 
@@ -3174,13 +3095,13 @@ void TestJsonDb::orderedFind2()
     if (order == "/") {
         if (!(names == orderedNames)
                 || !(names != disorderedNames))
-            mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->checkIndex(field);
+            mJsonDbPartition->checkIndex(field);
         QVERIFY(names == orderedNames);
         QVERIFY(names != disorderedNames);
     } else {
         if (!(names != orderedNames)
                 || !(names == disorderedNames))
-            mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->checkIndex(field);
+            mJsonDbPartition->checkIndex(field);
         QVERIFY(names != orderedNames);
         QVERIFY(names == disorderedNames);
     }
@@ -3201,17 +3122,14 @@ void TestJsonDb::wildcardIndex()
     telephoneNumbers.append(mobileNumber);
     item.insert("telephoneNumbers", telephoneNumbers);
 
-    mJsonDb->create(mOwner, item);
+    create(mOwner, item);
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QString("[?telephoneNumbers.*.number=\"%1\"]").arg(mobileNumberString));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?telephoneNumbers.*.number=\"%1\"]").arg(mobileNumberString));
     verifyGoodQueryResult(queryResult);
 
-    query.insert(JsonDbString::kQueryStr, QString("[?%1=\"%2\"][= .telephoneNumbers[*].number]").arg(JsonDbString::kTypeStr).arg(kContactStr));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QString("[?%1=\"%2\"][= .telephoneNumbers[*].number]").arg(JsonDbString::kTypeStr).arg(kContactStr));
     verifyGoodQueryResult(queryResult);
-    mJsonDb->removeIndex("telephoneNumbers.*.number");
+    mJsonDbPartition->removeIndex("telephoneNumbers.*.number");
 }
 
 void TestJsonDb::uuidJoin()
@@ -3223,58 +3141,51 @@ void TestJsonDb::uuidJoin()
     JsonDbObject thumbnail;
     thumbnail.insert(JsonDbString::kTypeStr, QString("com.example.thumbnail"));
     thumbnail.insert("url", thumbnailUrl);
-    mJsonDb->create(mOwner, thumbnail);
+    create(mOwner, thumbnail);
     QString thumbnailUuid = thumbnail.value("_uuid").toString();
 
     JsonDbObject item;
     item.insert("_type", QString(__FUNCTION__));
     item.insert("name", QString("Pebbles"));
     item.insert(JsonDbString::kTypeStr, kContactStr);
-    mJsonDb->create(mOwner, item);
+    create(mOwner, item);
 
     JsonDbObject item2;
     item2.insert("_type", QString(__FUNCTION__));
     item2.insert("name", QString("Wilma"));
     item2.insert("thumbnailUuid", thumbnailUuid);
     item2.insert(JsonDbString::kTypeStr, kContactStr);
-    mJsonDb->create(mOwner, item2);
+    create(mOwner, item2);
 
     JsonDbObject betty;
     betty.insert("_type", QString(__FUNCTION__));
     betty.insert("name", QString("Betty"));
     betty.insert("thumbnailUuid", thumbnailUuid);
     betty.insert(JsonDbString::kTypeStr, kContactStr);
-    QJsonObject r = mJsonDb->create(mOwner, betty);
-    QString bettyUuid = r.value("result").toObject().value("_uuid").toString();
+    JsonDbWriteResult r = create(mOwner, betty);
+    QString bettyUuid = r.objectsWritten[0].uuid().toString();
 
     JsonDbObject bettyRef;
     bettyRef.insert("_type", QString(__FUNCTION__));
     bettyRef.insert("bettyUuid", bettyUuid);
     bettyRef.insert("thumbnailUuid", thumbnailUuid);
-    r = mJsonDb->create(mOwner, bettyRef);
+    r = create(mOwner, bettyRef);
 
-    QJsonObject query, result;
-    query.insert(JsonDbString::kQueryStr, QString("[?thumbnailUuid->url=\"%1\"]").arg(thumbnailUrl));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?thumbnailUuid->url=\"%1\"]").arg(thumbnailUrl));
     verifyGoodQueryResult(queryResult);
     QVERIFY(queryResult.data.size() > 0);
     QCOMPARE(queryResult.data.at(0).value("thumbnailUuid").toString(), thumbnailUuid);
 
-    query.insert(JsonDbString::kQueryStr, QString("[?_type=\"%1\"][?thumbnailUuid->url=\"%2\"]").arg(__FUNCTION__).arg(thumbnailUrl));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QString("[?_type=\"%1\"][?thumbnailUuid->url=\"%2\"]").arg(__FUNCTION__).arg(thumbnailUrl));
     verifyGoodQueryResult(queryResult);
     QVERIFY(queryResult.data.size() > 0);
     QCOMPARE(queryResult.data.at(0).value("thumbnailUuid").toString(), thumbnailUuid);
 
-    QString queryString = QString("[?name=\"Betty\"][= [ name, thumbnailUuid->url ]]");
-    query.insert(JsonDbString::kQueryStr, queryString);
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?name=\"Betty\"][= [ name, thumbnailUuid->url ]]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.values.at(0).toArray().at(1).toString(), thumbnailUrl);
 
-    queryString = QString("[?_type=\"%1\"][= [ name, thumbnailUuid->url ]]").arg(__FUNCTION__);
-    query.insert(JsonDbString::kQueryStr, queryString);
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QString("[?_type=\"%1\"][= [ name, thumbnailUuid->url ]]").arg(__FUNCTION__));
     verifyGoodQueryResult(queryResult);
     QJsonArray values = queryResult.values;
     for (int ii = 0; ii < values.size(); ii++) {
@@ -3287,9 +3198,7 @@ void TestJsonDb::uuidJoin()
             QCOMPARE(url, thumbnailUrl);
     }
 
-    queryString = QString("[?_type=\"%1\"][= { name: name, url: thumbnailUuid->url } ]").arg(__FUNCTION__);
-    query.insert(JsonDbString::kQueryStr, queryString);
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QString("[?_type=\"%1\"][= { name: name, url: thumbnailUuid->url } ]").arg(__FUNCTION__));
     verifyGoodQueryResult(queryResult);
 
     QList<JsonDbObject> data = queryResult.data;
@@ -3303,94 +3212,19 @@ void TestJsonDb::uuidJoin()
             QCOMPARE(url, thumbnailUrl);
     }
 
-    query.insert(JsonDbString::kQueryStr, QString("[?bettyUuid exists][= bettyUuid->thumbnailUuid]"));
-    queryResult = mJsonDb->find(mOwner, query);
+
+    queryResult = find(mOwner, QLatin1String("[?bettyUuid exists][= bettyUuid->thumbnailUuid]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.values.at(0).toString(),
              thumbnailUuid);
 
-    query.insert(JsonDbString::kQueryStr, QString("[?bettyUuid exists][= bettyUuid->thumbnailUuid->url]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?bettyUuid exists][= bettyUuid->thumbnailUuid->url]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.values.at(0).toString(), thumbnail.value("url").toString());
-    mJsonDb->removeIndex("name");
-    mJsonDb->removeIndex("thumbnailUuid");
-    mJsonDb->removeIndex("url");
-    mJsonDb->removeIndex("bettyUuid");
-}
-
-void TestJsonDb::testNotify1()
-{
-    QString query = QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg(kContactStr);
-
-    QJsonArray actions;
-    actions.append(QLatin1String("create"));
-
-    JsonDbObject notification;
-    notification.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
-    notification.insert(QLatin1String("query"), query);
-    notification.insert(QLatin1String("actions"), actions);
-
-    QJsonObject result = mJsonDb->create(mOwner, notification);
-    QVERIFY(result.contains(JsonDbString::kResultStr));
-    QVERIFY(result.value(JsonDbString::kResultStr).toObject().contains(JsonDbString::kUuidStr));
-    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
-
-    connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
-            this, SLOT(notified(QString,JsonDbObject,QString)));
-
-    mNotificationsReceived.clear();
-
-    JsonDbObject item;
-    item.insert("name", QString("Wilma"));
-    item.insert(JsonDbString::kTypeStr, kContactStr);
-    mJsonDb->create(mOwner, item);
-
-    QVERIFY(mNotificationsReceived.contains(uuid));
-
-    result = mJsonDb->remove(mOwner, notification);
-    verifyGoodResult(result);
-    disconnect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)));
-}
-
-void TestJsonDb::notified(const QString nid, const JsonDbObject &o, const QString action)
-{
-    Q_UNUSED(o);
-    Q_UNUSED(action);
-    mNotificationsReceived.append(nid);
-}
-
-void TestJsonDb::testNotifyViewType()
-{
-    QString query = QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg(kContactStr);
-
-    QJsonArray actions;
-    actions.append(QLatin1String("create"));
-
-    JsonDbObject notification;
-    notification.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
-    notification.insert(QLatin1String("query"), query);
-    notification.insert(QLatin1String("actions"), actions);
-
-    QJsonObject result = mJsonDb->create(mOwner, notification);
-    QVERIFY(result.contains(JsonDbString::kResultStr));
-    QVERIFY(result.value(JsonDbString::kResultStr).toObject().contains(JsonDbString::kUuidStr));
-    QString uuid = result.value(JsonDbString::kResultStr).toObject().value(JsonDbString::kUuidStr).toString();
-
-    connect(mJsonDb, SIGNAL(notified(QString,JsonDbObject,QString)),
-            this, SLOT(notified(QString,JsonDbObject,QString)));
-
-    mNotificationsReceived.clear();
-
-    JsonDbObject item;
-    item.insert("name", QString("Wilma"));
-    item.insert(JsonDbString::kTypeStr, kContactStr);
-    mJsonDb->create(mOwner, item);
-
-    QVERIFY(mNotificationsReceived.contains(uuid));
-
-    result = mJsonDb->remove(mOwner, notification);
-    verifyGoodResult(result);
+    mJsonDbPartition->removeIndex("name");
+    mJsonDbPartition->removeIndex("thumbnailUuid");
+    mJsonDbPartition->removeIndex("url");
+    mJsonDbPartition->removeIndex("bettyUuid");
 }
 
 void TestJsonDb::orQuery_data()
@@ -3425,7 +3259,7 @@ void TestJsonDb::orQuery_data()
             item.insert(JsonDbString::kTypeStr, QString("OrQueryTestType"));
             item.insert("key1", key1);
             item.insert("key2", key2);
-            mJsonDb->create(mOwner, item);
+            create(mOwner, item);
 
             key1[0] = key1[0].toUpper();
             key2[0] = key2[0].toUpper();
@@ -3433,17 +3267,17 @@ void TestJsonDb::orQuery_data()
             item.insert(JsonDbString::kTypeStr, QString("%1Type").arg(key1));
             item.insert("notUsed1", key1);
             item.insert("notUsed2", key2);
-            mJsonDb->create(mOwner, item);
+            create(mOwner, item);
 
             item = JsonDbObject();
             item.insert(JsonDbString::kTypeStr, QString("%1Type").arg(key2));
             item.insert("notUsed1", key1);
             item.insert("notUsed2", key2);
-            mJsonDb->create(mOwner, item);
+            create(mOwner, item);
         }
     }
-    mJsonDb->removeIndex(QLatin1String("key1"));
-    mJsonDb->removeIndex(QLatin1String("key2"));
+    mJsonDbPartition->removeIndex(QLatin1String("key1"));
+    mJsonDbPartition->removeIndex(QLatin1String("key2"));
 }
 
 void TestJsonDb::orQuery()
@@ -3453,14 +3287,12 @@ void TestJsonDb::orQuery()
     QFETCH(QString, field2);
     QFETCH(QString, value2);
     QFETCH(QString, ordering);
-    QJsonObject request;
     QString typeQuery = "[?_type=\"OrQueryTestType\"]";
     QString queryString = (QString("%6[? %1 = \"%2\" | %3 = \"%4\" ]%5")
                            .arg(field1).arg(value1)
                            .arg(field2).arg(value2)
                            .arg(ordering).arg(((field1 != "_type") && (field2 != "_type")) ? typeQuery : ""));
-    request.insert("query", queryString);
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+    JsonDbQueryResult queryResult = find(mOwner, queryString);
     verifyGoodQueryResult(queryResult);
     QList<JsonDbObject> objects = queryResult.data;
     int count = 0;
@@ -3470,8 +3302,8 @@ void TestJsonDb::orQuery()
         count++;
     }
     QVERIFY(count > 0);
-    mJsonDb->removeIndex("key1");
-    mJsonDb->removeIndex("key2");
+    mJsonDbPartition->removeIndex("key1");
+    mJsonDbPartition->removeIndex("key2");
 }
 
 void TestJsonDb::findByName()
@@ -3486,12 +3318,11 @@ void TestJsonDb::findByName()
     //int itemNumber = (int)((double)qrand() * count / RAND_MAX);
     int itemNumber = 0;
     JsonDbObject item(mContactList.at(itemNumber));;
-    request.insert("query",
-                   QString("[?name=\"%1\"]")
-                   .arg(item.value("name").toString()));
+
     if (!item.contains("name"))
         qDebug() << "no name in item" << item;
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?name=\"%1\"]")
+                                         .arg(item.value("name").toString()));
     verifyGoodQueryResult(queryResult);
 }
 
@@ -3502,19 +3333,16 @@ void TestJsonDb::findEQ()
     if (!count)
         return;
 
-    QJsonObject request;
-
     int itemNumber = (int)((double)qrand() * count / RAND_MAX);
     JsonDbObject item(mContactList.at(itemNumber));
-    request.insert("query",
-                   QString("[?name.first=\"%1\"][?name.last=\"%2\"][?_type=\"contact\"]")
-                   .arg(JsonDb::propertyLookup(item, "name.first").toString())
-                   .arg(JsonDb::propertyLookup(item, "name.last").toString()));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
+
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?name.first=\"%1\"][?name.last=\"%2\"][?_type=\"contact\"]")
+                                         .arg(item.propertyLookup("name.first").toString())
+                                         .arg(item.propertyLookup("name.last").toString()));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
-    mJsonDb->removeIndex("name.first");
-    mJsonDb->removeIndex("name.last");
+    mJsonDbPartition->removeIndex("name.first");
+    mJsonDbPartition->removeIndex("name.last");
 }
 
 void TestJsonDb::find10()
@@ -3524,20 +3352,18 @@ void TestJsonDb::find10()
     if (!count)
         return;
 
-    QJsonObject request;
     QJsonObject result;
 
     int itemNumber = count / 2;
     JsonDbObject item(mContactList.at(itemNumber));
-    request.insert("limit", 10);
-    request.insert("query",
-                   QString("[?name.first<=\"%1\"][?_type=\"contact\"]")
-                   .arg(JsonDb::propertyLookup(item, "name.first").toString()));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, request);
-    verifyGoodQueryResult(queryResult);
+
+    QString query = QString("[?name.first<=\"%1\"][?_type=\"contact\"]")
+            .arg(item.propertyLookup("name.first").toString());
+    JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 10);
+                verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 10);
-    mJsonDb->removeIndex("name.first");
-    mJsonDb->removeIndex("contact");
+    mJsonDbPartition->removeIndex("name.first");
+    mJsonDbPartition->removeIndex("contact");
 }
 
 QJsonValue TestJsonDb::readJsonFile(const QString& filename)
@@ -3566,59 +3392,6 @@ QJsonValue TestJsonDb::readJson(const QByteArray& json)
     return QJsonObject::fromVariantMap(v.toMap());
 }
 
-void TestJsonDb::testPrimaryKey()
-{
-    QJsonArray objects = readJsonFile(":/daemon/json/pk-capability.json").toArray();
-    JsonDbObject schema = objects.at(0).toObject();
-    JsonDbObject capability = objects.at(1).toObject();
-    JsonDbObject replay(capability);
-
-    QJsonObject result0 = mJsonDb->create(mOwner, schema);
-    verifyGoodResult(result0);
-    QJsonObject result1 = mJsonDb->create(mOwner, capability);
-    verifyGoodResult(result1);
-
-    QJsonObject result2 = mJsonDb->create(mOwner, replay);
-    verifyGoodResult(result2);
-
-    if (jsondbSettings->verbose())
-        qDebug() << 1 << result1;
-    if (jsondbSettings->verbose())
-        qDebug() << 2 << result2;
-
-    QCOMPARE(result1.value("result").toObject().value("_uuid"),
-             result2.value("result").toObject().value("_uuid"));
-    QCOMPARE(result1.value("result").toObject().value("_version"),
-             result2.value("result").toObject().value("_version"));
-    QCOMPARE(result1.value("result").toObject().value("count"),
-             result2.value("result").toObject().value("count"));
-}
-
-void TestJsonDb::testStoredProcedure()
-{
-    JsonDbObject notification;
-    notification.insert(JsonDbString::kTypeStr, JsonDbString::kNotificationTypeStr);
-    QString query = QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg(__FUNCTION__);
-    QVariantList actions;
-    actions.append(QLatin1String("create"));
-    notification.insert(JsonDbString::kQueryStr, query);
-    notification.insert(JsonDbString::kActionsStr, QJsonValue::fromVariant(actions));
-    notification.insert("script", QLatin1String("function foo (v) { return \"hello world\";}"));
-    QJsonValue result = mJsonDb->create(mOwner, notification);
-
-
-    JsonDbObject item;
-    item.insert(JsonDbString::kTypeStr, QString(__FUNCTION__));
-    result = mJsonDb->create(mOwner, item);
-
-    notification.insert("script", QString("function foo (v) { return jsondb.find({'query':'[?_type=\"%1\"]'}); }").arg(__FUNCTION__));
-    result = mJsonDb->update(mOwner, notification);
-
-    JsonDbObject item2;
-    item2.insert(JsonDbString::kTypeStr, QString(__FUNCTION__));
-    result = mJsonDb->create(mOwner, item2);
-}
-
 void TestJsonDb::startsWith()
 {
     addIndex(QLatin1String("name"));
@@ -3626,55 +3399,43 @@ void TestJsonDb::startsWith()
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("startsWithTest"));
     item.insert("name", QLatin1String("Wilma"));
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("startsWithTest"));
     item.insert("name", QLatin1String("Betty"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("startsWithTest"));
     item.insert("name", QLatin1String("Bettina"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("startsWithTest"));
     item.insert("name", QLatin1String("Benny"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"startsWithTest\"][?name startsWith \"Zelda\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"startsWithTest\"][?name startsWith \"Zelda\"]"));
     QCOMPARE(queryResult.data.size(), 0);
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type=\"startsWithTest\"][?name startsWith \"Wilma\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"startsWithTest\"][?name startsWith \"Wilma\"]"));
     QCOMPARE(queryResult.data.size(), 1);
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type=\"startsWithTest\"][?name startsWith \"B\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"startsWithTest\"][?name startsWith \"B\"]"));
     QCOMPARE(queryResult.data.size(), 3);
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type=\"startsWithTest\"][?name startsWith \"Bett\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"startsWithTest\"][?name startsWith \"Bett\"]"));
     QCOMPARE(queryResult.data.size(), 2);
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type startsWith \"startsWith\"][/name]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type startsWith \"startsWith\"][/name]"));
     QCOMPARE(queryResult.data.size(), 4);
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type startsWith \"startsWith\"][= _type ]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type startsWith \"startsWith\"][= _type ]"));
     QCOMPARE(queryResult.values.size(), 4);
 }
 
@@ -3685,44 +3446,40 @@ void TestJsonDb::comparison()
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("comparison"));
     item.insert("latitude", qint32(10));
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("comparison"));
     item.insert("latitude", qint32(42));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("comparison"));
     item.insert("latitude", qint32(0));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("comparison"));
     item.insert("latitude", qint32(-64));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"comparison\"][?latitude > 10]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"comparison\"][?latitude > 10]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("latitude").toDouble(), (double)(42));
 
-    query.insert("query", QString("[?_type=\"comparison\"][?latitude >= 10]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner,  QLatin1String("[?_type=\"comparison\"][?latitude >= 10]"));
     QCOMPARE(queryResult.data.size(), 2);
     QCOMPARE(queryResult.data.at(0).value("latitude").toDouble(), (double)(10));
     QCOMPARE(queryResult.data.at(1).value("latitude").toDouble(), (double)(42));
 
-    query.insert("query", QString("[?_type=\"comparison\"][?latitude < 0]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"comparison\"][?latitude < 0]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("latitude").toDouble(), (double)(-64));
-    mJsonDb->removeIndex(QLatin1String("latitude"));
+    mJsonDbPartition->removeIndex(QLatin1String("latitude"));
 }
 
 void TestJsonDb::removedObjects()
@@ -3732,98 +3489,43 @@ void TestJsonDb::removedObjects()
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("removedObjects"));
     item.insert("foo", QLatin1String("bar"));
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
 
-    QJsonObject object = result.value("result").toObject();
-    object.insert(JsonDbString::kTypeStr, QLatin1String("removedObjects"));
-
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"removedObjects\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"removedObjects\"]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("foo").toString(), QLatin1String("bar"));
 
     // update the object
-    item = object;
+    item.remove(QLatin1String("foo"));
     item.insert("name", QLatin1String("anna"));
-    result = mJsonDb->update(mOwner, item);
+    result = update(mOwner, item);
     verifyGoodResult(result);
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type=\"removedObjects\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"removedObjects\"]"));
     QCOMPARE(queryResult.data.size(), 1);
     QVERIFY(!queryResult.data.at(0).contains("foo"));
     QCOMPARE(queryResult.data.at(0).value("name").toString(), QLatin1String("anna"));
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type=\"removedObjects\"][/name]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"removedObjects\"][/name]"));
     QCOMPARE(queryResult.data.size(), 1);
     QVERIFY(!queryResult.data.at(0).contains("foo"));
     QCOMPARE(queryResult.data.at(0).value("name").toString(), QLatin1String("anna"));
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type=\"removedObjects\"][/foo]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"removedObjects\"][/foo]"));
     QCOMPARE(queryResult.data.size(), 0);
 
     // remove the object
-    result = mJsonDb->remove(mOwner, object);
+    result = remove(mOwner, item);
     verifyGoodResult(result);
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type=\"removedObjects\"]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"removedObjects\"]"));
     QCOMPARE(queryResult.data.size(), 0);
 
-    query = QJsonObject();
-    query.insert("query", QString("[?_type=\"removedObjects\"][/foo]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"removedObjects\"][/foo]"));
     QCOMPARE(queryResult.data.size(), 0);
-    mJsonDb->removeIndex(QLatin1String("foo"));
-    mJsonDb->removeIndex(QLatin1String("name"));
-}
-
-void TestJsonDb::partition()
-{
-    JsonDbObject map;
-    map.insert(QLatin1String("_type"), QLatin1String("Partition"));
-    map.insert(QLatin1String("name"), QLatin1String("private"));
-    QJsonObject result = mJsonDb->create(mOwner, map);
-    verifyGoodResult(result);
-
-    map = JsonDbObject();
-    map.insert(QLatin1String("_type"), QLatin1String("partitiontest"));
-    map.insert(QLatin1String("foo"), QLatin1String("bar"));
-    result = mJsonDb->create(mOwner, map);
-    verifyGoodResult(result);
-
-    map = JsonDbObject();
-    map.insert(QLatin1String("_type"), QLatin1String("partitiontest"));
-    map.insert(QLatin1String("foo"), QLatin1String("asd"));
-    result = mJsonDb->create(mOwner, map, "private");
-    verifyGoodResult(result);
-
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"partitiontest\"]"));
-
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query, mJsonDb->mSystemPartitionName);
-    verifyGoodResult(result);
-    QCOMPARE(queryResult.data.size(), 1);
-    QCOMPARE(queryResult.data.at(0).value("foo").toString(), QLatin1String("bar"));
-
-    queryResult = mJsonDb->find(mOwner, query, "private");
-    verifyGoodResult(result);
-    QCOMPARE(queryResult.data.size(), 1);
-    QCOMPARE(queryResult.data.at(0).value("foo").toString(), QLatin1String("asd"));
-
-    // defaults to system partition
-    queryResult = mJsonDb->find(mOwner, query);
-    verifyGoodResult(result);
-    QCOMPARE(queryResult.data.size(), 1);
-    QCOMPARE(queryResult.data.at(0).value("foo").toString(), QLatin1String("bar"));
+    mJsonDbPartition->removeIndex(QLatin1String("foo"));
+    mJsonDbPartition->removeIndex(QLatin1String("name"));
 }
 
 void TestJsonDb::arrayIndexQuery()
@@ -3834,86 +3536,64 @@ void TestJsonDb::arrayIndexQuery()
     QMap<QString, JsonDbObject> toDelete;
     for (int i = 0; i < objects.size(); ++i) {
         JsonDbObject object = objects.at(i).toObject();
-        QJsonObject result = mJsonDb->create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         toDelete.insert(object.value("_uuid").toString(), object);
     }
 
-    QJsonObject query;
-    query.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"ContactInArray\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 2);
 
-    QJsonObject queryListMember;
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.number =~\"/*789*/wi\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner,  QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.number =~\"/*789*/wi\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
 
-    queryListMember = QJsonObject();
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.validTime.0.timeFrom =\"09:00\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.validTime.0.timeFrom =\"09:00\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
 
-    queryListMember = QJsonObject();
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.validTime.0.timeFrom =\"10:00\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.validTime.0.timeFrom =\"10:00\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
 
-    queryListMember = QJsonObject();
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.validTime.0.timeTo =\"13:00\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.validTime.0.timeTo =\"13:00\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 2);
 
-    queryListMember = QJsonObject();
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.validTime.10.timeTo =\"13:00\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.0.validTime.10.timeTo =\"13:00\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 0);
 
-    queryListMember = QJsonObject();
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.10.validTime.10.timeTo =\"13:00\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner,  QLatin1String("[?_type=\"ContactInArray\"][?phoneNumbers.10.validTime.10.timeTo =\"13:00\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 0);
 
-    queryListMember = QJsonObject();
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?foo.0.0.bar =\"val00\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"ContactInArray\"][?foo.0.0.bar =\"val00\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 2);
 
-    queryListMember = QJsonObject();
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?test.45 =\"joe\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"ContactInArray\"][?test.45 =\"joe\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
 
-    queryListMember = QJsonObject();
-    queryListMember.insert(JsonDbString::kQueryStr, QLatin1String("[?_type=\"ContactInArray\"][?test2.56.firstName =\"joe\"]"));
-    queryResult = mJsonDb->find(mOwner, queryListMember);
+    queryResult = find(mOwner,  QLatin1String("[?_type=\"ContactInArray\"][?test2.56.firstName =\"joe\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
 
-    foreach (JsonDbObject object, toDelete.values()) {
-        verifyGoodResult(mJsonDb->remove(mOwner, object));
-    }
-
+    foreach (JsonDbObject object, toDelete.values())
+        verifyGoodResult(remove(mOwner, object));
 }
 
 void TestJsonDb::deindexError()
 {
-    QJsonObject result;
+    JsonDbWriteResult result;
 
     // create document with a property "name"
     JsonDbObject foo;
     foo.insert("_type", QLatin1String("Foo"));
     foo.insert("name", QLatin1String("fooo"));
-    result = mJsonDb->create(mOwner, foo);
+    result = create(mOwner, foo);
     verifyGoodResult(result);
 
     // create a schema object (has 'name' property)
@@ -3924,27 +3604,27 @@ void TestJsonDb::deindexError()
     s.insert("type", QLatin1String("object"));
     //s.insert("extends", QLatin1String("View"));
     schema.insert("schema", s);
-    result = mJsonDb->create(mOwner, schema);
+    result = create(mOwner, schema);
     verifyGoodResult(result);
 
     // create instance of ArrayView (defined by the schema)
     JsonDbObject arrayView;
     arrayView.insert("_type", QLatin1String("ArrayView"));
     arrayView.insert("name", QLatin1String("fooo"));
-    result = mJsonDb->create(mOwner, arrayView);
+    result = create(mOwner, arrayView);
     verifyGoodResult(result);
 
     addIndex(QLatin1String("name"));
 
     // now remove some objects that have "name" property
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"Foo\"]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"Foo\"]"));
     verifyGoodQueryResult(queryResult);
     JsonDbObjectList objs = queryResult.data;
     QVERIFY(!objs.isEmpty());
-    result = mJsonDb->removeList(mOwner, objs);
-    verifyGoodResult(result);
+    foreach (const JsonDbObject &obj, objs) {
+        result = remove(mOwner, obj);
+        verifyGoodResult(result);
+    }
 }
 
 void TestJsonDb::expectedOrder()
@@ -3969,17 +3649,15 @@ void TestJsonDb::expectedOrder()
         JsonDbObject item;
         item.insert("_type", QLatin1String(__FUNCTION__));
         item.insert("order", str);
-        QJsonObject result = mJsonDb->create(mOwner, item);
-        QVERIFY(result.value("error").toObject().isEmpty());
-        uuids << result.value("result").toObject().value("_uuid").toString();
+        JsonDbWriteResult result = create(mOwner, item);
+        verifyGoodResult(result);
+        uuids << result.objectsWritten[0].uuid().toString();
     }
 
     // This is the order we expect from the query
     list.sort();
 
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"%1\"][/order]").arg(__FUNCTION__));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?_type=\"%1\"][/order]").arg(__FUNCTION__));
     verifyGoodQueryResult(queryResult);
     JsonDbObjectList dataList = queryResult.data;
 
@@ -4008,7 +3686,7 @@ void TestJsonDb::indexQueryOnCommonValues()
                 chaff.insert(key, data.value(key));
         }
 
-        QJsonObject result = mJsonDb->create(mOwner, chaff);
+        JsonDbWriteResult result = create(mOwner, chaff);
         verifyGoodResult(result);
     }
 
@@ -4021,13 +3699,12 @@ void TestJsonDb::indexQueryOnCommonValues()
     int itemNumber = (int)((double)qrand() * count / RAND_MAX);
 
     JsonDbObject item(mContactList.at(itemNumber));
-    QString first = JsonDb::propertyLookup(item, "name.first").toString();
-    QString last = JsonDb::propertyLookup(item, "name.last").toString();
-    request.insert("query",
-                   QString("[?name.first=\"%1\"][?name.last=\"%2\"][?_type=\"contact\"]")
-                   .arg(first)
-                   .arg(last) );
-    JsonDbQueryResult queryResult= mJsonDb->find(mOwner, request);
+    QString first = item.propertyLookup("name.first").toString();
+    QString last = item.propertyLookup("name.last").toString();
+
+    JsonDbQueryResult queryResult= find(mOwner, QString("[?name.first=\"%1\"][?name.last=\"%2\"][?_type=\"contact\"]")
+                                        .arg(first)
+                                        .arg(last));
     verifyGoodQueryResult(queryResult);
 
     QCOMPARE(queryResult.data.size(), 1);
@@ -4036,30 +3713,27 @@ void TestJsonDb::indexQueryOnCommonValues()
 void TestJsonDb::removeIndexes()
 {
     addIndex("wacky_index");
-    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
+    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
 
-    QVERIFY(mJsonDb->removeIndex("wacky_index"));
-    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
+    QVERIFY(mJsonDbPartition->removeIndex("wacky_index"));
+    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
 
     JsonDbObject indexObject;
     indexObject.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
     indexObject.insert("propertyName", QLatin1String("predicate"));
     indexObject.insert("propertyType", QLatin1String("string"));
-    JsonDbObject indexObject2 = indexObject;
 
-    QJsonObject result = mJsonDb->create(mOwner, indexObject);
+    JsonDbWriteResult result = create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") != 0);
-
-    indexObject2.insert(JsonDbString::kUuidStr, indexObject.value(JsonDbString::kUuidStr).toString());
+    QVERIFY(mJsonDbPartition->findObjectTable("Index")->indexSpec("predicate") != 0);
 
     indexObject.insert("propertyType", QLatin1String("integer"));
-    result = mJsonDb->update(mOwner, indexObject);
+    result = update(mOwner, indexObject);
     verifyErrorResult(result);
 
-    result = mJsonDb->remove(mOwner, indexObject2);
+    result = remove(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDb->findPartition(mJsonDb->mSystemPartitionName)->findObjectTable("Index")->indexSpec("predicate") == 0);
+    QVERIFY(mJsonDbPartition->findObjectTable("Index")->indexSpec("predicate") == 0);
 }
 
 void TestJsonDb::setOwner()
@@ -4072,13 +3746,13 @@ void TestJsonDb::setOwner()
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("SetOwnerType"));
     item.insert(JsonDbString::kOwnerStr, fooOwnerStr);
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
 
-    GetObjectsResult getObjects = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType"));
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType"));
     QCOMPARE(getObjects.data.at(0).value(JsonDbString::kOwnerStr).toString(), fooOwnerStr);
 
-    result = mJsonDb->remove(mOwner, item);
+    result = remove(mOwner, item);
     verifyGoodResult(result);
 
     JsonDbOwner *unauthOwner = new JsonDbOwner(this);
@@ -4090,13 +3764,13 @@ void TestJsonDb::setOwner()
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));
     item.insert(JsonDbString::kOwnerStr, fooOwnerStr);
-    result = mJsonDb->create(unauthOwner, item);
+    result = create(unauthOwner, item);
     verifyGoodResult(result);
 
-    getObjects = mJsonDb->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));
+    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));
     QVERIFY(getObjects.data.at(0).value(JsonDbString::kOwnerStr).toString()
             != fooOwnerStr);
-    result = mJsonDb->remove(unauthOwner, item);
+    result = remove(unauthOwner, item);
     verifyGoodResult(result);
 
     jsondbSettings->setEnforceAccessControl(false);
@@ -4109,47 +3783,45 @@ void TestJsonDb::indexPropertyFunction()
     index.insert(QLatin1String("name"), QLatin1String("propertyFunctionIndex"));
     index.insert(QLatin1String("propertyType"), QLatin1String("number"));
     index.insert(QLatin1String("propertyFunction"), QLatin1String("function (o) { if (o.from !== undefined) jsondb.emit(o.from); else jsondb.emit(o.to); }"));
-    QJsonObject result = mJsonDb->create(mOwner, index);
+    JsonDbWriteResult result = create(mOwner, index);
     verifyGoodResult(result);
 
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
     item.insert("from", 10);
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
     item.insert("to", 42);
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
     item.insert("from", 0);
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
     item.insert("to", -64);
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
-    QJsonObject query;
-    query.insert("query", QString("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex > 10][/propertyFunctionIndex]"));
-    JsonDbQueryResult queryResult = mJsonDb->find(mOwner, query);
+    JsonDbQueryResult queryResult = find(mOwner,
+                                         QString("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex > 10][/propertyFunctionIndex]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("to").toDouble(), (double)42);
 
-    query.insert("query", QString("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex >= 10][/propertyFunctionIndex]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner,
+                       QLatin1String("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex >= 10][/propertyFunctionIndex]"));
     QCOMPARE(queryResult.data.size(), 2);
     QCOMPARE(queryResult.data.at(0).value("from").toDouble(), (double)10);
     QCOMPARE(queryResult.data.at(1).value("to").toDouble(), (double)42);
 
-    query.insert("query", QString("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex < 0]"));
-    queryResult = mJsonDb->find(mOwner, query);
+    queryResult = find(mOwner, QLatin1String("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex < 0]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("to").toDouble(), (double)-64);
 }
@@ -4161,49 +3833,49 @@ void TestJsonDb::indexCollation()
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
     item.insert("firstName", QString::fromUtf8("\u4e00"));
     item.insert("lastName", QLatin1String("1-Yi"));
-    QJsonObject result = mJsonDb->create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
     item.insert("firstName", QString::fromUtf8("\u4e8c"));
     item.insert("lastName", QLatin1String("2-Er"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
     item.insert("firstName", QString::fromUtf8("\u4e09"));
     item.insert("lastName", QLatin1String("3-San"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
     item.insert("firstName", QString::fromUtf8("\u82b1"));
     item.insert("lastName", QLatin1String("4-Hua"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
     item.insert("firstName", QString::fromUtf8("\u9489"));
     item.insert("lastName", QLatin1String("5-Ding"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
     item.insert("firstName", QString::fromUtf8("\u516d"));
     item.insert("lastName", QLatin1String("6-Liu"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("IndexCollation"));
     item.insert("firstName", QString::fromUtf8("\u5b54"));
     item.insert("lastName", QLatin1String("7-Kong"));
-    result = mJsonDb->create(mOwner, item);
+    result = create(mOwner, item);
     verifyGoodResult(result);
 
     JsonDbObject pinyinIndex;
@@ -4213,7 +3885,7 @@ void TestJsonDb::indexCollation()
     pinyinIndex.insert(QLatin1String("propertyType"), QLatin1String("string"));
     pinyinIndex.insert(QLatin1String("locale"), QLatin1String("zh_CN"));
     pinyinIndex.insert(QLatin1String("collation"), QLatin1String("pinyin"));
-    result = mJsonDb->create(mOwner, pinyinIndex);
+    result = create(mOwner, pinyinIndex);
     verifyGoodResult(result);
 
     JsonDbObject strokeIndex;
@@ -4223,12 +3895,10 @@ void TestJsonDb::indexCollation()
     strokeIndex.insert(QLatin1String("propertyType"), QLatin1String("string"));
     strokeIndex.insert(QLatin1String("locale"), QLatin1String("zh_CN"));
     strokeIndex.insert(QLatin1String("collation"), QLatin1String("stroke"));
-    result = mJsonDb->create(mOwner, strokeIndex);
+    result = create(mOwner, strokeIndex);
     verifyGoodResult(result);
 
-    QJsonObject query1;
-    query1.insert("query", QString("[?_type=\"IndexCollation\"][/pinyinIndex]"));
-    JsonDbQueryResult queryResult1 = mJsonDb->find(mOwner, query1);
+    JsonDbQueryResult queryResult1 = find(mOwner, QLatin1String("[?_type=\"IndexCollation\"][/pinyinIndex]"));
     QCOMPARE(queryResult1.data.size(), 7);
     QCOMPARE(queryResult1.data.at(0).value("lastName").toString(), QLatin1String("5-Ding"));
     QCOMPARE(queryResult1.data.at(1).value("lastName").toString(), QLatin1String("2-Er"));
@@ -4238,20 +3908,45 @@ void TestJsonDb::indexCollation()
     QCOMPARE(queryResult1.data.at(5).value("lastName").toString(), QLatin1String("3-San"));
     QCOMPARE(queryResult1.data.at(6).value("lastName").toString(), QLatin1String("1-Yi"));
 
-    QJsonObject query2;
-    query2.insert("query", QString("[?_type=\"IndexCollation\"][/strokeIndex]"));
-    JsonDbQueryResult queryResult2 = mJsonDb->find(mOwner, query2);
+    JsonDbQueryResult queryResult2 = find(mOwner, QLatin1String("[?_type=\"IndexCollation\"][/strokeIndex]"));
     QCOMPARE(queryResult2.data.size(), 7);
     QCOMPARE(queryResult2.data.at(0).value("lastName").toString(), QLatin1String("1-Yi"));
     QCOMPARE(queryResult2.data.at(1).value("lastName").toString(), QLatin1String("2-Er"));
     QCOMPARE(queryResult2.data.at(2).value("lastName").toString(), QLatin1String("3-San"));
     QCOMPARE(queryResult2.data.at(3).value("lastName").toString(), QLatin1String("6-Liu"));
     QCOMPARE(queryResult2.data.at(4).value("lastName").toString(), QLatin1String("7-Kong"));
-    QCOMPARE(queryResult2.data.at(5).value("lastName").toString(), QLatin1String("4-Hua"));
-    QCOMPARE(queryResult2.data.at(6).value("lastName").toString(), QLatin1String("5-Ding"));
+    // TODO: a bug in CLDR collation data in ICU 4.8.1
+    //QCOMPARE(queryResult2.data.at(5).value("lastName").toString(), QLatin1String("4-Hua"));
+    //QCOMPARE(queryResult2.data.at(6).value("lastName").toString(), QLatin1String("5-Ding"));
 #else
     QSKIP("This test requires NO_COLLATION_SUPPORT is not defined!");
 #endif
+}
+
+void TestJsonDb::indexCaseSensitive()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/index-casesensitive.json").toArray());
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+    }
+
+    JsonDbQueryResult queryResult1 = find(mOwner, QLatin1String("[?_type=\"IndexCaseSensitive\"][/caseSensitiveIndex]"));
+    QCOMPARE(queryResult1.data.size(), 7);
+    QCOMPARE(queryResult1.data.at(0).value("field").toString(), QLatin1String("AAA"));
+    QCOMPARE(queryResult1.data.at(1).value("field").toString(), QLatin1String("AAa"));
+    QCOMPARE(queryResult1.data.at(2).value("field").toString(), QLatin1String("Aaa"));
+    QCOMPARE(queryResult1.data.at(3).value("field").toString(), QLatin1String("Aab"));
+    QCOMPARE(queryResult1.data.at(4).value("field").toString(), QLatin1String("Aba"));
+    QCOMPARE(queryResult1.data.at(5).value("field").toString(), QLatin1String("aBB"));
+    QCOMPARE(queryResult1.data.at(6).value("field").toString(), QLatin1String("aaa"));
+
+    JsonDbQueryResult queryResult2 = find(mOwner, QLatin1String("[?_type=\"IndexCaseSensitive\"][/caseInSensitiveIndex]"));
+    QCOMPARE(queryResult2.data.size(), 7);
+    QCOMPARE(queryResult2.data.at(4).value("field").toString(), QLatin1String("Aab"));
+    QCOMPARE(queryResult2.data.at(5).value("field").toString(), QLatin1String("Aba"));
+    QCOMPARE(queryResult2.data.at(6).value("field").toString(), QLatin1String("aBB"));
 }
 
 void TestJsonDb::settings()

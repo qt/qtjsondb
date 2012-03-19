@@ -49,10 +49,12 @@
 #include <QVector>
 #include <QPointer>
 
-#include "jsondb.h"
 #include "jsondbobjectkey.h"
+#include "jsondbnotification.h"
 #include "jsondbowner.h"
 #include "jsondbstat.h"
+#include "jsondbschemamanager_p.h"
+#include "jsondbindexquery.h"
 #include "jsondbbtree.h"
 
 QT_BEGIN_HEADER
@@ -65,106 +67,46 @@ class JsonDbBtree;
 class JsonDbOwner;
 class JsonDbObjectTable;
 class JsonDbIndex;
+class JsonDbIndexQuery;
 class JsonDbView;
 
-extern const QString kDbidTypeStr;
-extern const QString kIndexTypeStr;
-extern const QString kPropertyNameStr;
-extern const QString kPropertyTypeStr;
-extern const QString kLocaleStr;
-extern const QString kCollationStr;
-extern const QString kNameStr;
-extern const QString kObjectTypeStr;
-extern const QString kDatabaseSchemaVersionStr;
-extern const QString kPropertyFunctionStr;
-extern const QString gDatabaseSchemaVersion;
-
-class QueryConstraint {
-public:
-    virtual ~QueryConstraint() { }
-    virtual bool matches(const QJsonValue &value) = 0;
-    virtual bool sparseMatchPossible() const
-        { return false; }
+struct JsonDbUpdate {
+    JsonDbUpdate(const JsonDbObject &oldObj, const JsonDbObject &newObj, JsonDbNotification::Action act) :
+        oldObject(oldObj), newObject(newObj), action(act) { }
+    JsonDbObject oldObject;
+    JsonDbObject newObject;
+    JsonDbNotification::Action action;
 };
 
-bool lessThan(const QJsonValue &a, const QJsonValue &b);
-bool greaterThan(const QJsonValue &a, const QJsonValue &b);
+typedef QList<JsonDbUpdate> JsonDbUpdateList;
 
-class IndexQuery {
-protected:
-    IndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
-               const QString &propertyName, const QString &propertyType,
-               const JsonDbOwner *owner, bool ascending = true);
-public:
-    static IndexQuery *indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
-                                  const QString &propertyName, const QString &propertyType,
-                                  const JsonDbOwner *owner, bool ascending = true);
-    ~IndexQuery();
-
-    JsonDbObjectTable *objectTable() const { return mObjectTable; }
-    QString partition() const;
-    void addConstraint(QueryConstraint *qc) { mQueryConstraints.append(qc); }
-    bool ascending() const { return mAscending; }
-    QString propertyName() const { return mPropertyName; }
-    void setTypeNames(const QSet<QString> typeNames) { mTypeNames = typeNames; }
-    void setMin(const QJsonValue &minv);
-    void setMax(const QJsonValue &maxv);
-    QString aggregateOperation() const { return mAggregateOperation; }
-    void setAggregateOperation(QString op) { mAggregateOperation = op; }
-
-    JsonDbObject first(); // returns first matching object
-    JsonDbObject next(); // returns next matching object
-    bool matches(const QJsonValue &value);
-    QJsonValue fieldValue() const { return mFieldValue; }
-    JsonDbQuery *residualQuery() const { return mResidualQuery; }
-    void setResidualQuery(JsonDbQuery *residualQuery) { mResidualQuery = residualQuery; }
-    virtual quint32 stateNumber() const;
-
-protected:
-    virtual bool seekToStart(QJsonValue &fieldValue);
-    virtual bool seekToNext(QJsonValue &fieldValue);
-    virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
-
-protected:
-    JsonDbPartition *mPartition;
-    JsonDbObjectTable   *mObjectTable;
-    JsonDbBtree *mBdbIndex;
-    JsonDbBtree::Cursor  *mCursor;
-    const JsonDbOwner *mOwner;
-    QJsonValue      mMin, mMax;
-    QSet<QString> mTypeNames;
-    bool          mAscending;
-    QString       mUuid;
-    QVector<QueryConstraint*> mQueryConstraints;
-    QString       mAggregateOperation;
-    QString       mPropertyName;
-    QString       mPropertyType;
-    QJsonValue     mFieldValue; // value of field for the object the cursor is pointing at
-    bool          mSparseMatchPossible;
-    QHash<QString, JsonDbObject> mObjectCache;
-    JsonDbQuery  *mResidualQuery;
-};
-
-class UuidQuery : public IndexQuery {
-protected:
-    UuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
-    virtual bool seekToStart(QJsonValue &fieldValue);
-    virtual bool seekToNext(QJsonValue &fieldValue);
-    virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
-    virtual quint32 stateNumber() const;
-    friend class IndexQuery;
+struct JsonDbWriteResult {
+    JsonDbWriteResult() : state(0), code(JsonDbError::NoError) { }
+    JsonDbObjectList objectsWritten;
+    quint32 state;
+    JsonDbError::ErrorCode code;
+    QString message;
 };
 
 class JsonDbPartition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbPartition(const QString &filename, const QString &name, JsonDb *jsonDb);
+
+    enum WriteMode {
+        OptimisticWrite,    // write must not introduce a conflict
+        ForcedWrite,        // accept write as is (almost no matter what)
+        ReplicatedWrite,    // master/master replication, may create obj._meta.conflicts
+        ViewObject          // internal for view object
+    };
+
+    JsonDbPartition(const QString &filename, const QString &name, JsonDbOwner *owner, QObject *parent = 0);
     ~JsonDbPartition();
     QString filename() const { return mFilename; }
     bool open();
     bool close();
     bool clear();
+
     bool beginTransaction();
     bool commitTransaction(quint32 stateNumber = 0);
     bool abortTransaction();
@@ -177,20 +119,20 @@ public:
                   const QString &objectType = QString(),
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
-                  const QString &collation = QString());
+                  const QString &collation = QString(),
+                  Qt::CaseSensitivity caseSensitive = Qt::CaseSensitive);
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
                             const QString &objectType = QString())
     { return addIndex(propertyName, propertyName, propertyType, objectType); }
-    bool removeIndex(const QString &indexName, const QString &objectType);
+    bool removeIndex(const QString &indexName, const QString &objectType = QString());
 
     bool checkQuota(const JsonDbOwner *owner, int size) const;
     bool addToQuota(const JsonDbOwner *owner, int size);
 
-    JsonDbQueryResult queryPersistentObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
-    QJsonObject createPersistentObject(JsonDbObject & );
-    QJsonObject updatePersistentObject(const JsonDbObject& oldObject, const JsonDbObject& object);
-    QJsonObject removePersistentObject(const JsonDbObject& oldObject, const JsonDbObject &tombStone );
+    JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
+    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, WriteMode mode = OptimisticWrite);
+    JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, WriteMode mode = OptimisticWrite);
 
     QJsonObject flush();
 
@@ -199,7 +141,6 @@ public:
     JsonDbObjectTable *mainObjectTable() const { return mObjectTable; }
     JsonDbObjectTable *findObjectTable(const QString &objectType) const;
     JsonDbView *findView(const QString &objectType) const;
-    void updateEagerViewTypes(const QString &viewType) const;
 
     bool getObject(const QString &uuid, JsonDbObject &object, const QString &objectType = QString()) const;
     bool getObject(const ObjectKey & objectKey, JsonDbObject &object, const QString &objectType = QString()) const;
@@ -208,10 +149,10 @@ public:
                                 bool updateViews = true);
 
     QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
-    void dumpIndexes(QString label);
 
-    QString name() const;
-    void setName(const QString &name);
+    inline QString name() const { return mPartitionName; }
+    inline void setName(const QString &name) { mPartitionName = name; }
+    inline JsonDbOwner *defaultOwner() { return mDefaultOwner; }
 
     void checkIndex(const QString &propertyName);
     bool compact();
@@ -219,26 +160,49 @@ public:
 
     QHash<QString, qint64> fileSizes() const;
 
+    // FIXME: copied from JsonDb class.
+    // This is the protocol leaking into the lower layers and should be removed
+    static void setError(QJsonObject &map, int code, const QString &message);
+    static QJsonObject makeError(int code, const QString &message);
+    static QJsonObject makeResponse(const QJsonObject &resultmap, const QJsonObject &errormap, bool silent = false);
+    static QJsonObject makeErrorResponse(QJsonObject &resultmap, int code, const QString &message, bool silent = false);
+    static bool responseIsError(const QJsonObject &responseMap);
+
+public Q_SLOTS:
     void updateView(const QString &objectType);
 
+Q_SIGNALS:
+    void objectsUpdated(const JsonDbUpdateList &objects);
+
 protected:
+    void initSchemas();
+
     void timerEvent(QTimerEvent *event);
 
     bool checkStateConsistency();
     void checkIndexConsistency(JsonDbObjectTable *table, JsonDbIndex *index);
 
-    IndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
-    void compileOrQueryTerm(IndexQuery *indexQuery, const QueryTerm &queryTerm);
+    JsonDbIndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
+    void compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const QueryTerm &queryTerm);
 
     void doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
-                      IndexQuery *indexQuery);
-    void doMultiIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
-                           const QList<IndexQuery *> &indexQueries);
+                      JsonDbIndexQuery *indexQuery);
 
     static void sortValues(const JsonDbQuery *query, JsonDbObjectList &results, JsonDbObjectList &joinedResults);
 
+    bool checkCanAddSchema(const JsonDbObject &schema, const JsonDbObject &oldSchema, QString &errorMsg);
+    bool checkCanRemoveSchema(const JsonDbObject &schema, QString &errorMsg);
+    bool validateSchema(const QString &schemaName, const JsonDbObject &object, QString &errorMsg);
+    bool checkNaturalObjectType(const JsonDbObject &object, QString &errorMsg);
+
+    JsonDbError::ErrorCode checkBuiltInTypeValidity(const JsonDbObject &object, const JsonDbObject &oldObject, QString &errorMsg);
+    void updateBuiltInTypes(const JsonDbObject &object, const JsonDbObject &oldObject);
+    void setSchema(const QString &schemaName, const QJsonObject &schema);
+    void removeSchema(const QString &schemaName);
+    void updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path=QStringList());
+
 private:
-    JsonDb          *mJsonDb;
+
     JsonDbObjectTable     *mObjectTable;
     QVector<JsonDbObjectTable *> mTableTransactions;
 
@@ -247,12 +211,16 @@ private:
     int          mTransactionDepth;
     bool         mTransactionOk;
     QHash<QString,QPointer<JsonDbView> > mViews;
+    QSet<QString> mViewTypes;
+    JsonDbSchemaManager   mSchemas;
     QRegExp      mWildCardPrefixRegExp;
     int          mMainSyncTimerId;
     int          mIndexSyncTimerId;
     int          mMainSyncInterval;
     int          mIndexSyncInterval;
-    friend class IndexQuery;
+    JsonDbOwner *mDefaultOwner;
+
+    friend class JsonDbIndexQuery;
     friend class JsonDbObjectTable;
     friend class JsonDbMapDefinition;
     friend class WithTransaction;
@@ -302,28 +270,6 @@ public:
 private:
     JsonDbPartition *mPartition;
 };
-
-#define CHECK_LOCK(lock, context) \
-    if (!lock.hasBegin()) { \
-        QJsonObject errormap;  \
-        errormap.insert(JsonDbString::kCodeStr, (int)JsonDbError::DatabaseError); \
-        QString error = QString("Failed to set begin transaction [%1:%2]") \
-                                .arg(context, QString::number(__LINE__)); \
-        qCritical() << error; \
-    }
-
-#define CHECK_LOCK_RETURN(lock, context) \
-    if (!lock.hasBegin()) { \
-        QJsonObject errormap; \
-        errormap.insert(JsonDbString::kCodeStr, (int)JsonDbError::DatabaseError); \
-        QString error = QString("Failed to set begin transaction [%1:%2]") \
-                                .arg(context, QString::number(__LINE__)); \
-        errormap.insert(JsonDbString::kMessageStr, error); \
-        QJsonObject result; \
-        result.insert(JsonDbString::kResultStr, QJsonValue()); \
-        result.insert(JsonDbString::kErrorStr, errormap); \
-        return result; \
-    }
 
 QJsonValue makeFieldValue(const QJsonValue &value, const QString &type);
 QByteArray makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectKey);

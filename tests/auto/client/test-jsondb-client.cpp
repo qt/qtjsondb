@@ -98,11 +98,15 @@ private slots:
     void update();
     void find();
     void index();
+
     void registerNotification();
     void notify();
+    void notifyUpdate();
     void notifyViaCreate();
     void notifyRemoveBatch();
     void notifyMultiple();
+    void mapNotification();
+
     void remove();
     void schemaValidation();
     void changesSince();
@@ -111,6 +115,8 @@ private slots:
     void changesSinceObject();
     void jsondbobject();
     void jsondbobject_uuidFromObject();
+    void partition();
+
 #ifdef Q_OS_LINUX
     void sigstop();
 #endif
@@ -124,13 +130,12 @@ private:
 #endif
     bool wasRoot;
     uid_t uidUsed;
+    uid_t uid2Used;
     QList<gid_t> gidsAdded;
     bool failed;
     void removeDbFiles();
     // Temporarily disable quota test
     void storageQuotas();
-    // Temporarily disable partition test
-    void partition();
 };
 
 #ifndef DONT_START_SERVER
@@ -239,6 +244,7 @@ void TestJsonDbClient::initTestCase()
                             << "-validate-schemas");
     if (wasRoot)
         arg_list << "-enforce-access-control";
+    arg_list << "-base-name";
     arg_list << QString::fromLatin1(dbfileprefix);
     mProcess = launchJsonDbDaemonDetached(JSONDB_DAEMON_BASE, QString("testjsondb_%1").arg(getpid()), arg_list);
 #endif
@@ -351,19 +357,34 @@ void TestJsonDbClient::initTestCase()
             qDebug () << "user" << old_pwd->pw_name << "found from" << uid;
             uid++;
         }
+        uid_t uid2 = uid+1;
+        while ((old_pwd = getpwuid(uid2)) != NULL) {
+            qDebug () << "user" << old_pwd->pw_name << "found from" << uid2;
+            uid2++;
+        }
         gid_t gid = nextFreeGid(1042);
+        gid_t gid2 = nextFreeGid(gid+1);
         QString appName = QString("com.test.foo.%1").arg(getpid());
+        // Tes app name for app without any supplementary groups
+        QString app2Name = QString("com.test.bar.%1").arg(getpid());
         if (!errno) {
-            // Add primary group
+            // Add primary groups
             struct group grp;
             grp.gr_name = appName.toLocal8Bit().data();
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
             grp.gr_mem = (char *[]){NULL};
+            struct group grp2;
+            grp2.gr_name = app2Name.toLocal8Bit().data();
+            grp2.gr_passwd = NULL;
+            grp2.gr_gid = gid2;
+            grp2.gr_mem = (char *[]){NULL};
             FILE *grfile = ::fopen (etcigr.toLocal8Bit().data(), "a");
             ::putgrent(&grp, grfile);
+            ::putgrent(&grp2, grfile);
             ::fclose (grfile);
             gidsAdded.append(gid);
+            gidsAdded.append(gid2);
 
             // Add the user
             struct passwd pwd;
@@ -374,15 +395,25 @@ void TestJsonDbClient::initTestCase()
             pwd.pw_gecos = NULL;
             pwd.pw_dir = NULL;
             pwd.pw_shell = NULL;
+            struct passwd pwd2;
+            pwd2.pw_name = app2Name.toLocal8Bit().data();
+            pwd2.pw_passwd = NULL;
+            pwd2.pw_uid = uid2;
+            pwd2.pw_gid = gid2;
+            pwd2.pw_gecos = NULL;
+            pwd2.pw_dir = NULL;
+            pwd2.pw_shell = NULL;
             FILE *pwdfile = ::fopen (etcipwd.toLocal8Bit().data(), "a");
             ::putpwent(&pwd, pwdfile);
+            ::putpwent(&pwd2, pwdfile);
             ::fclose (pwdfile);
 
-            // Add 'User' supplementary group for
-            gid = nextFreeGid(gid+1);
+            // Add 'User' supplementary group
+            gid = nextFreeGid(gid2+1);
             grp.gr_name = const_cast<char *>("User");
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
+            // Add only the first user to it
             grp.gr_mem = (char *[]){appName.toLocal8Bit().data(), NULL};
             grfile = ::fopen (etcigr.toLocal8Bit(), "a");
             ::putgrent(&grp, grfile);
@@ -390,6 +421,7 @@ void TestJsonDbClient::initTestCase()
             gidsAdded.append(gid);
             ::seteuid (uid);
             uidUsed = uid;
+            uid2Used = uid2;
             qDebug() << "Setting euid to: " << uid;
 
         }
@@ -413,9 +445,35 @@ void TestJsonDbClient::cleanupTestCase()
 #endif
         ::kill(mProcess, SIGTERM);
 #if !defined(Q_OS_MAC)
-        // TODO clean passwd & group here
         if (wasRoot) {
-            ;
+            // Clean passwd
+            FILE *newpasswd = ::fopen("newpasswd", "w");
+            setpwent ();
+            struct passwd *pwd;
+            while ((pwd = ::getpwent())) {
+                if (pwd->pw_uid != uidUsed &&  pwd->pw_uid != uid2Used)
+                    ::putpwent (pwd, newpasswd);
+            }
+            ::fclose(newpasswd);
+            ::rename("newpasswd","/etc/passwd");
+            // Clean group
+            FILE *newgroup = ::fopen("newgroup", "w");
+            setgrent ();
+            struct group *grp;
+            while ((grp = ::getgrent())) {
+                bool found = false;
+                foreach (gid_t gid, gidsAdded) {
+                    if (grp->gr_gid ==  gid) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                    ::putgrent (grp, newgroup);
+            }
+            ::fclose(newgroup);
+            ::rename("newgroup","/etc/group");
         }
 #endif
     }
@@ -462,11 +520,6 @@ void TestJsonDbClient::create()
     QVERIFY(mData.toMap().contains("_uuid"));
     QVariant uuid = mData.toMap().value("_uuid");
 
-    // Try to create the same item again (should fail)
-    item.insert("_uuid", uuid);
-    id = mClient->create(item);
-    waitForResponse2(id, JsonDbError::InvalidRequest);
-
     // Attempt to remove it without supplying a _uuid
     item.remove("_uuid");
     id = mClient->remove(item);
@@ -498,7 +551,6 @@ void TestJsonDbClient::createList()
         item.insert("name", names[count]);
         list << item;
     }
-
     int id = mClient->create(list);
     waitForResponse1(id);
     QCOMPARE(mData.toMap().value("count").toInt(), count);
@@ -509,6 +561,7 @@ void TestJsonDbClient::createList()
     id = mClient->find(query);
     waitForResponse1(id);
     QCOMPARE(mData.toMap().value("length").toInt(), count);
+
 
     // Extract the uuids and put into a separate list
     QVariantList toDelete;
@@ -655,7 +708,35 @@ void TestJsonDbClient::find()
         nameList << names[count - i - 1];
     }
     QCOMPARE(answerNames, nameList);
+#if !defined(Q_OS_MAC)
+    if (wasRoot) {
+        // Set user id that has no supplementary groups
+        mClient->disconnectFromServer();
+        delete mClient;
+        mClient = NULL;
 
+        qDebug() << "Setting uid to" << uid2Used;
+        ::seteuid(0);
+        ::seteuid(uid2Used);
+        connectToServer();
+
+        // Read should fail
+        query = QVariantMap();
+        query.insert("query", "[?_type=\"com.test.find-test\"][\\name]");
+        id = mClient->find(query);
+        waitForResponse1(id);
+        answer = mData.toMap().value("data").toList();
+        QCOMPARE(answer.size(), 0);
+
+        // Go back to 'capable' user
+        mClient->disconnectFromServer();
+        delete mClient;
+        mClient = NULL;
+        ::seteuid(0);
+        ::seteuid(uidUsed);
+        connectToServer();
+    }
+#endif
 }
 
 void TestJsonDbClient::index()
@@ -694,7 +775,21 @@ void TestJsonDbClient::index()
     answer = mData.toMap().value("data").toList();
     QCOMPARE(answer.size(), 2);
 
-    id = mClient->remove(result.value("data").toList());
+    // schemas need to be deleted last or else we'll get an error because the maps still exist
+    QVariantList toDelete;
+    QVariantList schemasToDelete;
+
+    foreach (const QVariant d, result.value("data").toList()) {
+        QVariantMap m = d.toMap();
+        if (m.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
+            schemasToDelete.append(m);
+        else
+            toDelete.append(m);
+    }
+
+    id = mClient->remove(toDelete);
+    waitForResponse1(id);
+    id = mClient->remove(schemasToDelete);
     waitForResponse1(id);
 }
 
@@ -705,7 +800,7 @@ void TestJsonDbClient::notify()
     // Create a notification object
     JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
     const QString query = "[?_type=\"com.test.notify-test\"]";
-    QString notifyUuid = mClient->registerNotification(actions, query);
+    QString notifyUuid = addNotification(actions, query);
 
     // Create a notify-test object
     QVariantMap object;
@@ -713,7 +808,7 @@ void TestJsonDbClient::notify()
     object.insert("name","test1");
     mNotifications.clear();
     id = mClient->create(object);
-    waitForResponse4(-1, -1, notifyUuid, 1);
+    waitForResponse4(id, -1, notifyUuid, 1);
     QVariant uuid = mData.toMap().value("_uuid");
     QString version = mData.toMap().value("_version").toString();
 
@@ -727,7 +822,7 @@ void TestJsonDbClient::notify()
     object.insert("_version", version);
     object.insert("name","test2");
     id = mClient->update(object);
-    waitForResponse4(-1, -1, notifyUuid, 1);
+    waitForResponse4(id, -1, notifyUuid, 1);
 
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
@@ -736,12 +831,59 @@ void TestJsonDbClient::notify()
 
     // Remove the notify-test object
     id = mClient->remove(object);
-    waitForResponse4(-1, -1, notifyUuid, 1);
+    waitForResponse4(id, -1, notifyUuid, 1);
 
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
     QCOMPARE(n.mAction, QLatin1String("remove"));
+
+    // Remove the notification object
+    mClient->unregisterNotification(notifyUuid);
+}
+
+void TestJsonDbClient::notifyUpdate()
+{
+    int id = 400;
+
+    // Create a notification object
+    JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
+    const QString query = "[?_type=\"com.test.notify-test\"][?filter=\"match\"]";
+    QString notifyUuid = mClient->registerNotification(actions, query);
+
+    // Create a notify-test object
+    QVariantMap object;
+    object.insert("_type","com.test.notify-test");
+    object.insert("name","test1");
+    object.insert("filter","match");
+    id = mClient->create(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+    QVariant uuid = mData.toMap().value("_uuid");
+    QString version = mData.toMap().value("_version").toString();
+
+    QCOMPARE(mNotifications.size(), 1);
+    JsonDbTestNotification n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QString("create"));
+
+    // Update the notify-test object
+    // query no longer matches, so we should receive a "remove" notification even though it is an update
+    object.insert("_uuid",uuid);
+    object.insert("_version", version);
+    object.insert("filter","nomatch");
+    id = mClient->update(object);
+    waitForResponse4(id, -1, notifyUuid, 1);
+
+    QCOMPARE(mNotifications.size(), 1);
+    n = mNotifications.takeFirst();
+    QCOMPARE(n.mNotifyUuid, notifyUuid);
+    QCOMPARE(n.mAction, QLatin1String("remove"));
+
+    // Remove the notify-test object
+    id = mClient->remove(object);
+    waitForResponse1(id);
+
+    QCOMPARE(mNotifications.size(), 0);
 
     // Remove the notification object
     mClient->unregisterNotification(notifyUuid);
@@ -811,7 +953,7 @@ void TestJsonDbClient::registerNotification()
     // Create a notification object
     JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
     const QString query = "[?_type=\"com.test.registerNotification\"]";
-    QString notifyUuid = mClient->registerNotification(actions, query);
+    QString notifyUuid = addNotification(actions, query);
 
     // Create a registerNotification object
     QVariantMap object;
@@ -862,9 +1004,7 @@ void TestJsonDbClient::notifyRemoveBatch()
     // Create a notification object
     JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyRemove;
     const QString nquery = "[?_type=\"com.test.notify-test-remove-batch\"]";
-    QString notifyUuid = mClient->registerNotification(actions, nquery);
-    id = -1;
-    waitForResponse1(id);
+    QString notifyUuid = addNotification(actions, nquery);
 
     // Create notify-test-remove-batch object
     QVariantList list;
@@ -894,6 +1034,7 @@ void TestJsonDbClient::notifyRemoveBatch()
         uuidList << v.toMap().value("_uuid");
 
     // Remove the objects
+    mNotifications.clear();
     id = mClient->remove(list);
     waitForResponse4(id, -1, notifyUuid, count);
 
@@ -997,8 +1138,15 @@ void TestJsonDbClient::remove()
     QVERIFY(mData.toMap().contains("length"));
     QCOMPARE(mData.toMap().value("length").toInt(), 3);
 
-    // Remove two items using query
-    id = mClient->remove(QString::fromLatin1("[?_type=\"com.test.remove-test\"][?foo >= 63]"));
+
+    // remove a list of items
+    QVariantList toDelete;
+    foreach (const QVariant &res, mData.toMap().value("data").toList()) {
+        if (res.toMap().value(QLatin1String("foo")).toInt() >= 63)
+            toDelete.append(res);
+    }
+
+    id = mClient->remove(toDelete);
     waitForResponse1(id);
     QVERIFY(mData.toMap().contains("count"));
     QCOMPARE(mData.toMap().value("count").toInt(), 2);
@@ -1025,7 +1173,7 @@ void TestJsonDbClient::notifyMultiple()
     ClientWrapper w1; w1.connectToServer();
     ClientWrapper w2; w2.connectToServer();
 
-    QString notifyUuid = w1.mClient->registerNotification(actions, query);
+    QString notifyUuid = w1.addNotification(actions, query);
 
     // Create a notify-test object
     QVariantMap object;
@@ -1058,6 +1206,59 @@ void TestJsonDbClient::notifyMultiple()
     QCOMPARE(w2.mNotifications.size(), 0);
     QCOMPARE(w1.mNotifications.size(), 0);
     w1.mClient->unregisterNotification(notifyUuid);
+}
+
+void TestJsonDbClient::mapNotification()
+{
+    QFile jsonFile(":/json/auto/daemon/json/map-reduce.json");
+    jsonFile.open(QIODevice::ReadOnly);
+    QByteArray json = jsonFile.readAll();
+    JsonReader parser;
+    bool ok = parser.parse(json);
+    QVERIFY(ok);
+
+    QList<QVariantMap> mapsReduces;
+    QList<QVariantMap> schemas;
+    QMap<QString, QVariantMap> toDelete;
+    waitForResponse1(mClient->create(parser.result().toList()));
+
+    QVariantList created = mData.toList();
+    foreach (const QVariant &c, created) {
+        QVariantMap object = c.toMap();
+        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr ||
+            object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr)
+            mapsReduces.append(object);
+        else if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
+            schemas.append(object);
+        else
+            toDelete.insert(object.value("_uuid").toString(), object);
+    }
+
+    QString uuid = addNotification(JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove,
+                                   QLatin1String("[?_type=\"Phone\"]"));
+
+
+    waitForResponse1(mClient->query(QLatin1String("[?_type=\"Contact\"][?displayName=\"Nancy Doe\"]")));
+
+    QVariantMap firstItem = mData.toMap().value("data").toList().at(0).toMap();
+    QVERIFY(!firstItem.value("_uuid").toString().isEmpty());
+    toDelete.remove(firstItem.value("_uuid").toString());
+
+    int id = mClient->remove(firstItem);
+    waitForResponse4(id, -1, uuid, 3);
+
+    mClient->unregisterNotification(uuid);
+
+    for (int i = 0; i < mapsReduces.size(); ++i) {
+        QVariantMap object = mapsReduces.at(i);
+        waitForResponse1(mClient->remove(object));
+    }
+    for (int i = 0; i < schemas.size(); ++i) {
+        QVariantMap object = schemas.at(i);
+        waitForResponse1(mClient->remove(object));
+    }
+    foreach (QVariantMap map, toDelete.values())
+        waitForResponse1(mClient->remove(map));
 }
 
 void TestJsonDbClient::changesSince()
@@ -1242,9 +1443,13 @@ void TestJsonDbClient::requestWithSlot()
     QString notifyUuid =mClient->registerNotification(JsonDbClient::NotifyCreate, "[?_type=\"com.test.requestWithSlot\"]", QString(),
                                                        &handler, SLOT(notify(QString,QtAddOn::JsonDb::JsonDbNotification)),
                                                        &handler, SLOT(success(int,QVariant)), SLOT(error(int,int,QString)));
-    qDebug() << "notifyUuid" << notifyUuid;
     int id;
     handler.clear();
+
+    // spin the event loop to make sure the notification has been created
+    QEventLoop ev;
+    connect(mClient, SIGNAL(response(int,QVariant)), &ev, SLOT(quit()));
+    ev.exec();
 
     QVariantMap item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.test.requestWithSlot"));
@@ -1436,7 +1641,8 @@ void TestJsonDbClient::changesSinceObject()
     connect(r, SIGNAL(started()), &handler, SLOT(started()));
     connect(r, SIGNAL(resultsReady(int)), &handler, SLOT(resultsReady(int)));
     connect(r, SIGNAL(finished()), &handler, SLOT(finished()));
-    connect(r, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)), &handler, SLOT(error(int,QString)));
+    connect(r, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)),
+            &handler, SLOT(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
 
     QEventLoop loop;
     connect(r, SIGNAL(finished()), &loop, SLOT(quit()));

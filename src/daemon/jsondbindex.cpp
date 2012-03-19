@@ -48,7 +48,6 @@
 #include <QLocale>
 
 #include "jsondb-strings.h"
-#include "jsondb.h"
 #include "jsondbproxy.h"
 #include "jsondbindex.h"
 #include "jsondbbtree.h"
@@ -113,7 +112,7 @@ QString _q_bytesToHexString(const QByteArray &ba)
 
 JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
                          const QString &propertyType, const QString &locale, const QString &collation,
-                         JsonDbObjectTable *objectTable)
+                         Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable)
     : QObject(objectTable)
     , mObjectTable(objectTable)
     , mPropertyName(propertyName)
@@ -121,6 +120,7 @@ JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, cons
     , mPropertyType(propertyType)
     , mLocale(locale)
     , mCollation(collation)
+    , mCaseSensitivity(caseSensitivity)
 #ifndef NO_COLLATION_SUPPORT
     , mCollator(JsonDbCollator(QLocale(locale), _q_correctCollationString(collation)))
 #endif
@@ -208,30 +208,40 @@ bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject
     message.clear();
 
     if (!newIndex.isEmpty() && !oldIndex.isEmpty()) {
-        if (oldIndex.value(kPropertyNameStr).toString() != newIndex.value(kPropertyNameStr).toString())
+        if (oldIndex.value(JsonDbString::kPropertyNameStr).toString() != newIndex.value(JsonDbString::kPropertyNameStr).toString())
             message = QString("Changing old index propertyName '%1' to '%2' not supported")
-                             .arg(oldIndex.value(kPropertyNameStr).toString())
-                             .arg(newIndex.value(kPropertyNameStr).toString());
-        else if (oldIndex.value(kPropertyTypeStr).toString() != newIndex.value(kPropertyTypeStr).toString())
+                             .arg(oldIndex.value(JsonDbString::kPropertyNameStr).toString())
+                             .arg(newIndex.value(JsonDbString::kPropertyNameStr).toString());
+        else if (oldIndex.value(JsonDbString::kPropertyTypeStr).toString() != newIndex.value(JsonDbString::kPropertyTypeStr).toString())
             message = QString("Changing old index propertyType from '%1' to '%2' not supported")
-                             .arg(oldIndex.value(kPropertyTypeStr).toString())
-                             .arg(newIndex.value(kPropertyTypeStr).toString());
-        else if (oldIndex.value(kObjectTypeStr).toString() != newIndex.value(kObjectTypeStr).toString())
+                             .arg(oldIndex.value(JsonDbString::kPropertyTypeStr).toString())
+                             .arg(newIndex.value(JsonDbString::kPropertyTypeStr).toString());
+        else if (oldIndex.value(JsonDbString::kObjectTypeStr).toString() != newIndex.value(JsonDbString::kObjectTypeStr).toString())
             message = QString("Changing old index objectType from '%1' to '%2' not supported")
-                             .arg(oldIndex.value(kObjectTypeStr).toString())
-                             .arg(newIndex.value(kObjectTypeStr).toString());
-        else if (oldIndex.value(kPropertyFunctionStr).toString() != newIndex.value(kPropertyFunctionStr).toString())
+                             .arg(oldIndex.value(JsonDbString::kObjectTypeStr).toString())
+                             .arg(newIndex.value(JsonDbString::kObjectTypeStr).toString());
+        else if (oldIndex.value(JsonDbString::kPropertyFunctionStr).toString() != newIndex.value(JsonDbString::kPropertyFunctionStr).toString())
             message = QString("Changing old index propertyFunction from '%1' to '%2' not supported")
-                             .arg(oldIndex.value(kPropertyFunctionStr).toString())
-                             .arg(newIndex.value(kPropertyFunctionStr).toString());
+                             .arg(oldIndex.value(JsonDbString::kPropertyFunctionStr).toString())
+                             .arg(newIndex.value(JsonDbString::kPropertyFunctionStr).toString());
     }
 
-    if (!(newIndex.contains(kPropertyFunctionStr) ^ newIndex.contains(kPropertyNameStr)))
+    if (!(newIndex.contains(JsonDbString::kPropertyFunctionStr) ^ newIndex.contains(JsonDbString::kPropertyNameStr)))
         message = QString("Index object must have one of propertyName or propertyFunction set");
-    else if (newIndex.contains(kPropertyFunctionStr) && !newIndex.contains(kNameStr))
+    else if (newIndex.contains(JsonDbString::kPropertyFunctionStr) && !newIndex.contains(JsonDbString::kNameStr))
         message = QString("Index object with propertyFunction must have name");
 
     return message.isEmpty();
+}
+
+QString JsonDbIndex::determineName(const JsonDbObject &index)
+{
+    QString indexName = index.value(JsonDbString::kNameStr).toString();
+    QString propertyName = index.value(JsonDbString::kPropertyNameStr).toString();
+
+    if (indexName.isEmpty())
+        return propertyName;
+    return indexName;
 }
 
 JsonDbBtree *JsonDbIndex::bdb()
@@ -241,42 +251,41 @@ JsonDbBtree *JsonDbIndex::bdb()
     return mBdb.data();
 }
 
+QJsonValue JsonDbIndex::indexValue(const QJsonValue &v)
+{
+    if (!v.isString())
+        return v;
+
+    QJsonValue result;
+    if (mCaseSensitivity == Qt::CaseInsensitive)
+        result = v.toString().toLower();
+    else
+        result = v;
+
+#ifndef NO_COLLATION_SUPPORT
+    if (!mCollation.isEmpty() && !mLocale.isEmpty())
+        result = _q_bytesToHexString(mCollator.sortKey(v.toString()));
+#endif
+
+    return result;
+}
+
 QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 {
     mFieldValues.clear();
     if (!mScriptEngine) {
         int size = mPath.size();
         if (mPath[size-1] == QString("*")) {
-            QJsonValue v = JsonDb::propertyLookup(object, mPath.mid(0, size-1));
+            QJsonValue v = object.propertyLookup(mPath.mid(0, size-1));
             QJsonArray array = v.toArray();
             mFieldValues.reserve(array.size());
             for (int i = 0; i < array.size(); ++i) {
-                if (!mCollation.isEmpty() && !mLocale.isEmpty()) {
-                    mFieldValues.append(
-#ifndef NO_COLLATION_SUPPORT
-                        _q_bytesToHexString(mCollator.sortKey(array.at(i).toString()))
-#else
-                        array.at(i)
-#endif
-                    );
-                } else {
-                    mFieldValues.append(array.at(i));
-                }
+                mFieldValues.append(indexValue(array.at(i)));
             }
         } else {
-            QJsonValue v = JsonDb::propertyLookup(object, mPath);
+            QJsonValue v = object.propertyLookup(mPath);
             if (!v.isUndefined()) {
-                if (!mCollation.isEmpty() && !mLocale.isEmpty()) {
-                    mFieldValues.append(
-#ifndef NO_COLLATION_SUPPORT
-                        _q_bytesToHexString(mCollator.sortKey(v.toString()))
-#else
-                        v
-#endif
-                    );
-                } else {
-                    mFieldValues.append(v);
-                }
+                mFieldValues.append(indexValue(v));
             }
         }
     } else {
@@ -290,7 +299,7 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 void JsonDbIndex::propertyValueEmitted(QJSValue value)
 {
     if (!value.isUndefined())
-        mFieldValues.append(JsonDb::fromJSValue(value));
+        mFieldValues.append(JsonDbObject::fromJSValue(value));
 }
 
 void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber)

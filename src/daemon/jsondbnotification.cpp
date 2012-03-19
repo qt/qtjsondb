@@ -44,9 +44,10 @@
 #include <QMap>
 #include <QVariantList>
 #include <QString>
+#include <QStringList>
 
-#include "jsondb.h"
 #include "jsondbnotification.h"
+#include "jsondbquery.h"
 #include "jsondb-strings.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -58,6 +59,7 @@ JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, const QString &
     , mQuery(query)
     , mActions(None)
     , mPartition(partition)
+    , mInitialStateNumber(0)
 {
     foreach (QString s, actions) {
         if (s == JsonDbString::kCreateStr)

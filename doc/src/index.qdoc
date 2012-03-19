@@ -134,5 +134,6 @@ See also \l{QJsonDbWatcher}
 \li \l{declarative/desktop-inspector}{Desktop Database Inspector Example}
 \li \l{declarative/map-phone}{Creating a Map View}
 \li \l{declarative/joinview}{Creating a Join View}
+\li \l{client/chat}{Creating a chat client using the C++ API}
 \endlist
 */

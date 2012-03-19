@@ -48,7 +48,7 @@
 
 #include "jsonstream.h"
 #include "jsondbnotification.h"
-#include "jsondb.h"
+#include "jsondbpartition.h"
 
 QT_BEGIN_HEADER
 
@@ -60,6 +60,8 @@ QT_END_NAMESPACE
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+class JsonDbEphemeralPartition;
+
 class DBServer : public QObject
 {
     Q_OBJECT
@@ -68,9 +70,13 @@ public:
     void setTcpServerPort(quint16 port) { mTcpServerPort = port; }
     quint16 tcpServerPort() const { return mTcpServerPort; }
 
-    bool start(bool compactOnClose);
+    bool start();
     bool socket();
     bool clear();
+    void close();
+
+    inline bool compactOnClose() const { return mCompactOnClose; }
+    inline void setCompactOnClose(bool compact) { mCompactOnClose = compact; }
 
 public slots:
     void sigTerm();
@@ -84,29 +90,50 @@ protected slots:
     void handleConnectionError();
     void removeConnection();
 
-    void notified( const QString &id, JsonDbObject document, const QString &action );
-    void updateView( const QString &viewType, const QString &partitionName );
+    void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
+    void objectsUpdated(const JsonDbUpdateList &objects);
 
 private:
-    void processFind(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName);
-    void processCreate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName, JsonDb::WriteMode writeMode);
-    void processUpdate(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName, JsonDb::WriteMode writeMode);
-    void processRemove(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName, JsonDb::WriteMode writeMode);
-    void processChangesSince(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, int id, const QString &partitionName);
-    void processFlush(JsonStream *stream, JsonDbOwner *owner, const QString &partition, int id);
+    void objectUpdated(JsonDbPartition *partition, quint32 stateNumber, JsonDbNotification *n, JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object);
+
+    bool loadPartitions();
+    void reduceMemoryUsage();
+    JsonDbStat stat() const;
+
+    void processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode, const QString &partitionName, int id);
+    void processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
+    void processChangesSince(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
+    void processFlush(JsonStream *stream, JsonDbOwner *owner, const QString &partitionName, int id);
+
+    void debugQuery(JsonDbQuery *query, int limit, int offset, const JsonDbQueryResult &result);
+    JsonDbObjectList prepareWriteData(const QString &action, const QJsonValue &object);
+    JsonDbObjectList checkForNotifications(const JsonDbObjectList &objects);
+    void createNotification(const JsonDbObject &object, JsonStream *stream);
+    void removeNotification(const JsonDbObject &object);
+    void notifyHistoricalChanges(JsonDbNotification *n);
+    void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition);
+
+    JsonDbPartition* findPartition(const QString &partitionName);
 
     JsonDbOwner *getOwner( JsonStream *stream);
     JsonDbOwner *createDummyOwner( JsonStream *stream);
 
+    QHash<QString, JsonDbPartition *> mPartitions;
+    JsonDbPartition *mDefaultPartition;
+    JsonDbEphemeralPartition *mEphemeralPartition;
+    QMap<QString, JsonDbNotification *> mNotificationMap;
+    QMultiMap<QString, JsonDbNotification *> mKeyedNotifications;
+    QMap<QString,QSet<QString> > mEagerViewSourceTypes; // set of eager view types dependent on this source type
     quint16                          mTcpServerPort;
     QLocalServer                    *mServer;
     QTcpServer                      *mTcpServer;
     QMap<QIODevice*,JsonStream *>    mConnections;
+    JsonDbOwner                     *mOwner;
     QMap<QIODevice*,JsonDbOwner*>    mOwners;
     QMap<QString,JsonStream *>       mNotifications; // maps notification Id to socket
-    JsonDb                          *mJsonDb;
     QString mFilePath; // Directory where database files shall be stored
     QString mBaseName; // Prefix to use in database file names
+    bool mCompactOnClose;
 };
 
 QT_END_NAMESPACE_JSONDB

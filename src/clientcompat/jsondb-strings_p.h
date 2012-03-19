@@ -104,6 +104,17 @@ public:
     static const QString kTombstoneStr;
     static const QString kPartitionTypeStr;
     static const QString kPartitionStr;
+    static const QString kLogStr;
+    static const QString kPropertyNameStr;
+    static const QString kPropertyTypeStr;
+    static const QString kPropertyFunctionStr;
+    static const QString kObjectTypeStr;
+    static const QString kDbidTypeStr;
+    static const QString kIndexTypeStr;
+    static const QString kLocaleStr;
+    static const QString kCollationStr;
+    static const QString kCaseSensitiveStr;
+    static const QString kDatabaseSchemaVersionStr;
 };
 
 QT_END_NAMESPACE_JSONDB

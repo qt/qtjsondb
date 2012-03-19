@@ -1,0 +1,44 @@
+[
+  {
+    "_type": "IndexCaseSensitive",
+    "field": "aaa"
+  },
+  {
+    "_type": "IndexCaseSensitive",
+    "field": "aBB"
+  },
+  {
+    "_type": "IndexCaseSensitive",
+    "field": "Aba"
+  },
+  {
+    "_type": "IndexCaseSensitive",
+    "field": "Aab"
+  },
+  {
+    "_type": "IndexCaseSensitive",
+    "field": "AAA"
+  },
+  {
+    "_type": "IndexCaseSensitive",
+    "field": "Aaa"
+  },
+  {
+    "_type": "IndexCaseSensitive",
+    "field": "AAa"
+  },
+  {
+    "_type": "Index",
+    "name": "caseSensitiveIndex",
+    "propertyName": "field",
+    "propertyType": "string",
+    "caseSensitive": true
+  },
+  {
+    "_type": "Index",
+    "name": "caseInSensitiveIndex",
+    "propertyName": "field",
+    "propertyType": "string",
+    "caseSensitive": false
+  }
+]

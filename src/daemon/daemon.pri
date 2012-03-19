@@ -9,7 +9,6 @@ HEADERS += \
     $$PWD/jsondbowner.h \
     $$PWD/jsondbproxy.h \
     $$PWD/jsondbresponse.h \
-    $$PWD/jsondb.h \
     $$PWD/jsondbephemeralpartition.h \
     $$PWD/jsondbindex.h \
     $$PWD/jsondbobject.h \
@@ -31,6 +30,7 @@ HEADERS += \
     $$PWD/jsondbschemamanager_p.h \
     $$PWD/jsondbsignals.h \
     $$PWD/jsondbsettings.h \
+    $$PWD/jsondbindexquery.h
 
 HEADERS += $$QSONCONVERSION_HEADERS
 
@@ -38,7 +38,6 @@ SOURCES += \
     $$PWD/jsondbowner.cpp \
     $$PWD/jsondbproxy.cpp \
     $$PWD/jsondbresponse.cpp \
-    $$PWD/jsondb.cpp \
     $$PWD/jsondbephemeralpartition.cpp \
     $$PWD/jsondbindex.cpp \
     $$PWD/jsondbobject.cpp \
@@ -51,6 +50,7 @@ SOURCES += \
     $$PWD/jsondbbtree.cpp \
     $$PWD/jsondbreducedefinition.cpp \
     $$PWD/jsondbsignals.cpp \
-    $$PWD/jsondbsettings.cpp
+    $$PWD/jsondbsettings.cpp \
+    $$PWD/jsondbindexquery.cpp
 
 SOURCES += $$QSONCONVERSION_SOURCES

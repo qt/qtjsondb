@@ -69,6 +69,7 @@ public:
         Created = 0x01, // ### TODO: rename me to StartsMatching ?
         Updated = 0x02,
         Removed = 0x04,
+        StateChanged = 0x08,
 
         All = 0xFF
     };
@@ -114,7 +115,7 @@ public:
 Q_SIGNALS:
     void notificationsAvailable(int count);
     void statusChanged(QtJsonDb::QJsonDbWatcher::Status newStatus);
-    void error(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
+    void error(int code, const QString &message);
 
     // signals for properties
     void lastStateNumberChanged(int stateNumber);

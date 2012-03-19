@@ -40,7 +40,7 @@
 ****************************************************************************/
 
 #include "jsondbowner.h"
-#include "jsondb.h"
+#include "jsondbpartition.h"
 #include "jsondbsettings.h"
 #include "jsondb-strings.h"
 #include <qdebug.h>
@@ -50,10 +50,6 @@ QT_BEGIN_NAMESPACE_JSONDB
 JsonDbOwner::JsonDbOwner( QObject *parent )
     : QObject(parent), mStorageQuota(-1), mAllowAll(false)
 {
-    QList<QString> defaultQueries;
-    defaultQueries.append(".*");
-    setAllowedObjects("all", "read", defaultQueries);
-    setAllowedObjects("all", "write", defaultQueries);
 }
 
 JsonDbOwner::~JsonDbOwner()
@@ -73,10 +69,10 @@ void JsonDbOwner::setAllowedObjects(const QString &partition, const QString &op,
     }
 }
 
-void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDb *jsondb)
+void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDbPartition *partition)
 {
     QJsonObject request;
-    GetObjectsResult result = jsondb->getObjects(JsonDbString::kTypeStr, QString("Capability"));
+    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QString("Capability"));
     JsonDbObjectList translations = result.data;
     //qDebug() << "JsonDbOwner::setCapabilities" << "translations" << translations;
 
@@ -145,6 +141,9 @@ bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
         query->bind(QString(QLatin1String("typeDomain")), tdval);
         if (query->match(object, NULL, NULL))
             return true;
+    }
+    if (jsondbSettings->verbose()) {
+        qDebug () << "Not allowed" << ownerId() << partition << _type << op;
     }
     return false;
 }

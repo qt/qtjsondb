@@ -72,7 +72,7 @@ public:
     void _q_onFinished();
     void _q_onError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
-    void handleNotification(QJsonDbWatcher::Action action, const QJsonObject &object);
+    void handleNotification(quint32 stateNumber, QJsonDbWatcher::Action action, const QJsonObject &object);
     void setStatus(QJsonDbWatcher::Status newStatus);
 
     QJsonDbWatcher *q_ptr;

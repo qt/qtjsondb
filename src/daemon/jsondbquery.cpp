@@ -45,7 +45,7 @@
 #include <QStringList>
 
 #include "jsondb-strings.h"
-#include "jsondb.h"
+#include "jsondbindexquery.h"
 #include "jsondbpartition.h"
 #include "jsondbquery.h"
 #include "jsondbsettings.h"
@@ -200,7 +200,7 @@ JsonDbQuery::~JsonDbQuery()
     orderTerms.clear();
 }
 
-QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, QJsonObject &bindings, bool *ok)
+QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, const QJsonObject &bindings, bool *ok)
 {
     const ushort trueLiteral[] = {'t','r','u','e', 0};
     const ushort falseLiteral[] = {'f','a','l','s','e', 0};
@@ -256,7 +256,7 @@ QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, Q
     return term->value();
 }
 
-JsonDbQuery *JsonDbQuery::parse(const QString &query, QJsonObject &bindings)
+JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &bindings)
 {
     JsonDbQuery *parsedQuery = new JsonDbQuery;
     parsedQuery->query = query;
@@ -505,7 +505,7 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                         if (jsondbSettings->debug())
                             qDebug() << term.joinField() << term.joinPaths();
                     }
-                    QString uuidValue = JsonDb::propertyLookup(joinedObject, joinPaths[j]).toString();
+                    QString uuidValue = joinedObject.propertyLookup(joinPaths[j]).toString();
                     if (objectCache && objectCache->contains(uuidValue))
                         joinedObject = objectCache->value(uuidValue);
                     else if (partition) {
@@ -514,12 +514,12 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                         if (objectCache) objectCache->insert(uuidValue, joinedObject);
                     }
                 }
-                objectFieldValue = JsonDb::propertyLookup(joinedObject, term.fieldPath());
+                objectFieldValue = joinedObject.propertyLookup(term.fieldPath());
             } else {
                 if (term.propertyName().isEmpty())
                     objectFieldValue = binding(term.propertyVariable());
                 else
-                    objectFieldValue = JsonDb::propertyLookup(object, term.fieldPath());
+                    objectFieldValue = object.propertyLookup(term.fieldPath());
             }
             if ((op == "=") || (op == "==")) {
                 if (objectFieldValue == termValue)
@@ -533,13 +533,13 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 if (term.regExpConst().exactMatch(objectFieldValue.toString()))
                     matches = true;
             } else if (op == "<=") {
-                matches = lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
+                matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
             } else if (op == "<") {
-                matches = lessThan(objectFieldValue, termValue);
+                matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue);
             } else if (op == ">=") {
-                matches = greaterThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
+                matches = JsonDbIndexQuery::greaterThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
             } else if (op == ">") {
-                matches = greaterThan(objectFieldValue, termValue);
+                matches = JsonDbIndexQuery::greaterThan(objectFieldValue, termValue);
             } else if (op == "exists") {
                 if (objectFieldValue.type() != QJsonValue::Undefined)
                     matches = true;
@@ -633,7 +633,7 @@ QVariantMap JsonDbQueryResult::toVariantMap() const
     resultmap.insert(QString("sortKeys"), sortKeys);
     if (error.isObject())
         errormap = error.toObject();
-    return JsonDb::makeResponse(resultmap, errormap).toVariantMap();
+    return JsonDbPartition::makeResponse(resultmap, errormap).toVariantMap();
 }
 
 JsonDbQueryResult JsonDbQueryResult::makeErrorResponse(JsonDbError::ErrorCode code, const QString &message, bool silent)

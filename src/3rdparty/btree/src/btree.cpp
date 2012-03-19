@@ -1254,11 +1254,16 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
                                 if (!F_ISSET(bt->flags, BT_NOPGCHECKSUM)) {
                                         rest_pgno = meta_pgno - 1;
                                         while ((mp = btree_get_mpage(bt, rest_pgno)) != NULL) {
-                                                if (rest_pgno == 0 || (btree_is_meta_page(bt, mp->page) && F_ISSET(meta->flags, BT_MARKER))) {
+                                                if (rest_pgno == 0 || (btree_is_meta_page(bt, mp->page) && F_ISSET(METADATA(mp->page)->flags, BT_MARKER))) {
                                                         bcopy(meta, &bt->meta, sizeof(bt->meta));
                                                         return BT_SUCCESS;
                                                 }
                                                 rest_pgno--;
+                                                if (mp) {
+                                                        mpage_del(bt, mp);
+                                                        mpage_free(mp);
+                                                        mp = 0;
+                                                }
                                         }
                                 }
                         } else {
@@ -1266,6 +1271,10 @@ btree_read_meta(struct btree *bt, pgno_t *p_next)
                                 bcopy(meta, &bt->meta, sizeof(bt->meta));
                                 return BT_SUCCESS;
                         }
+                }
+                if (mp) {
+                        mpage_del(bt, mp);
+                        mpage_free(mp);
                 }
                 --meta_pgno;    /* scan backwards to first valid meta page */
         }

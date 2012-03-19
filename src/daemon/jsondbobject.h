@@ -42,6 +42,7 @@
 #ifndef JSONDB_OBJECT_H
 #define JSONDB_OBJECT_H
 
+#include <QJSEngine>
 #include <QUuid>
 #include <QDebug>
 #include <QVariant>
@@ -69,6 +70,7 @@ public:
     QString version() const;
     QString type() const;
     bool isDeleted() const;
+    void markDeleted();
 
     void generateUuid();
     QString computeVersion();
@@ -78,6 +80,13 @@ public:
 
     bool operator <(const JsonDbObject &other) const;
     bool isAncestorOf(const JsonDbObject &other) const;
+
+    QJsonValue propertyLookup(const QString &path) const;
+    QJsonValue propertyLookup(const QStringList &path) const;
+
+    static QJsonValue fromJSValue(const QJSValue &v);
+    static QJSValue toJSValue(const QJsonValue &v, QJSEngine *scriptEngine);
+    static QJSValue toJSValue(const QJsonObject &object, QJSEngine *mScriptEngine);
 
 private:
     bool populateMerge(QMap<JsonDbObject, bool> *documents, const QUuid &id, const JsonDbObject &source, bool validateSource = false, bool recurse = true) const;

@@ -108,7 +108,7 @@ void TestJsonDbNotification::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
 
     mClient = new JsonDbClient(this);
     connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),

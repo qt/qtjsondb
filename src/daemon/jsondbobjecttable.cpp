@@ -42,9 +42,9 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QJsonDocument>
 
 #include "jsondbobjecttable.h"
-#include "jsondb.h"
 #include "jsondbindex.h"
 #include "jsondb-strings.h"
 #include "jsondbbtree.h"
@@ -250,7 +250,7 @@ QHash<QString, IndexSpec> JsonDbObjectTable::indexSpecs() const
 
 bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &propertyName,
                            const QString &propertyType, const QString &objectType, const QString &propertyFunction,
-                           const QString &locale, const QString &collation)
+                           const QString &locale, const QString &collation, Qt::CaseSensitivity caseSensitivity)
 {
     Q_ASSERT(propertyName.isEmpty() ^ propertyFunction.isEmpty());
 
@@ -270,9 +270,10 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     indexSpec.propertyType = propertyType;
     indexSpec.locale = locale;
     indexSpec.collation = collation;
+    indexSpec.caseSensitivity = caseSensitivity;
     indexSpec.objectType = objectType;
     indexSpec.lazy = false; //lazy;
-    indexSpec.index = new JsonDbIndex(mFilename, name, propertyName, propertyType, locale, collation, this);
+    indexSpec.index = new JsonDbIndex(mFilename, name, propertyName, propertyType, locale, collation, caseSensitivity, this);
     if (!propertyFunction.isEmpty() && propertyName.isEmpty()) // propertyName takes precedence
         indexSpec.index->setPropertyFunction(propertyFunction);
     indexSpec.index->setCacheSize(jsondbSettings->cacheSize());
@@ -280,15 +281,16 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     indexSpec.index->open();
 
     QJsonObject indexObject;
-    indexObject.insert(JsonDbString::kTypeStr, kIndexTypeStr);
-    indexObject.insert(kNameStr, name);
-    indexObject.insert(kPropertyNameStr, propertyName);
-    indexObject.insert(kPropertyTypeStr, propertyType);
-    indexObject.insert(kLocaleStr, locale);
-    indexObject.insert(kCollationStr, collation);
-    indexObject.insert(kObjectTypeStr, objectType);
+    indexObject.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    indexObject.insert(JsonDbString::kNameStr, name);
+    indexObject.insert(JsonDbString::kPropertyNameStr, propertyName);
+    indexObject.insert(JsonDbString::kPropertyTypeStr, propertyType);
+    indexObject.insert(JsonDbString::kLocaleStr, locale);
+    indexObject.insert(JsonDbString::kCollationStr, collation);
+    indexObject.insert(JsonDbString::kCaseSensitiveStr, (bool)caseSensitivity);
+    indexObject.insert(JsonDbString::kObjectTypeStr, objectType);
     indexObject.insert("lazy", false);
-    indexObject.insert(kPropertyFunctionStr, propertyFunction);
+    indexObject.insert(JsonDbString::kPropertyFunctionStr, propertyFunction);
     Q_ASSERT(!name.isEmpty());
     Q_ASSERT(mIndexes.contains(name));
 
@@ -358,7 +360,7 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringLi
         JsonDbObject object = QJsonDocument::fromBinaryData(baObject).object();
         if (object.value(JsonDbString::kDeletedStr).toBool())
             continue;
-        QJsonValue fieldValue = JsonDb::propertyLookup(object, path);
+        QJsonValue fieldValue = object.propertyLookup(path);
         if (!fieldValue.isNull())
             index->indexObject(objectKey, object, stateNumber);
     }
@@ -696,7 +698,7 @@ QJsonObject JsonDbObjectTable::changesSince(quint32 stateNumber, const QSet<QStr
     resultmap.insert("startingStateNumber", (qint32)stateNumber);
     resultmap.insert("currentStateNumber", (qint32)this->stateNumber());
     resultmap.insert("changes", result);
-    QJsonObject changesSince(JsonDb::makeResponse(resultmap, errormap));
+    QJsonObject changesSince(JsonDbPartition::makeResponse(resultmap, errormap));
     return changesSince;
 }
 

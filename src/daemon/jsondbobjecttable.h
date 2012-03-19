@@ -63,7 +63,7 @@ QT_BEGIN_HEADER
 QT_BEGIN_NAMESPACE_JSONDB
 
 class IndexSpec;
-class JsonDbManagedBtree;
+class JsonDbBtree;
 class JsonDbPartition;
 class JsonDbIndex;
 
@@ -145,7 +145,8 @@ public:
                   const QString &objectType = QString(),
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
-                  const QString &collation = QString());
+                  const QString &collation = QString(),
+                  Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive);
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
                             const QString &objectType = QString())

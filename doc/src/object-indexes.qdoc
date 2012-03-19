@@ -58,8 +58,9 @@ indexed. Mutually exclusive with propertyFunction.
 
 \row
 \li propertyFunction
-\li A string or array of strings, naming the properties to be
-indexed. Mutually exclusive with propertyName.
+\li A string containing a JavaScript function which emits a custom
+sort key for an object using jsondb.emit(). Mutually exclusive with
+propertyName.
 
 \row
 \li propertyType
@@ -84,6 +85,11 @@ the collation index. \l {QLocale::} {QLocale(QString)}
 \li A string, naming the collation type of the values to be indexed, used
 for collation index. Please read Collation type section in
 \l {Unicode Locale Data Markup Language (LDML): Key Type Definitions}.
+
+\row
+\li caseSensitive
+\li A bool. This property defines whether this index is sorted using case
+sensitive string comparison.
 
 \endtable
 

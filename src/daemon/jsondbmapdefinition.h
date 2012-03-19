@@ -58,7 +58,6 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDb;
 class JsonDbOwner;
 class JsonDbJoinProxy;
 class JsonDbMapProxy;
@@ -68,7 +67,7 @@ class JsonDbMapDefinition : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbMapDefinition(JsonDb *mJsonDb, const JsonDbOwner *mOwner, JsonDbPartition *partition, QJsonObject mapDefinition, QObject *parent = 0);
+    JsonDbMapDefinition(const JsonDbOwner *mOwner, JsonDbPartition *partition, QJsonObject mapDefinition, QObject *parent = 0);
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     const QStringList &sourceTypes() const { return mSourceTypes; }
@@ -79,15 +78,13 @@ public:
     JsonDbObjectTable *sourceTable(const QString &sourceType) const { return mSourceTables.value(sourceType); }
     const JsonDbOwner *owner() const { return mOwner; }
 
-    static void definitionRemoved(JsonDb *jsonDb, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
+    static void definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
     void definitionCreated();
 
     void initScriptEngine();
     void releaseScriptEngine();
-    void mapObject(JsonDbObject object);
-    void unmapObject(const JsonDbObject &object);
     void setError(const QString &errorMsg);
-
+    void updateObject(const JsonDbObject &before, const JsonDbObject &after);
     static bool validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message);
 
 public slots:
@@ -95,7 +92,10 @@ public slots:
     void lookupRequested(const QJSValue &spec, const QJSValue &context);
 
 private:
-    JsonDb        *mJsonDb;
+    void mapObject(JsonDbObject object);
+    void unmapObject(const JsonDbObject &object);
+
+private:
     JsonDbPartition *mPartition;
     const JsonDbOwner *mOwner;
     QJsonObject     mDefinition;
@@ -109,6 +109,7 @@ private:
     JsonDbObjectTable   *mTargetTable;
     QMap<QString,JsonDbObjectTable *> mSourceTables;
     QList<QString> mSourceUuids;
+    QHash<QString,JsonDbObject> mEmittedObjects;
 };
 
 QT_END_NAMESPACE_JSONDB

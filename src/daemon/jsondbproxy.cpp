@@ -41,13 +41,17 @@
 
 #include "jsondbproxy.h"
 #include "jsondb-strings.h"
+#include "jsondbobject.h"
+
+#include <QDebug>
+#include <QJSEngine>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-JsonDbMapProxy::JsonDbMapProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
+JsonDbMapProxy::JsonDbMapProxy(const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent)
   : QObject(parent)
   , mOwner(owner)
-  , mJsonDb(jsonDb)
+  , mPartition(partition)
 {
 }
 JsonDbMapProxy::~JsonDbMapProxy()
@@ -80,10 +84,10 @@ void JsonDbMapProxy::lookupWithType(const QString &key, const QJSValue &value, c
     emit lookupRequested(query, context);
 }
 
-JsonDbJoinProxy::JsonDbJoinProxy( const JsonDbOwner *owner, JsonDb *jsonDb, QObject *parent )
+JsonDbJoinProxy::JsonDbJoinProxy(const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent)
   : QObject(parent)
   , mOwner(owner)
-  , mJsonDb(jsonDb)
+  , mPartition(partition)
 {
 }
 JsonDbJoinProxy::~JsonDbJoinProxy()
@@ -98,6 +102,14 @@ void JsonDbJoinProxy::create(const QJSValue &v)
 void JsonDbJoinProxy::lookup(const QJSValue &spec, const QJSValue &context)
 {
     emit lookupRequested(spec, context);
+}
+
+QString JsonDbJoinProxy::createUuidFromString(const QString &id)
+{
+    JsonDbObject o;
+    o.insert(QLatin1String("_id"), id);
+    o.generateUuid();
+    return o.value(JsonDbString::kUuidStr).toString();
 }
 
 Console::Console()

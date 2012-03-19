@@ -53,7 +53,6 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class JsonDb;
 class JsonDbOwner;
 class JsonDbPartition;
 class JsonDbObjectTable;
@@ -62,7 +61,7 @@ class JsonDbView : public QObject
 {
     Q_OBJECT
 public:
-    JsonDbView(JsonDb *mJsonDb, JsonDbPartition *partition, const QString &viewType,
+    JsonDbView(JsonDbPartition *partition, const QString &viewType,
                QObject *parent = 0);
     ~JsonDbView();
     JsonDbPartition *partition() const { return mPartition; }
@@ -72,12 +71,14 @@ public:
     void open();
     void close();
 
-    static void initViews(JsonDbPartition *partition, const QString &partitionName);
+    static void initViews(JsonDbPartition *partition);
     static void createDefinition(JsonDbPartition *partition, QJsonObject definition);
     static void removeDefinition(JsonDbPartition *partition, QJsonObject definition);
 
     void updateView();
     void reduceMemoryUsage();
+
+    bool isActive() const;
 
 private:
     void createMapDefinition(QJsonObject mapDefinition);
@@ -88,7 +89,6 @@ private:
                                    QSet<QString> &processedDefinitions);
     void updateSourceTypesList();
 private:
-    JsonDb        *mJsonDb;
     JsonDbPartition *mPartition;
     JsonDbObjectTable   *mViewObjectTable;     // view object table
     JsonDbObjectTable   *mMainObjectTable; // partition's main object table
