@@ -273,7 +273,7 @@ void JsonDbView::updateSourceTypesList()
     mObjectTableSourceTypeMap = objectTableSourceTypeMap;
 }
 
-void JsonDbView::updateView()
+void JsonDbView::updateView(quint32 desiredStateNumber)
 {
     QElapsedTimer timer;
     if (jsondbSettings->performanceLog())
@@ -285,7 +285,8 @@ void JsonDbView::updateView()
     quint32 viewStateNumber = mViewObjectTable->stateNumber();
 
     // if the view is up to date, then return
-    if (viewStateNumber == partitionStateNumber) {
+    if ((desiredStateNumber && viewStateNumber >= desiredStateNumber)
+        || viewStateNumber == partitionStateNumber) {
         if (jsondbSettings->verbose())
             qDebug() << "updateView" << mViewType << "}";
         return;

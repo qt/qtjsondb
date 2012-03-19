@@ -863,7 +863,6 @@ void DBServer::createNotification(const JsonDbObject &object, JsonStream *stream
                 } else if (term.propertyName() == JsonDbString::kTypeStr) {
                     QString objectType = term.value().toString();
                     mKeyedNotifications.insert(objectType, n);
-                    updateEagerViewTypes(objectType, mPartitions.value(partition, mDefaultPartition));
                     generic = false;
                     break;
                 }
@@ -875,6 +874,9 @@ void DBServer::createNotification(const JsonDbObject &object, JsonStream *stream
 
     mNotificationMap[uuid] = n;
     mNotifications[uuid] = stream;
+
+    foreach (const QString &objectType, parsedQuery->matchedTypes())
+        updateEagerViewTypes(objectType, mPartitions.value(partition, mDefaultPartition), stateNumber);
 
     if (stateNumber)
         notifyHistoricalChanges(n);
@@ -967,7 +969,7 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
     emit notified(n->uuid(), stateNumber, stateChange, "stateChange");
 }
 
-void DBServer::updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition)
+void DBServer::updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber)
 {
     // FIXME: eager view types should be broken down by partition
     JsonDbView *view = partition->findView(objectType);
@@ -976,8 +978,9 @@ void DBServer::updateEagerViewTypes(const QString &objectType, JsonDbPartition *
     foreach (const QString sourceType, view->sourceTypes()) {
         mEagerViewSourceTypes[sourceType].insert(objectType);
         // now recurse until we get to a non-view sourceType
-        updateEagerViewTypes(sourceType, partition);
+        updateEagerViewTypes(sourceType, partition, stateNumber);
     }
+    partition->updateView(objectType, stateNumber);
 }
 
 JsonDbPartition *DBServer::findPartition(const QString &partitionName)

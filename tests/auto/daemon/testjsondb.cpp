@@ -2147,11 +2147,11 @@ void TestJsonDb::mapArrayConversion()
     }
 
     JsonDbObject testObject;
-    testObject.insert(JsonDbString::kTypeStr, QLatin1String("Test"));
+    testObject.insert(JsonDbString::kTypeStr, QLatin1String("com.test.Test"));
     JsonDbWriteResult result = create(mOwner, testObject);
     verifyGoodResult(result);
 
-    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"TestView\"]"));
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"com.test.TestView\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
     JsonDbObject o = queryResult.data.at(0);

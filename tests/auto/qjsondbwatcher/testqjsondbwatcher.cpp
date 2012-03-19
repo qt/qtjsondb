@@ -80,6 +80,7 @@ private slots:
     void createAndRemove();
     void history();
     void currentState();
+    void notificationTriggersView();
 
 public slots:
     // from mConnection
@@ -415,6 +416,50 @@ void TestQJsonDbWatcher::currentState()
     }
     QList<QJsonDbNotification> notifications = watcher.takeNotifications();
     QCOMPARE(notifications.size(), 1);
+
+    mConnection->removeWatcher(&watcher);
+}
+
+void TestQJsonDbWatcher::notificationTriggersView()
+{
+    QVERIFY(mConnection);
+
+    QJsonParseError error;
+    QJsonArray array(readJsonFile(":/daemon/json/map-array-conversion.json", &error).array());
+    QVERIFY(error.error == QJsonParseError::NoError);
+    QList<QJsonObject> objects;
+    foreach (const QJsonValue v, array)
+        objects.append(v.toObject());
+    QJsonObject testObject;
+    testObject.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.Test"));
+    objects.append(testObject);
+
+    // create the objects
+    QJsonDbCreateRequest request(objects);
+    connect(&request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
+    connect(&request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    mConnection->send(&request);
+    waitForResponseAndNotification(&request, 0);
+
+    // create a watcher
+    QJsonDbWatcher watcher;
+    watcher.setWatchedActions(QJsonDbWatcher::All);
+    watcher.setQuery(QLatin1String("[?_type=\"com.test.TestView\"]"));
+    connect(&watcher, SIGNAL(notificationsAvailable(int)),
+            this, SLOT(onWatcherNotificationsAvailable(int)));
+    connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
+            this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+    mConnection->addWatcher(&watcher);
+    waitForResponseAndNotification(0, 1);
+
+    QList<QJsonDbNotification> notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.size(), 1);
+    QJsonDbNotification n = notifications[0];
+    QJsonObject o = n.object();
+    // make sure we got notified on the right object
+    //QCOMPARE(o.value(JsonDbStrings::Property::uuid()), info.value(JsonDbStrings::Property::uuid()));
 
     mConnection->removeWatcher(&watcher);
 }

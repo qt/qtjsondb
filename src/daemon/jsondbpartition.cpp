@@ -460,11 +460,11 @@ void JsonDbPartition::removeView(const QString &viewType)
     mViews.remove(viewType);
 }
 
-void JsonDbPartition::updateView(const QString &objectType)
+void JsonDbPartition::updateView(const QString &objectType, quint32 stateNumber)
 {
     if (!mViews.contains(objectType))
         return;
-    mViews[objectType]->updateView();
+    mViews[objectType]->updateView(stateNumber);
 }
 
 bool JsonDbPartition::checkCanAddSchema(const JsonDbObject &schema, const JsonDbObject &oldSchema, QString &errorMsg)

@@ -170,7 +170,7 @@ public:
     static bool responseIsError(const QJsonObject &responseMap);
 
 public Q_SLOTS:
-    void updateView(const QString &objectType);
+    void updateView(const QString &objectType, quint32 stateNumber=0);
 
 Q_SIGNALS:
     void objectsUpdated(const JsonDbUpdateList &objects);

@@ -48,6 +48,7 @@
 #include <QProcess>
 #include <QLocalSocket>
 #include <qtestsystem.h>
+#include <qjsondocument.h>
 
 inline QString findFile(const QString &filename)
 {
@@ -70,6 +71,21 @@ inline QString findFile(const QString &filename)
 inline QString findFile(const char *filename)
 {
     return findFile(QString::fromLocal8Bit(filename));
+}
+
+QJsonDocument readJsonFile(const QString &filename, QJsonParseError *error = 0)
+{
+    QString filepath = filename;
+    QFile jsonFile(filepath);
+    if (!jsonFile.exists() && error) {
+        error->error = QJsonParseError::EndOfString;
+        error->offset = 0;
+        return QJsonDocument();
+    }
+    jsonFile.open(QIODevice::ReadOnly);
+    QByteArray json = jsonFile.readAll();
+    QJsonDocument doc(QJsonDocument::fromJson(json, error));
+    return doc;
 }
 
 inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketName, const QStringList &args)

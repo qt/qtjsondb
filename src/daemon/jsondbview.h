@@ -75,7 +75,7 @@ public:
     static void createDefinition(JsonDbPartition *partition, QJsonObject definition);
     static void removeDefinition(JsonDbPartition *partition, QJsonObject definition);
 
-    void updateView();
+    void updateView(quint32 stateNumber=0);
     void reduceMemoryUsage();
 
     bool isActive() const;

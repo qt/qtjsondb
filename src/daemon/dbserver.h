@@ -111,7 +111,7 @@ private:
     void createNotification(const JsonDbObject &object, JsonStream *stream);
     void removeNotification(const JsonDbObject &object);
     void notifyHistoricalChanges(JsonDbNotification *n);
-    void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition);
+    void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber);
 
     JsonDbPartition* findPartition(const QString &partitionName);
 
