@@ -1045,6 +1045,21 @@ void DBServer::receiveMessage(const QJsonObject &message)
         else if (writeModeRequested == QLatin1String("replace") || !jsondbSettings->rejectStaleUpdates())
             writeMode = JsonDbPartition::ForcedWrite;
 
+        // TODO: remove at the same time that clientcompat is dropped
+        if (action == JsonDbString::kRemoveStr && object.toObject().contains(JsonDbString::kQueryStr)) {
+            JsonDbQuery *query = JsonDbQuery::parse(object.toObject().value(JsonDbString::kQueryStr).toString());
+            JsonDbQueryResult res;
+            if (partition)
+                res = partition->queryObjects(owner, query);
+            else
+                res = mEphemeralPartition->queryObjects(owner, query);
+
+            QJsonArray toRemove;
+            foreach (const QJsonValue &value, res.data)
+                toRemove.append(value);
+            object = toRemove;
+        }
+
         JsonDbObjectList toWrite = prepareWriteData(action, object);
 
         // check if the objects to write contain any notifications. If the specified partition

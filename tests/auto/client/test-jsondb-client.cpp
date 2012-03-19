@@ -1148,15 +1148,8 @@ void TestJsonDbClient::remove()
     QVERIFY(mData.toMap().contains("length"));
     QCOMPARE(mData.toMap().value("length").toInt(), 3);
 
-
-    // remove a list of items
-    QVariantList toDelete;
-    foreach (const QVariant &res, mData.toMap().value("data").toList()) {
-        if (res.toMap().value(QLatin1String("foo")).toInt() >= 63)
-            toDelete.append(res);
-    }
-
-    id = mClient->remove(toDelete);
+    // Remove two items using query
+    id = mClient->remove(QString::fromLatin1("[?_type=\"com.test.remove-test\"][?foo >= 63]"));
     waitForResponse1(id);
     QVERIFY(mData.toMap().contains("count"));
     QCOMPARE(mData.toMap().value("count").toInt(), 2);
