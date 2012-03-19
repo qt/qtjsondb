@@ -18,7 +18,6 @@
       "description": "Type of values stored in that property."
     },
     "objectType": {
-      "type": "string",
       "description": "Object type to index. Optional."
     }
   }

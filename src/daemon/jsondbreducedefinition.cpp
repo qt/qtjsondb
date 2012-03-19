@@ -136,9 +136,6 @@ void JsonDbReduceDefinition::releaseScriptEngine()
 
 void JsonDbReduceDefinition::initIndexes()
 {
-    // TODO: this index should not be automatic
-    mTargetTable->addIndexOnProperty(mSourceKeyName, QLatin1String("string"), mSourceType);
-    // TODO: this index should not be automatic
     mTargetTable->addIndexOnProperty(mTargetKeyName, QLatin1String("string"), mTargetType);
     mTargetTable->addIndexOnProperty(QLatin1String("_reduceUuid"), QLatin1String("string"), mTargetType);
 }

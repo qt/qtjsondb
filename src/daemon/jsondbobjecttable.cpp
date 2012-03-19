@@ -250,7 +250,7 @@ QHash<QString, IndexSpec> JsonDbObjectTable::indexSpecs() const
 }
 
 bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &propertyName,
-                           const QString &propertyType, const QString &objectType, const QString &propertyFunction,
+                           const QString &propertyType, const QStringList &objectTypes, const QString &propertyFunction,
                            const QString &locale, const QString &collation, const QString &casePreference,
                            Qt::CaseSensitivity caseSensitivity)
 {
@@ -274,9 +274,9 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     indexSpec.collation = collation;
     indexSpec.casePreference = casePreference;
     indexSpec.caseSensitivity = caseSensitivity;
-    indexSpec.objectType = objectType;
+    indexSpec.objectType = objectTypes;
     indexSpec.lazy = false; //lazy;
-    indexSpec.index = new JsonDbIndex(mFilename, name, propertyName, propertyType, locale, collation, casePreference, caseSensitivity, this);
+    indexSpec.index = new JsonDbIndex(mFilename, name, propertyName, propertyType, objectTypes, locale, collation, casePreference, caseSensitivity, this);
     if (!propertyFunction.isEmpty() && propertyName.isEmpty()) // propertyName takes precedence
         indexSpec.index->setPropertyFunction(propertyFunction);
     indexSpec.index->setCacheSize(jsondbSettings->cacheSize());
@@ -292,7 +292,10 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     indexObject.insert(JsonDbString::kCollationStr, collation);
     indexObject.insert(JsonDbString::kCaseSensitiveStr, (bool)caseSensitivity);
     indexObject.insert(JsonDbString::kCasePreferenceStr, casePreference);
-    indexObject.insert(JsonDbString::kObjectTypeStr, objectType);
+    QJsonArray objectTypeList;
+    foreach (const QString objectType, objectTypes)
+        objectTypeList.append(objectType);
+    indexObject.insert(JsonDbString::kObjectTypeStr, objectTypeList);
     indexObject.insert("lazy", false);
     indexObject.insert(JsonDbString::kPropertyFunctionStr, propertyFunction);
     Q_ASSERT(!name.isEmpty());

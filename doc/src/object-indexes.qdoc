@@ -52,6 +52,15 @@ specified, name defaults to propertyName. If propertyFunction is
 specified, then name must be specified.
 
 \row
+\li objectType
+\li An optional string or array of strings, naming the object types to
+be indexed. If not specified, all objects in the main object table of
+a partition will be indexed.
+
+If specified for non-view types, the index should have a name that is
+distinct from its propertyName.
+
+\row
 \li propertyName
 \li A string or array of strings, naming the properties to be
 indexed. Mutually exclusive with propertyFunction.

@@ -116,16 +116,12 @@ public:
     bool addIndex(const QString &indexName,
                   const QString &propertyName,
                   const QString &propertyType = QString("string"),
-                  const QString &objectType = QString(),
+                  const QStringList &objectTypes = QStringList(),
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
                   const QString &collation = QString(),
                   const QString &casePreference = QString(),
                   Qt::CaseSensitivity caseSensitive = Qt::CaseSensitive);
-    bool addIndexOnProperty(const QString &propertyName,
-                            const QString &propertyType = QString("string"),
-                            const QString &objectType = QString())
-    { return addIndex(propertyName, propertyName, propertyType, objectType); }
     bool removeIndex(const QString &indexName, const QString &objectType = QString());
 
     bool checkQuota(const JsonDbOwner *owner, int size) const;

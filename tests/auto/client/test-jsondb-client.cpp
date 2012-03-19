@@ -98,6 +98,7 @@ private slots:
     void update();
     void find();
     void index();
+    void multiTypeIndex();
 
     void registerNotification();
     void notify_data();
@@ -692,6 +693,15 @@ void TestJsonDbClient::find()
     int id = 0;
     int count;
 
+    // create an index on the name property of com.test.NameIndex objects
+    QVariantMap index;
+    index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    index.insert(JsonDbString::kNameStr, QLatin1String("com.test.NameIndex"));
+    index.insert(JsonDbString::kPropertyNameStr, QLatin1String("name"));
+    index.insert(JsonDbString::kObjectTypeStr, QLatin1String("com.test.find-test"));
+    id = mClient->create(index);
+    waitForResponse1(id);
+
     QStringList nameList;
     // Create a few items
     for (count = 0 ; names[count] ; count++ ) {
@@ -724,7 +734,7 @@ void TestJsonDbClient::find()
 
     // Find one, sorted in reverse alphabetical order
     query = QVariantMap();
-    query.insert("query", "[?_type=\"com.test.find-test\"][\\name]");
+    query.insert("query", "[?_type=\"com.test.find-test\"][\\com.test.NameIndex]");
     id = mClient->find(query);
     waitForResponse1(id);
     answer = mData.toMap().value("data").toList();
@@ -752,7 +762,7 @@ void TestJsonDbClient::find()
 
         // Read should fail
         query = QVariantMap();
-        query.insert("query", "[?_type=\"com.test.find-test\"][\\name]");
+        query.insert("query", "[?_type=\"com.test.find-test\"][\\com.test.NameIndex]");
         id = mClient->find(query);
         waitForResponse1(id);
         answer = mData.toMap().value("data").toList();
@@ -821,6 +831,55 @@ void TestJsonDbClient::index()
     waitForResponse1(id);
     id = mClient->remove(schemasToDelete);
     waitForResponse1(id);
+}
+
+void TestJsonDbClient::multiTypeIndex()
+{
+    QVERIFY(mClient);
+
+    QVariantMap query;
+    int id = 0;
+    int count;
+
+    QStringList indexedTypes = (QStringList()
+                                << QLatin1String("com.test.find-test1")
+                                << QLatin1String("com.test.find-test2"));
+    // create an index on the name property of com.test.NameIndex objects
+    QVariantMap index;
+    index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    index.insert(JsonDbString::kNameStr, QLatin1String("com.test.MultiTypeIndex"));
+    index.insert(JsonDbString::kPropertyNameStr, QLatin1String("name"));
+    index.insert(JsonDbString::kObjectTypeStr, indexedTypes);
+    id = mClient->create(index);
+    waitForResponse1(id);
+
+    QStringList objectTypes = (QStringList()
+                               << QLatin1String("com.test.find-test1")
+                               << QLatin1String("com.test.find-test2")
+                               << QLatin1String("com.test.find-test3"));
+    QStringList nameList;
+    // Create a few items
+    for (count = 0 ; names[count] ; count++ ) {
+        nameList << names[count];
+        foreach (const QString objectType, objectTypes) {
+            QVariantMap item;
+            item.insert("_type", objectType);
+            item.insert("name", names[count]);
+            id = mClient->create(item);
+            waitForResponse1(id);
+        }
+    }
+
+    // Find all in the index
+    query = QVariantMap();
+    query.insert("query", "[?name exists][/com.test.MultiTypeIndex]");
+    id = mClient->find(query);
+    waitForResponse1(id);
+    QVariantList answer = mData.toMap().value("data").toList();
+    //qDebug() << "answer" << mData.toMap();
+    QCOMPARE(answer.size(), nameList.size() * 2);
+    foreach (QVariant v, answer)
+        QVERIFY(indexedTypes.contains(v.toMap().value(JsonDbString::kTypeStr).toString()));
 }
 
 void TestJsonDbClient::notify_data()

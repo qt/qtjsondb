@@ -46,7 +46,7 @@
     "name": "Phone",
     "schema": {
       "type": "object",
-      "extends": "View"
+      "extends": {"$ref": "View"}
     }
   },
   {
@@ -54,7 +54,7 @@
     "name": "PhoneCount",
     "schema": {
       "type": "object",
-      "extends": "View"
+      "extends": {"$ref": "View"}
     }
   },
   {

@@ -684,33 +684,52 @@ void JsonDbPartition::initIndexes()
             QString indexName = JsonDbIndex::determineName(indexObject);
             QString propertyName = indexObject.value(JsonDbString::kPropertyNameStr).toString();
             QString propertyType = indexObject.value(JsonDbString::kPropertyTypeStr).toString();
-            QString objectType = indexObject.value(JsonDbString::kObjectTypeStr).toString();
             QString propertyFunction = indexObject.value(JsonDbString::kPropertyFunctionStr).toString();
             QString locale = indexObject.value(JsonDbString::kLocaleStr).toString();
             QString collation = indexObject.value(JsonDbString::kCollationStr).toString();
             QString casePreference = indexObject.value(JsonDbString::kCasePreferenceStr).toString();
+            QStringList objectTypes;
+            QJsonValue objectTypeValue = indexObject.value(JsonDbString::kObjectTypeStr);
+            if (objectTypeValue.isString()) {
+                objectTypes.append(objectTypeValue.toString());
+            } else if (objectTypeValue.isArray()) {
+                foreach (const QJsonValue objectType, objectTypeValue.toArray())
+                    objectTypes.append(objectType.toString());
+            }
+
             Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive;
             if (indexObject.contains(JsonDbString::kCaseSensitiveStr))
                 caseSensitivity = (indexObject.value(JsonDbString::kCaseSensitiveStr).toBool() == true ? Qt::CaseSensitive : Qt::CaseInsensitive);
 
-            addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation, casePreference, caseSensitivity);
+            addIndex(indexName, propertyName, propertyType, objectTypes, propertyFunction, locale, collation, casePreference, caseSensitivity);
         }
     }
 }
 
 bool JsonDbPartition::addIndex(const QString &indexName, const QString &propertyName,
-                                  const QString &propertyType, const QString &objectType, const QString &propertyFunction,
+                                  const QString &propertyType, const QStringList &objectTypes, const QString &propertyFunction,
                                   const QString &locale, const QString &collation, const QString &casePreference,
                                   Qt::CaseSensitivity caseSensitivity)
 {
     Q_ASSERT(!indexName.isEmpty());
     //qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
-    JsonDbObjectTable *table = findObjectTable(objectType);
+    JsonDbObjectTable *table = 0;
+    if (objectTypes.isEmpty())
+        table = mainObjectTable();
+    else
+        foreach (const QString &objectType, objectTypes) {
+            JsonDbObjectTable *t = findObjectTable(objectType);
+            if (table && (t != table)) {
+                qDebug() << "addIndex" << "index on multiple tables" << objectTypes;
+                return false;
+            }
+            table = t;
+        }
     const IndexSpec *indexSpec = table->indexSpec(indexName);
     if (indexSpec)
         return true;
     //if (gVerbose) qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
-    return table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation, casePreference, caseSensitivity);
+    return table->addIndex(indexName, propertyName, propertyType, objectTypes, propertyFunction, locale, collation, casePreference, caseSensitivity);
 }
 
 bool JsonDbPartition::removeIndex(const QString &indexName, const QString &objectType)
@@ -1654,10 +1673,20 @@ void JsonDbPartition::updateBuiltInTypes(const JsonDbObject &object, const JsonD
         if (object.contains(JsonDbString::kCaseSensitiveStr))
             caseSensitivity = object.value(JsonDbString::kCaseSensitiveStr).toBool();
 
+        QStringList objectTypes;
+        QJsonValue v = object.value(JsonDbString::kObjectTypeStr);
+        if (v.isString()) {
+            objectTypes = (QStringList() << v.toString());
+        } else if (v.isArray()) {
+            QJsonArray array = v.toArray();
+            foreach (const QJsonValue objectType, array)
+                objectTypes.append(objectType.toString());
+        }
+
         addIndex(indexName,
                  object.value(JsonDbString::kPropertyNameStr).toString(),
                  object.value(JsonDbString::kPropertyTypeStr).toString(),
-                 object.value(JsonDbString::kObjectTypeStr).toString(),
+                 objectTypes,
                  object.value(JsonDbString::kPropertyFunctionStr).toString(),
                  object.value(JsonDbString::kLocaleStr).toString(),
                  object.value(JsonDbString::kCollationStr).toString(),
@@ -1750,7 +1779,8 @@ void JsonDbPartition::updateSchemaIndexes(const QString &schemaName, QJsonObject
             QString propertyType = (propertyInfo.contains("type") ? propertyInfo.value("type").toString() : "string");
             QStringList kpath = path;
             kpath << k;
-            addIndexOnProperty(kpath.join("."), propertyType, schemaName);
+            QString propertyName = kpath.join(".");
+            addIndex(propertyName, propertyName, propertyType);
         }
         if (propertyInfo.contains("properties"))
             updateSchemaIndexes(schemaName, propertyInfo, path + (QStringList() << k));
@@ -1850,6 +1880,7 @@ void JsonDbPartition::initSchemas()
     {
         JsonDbObject nameIndex;
         nameIndex.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+        nameIndex.insert(JsonDbString::kNameStr, QLatin1String("capabilityName"));
         nameIndex.insert(JsonDbString::kPropertyNameStr, QLatin1String("name"));
         nameIndex.insert(JsonDbString::kPropertyTypeStr, QLatin1String("string"));
         nameIndex.insert(JsonDbString::kObjectTypeStr, QLatin1String("Capability"));
@@ -1866,7 +1897,7 @@ void JsonDbPartition::initSchemas()
         }
         JsonDbObject capability = QJsonObject::fromVariantMap(parser.result().toMap());
         QString name = capability.value("name").toString();
-        GetObjectsResult getObjectResponse = getObjects("name", name, "Capability");
+        GetObjectsResult getObjectResponse = getObjects("capabilityName", name, "Capability");
         int count = getObjectResponse.data.size();
         if (!count) {
             if (jsondbSettings->verbose())

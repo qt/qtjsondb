@@ -73,7 +73,7 @@ class JsonDbIndex : public QObject
     Q_OBJECT
 public:
     JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
-                const QString &propertyType, const QString &locale, const QString &collation,
+                const QString &propertyType, const QStringList &objectType, const QString &locale, const QString &collation,
                 const QString &casePreference, Qt::CaseSensitivity caseSensitivity,
                 JsonDbObjectTable *objectTable);
     ~JsonDbIndex();
@@ -81,6 +81,7 @@ public:
     QString propertyName() const { return mPropertyName; }
     QStringList fieldPath() const { return mPath; }
     QString propertyType() const { return mPropertyType; }
+    QStringList objectType() const { return mObjectType; }
 
     JsonDbManagedBtree *bdb();
 
@@ -114,9 +115,11 @@ private slots:
 private:
     JsonDbObjectTable *mObjectTable;
     QString mFileName;
+    QString mIndexName;
     QString mPropertyName;
     QStringList mPath;
     QString mPropertyType;
+    QStringList mObjectType;
     QString mLocale;
     QString mCollation;
     QString mCasePreference;
@@ -167,7 +170,7 @@ public:
     QString collation;
     QString casePreference;
     Qt::CaseSensitivity caseSensitivity;
-    QString objectType;
+    QStringList objectType;
     bool    lazy;
     QPointer<JsonDbIndex> index;
 };
