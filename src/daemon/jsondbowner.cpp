@@ -45,6 +45,12 @@
 #include "jsondb-strings.h"
 #include <qdebug.h>
 
+#ifdef Q_OS_UNIX
+#include <pwd.h>
+#include <grp.h>
+#include <errno.h>
+#endif
+
 QT_BEGIN_NAMESPACE_JSONDB
 
 JsonDbOwner::JsonDbOwner( QObject *parent )
@@ -104,8 +110,10 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDbPa
             }
         }
         foreach (const QString op, ops) {
-            setAllowedObjects(partition, op, allowedObjects.value(op).toList());
+            if (!allowedObjects.value(op).empty())
+                setAllowedObjects(partition, op, allowedObjects.value(op).toList());
         }
+        allowedObjects.clear();
     }
     if (jsondbSettings->verbose()) {
         qDebug() << "setCapabilities" << mOwnerId;
@@ -146,6 +154,125 @@ bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
         qDebug () << "Not allowed" << ownerId() << partition << _type << op;
     }
     return false;
+}
+
+bool JsonDbOwner::_setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *partition)
+{
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
+    mOwnerId = QString::fromLocal8Bit(pwd->pw_name);
+
+    // Parse domain from username
+    // TODO: handle reverse domains like co.uk.foo, co.au.bar, co.nz.foo , .... correctly
+    QStringList domainParts = mOwnerId.split(QLatin1Char('.'), QString::SkipEmptyParts);
+    if (domainParts.count() > 2)
+        mDomain = domainParts.at(0)+QLatin1Char('.')+domainParts.at(1);
+    else
+        mDomain = QStringLiteral("public");
+
+    if (jsondbSettings->debug())
+        qDebug() << "username" << mOwnerId << "uid" << pwd->pw_uid << "domain set to" << mDomain;
+
+    // Get capabilities from supplementary groups
+    if (pwd->pw_uid) {
+        int ngroups = 128;
+        gid_t groups[128];
+        bool setOwner = false;
+        QJsonObject capabilities;
+        if (::getgrouplist(pwd->pw_name, pwd->pw_gid, groups, &ngroups) != -1) {
+            struct group *gr;
+            for (int i = 0; i < ngroups; i++) {
+                gr = ::getgrgid(groups[i]);
+                if (gr && ::strcasecmp (gr->gr_name, "identity") == 0)
+                    setOwner = true;
+            }
+            // Start from 1 to omit the primary group
+            for (int i = 1; i < ngroups; i++) {
+                gr = ::getgrgid(groups[i]);
+                QJsonArray value;
+                if (!gr || ::strcasecmp (gr->gr_name, "identity") == 0)
+                    continue;
+                if (setOwner)
+                    value.append(QJsonValue(QLatin1String("setOwner")));
+                value.append(QJsonValue(QLatin1String("rw")));
+                capabilities.insert(QString::fromLocal8Bit(gr->gr_name), value);
+                if (jsondbSettings->debug())
+                    qDebug() << "Adding capability" << QString::fromLocal8Bit(gr->gr_name)
+                             << "to user" << mOwnerId << "setOwner =" << setOwner;
+            }
+            if (ngroups)
+                setCapabilities(capabilities, partition);
+        } else {
+            qWarning() << Q_FUNC_INFO << mOwnerId << "belongs to too many groups (>128)";
+        }
+    } else {
+        // root can access all
+        setAllowAll(true);
+        setStorageQuota(-1);
+    }
+
+    // Read quota from security object
+    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QString("Quota"));
+    JsonDbObjectList securityObjects;
+    for (int i = 0; i < result.data.size(); i++) {
+        JsonDbObject doc = result.data.at(i);
+        if (doc.value(JsonDbString::kTokenStr).toString() == mOwnerId)
+            securityObjects.append(doc);
+    }
+    if (securityObjects.size() == 1) {
+        QJsonObject securityObject = securityObjects.at(0);
+        QJsonObject capabilities = securityObject.value("capabilities").toObject();
+        QStringList keys = capabilities.keys();
+        if (keys.contains("quotas")) {
+            QJsonObject quotas = capabilities.value("quotas").toObject();
+            int storageQuota = quotas.value("storage").toDouble();
+            setStorageQuota(storageQuota);
+        }
+    } else if (!securityObjects.isEmpty()) {
+        qWarning() << Q_FUNC_INFO << "Wrong number of security objects found." << securityObjects.size();
+        return false;
+    }
+#endif
+    return true;
+}
+
+bool JsonDbOwner::setOwnerCapabilities(QString username, JsonDbPartition *partition)
+{
+    if (!jsondbSettings->enforceAccessControl()) {
+        setAllowAll(true);
+        return true;
+    }
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
+    struct passwd *pwd = ::getpwnam(username.toLocal8Bit());
+    if (!pwd) {
+        qWarning() << Q_FUNC_INFO << "pwd entry for" << username <<
+                      "not found" << strerror(errno);
+        return false;
+    }
+    return _setOwnerCapabilities (pwd, partition);
+#else
+    setAllowAll(true);
+    return true;
+#endif
+}
+
+bool JsonDbOwner::setOwnerCapabilities(uid_t uid, JsonDbPartition *partition)
+{
+    if (!jsondbSettings->enforceAccessControl()) {
+        setAllowAll(true);
+        return true;
+    }
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
+    struct passwd *pwd = ::getpwuid(uid);
+    if (!pwd) {
+        qWarning() << Q_FUNC_INFO << "pwd entry for" << uid <<
+                      "not found" << strerror(errno);
+        return false;
+    }
+    return _setOwnerCapabilities (pwd, partition);
+#else
+    setAllowAll(true);
+    return true;
+#endif
 }
 
 QT_END_NAMESPACE_JSONDB

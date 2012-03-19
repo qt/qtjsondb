@@ -58,7 +58,6 @@
 #ifdef Q_OS_UNIX
 #include <sys/socket.h>
 #include <pwd.h>
-#include <grp.h>
 #include <errno.h>
 #endif
 
@@ -347,87 +346,9 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
         }
 
         QScopedPointer<JsonDbOwner> owner(new JsonDbOwner(this));
-        struct passwd *pwd = ::getpwuid(peercred.uid);
-        if (!pwd) {
-            qWarning() << Q_FUNC_INFO << "pwd entry for" << peercred.uid <<
-                          "not found" << strerror(errno);
-            return 0;
-        }
-        QString username = QString::fromLocal8Bit(pwd->pw_name);
-        // OwnerId == username
-        owner->setOwnerId(username);
-
-        // Parse domain from username
-        // TODO: handle reverse domains like co.uk.foo, co.au.bar, co.nz.foo , .... correctly
-        QStringList domainParts = username.split(QLatin1Char('.'), QString::SkipEmptyParts);
-        if (domainParts.count() > 2)
-            owner->setDomain (domainParts.at(0)+QLatin1Char('.')+domainParts.at(1));
-        else
-            owner->setDomain(QStringLiteral("public"));
-        if (jsondbSettings->debug())
-            qDebug() << "username" << username << "uid" << peercred.uid << "domain set to" << owner->domain();
-
-        // Get capabilities from supplementary groups
-        if (peercred.uid) {
-            int ngroups = 128;
-            gid_t groups[128];
-            bool setOwner = false;
-            QJsonObject capabilities;
-            if (::getgrouplist(pwd->pw_name, pwd->pw_gid, groups, &ngroups) != -1) {
-                struct group *gr;
-                for (int i = 0; i < ngroups; i++) {
-                    gr = ::getgrgid(groups[i]);
-                    if (gr && ::strcasecmp (gr->gr_name, "identity") == 0)
-                        setOwner = true;
-                }
-                // Start from 1 to omit the primary group
-                for (int i = 1; i < ngroups; i++) {
-                    gr = ::getgrgid(groups[i]);
-                    QJsonArray value;
-                    if (!gr || ::strcasecmp (gr->gr_name, "identity") == 0)
-                        continue;
-                    if (setOwner)
-                        value.append(QJsonValue(QLatin1String("setOwner")));
-                    value.append(QJsonValue(QLatin1String("rw")));
-                    capabilities.insert(QString::fromLocal8Bit(gr->gr_name), value);
-                    if (jsondbSettings->debug())
-                        qDebug() << "Adding capability" << QString::fromLocal8Bit(gr->gr_name)
-                                 << "to user" << owner->ownerId() << "setOwner =" << setOwner;
-                }
-                if (ngroups)
-                    owner->setCapabilities(capabilities, mDefaultPartition);
-            } else {
-                qWarning() << Q_FUNC_INFO << owner->ownerId() << "belongs to too many groups (>128)";
-            }
-        } else {
-            // root can access all
-            owner->setAllowAll(true);
-            owner->setStorageQuota(-1);
-        }
-
-        // Read quota from security object
-        GetObjectsResult result = mDefaultPartition->getObjects(JsonDbString::kTypeStr, QString("Quota"));
-        JsonDbObjectList securityObjects;
-        for (int i = 0; i < result.data.size(); i++) {
-            JsonDbObject doc = result.data.at(i);
-            if (doc.value(JsonDbString::kTokenStr).toString() == username)
-                securityObjects.append(doc);
-        }
-        if (securityObjects.size() == 1) {
-            QJsonObject securityObject = securityObjects.at(0);
-            QJsonObject capabilities = securityObject.value("capabilities").toObject();
-            QStringList keys = capabilities.keys();
-            if (keys.contains("quotas")) {
-                QJsonObject quotas = capabilities.value("quotas").toObject();
-                int storageQuota = quotas.value("storage").toDouble();
-                owner->setStorageQuota(storageQuota);
-            }
-        } else if (!securityObjects.isEmpty()) {
-            qWarning() << Q_FUNC_INFO << "Wrong number of security objects found." << securityObjects.size();
-            return 0;
-        }
-
-        mOwners[stream->device()] = owner.take();
+        if (owner->setOwnerCapabilities (peercred.uid, mDefaultPartition))
+            mOwners[stream->device()] = owner.take();
+        else return 0;
     }
 #else
     // security hole

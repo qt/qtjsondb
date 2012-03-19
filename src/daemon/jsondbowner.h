@@ -51,9 +51,11 @@
 #include "jsondbquery.h"
 #include "jsondbobject.h"
 
+
 QT_BEGIN_HEADER
 
 class TestJsonDb;
+struct passwd;
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -78,6 +80,8 @@ public:
     bool isAllowed(JsonDbObject &object, const QString &partition, const QString &op) const;
     int storageQuota() const { return mStorageQuota; }
     void setStorageQuota(int storageQuota) { mStorageQuota = storageQuota; }
+    bool setOwnerCapabilities(uid_t uid, JsonDbPartition *partition);
+    bool setOwnerCapabilities(QString username, JsonDbPartition *partition);
 
 private:
     QString mOwnerId; // from security object
@@ -87,6 +91,7 @@ private:
     int mStorageQuota;
     bool mAllowAll;
     friend class ::TestJsonDb;
+    bool _setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *partition);
 };
 
 QT_END_NAMESPACE_JSONDB

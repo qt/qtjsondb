@@ -266,6 +266,10 @@ void TestJsonDbClient::initTestCase()
                            QLatin1String("[?%owner startsWith \"com.my.domain\"][?_type startsWith \"com.my.domain\"]") <<
                            QLatin1String("[?_type = \"_schemaType\"]") <<
                            QLatin1String("[?_type = \"Index\"]") <<
+                           QLatin1String("[?_type = \"Partition\"]") <<
+                           QLatin1String("[?_type = \"Phone\"]") <<
+                           QLatin1String("[?_type = \"Contact\"]") <<
+                           QLatin1String("[?_type = \"Reduce\"]") <<
                            QLatin1String("[?_type = \"Map\"]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         QVariantMap set_owner_rule;
@@ -276,9 +280,9 @@ void TestJsonDbClient::initTestCase()
         access_rules.insert(QLatin1String("setOwner"), set_owner_rule);
         capa_obj.insert(QLatin1String("accessRules"), access_rules);
         connectToServer();
-        qDebug() << "Creating: " << capa_obj;
         int id = mClient->create(capa_obj);
         waitForResponse1(id);
+
         capa_obj.clear();
         capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
         capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
@@ -293,7 +297,32 @@ void TestJsonDbClient::initTestCase()
                            QLatin1String("[?%owner startsWith %typeDomain]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         capa_obj.insert(QLatin1String("accessRules"), access_rules);
-        qDebug() << "Creating: " << capa_obj;
+        id = mClient->create(capa_obj);
+        waitForResponse1(id);
+
+        capa_obj.clear();
+        capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
+        capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("com.example.autotest.Partition1"));
+        access_rules.clear();
+        rw_rule.clear();
+        rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
+        rw_rule.insert(QLatin1String("write"), (QStringList() << QLatin1String("[*]")));
+        access_rules.insert(QLatin1String("rw"), rw_rule);
+        capa_obj.insert(QLatin1String("accessRules"), access_rules);
+        id = mClient->create(capa_obj);
+        waitForResponse1(id);
+
+        capa_obj.clear();
+        capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
+        capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("com.example.autotest.Partition2"));
+        access_rules.clear();
+        rw_rule.clear();
+        rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
+        rw_rule.insert(QLatin1String("write"), (QStringList() << QLatin1String("[*]")));
+        access_rules.insert(QLatin1String("rw"), rw_rule);
+        capa_obj.insert(QLatin1String("accessRules"), access_rules);
         id = mClient->create(capa_obj);
         waitForResponse1(id);
 
@@ -1248,7 +1277,7 @@ void TestJsonDbClient::mapNotification()
     toDelete.remove(firstItem.value("_uuid").toString());
 
     int id = mClient->remove(firstItem);
-    waitForResponse4(id, -1, uuid, 3);
+    waitForResponse4(id, -1, uuid, 2);
 
     mClient->unregisterNotification(uuid);
 

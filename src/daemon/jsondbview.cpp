@@ -158,9 +158,8 @@ void JsonDbView::createMapDefinition(QJsonObject mapDefinition)
     if (jsondbSettings->verbose())
         qDebug() << "createMapDefinition" << uuid << targetType << "{";
 
-    // FIXME: need to get capabilities even when the owner isn't connected
     JsonDbOwner *owner = new JsonDbOwner(this);
-    owner->setOwnerId(mapDefinition.value(JsonDbString::kOwnerStr).toString());
+    owner->setOwnerCapabilities(mapDefinition.value(JsonDbString::kOwnerStr).toString(), mPartition);
     JsonDbMapDefinition *def = new JsonDbMapDefinition(owner, mPartition, mapDefinition, this);
     QStringList sourceTypes = def->sourceTypes();
     for (int i = 0; i < sourceTypes.size(); i++) {
@@ -211,7 +210,7 @@ void JsonDbView::createReduceDefinition(QJsonObject reduceDefinition)
         qDebug() << "createReduceDefinition" << sourceType << targetType << sourceType << "{";
 
     JsonDbOwner *owner = new JsonDbOwner(this);
-    owner->setOwnerId(reduceDefinition.value(JsonDbString::kOwnerStr).toString());
+    owner->setOwnerCapabilities(reduceDefinition.value(JsonDbString::kOwnerStr).toString(), mPartition);
     JsonDbReduceDefinition *def = new JsonDbReduceDefinition(owner, mPartition, reduceDefinition, this);
     if (mReduceDefinitionsBySource.contains(sourceType)) {
         def->setError(QString("Duplicate Reduce definition on source %1 and target %2")
