@@ -842,7 +842,14 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
     int indexedQueryTermCount = 0;
     JsonDbObjectTable *table = mObjectTable; //TODO fix me
     JsonDbView *view = 0;
+    QList<QString> unindexablePropertyNames; // fields for which we cannot use an index
     if (orQueryTerms.size()) {
+        // first pass to find unindexable property names
+        for (int i = 0; i < orQueryTerms.size(); i++)
+            unindexablePropertyNames.append(orQueryTerms[i].findUnindexablePropertyNames());
+        if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
+            qDebug() << "unindexable property names due to notExists usage" << unindexablePropertyNames;
+
         for (int i = 0; i < orQueryTerms.size(); i++) {
             const OrQueryTerm orQueryTerm = orQueryTerms[i];
             const QList<QString> &querypropertyNames = orQueryTerm.propertyNames();
@@ -861,7 +868,9 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
 
                 if (table->indexSpec(propertyName))
                     indexedQueryTermCount++;
-                else if (indexCandidate.isEmpty() && (propertyName != JsonDbString::kTypeStr)) {
+                else if (indexCandidate.isEmpty()
+                         && (propertyName != JsonDbString::kTypeStr)
+                         && !unindexablePropertyNames.contains(propertyName)) {
                     indexCandidate = propertyName;
                     if (!queryTerm.joinField().isEmpty())
                         indexCandidate = queryTerm.joinPaths()[0].join("->");
@@ -930,6 +939,12 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
             residualQuery->orderTerms.append(orderTerm);
             continue;
         }
+        if (unindexablePropertyNames.contains(propertyName)) {
+            if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
+                qDebug() << "Unindexable sort term uses notExists" << propertyName << orderTerm.ascending;
+            residualQuery->orderTerms.append(orderTerm);
+            continue;
+        }
         if (!indexQuery) {
             orderField = propertyName;
             const IndexSpec *indexSpec = table->indexSpec(propertyName);
@@ -970,7 +985,10 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
                 continue;
             }
 
-            if (!indexQuery && (propertyName != JsonDbString::kTypeStr) && table->indexSpec(propertyName)) {
+            if (!indexQuery
+                && (propertyName != JsonDbString::kTypeStr)
+                && table->indexSpec(propertyName)
+                && !unindexablePropertyNames.contains(propertyName)) {
                 orderField = propertyName;
                 const IndexSpec *indexSpec = table->indexSpec(propertyName);
                 if (view)

@@ -149,6 +149,7 @@ public:
     const QList<QueryTerm> &terms() const { return mTerms; }
     void addTerm(const QueryTerm &term) { mTerms.append(term); }
     QList<QString> propertyNames() const;
+    QList<QString> findUnindexablePropertyNames() const;
 private:
     QList<QueryTerm> mTerms;
 };

@@ -41,6 +41,12 @@
 \row
 \li \c {[?name exists][/_type]}
 \li All objects with a "name" field in the database, sorted by _type.
+\li \c {[?name notExists][/_type]}
+\li All objects not containing a "name" field in the database, sorted by _type.
+
+Note that this constraint precludes the use of an index on the "name"
+field, because only objects containing a "name" property will appear
+in the index on "name".
 \row
 \li \c {[?name = %thename ][/_type]}
 \li All objects from the database where the "name" field is the same as the

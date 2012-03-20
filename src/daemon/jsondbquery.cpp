@@ -615,6 +615,18 @@ QList<QString> OrQueryTerm::propertyNames() const
     return propertyNames;
 }
 
+QList<QString> OrQueryTerm::findUnindexablePropertyNames() const
+{
+  QList<QString> unindexablePropertyNames;
+    foreach (const QueryTerm &term, mTerms) {
+        const QString propertyName = term.propertyName();
+        const QString op = term.op();
+        if (op == QLatin1String("notExists") && !unindexablePropertyNames.contains(propertyName))
+            unindexablePropertyNames.append(propertyName);
+    }
+    return unindexablePropertyNames;
+}
+
 OrderTerm::OrderTerm()
 {
 }

@@ -312,6 +312,34 @@ void TestJsonDbQueries::queryFieldNotExists()
     QCOMPARE(queryResult.data.size(),
              mDataStats["num-bunnies"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
+
+    // verify can use notExists on an indexed field
+    JsonDbObject index;
+    index.insert("_type", QString("Index"));
+    index.insert("propertyName", QString("color"));
+    index.insert("propertyType", QString("string"));
+    verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
+
+    // notExists on an indexed field will choose a different sortKey
+    queryResult = find(mOwner, QLatin1String("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"]"));
+    QVERIFY(!queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QCOMPARE(queryResult.data.size(),
+             mDataStats["num-bunnies"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
+
+    // notExists on an indexed field will choose a different sortKey, even if we try to force it
+    queryResult = find(mOwner, QLatin1String("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"][/color]"));
+    QVERIFY(!queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QCOMPARE(queryResult.data.size(),
+             mDataStats["num-bunnies"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
+
+    // exists on an indexed field will choose the field as sortKey
+    queryResult = find(mOwner, QLatin1String("[?color exists][? _type = \"bunny\" | _type=\"dragon\"]"));
+    QVERIFY(queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QCOMPARE(queryResult.data.size(),
+             mDataStats["num-dragons"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
 }
 
 void TestJsonDbQueries::queryLessThan()
