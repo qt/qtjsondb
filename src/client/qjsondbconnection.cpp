@@ -49,6 +49,7 @@
 #include <qcoreevent.h>
 #include <qtimer.h>
 #include <qjsonarray.h>
+#include <qthreadstorage.h>
 
 /*!
     \macro QT_USE_NAMESPACE_JSONDB
@@ -100,8 +101,7 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-QJsonDbConnection *QJsonDbConnectionPrivate::defaultConnection = 0;
-Q_GLOBAL_STATIC(QJsonDbConnection, _q_defaultConnection)
+Q_GLOBAL_STATIC(QThreadStorage<QJsonDbConnection *>, _q_defaultConnection);
 
 /*!
     \class QJsonDbConnection
@@ -702,31 +702,33 @@ bool QJsonDbConnection::removeWatcher(QJsonDbWatcher *watcher)
 /*!
     \nonreentrant
 
-    Sets the global default jsondb connection to \a connection.
-
-    \warning In a multithreaded application, the default connection should be
-    set on application startup, before any threads that use jsondb are created.
+    Sets the default jsondb connection for the current thread to \a connection.
+    This transfers ownership of \a connection to QtJsonDb, it will be deleted
+    on thread exit, or on the next call to setDefaultConnection().
 
     \sa QJsonDbConnection::defaultConnection()
 */
 void QJsonDbConnection::setDefaultConnection(QJsonDbConnection *connection)
 {
-    QJsonDbConnectionPrivate::defaultConnection = connection;
+    _q_defaultConnection()->setLocalData(connection);
 }
 
 /*!
-    Returns the default jsondb connection object.
-
-    \warning This function is thread-safe, however the QJsonDbConnection object
-    is not.
+    Returns the default jsondb connection object for the current thread. If no
+    connection has been set for the current thread with setDefaultConnection(),
+    a new connection is created.
 
     \sa QJsonDbConnection::setDefaultConnection()
 */
 QJsonDbConnection *QJsonDbConnection::defaultConnection()
 {
-    if (QJsonDbConnectionPrivate::defaultConnection)
-        return QJsonDbConnectionPrivate::defaultConnection;
-    return _q_defaultConnection();
+    QThreadStorage<QJsonDbConnection *> *storage = _q_defaultConnection();
+    QJsonDbConnection *defaultConnection = storage->localData();
+    if (!defaultConnection) {
+        defaultConnection = new QJsonDbConnection;
+        storage->setLocalData(defaultConnection);
+    }
+    return defaultConnection;
 }
 
 /*!
