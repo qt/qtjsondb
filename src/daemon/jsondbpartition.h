@@ -197,6 +197,8 @@ protected:
     bool checkNaturalObjectType(const JsonDbObject &object, QString &errorMsg);
 
     JsonDbError::ErrorCode checkBuiltInTypeValidity(const JsonDbObject &object, const JsonDbObject &oldObject, QString &errorMsg);
+    JsonDbError::ErrorCode checkBuiltInTypeAccessControl(bool forCreation, const JsonDbOwner *owner, const JsonDbObject &object,
+                                                         const JsonDbObject &oldObject, QString &errorMsg);
     void updateBuiltInTypes(const JsonDbObject &object, const JsonDbObject &oldObject);
     void setSchema(const QString &schemaName, const QJsonObject &schema);
     void removeSchema(const QString &schemaName);

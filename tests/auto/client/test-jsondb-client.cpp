@@ -267,7 +267,7 @@ void TestJsonDbClient::initTestCase()
                            QLatin1String("[?_type = \"_schemaType\"]") <<
                            QLatin1String("[?_type = \"Index\"]") <<
                            QLatin1String("[?_type = \"Partition\"]") <<
-                           QLatin1String("[?_type = \"Phone\"]") <<
+                           QLatin1String("[?_type startsWith \"Phone\"]") <<
                            QLatin1String("[?_type = \"Contact\"]") <<
                            QLatin1String("[?_type = \"Reduce\"]") <<
                            QLatin1String("[?_type = \"Map\"]")));

@@ -1,0 +1,24 @@
+[
+  {
+    "_type": "Capability",
+    "name": "views",
+    "partition": "all",
+    "accessRules": {
+      "rw": {
+            "read": ["[?_type startsWith \"Phone\"]", "[?_type = \"Contact\"]", "[?_type = \"_schemaType\"]", "[?_type = \"Map\"]", "[?_type = \"Reduce\"]"],
+            "write": ["[?_type startsWith \"Phone\"]", "[?_type = \"Contact\"]", "[?_type = \"_schemaType\"]", "[?_type = \"Map\"]", "[?_type = \"Reduce\"]"]
+      }
+    }
+  },
+{
+  "_type": "Capability",
+  "name": "noviews",
+  "partition": "all",
+  "accessRules": {
+    "rw": {
+          "read": ["[?_type = \"Contact\"]", "[?_type = \"_schemaType\"]", "[?_type = \"Map\"]", "[?_type = \"Reduce\"]"],
+      "write": ["[?_type = \"Contact\"]", "[?_type = \"_schemaType\"]", "[?_type = \"Map\"]", "[?_type = \"Reduce\"]", "[?_type = \"PhoneCount3\"]"]
+    }
+  }
+}
+]

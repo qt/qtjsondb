@@ -1336,6 +1336,10 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
                 result.code = JsonDbError::InvalidSchemaOperation;
                 result.message = errorMsg;
                 return result;
+            } else if ((errorCode = checkBuiltInTypeAccessControl(forCreation, owner, master, oldMaster, errorMsg)) != JsonDbError::NoError) {
+                result.code = errorCode;
+                result.message = errorMsg;
+                return result;
             }
         }
 
@@ -1537,6 +1541,70 @@ bool JsonDbPartition::checkNaturalObjectType(const JsonDbObject &object, QString
     }
 
     return true;
+}
+
+JsonDbError::ErrorCode JsonDbPartition::checkBuiltInTypeAccessControl(bool forCreation, const JsonDbOwner *owner, const JsonDbObject &object, const JsonDbObject &oldObject, QString &errorMsg)
+{
+    QString objectType = object.value(JsonDbString::kTypeStr).toString();
+    errorMsg.clear();
+
+    // Access control checks
+    if (objectType == JsonDbString::kMapTypeStr ||
+            objectType == JsonDbString::kReduceTypeStr) {
+        // Check that owner can write targetType
+        QJsonValue targetType = object.value(QLatin1String("targetType"));
+        JsonDbObject fake; // Just for access control
+        fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
+        fake.insert (JsonDbString::kTypeStr, targetType);
+        if (!owner->isAllowed(fake, mPartitionName, "write")) {
+            errorMsg = QString::fromLatin1("Access denied %1").arg(targetType.toString());
+            return JsonDbError::OperationNotPermitted;
+        }
+        bool forRemoval = object.isDeleted();
+
+        // For removal it is enough to be able to write to targetType
+        if (!forRemoval) {
+            if (!forCreation) {
+                // In update we want to check also the old targetType
+                QJsonValue oldTargetType = oldObject.value(QLatin1String("targetType"));
+                fake.insert (JsonDbString::kTypeStr, oldTargetType);
+                if (!owner->isAllowed(fake, mPartitionName, "write")) {
+                    errorMsg = QString::fromLatin1("Access denied %1").arg(oldTargetType.toString());
+                    return JsonDbError::OperationNotPermitted;
+                }
+            }
+            // For create/update we need to check the read acces to sourceType(s) also
+            if (objectType == JsonDbString::kMapTypeStr) {
+                QScopedPointer<JsonDbMapDefinition> def(new JsonDbMapDefinition(owner, this, object));
+                QStringList sourceTypes = def->sourceTypes();
+                for (int i = 0; i < sourceTypes.size(); i++) {
+                    fake.insert (JsonDbString::kTypeStr, sourceTypes[i]);
+                    if (!owner->isAllowed(fake, mPartitionName, "read")) {
+                        errorMsg = QString::fromLatin1("Access denied %1").arg(sourceTypes[i]);
+                        return JsonDbError::OperationNotPermitted;
+                    }
+                }
+            } else if (objectType == JsonDbString::kReduceTypeStr) {
+                QJsonValue sourceType = object.value(QLatin1String("sourceType"));
+                fake.insert (JsonDbString::kTypeStr, sourceType);
+                if (!owner->isAllowed(fake, mPartitionName, "read")) {
+                    errorMsg = QString::fromLatin1("Access denied %1").arg(sourceType.toString());
+                    return JsonDbError::OperationNotPermitted;
+                }
+            }
+        }
+    } else if (objectType == JsonDbString::kSchemaTypeStr) {
+        // Check that owner can write name
+        QJsonValue name = object.value(QLatin1String("name"));
+        JsonDbObject fake; // Just for access control
+        fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
+        fake.insert (JsonDbString::kTypeStr, name);
+        if (!owner->isAllowed(fake, mPartitionName, "write")) {
+            errorMsg = QString::fromLatin1("Access denied %1").arg(name.toString());
+            return JsonDbError::OperationNotPermitted;
+        }
+    }
+    return JsonDbError::NoError;
 }
 
 JsonDbError::ErrorCode JsonDbPartition::checkBuiltInTypeValidity(const JsonDbObject &object, const JsonDbObject &oldObject, QString &errorMsg)

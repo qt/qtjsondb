@@ -159,7 +159,7 @@ void JsonDbView::createMapDefinition(QJsonObject mapDefinition)
         qDebug() << "createMapDefinition" << uuid << targetType << "{";
 
     JsonDbOwner *owner = new JsonDbOwner(this);
-    owner->setOwnerCapabilities(mapDefinition.value(JsonDbString::kOwnerStr).toString(), mPartition);
+    owner->setAllowAll(true);
     JsonDbMapDefinition *def = new JsonDbMapDefinition(owner, mPartition, mapDefinition, this);
     QStringList sourceTypes = def->sourceTypes();
     for (int i = 0; i < sourceTypes.size(); i++) {
@@ -210,7 +210,7 @@ void JsonDbView::createReduceDefinition(QJsonObject reduceDefinition)
         qDebug() << "createReduceDefinition" << sourceType << targetType << sourceType << "{";
 
     JsonDbOwner *owner = new JsonDbOwner(this);
-    owner->setOwnerCapabilities(reduceDefinition.value(JsonDbString::kOwnerStr).toString(), mPartition);
+    owner->setAllowAll(true);
     JsonDbReduceDefinition *def = new JsonDbReduceDefinition(owner, mPartition, reduceDefinition, this);
     if (mReduceDefinitionsBySource.contains(sourceType)) {
         def->setError(QString("Duplicate Reduce definition on source %1 and target %2")
