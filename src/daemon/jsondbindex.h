@@ -56,6 +56,7 @@
 #include "jsondb-global.h"
 #include "jsondbobjectkey.h"
 #include "jsondbbtree.h"
+#include "jsondbbtree.h"
 #include "jsondbcollator.h"
 
 QT_BEGIN_HEADER
@@ -71,7 +72,8 @@ class JsonDbIndex : public QObject
 public:
     JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
                 const QString &propertyType, const QString &locale, const QString &collation,
-                Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable);
+                const QString &casePreference, Qt::CaseSensitivity caseSensitivity,
+                JsonDbObjectTable *objectTable);
     ~JsonDbIndex();
 
     QString propertyName() const { return mPropertyName; }
@@ -115,6 +117,7 @@ private:
     QString mPropertyType;
     QString mLocale;
     QString mCollation;
+    QString mCasePreference;
     Qt::CaseSensitivity mCaseSensitivity;
 #ifndef NO_COLLATION_SUPPORT
     JsonDbCollator mCollator;
@@ -131,6 +134,7 @@ class JsonDbIndexCursor
 {
 public:
     JsonDbIndexCursor(JsonDbIndex *index);
+    ~JsonDbIndexCursor();
 
     bool seek(const QJsonValue &value);
     bool seekRange(const QJsonValue &value);
@@ -143,6 +147,7 @@ public:
     bool prev();
 
 private:
+    JsonDbBtree::Transaction *mTxn;
     JsonDbBtree::Cursor mCursor;
     JsonDbIndex *mIndex;
 
@@ -157,6 +162,7 @@ public:
     QString propertyType;
     QString locale;
     QString collation;
+    QString casePreference;
     Qt::CaseSensitivity caseSensitivity;
     QString objectType;
     bool    lazy;

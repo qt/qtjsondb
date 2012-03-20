@@ -1,17 +1,17 @@
 [
 {
     "_type": "_schemaType",
-    "name": "TestView",
+    "name": "com.test.TestView",
     "schema": {
         "type": "object",
-        "extends": "View"
+        "extends": {"$ref": "View" }
     }
 },
 {
     "_type": "Map",
-    "targetType": "TestView",
+    "targetType": "com.test.TestView",
     "map": {
-        "Test": "function(test) { jsondb.emit({result: [10, true, \"hello\",null]}) }"
+        "com.test.Test": "function(test) { jsondb.emit({result: [10, true, \"hello\",null]}) }"
     }
 }
 ]

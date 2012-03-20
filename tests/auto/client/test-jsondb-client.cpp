@@ -100,6 +100,7 @@ private slots:
     void index();
 
     void registerNotification();
+    void notify_data();
     void notify();
     void notifyUpdate();
     void notifyViaCreate();
@@ -265,6 +266,10 @@ void TestJsonDbClient::initTestCase()
                            QLatin1String("[?%owner startsWith \"com.my.domain\"][?_type startsWith \"com.my.domain\"]") <<
                            QLatin1String("[?_type = \"_schemaType\"]") <<
                            QLatin1String("[?_type = \"Index\"]") <<
+                           QLatin1String("[?_type = \"Partition\"]") <<
+                           QLatin1String("[?_type = \"Phone\"]") <<
+                           QLatin1String("[?_type = \"Contact\"]") <<
+                           QLatin1String("[?_type = \"Reduce\"]") <<
                            QLatin1String("[?_type = \"Map\"]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         QVariantMap set_owner_rule;
@@ -275,9 +280,9 @@ void TestJsonDbClient::initTestCase()
         access_rules.insert(QLatin1String("setOwner"), set_owner_rule);
         capa_obj.insert(QLatin1String("accessRules"), access_rules);
         connectToServer();
-        qDebug() << "Creating: " << capa_obj;
         int id = mClient->create(capa_obj);
         waitForResponse1(id);
+
         capa_obj.clear();
         capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
         capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
@@ -292,7 +297,32 @@ void TestJsonDbClient::initTestCase()
                            QLatin1String("[?%owner startsWith %typeDomain]")));
         access_rules.insert(QLatin1String("rw"), rw_rule);
         capa_obj.insert(QLatin1String("accessRules"), access_rules);
-        qDebug() << "Creating: " << capa_obj;
+        id = mClient->create(capa_obj);
+        waitForResponse1(id);
+
+        capa_obj.clear();
+        capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
+        capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("com.example.autotest.Partition1"));
+        access_rules.clear();
+        rw_rule.clear();
+        rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
+        rw_rule.insert(QLatin1String("write"), (QStringList() << QLatin1String("[*]")));
+        access_rules.insert(QLatin1String("rw"), rw_rule);
+        capa_obj.insert(QLatin1String("accessRules"), access_rules);
+        id = mClient->create(capa_obj);
+        waitForResponse1(id);
+
+        capa_obj.clear();
+        capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
+        capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("com.example.autotest.Partition2"));
+        access_rules.clear();
+        rw_rule.clear();
+        rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
+        rw_rule.insert(QLatin1String("write"), (QStringList() << QLatin1String("[*]")));
+        access_rules.insert(QLatin1String("rw"), rw_rule);
+        capa_obj.insert(QLatin1String("accessRules"), access_rules);
         id = mClient->create(capa_obj);
         waitForResponse1(id);
 
@@ -793,21 +823,31 @@ void TestJsonDbClient::index()
     waitForResponse1(id);
 }
 
+void TestJsonDbClient::notify_data()
+{
+    QTest::addColumn<QString>("partition");
+
+    QTest::newRow("persistent") << "";
+    QTest::newRow("ephemeral") << "Ephemeral";
+}
+
 void TestJsonDbClient::notify()
 {
     int id = 400;
 
+    QFETCH(QString, partition);
+
     // Create a notification object
     JsonDbClient::NotifyTypes actions = JsonDbClient::NotifyCreate|JsonDbClient::NotifyUpdate|JsonDbClient::NotifyRemove;
     const QString query = "[?_type=\"com.test.notify-test\"]";
-    QString notifyUuid = addNotification(actions, query);
+    QString notifyUuid = addNotification(actions, query, partition);
 
     // Create a notify-test object
     QVariantMap object;
     object.insert("_type","com.test.notify-test");
     object.insert("name","test1");
     mNotifications.clear();
-    id = mClient->create(object);
+    id = mClient->create(object, partition);
     waitForResponse4(id, -1, notifyUuid, 1);
     QVariant uuid = mData.toMap().value("_uuid");
     QString version = mData.toMap().value("_version").toString();
@@ -821,7 +861,7 @@ void TestJsonDbClient::notify()
     object.insert("_uuid",uuid);
     object.insert("_version", version);
     object.insert("name","test2");
-    id = mClient->update(object);
+    id = mClient->update(object, partition);
     waitForResponse4(id, -1, notifyUuid, 1);
 
     QCOMPARE(mNotifications.size(), 1);
@@ -830,7 +870,7 @@ void TestJsonDbClient::notify()
     QCOMPARE(n.mAction, QLatin1String("update"));
 
     // Remove the notify-test object
-    id = mClient->remove(object);
+    id = mClient->remove(object, partition);
     waitForResponse4(id, -1, notifyUuid, 1);
 
     QCOMPARE(mNotifications.size(), 1);
@@ -994,7 +1034,6 @@ void TestJsonDbClient::registerNotification()
     mClient->unregisterNotification(notifyUuid);
 }
 
-
 static const char *rbnames[] = { "Fred", "Joe", "Sam", NULL };
 
 void TestJsonDbClient::notifyRemoveBatch()
@@ -1138,15 +1177,8 @@ void TestJsonDbClient::remove()
     QVERIFY(mData.toMap().contains("length"));
     QCOMPARE(mData.toMap().value("length").toInt(), 3);
 
-
-    // remove a list of items
-    QVariantList toDelete;
-    foreach (const QVariant &res, mData.toMap().value("data").toList()) {
-        if (res.toMap().value(QLatin1String("foo")).toInt() >= 63)
-            toDelete.append(res);
-    }
-
-    id = mClient->remove(toDelete);
+    // Remove two items using query
+    id = mClient->remove(QString::fromLatin1("[?_type=\"com.test.remove-test\"][?foo >= 63]"));
     waitForResponse1(id);
     QVERIFY(mData.toMap().contains("count"));
     QCOMPARE(mData.toMap().value("count").toInt(), 2);
@@ -1245,7 +1277,7 @@ void TestJsonDbClient::mapNotification()
     toDelete.remove(firstItem.value("_uuid").toString());
 
     int id = mClient->remove(firstItem);
-    waitForResponse4(id, -1, uuid, 3);
+    waitForResponse4(id, -1, uuid, 2);
 
     mClient->unregisterNotification(uuid);
 

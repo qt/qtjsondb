@@ -140,6 +140,12 @@ QJsonDbWatcherPrivate::QJsonDbWatcherPrivate(QJsonDbWatcher *q)
     be retrieved using \l{QJsonDbWatcher::lastStateNumber}{lastStateNumber}
     property.
 
+    If the query matches a view type, then registering the watcher
+    will also trigger an update of the view, if the view has not been
+    updated to a state later than
+    \l{QJsonDbWatcher::initialStateNumber}{initialStateNumber}, or the
+    current state, if no state number is specified.
+
     QJsonDbWatcher should be registered within the database connection with
     QJsonDbConnection::addWatcher() function and only starts receiving database
     change notifications after it was successfully registered and

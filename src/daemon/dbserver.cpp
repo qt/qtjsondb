@@ -58,7 +58,6 @@
 #ifdef Q_OS_UNIX
 #include <sys/socket.h>
 #include <pwd.h>
-#include <grp.h>
 #include <errno.h>
 #endif
 
@@ -116,7 +115,9 @@ DBServer::DBServer(const QString &filePath, const QString &baseName, QObject *pa
     if (mFilePath.isEmpty())
         mFilePath = QDir::currentPath();
     if (mBaseName.isEmpty())
-        mBaseName = QLatin1String("default");
+        mBaseName = QLatin1String("default.System");
+    if (!mBaseName.endsWith(QLatin1String(".System")))
+        mBaseName += QLatin1String(".System");
 
     QDir(mFilePath).mkpath(QString("."));
 
@@ -316,11 +317,10 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
 {
     QIODevice *device = stream->device();
 
-    if (!jsondbSettings->enforceAccessControl()) {
+    if (!(jsondbSettings->enforceAccessControl() || mOwners.contains(stream->device()))) {
         // We are not enforcing policies here, allow requests
         // from all applications.
-        // ### TODO: We will have to remove this afterwards
-        return createDummyOwner(stream);
+        mOwners[device] = createDummyOwner(stream);
     }
 
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
@@ -346,87 +346,9 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
         }
 
         QScopedPointer<JsonDbOwner> owner(new JsonDbOwner(this));
-        struct passwd *pwd = ::getpwuid(peercred.uid);
-        if (!pwd) {
-            qWarning() << Q_FUNC_INFO << "pwd entry for" << peercred.uid <<
-                          "not found" << strerror(errno);
-            return 0;
-        }
-        QString username = QString::fromLocal8Bit(pwd->pw_name);
-        // OwnerId == username
-        owner->setOwnerId(username);
-
-        // Parse domain from username
-        // TODO: handle reverse domains like co.uk.foo, co.au.bar, co.nz.foo , .... correctly
-        QStringList domainParts = username.split(QLatin1Char('.'), QString::SkipEmptyParts);
-        if (domainParts.count() > 2)
-            owner->setDomain (domainParts.at(0)+QLatin1Char('.')+domainParts.at(1));
-        else
-            owner->setDomain(QStringLiteral("public"));
-        if (jsondbSettings->debug())
-            qDebug() << "username" << username << "uid" << peercred.uid << "domain set to" << owner->domain();
-
-        // Get capabilities from supplementary groups
-        if (peercred.uid) {
-            int ngroups = 128;
-            gid_t groups[128];
-            bool setOwner = false;
-            QJsonObject capabilities;
-            if (::getgrouplist(pwd->pw_name, pwd->pw_gid, groups, &ngroups) != -1) {
-                struct group *gr;
-                for (int i = 0; i < ngroups; i++) {
-                    gr = ::getgrgid(groups[i]);
-                    if (gr && ::strcasecmp (gr->gr_name, "identity") == 0)
-                        setOwner = true;
-                }
-                // Start from 1 to omit the primary group
-                for (int i = 1; i < ngroups; i++) {
-                    gr = ::getgrgid(groups[i]);
-                    QJsonArray value;
-                    if (!gr || ::strcasecmp (gr->gr_name, "identity") == 0)
-                        continue;
-                    if (setOwner)
-                        value.append(QJsonValue(QLatin1String("setOwner")));
-                    value.append(QJsonValue(QLatin1String("rw")));
-                    capabilities.insert(QString::fromLocal8Bit(gr->gr_name), value);
-                    if (jsondbSettings->debug())
-                        qDebug() << "Adding capability" << QString::fromLocal8Bit(gr->gr_name)
-                                 << "to user" << owner->ownerId() << "setOwner =" << setOwner;
-                }
-                if (ngroups)
-                    owner->setCapabilities(capabilities, mDefaultPartition);
-            } else {
-                qWarning() << Q_FUNC_INFO << owner->ownerId() << "belongs to too many groups (>128)";
-            }
-        } else {
-            // root can access all
-            owner->setAllowAll(true);
-            owner->setStorageQuota(-1);
-        }
-
-        // Read quota from security object
-        GetObjectsResult result = mDefaultPartition->getObjects(JsonDbString::kTypeStr, QString("Quota"));
-        JsonDbObjectList securityObjects;
-        for (int i = 0; i < result.data.size(); i++) {
-            JsonDbObject doc = result.data.at(i);
-            if (doc.value(JsonDbString::kTokenStr).toString() == username)
-                securityObjects.append(doc);
-        }
-        if (securityObjects.size() == 1) {
-            QJsonObject securityObject = securityObjects.at(0);
-            QJsonObject capabilities = securityObject.value("capabilities").toObject();
-            QStringList keys = capabilities.keys();
-            if (keys.contains("quotas")) {
-                QJsonObject quotas = capabilities.value("quotas").toObject();
-                int storageQuota = quotas.value("storage").toDouble();
-                owner->setStorageQuota(storageQuota);
-            }
-        } else if (!securityObjects.isEmpty()) {
-            qWarning() << Q_FUNC_INFO << "Wrong number of security objects found." << securityObjects.size();
-            return 0;
-        }
-
-        mOwners[stream->device()] = owner.take();
+        if (owner->setOwnerCapabilities (peercred.uid, mDefaultPartition))
+            mOwners[stream->device()] = owner.take();
+        else return 0;
     }
 #else
     // security hole
@@ -551,17 +473,15 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
                 JsonDbNotification *n = it.value();
                 if (jsondbSettings->debug())
                     qDebug() << "Notification" << n->query() << n->actions();
-
-                objectUpdated(partition, stateNumber, n, action, oldObject, object);
+                objectUpdated(partitionName, stateNumber, n, action, oldObject, object);
             }
         }
     }
 }
 
-void DBServer::objectUpdated(JsonDbPartition *partition, quint32 stateNumber, JsonDbNotification *n,
+void DBServer::objectUpdated(const QString &partitionName, quint32 stateNumber, JsonDbNotification *n,
                              JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object)
 {
-    QString partitionName = partition->name();
     JsonDbNotification::Action effectiveAction = action;
     if (n->partition() == partitionName) {
         JsonDbObject r;
@@ -864,7 +784,6 @@ void DBServer::createNotification(const JsonDbObject &object, JsonStream *stream
                 } else if (term.propertyName() == JsonDbString::kTypeStr) {
                     QString objectType = term.value().toString();
                     mKeyedNotifications.insert(objectType, n);
-                    updateEagerViewTypes(objectType, mPartitions.value(partition, mDefaultPartition));
                     generic = false;
                     break;
                 }
@@ -876,6 +795,9 @@ void DBServer::createNotification(const JsonDbObject &object, JsonStream *stream
 
     mNotificationMap[uuid] = n;
     mNotifications[uuid] = stream;
+
+    foreach (const QString &objectType, parsedQuery->matchedTypes())
+        updateEagerViewTypes(objectType, mPartitions.value(partition, mDefaultPartition), stateNumber);
 
     if (stateNumber)
         notifyHistoricalChanges(n);
@@ -941,7 +863,7 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
             JsonDbObject oldObject;
             for (JsonDbObject o = indexQuery->first(); !o.isEmpty(); o = indexQuery->next()) {
                 JsonDbNotification::Action action = JsonDbNotification::Create;
-                objectUpdated(partition, stateNumber, n, action, oldObject, o);
+                objectUpdated(partition->name(), stateNumber, n, action, oldObject, o);
             }
         }
     } else {
@@ -960,7 +882,7 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
                 action = JsonDbNotification::Create;
             else if (after.contains(JsonDbString::kDeletedStr))
                 action = JsonDbNotification::Delete;
-            objectUpdated(partition, stateNumber, n, action, before, after);
+            objectUpdated(partition->name(), stateNumber, n, action, before, after);
         }
     }
     QJsonObject stateChange;
@@ -968,7 +890,7 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
     emit notified(n->uuid(), stateNumber, stateChange, "stateChange");
 }
 
-void DBServer::updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition)
+void DBServer::updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber)
 {
     // FIXME: eager view types should be broken down by partition
     JsonDbView *view = partition->findView(objectType);
@@ -977,8 +899,9 @@ void DBServer::updateEagerViewTypes(const QString &objectType, JsonDbPartition *
     foreach (const QString sourceType, view->sourceTypes()) {
         mEagerViewSourceTypes[sourceType].insert(objectType);
         // now recurse until we get to a non-view sourceType
-        updateEagerViewTypes(sourceType, partition);
+        updateEagerViewTypes(sourceType, partition, stateNumber);
     }
+    partition->updateView(objectType, stateNumber);
 }
 
 JsonDbPartition *DBServer::findPartition(const QString &partitionName)
@@ -1044,6 +967,21 @@ void DBServer::receiveMessage(const QJsonObject &message)
             writeMode = JsonDbPartition::ReplicatedWrite;
         else if (writeModeRequested == QLatin1String("replace") || !jsondbSettings->rejectStaleUpdates())
             writeMode = JsonDbPartition::ForcedWrite;
+
+        // TODO: remove at the same time that clientcompat is dropped
+        if (action == JsonDbString::kRemoveStr && object.toObject().contains(JsonDbString::kQueryStr)) {
+            JsonDbQuery *query = JsonDbQuery::parse(object.toObject().value(JsonDbString::kQueryStr).toString());
+            JsonDbQueryResult res;
+            if (partition)
+                res = partition->queryObjects(owner, query);
+            else
+                res = mEphemeralPartition->queryObjects(owner, query);
+
+            QJsonArray toRemove;
+            foreach (const QJsonValue &value, res.data)
+                toRemove.append(value);
+            object = toRemove;
+        }
 
         JsonDbObjectList toWrite = prepareWriteData(action, object);
 
@@ -1144,6 +1082,8 @@ void DBServer::removeConnection()
             owner->deleteLater();
         mOwners.remove(connection);
     }
+
+    connection->deleteLater();
 }
 
 #include "moc_dbserver.cpp"

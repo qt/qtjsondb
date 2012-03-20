@@ -472,11 +472,11 @@ void JsonDbPartition::removeView(const QString &viewType)
     mViews.remove(viewType);
 }
 
-void JsonDbPartition::updateView(const QString &objectType)
+void JsonDbPartition::updateView(const QString &objectType, quint32 stateNumber)
 {
     if (!mViews.contains(objectType))
         return;
-    mViews[objectType]->updateView();
+    mViews[objectType]->updateView(stateNumber);
 }
 
 bool JsonDbPartition::checkCanAddSchema(const JsonDbObject &schema, const JsonDbObject &oldSchema, QString &errorMsg)
@@ -699,19 +699,20 @@ void JsonDbPartition::initIndexes()
             QString propertyFunction = indexObject.value(JsonDbString::kPropertyFunctionStr).toString();
             QString locale = indexObject.value(JsonDbString::kLocaleStr).toString();
             QString collation = indexObject.value(JsonDbString::kCollationStr).toString();
-
+            QString casePreference = indexObject.value(JsonDbString::kCasePreferenceStr).toString();
             Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive;
             if (indexObject.contains(JsonDbString::kCaseSensitiveStr))
                 caseSensitivity = (indexObject.value(JsonDbString::kCaseSensitiveStr).toBool() == true ? Qt::CaseSensitive : Qt::CaseInsensitive);
 
-            addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation, caseSensitivity);
+            addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation, casePreference, caseSensitivity);
         }
     }
 }
 
 bool JsonDbPartition::addIndex(const QString &indexName, const QString &propertyName,
                                   const QString &propertyType, const QString &objectType, const QString &propertyFunction,
-                                  const QString &locale, const QString &collation, Qt::CaseSensitivity caseSensitivity)
+                                  const QString &locale, const QString &collation, const QString &casePreference,
+                                  Qt::CaseSensitivity caseSensitivity)
 {
     Q_ASSERT(!indexName.isEmpty());
     //qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
@@ -720,7 +721,7 @@ bool JsonDbPartition::addIndex(const QString &indexName, const QString &property
     if (indexSpec)
         return true;
     //if (gVerbose) qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
-    return table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation, caseSensitivity);
+    return table->addIndex(indexName, propertyName, propertyType, objectType, propertyFunction, locale, collation, casePreference, caseSensitivity);
 }
 
 bool JsonDbPartition::removeIndex(const QString &indexName, const QString &objectType)
@@ -1591,6 +1592,7 @@ void JsonDbPartition::updateBuiltInTypes(const JsonDbObject &object, const JsonD
                  object.value(JsonDbString::kPropertyFunctionStr).toString(),
                  object.value(JsonDbString::kLocaleStr).toString(),
                  object.value(JsonDbString::kCollationStr).toString(),
+                 object.value(JsonDbString::kCasePreferenceStr).toString(),
                  caseSensitivity == true ? Qt::CaseSensitive : Qt::CaseInsensitive);
     }
 

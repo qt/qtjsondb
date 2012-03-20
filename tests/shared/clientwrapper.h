@@ -130,9 +130,9 @@ public:
                 this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
     }
 
-    QString addNotification(JsonDbClient::NotifyTypes types, const QString &query) {
+    QString addNotification(JsonDbClient::NotifyTypes types, const QString &query, const QString &partition = QString()) {
         QEventLoop ev;
-        QString uuid = mClient->registerNotification(types, query, "", 0, 0, &ev, SLOT(quit()));
+        QString uuid = mClient->registerNotification(types, query, partition, 0, 0, &ev, SLOT(quit()));
         ev.exec();
         return uuid;
     }

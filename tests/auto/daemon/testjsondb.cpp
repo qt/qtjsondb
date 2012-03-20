@@ -227,6 +227,7 @@ private slots:
     void indexPropertyFunction();
     void indexCollation();
     void indexCaseSensitive();
+    void indexCasePreference();
 
     void settings();
 
@@ -2145,11 +2146,11 @@ void TestJsonDb::mapArrayConversion()
     }
 
     JsonDbObject testObject;
-    testObject.insert(JsonDbString::kTypeStr, QLatin1String("Test"));
+    testObject.insert(JsonDbString::kTypeStr, QLatin1String("com.test.Test"));
     JsonDbWriteResult result = create(mOwner, testObject);
     verifyGoodResult(result);
 
-    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"TestView\"]"));
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"com.test.TestView\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
     JsonDbObject o = queryResult.data.at(0);
@@ -3947,6 +3948,48 @@ void TestJsonDb::indexCaseSensitive()
     QCOMPARE(queryResult2.data.at(4).value("field").toString(), QLatin1String("Aab"));
     QCOMPARE(queryResult2.data.at(5).value("field").toString(), QLatin1String("Aba"));
     QCOMPARE(queryResult2.data.at(6).value("field").toString(), QLatin1String("aBB"));
+}
+
+void TestJsonDb::indexCasePreference()
+{
+#ifndef NO_COLLATION_SUPPORT
+    QJsonArray objects(readJsonFile(":/daemon/json/index-casepreference.json").toArray());
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+    }
+
+    JsonDbQueryResult queryResult1 = find(mOwner, QLatin1String("[?_type=\"IndexCasePreference\"][/casePreferenceIndex1]"));
+    QCOMPARE(queryResult1.data.size(), 7);
+    QCOMPARE(queryResult1.data.at(0).value("field").toString(), QLatin1String("aaa"));
+    QCOMPARE(queryResult1.data.at(1).value("field").toString(), QLatin1String("Aaa"));
+    QCOMPARE(queryResult1.data.at(2).value("field").toString(), QLatin1String("AAa"));
+    QCOMPARE(queryResult1.data.at(3).value("field").toString(), QLatin1String("AAA"));
+    QCOMPARE(queryResult1.data.at(4).value("field").toString(), QLatin1String("Aab"));
+    QCOMPARE(queryResult1.data.at(5).value("field").toString(), QLatin1String("Aba"));
+    QCOMPARE(queryResult1.data.at(6).value("field").toString(), QLatin1String("aBB"));
+
+    JsonDbQueryResult queryResult2 = find(mOwner, QLatin1String("[?_type=\"IndexCasePreference\"][/casePreferenceIndex2]"));    QCOMPARE(queryResult2.data.size(), 7);
+    QCOMPARE(queryResult2.data.at(0).value("field").toString(), QLatin1String("AAA"));
+    QCOMPARE(queryResult2.data.at(1).value("field").toString(), QLatin1String("AAa"));
+    QCOMPARE(queryResult2.data.at(2).value("field").toString(), QLatin1String("Aaa"));
+    QCOMPARE(queryResult2.data.at(3).value("field").toString(), QLatin1String("aaa"));
+    QCOMPARE(queryResult2.data.at(4).value("field").toString(), QLatin1String("Aab"));
+    QCOMPARE(queryResult2.data.at(5).value("field").toString(), QLatin1String("Aba"));
+    QCOMPARE(queryResult2.data.at(6).value("field").toString(), QLatin1String("aBB"));
+
+    JsonDbQueryResult queryResult3 = find(mOwner, QLatin1String("[?_type=\"IndexCasePreference\"][/casePreferenceIndex3]"));    QCOMPARE(queryResult3.data.size(), 7);
+    QCOMPARE(queryResult3.data.at(0).value("field").toString(), QLatin1String("aaa"));
+    QCOMPARE(queryResult3.data.at(1).value("field").toString(), QLatin1String("Aaa"));
+    QCOMPARE(queryResult3.data.at(2).value("field").toString(), QLatin1String("AAa"));
+    QCOMPARE(queryResult3.data.at(3).value("field").toString(), QLatin1String("AAA"));
+    QCOMPARE(queryResult3.data.at(4).value("field").toString(), QLatin1String("Aab"));
+    QCOMPARE(queryResult3.data.at(5).value("field").toString(), QLatin1String("Aba"));
+    QCOMPARE(queryResult3.data.at(6).value("field").toString(), QLatin1String("aBB"));
+#else
+    QSKIP("This test requires NO_COLLATION_SUPPORT is not defined!");
+#endif
 }
 
 void TestJsonDb::settings()

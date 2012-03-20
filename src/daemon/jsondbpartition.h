@@ -53,6 +53,7 @@
 #include "jsondbnotification.h"
 #include "jsondbowner.h"
 #include "jsondbstat.h"
+#include "jsondbindex.h"
 #include "jsondbschemamanager_p.h"
 #include "jsondbindexquery.h"
 #include "jsondbbtree.h"
@@ -66,7 +67,6 @@ QT_BEGIN_NAMESPACE_JSONDB
 class JsonDbBtree;
 class JsonDbOwner;
 class JsonDbObjectTable;
-class JsonDbIndex;
 class JsonDbIndexQuery;
 class JsonDbView;
 
@@ -120,6 +120,7 @@ public:
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
                   const QString &collation = QString(),
+                  const QString &casePreference = QString(),
                   Qt::CaseSensitivity caseSensitive = Qt::CaseSensitive);
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
@@ -169,7 +170,7 @@ public:
     static bool responseIsError(const QJsonObject &responseMap);
 
 public Q_SLOTS:
-    void updateView(const QString &objectType);
+    void updateView(const QString &objectType, quint32 stateNumber=0);
 
 Q_SIGNALS:
     void objectsUpdated(const JsonDbUpdateList &objects);
