@@ -927,19 +927,8 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
         if (!table->indexSpec(propertyName)) {
             if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
                 qDebug() << "Unindexed sort term" << propertyName << orderTerm.ascending;
-            if (0) {
-                if (jsondbSettings->verbose())
-                    qDebug() << "adding index for sort term" << propertyName;
-                Q_ASSERT(table);
-                //TODO: remove this
-                table->addIndexOnProperty(propertyName);
-                Q_ASSERT(table->indexSpec(propertyName));
-                if (jsondbSettings->verbose())
-                    qDebug() << "done adding index" << propertyName;
-            } else {
-                residualQuery->orderTerms.append(orderTerm);
-                continue;
-            }
+            residualQuery->orderTerms.append(orderTerm);
+            continue;
         }
         if (!indexQuery) {
             orderField = propertyName;
