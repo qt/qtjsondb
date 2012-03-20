@@ -908,6 +908,7 @@ void TestJsonDbClient::notifyUpdate()
 
     // Update the notify-test object
     // query no longer matches, so we should receive a "remove" notification even though it is an update
+    // this means it should not contain the _deleted property
     object.insert("_uuid",uuid);
     object.insert("_version", version);
     object.insert("filter","nomatch");
@@ -918,6 +919,7 @@ void TestJsonDbClient::notifyUpdate()
     n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
     QCOMPARE(n.mAction, QLatin1String("remove"));
+    QVERIFY(!n.mObject.toMap().contains(JsonDbString::kDeletedStr));
 
     // Remove the notify-test object
     id = mClient->remove(object);

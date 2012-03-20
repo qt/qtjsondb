@@ -498,7 +498,8 @@ void DBServer::objectUpdated(const QString &partitionName, quint32 stateNumber, 
                 effectiveAction = JsonDbNotification::Create;
             } else if (oldMatches && (!newMatches || object.isDeleted())) {
                 r = oldObject;
-                r.insert(JsonDbString::kDeletedStr, true);
+                if (object.isDeleted())
+                    r.insert(JsonDbString::kDeletedStr, true);
                 effectiveAction = JsonDbNotification::Delete;
             } else if (oldMatches && newMatches) {
                 effectiveAction = JsonDbNotification::Update;
