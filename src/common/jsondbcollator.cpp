@@ -148,7 +148,7 @@ void JsonDbCollator::init()
     Q_ASSERT((int)d->collation < collationStringsCount);
     const char *collationString = collationStrings[(int)d->collation];
     UErrorCode status = U_ZERO_ERROR;
-    QByteArray name = (d->locale.bcp47Name().replace(QLatin1Char('-'), QLatin1Char('_')) + QString("@collation=") + QLatin1String(collationString)).toLatin1();
+    QByteArray name = (d->locale.bcp47Name().replace(QLatin1Char('-'), QLatin1Char('_')) + QLatin1String("@collation=") + QLatin1String(collationString)).toLatin1();
     d->collator = ucol_open(name.constData(), &status);
     if (U_FAILURE(status))
         qWarning("Could not create collator: %d", status);
