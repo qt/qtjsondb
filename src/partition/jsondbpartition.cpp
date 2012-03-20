@@ -1516,8 +1516,10 @@ bool JsonDbPartition::validateSchema(const QString &schemaName, const JsonDbObje
     QJsonObject result = mSchemas.validate(schemaName, object);
     if (!result.value(JsonDbString::kCodeStr).isNull()) {
         errorMsg = result.value(JsonDbString::kMessageStr).toString();
-        if (jsondbSettings->debug())
+        if (jsondbSettings->debug() || jsondbSettings->softValidation())
             qDebug() << "Schema validation error: " << errorMsg << object;
+        if (jsondbSettings->softValidation())
+            return true;
         return false;
     }
 

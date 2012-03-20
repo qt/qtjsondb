@@ -59,6 +59,7 @@ JsonDbSettings::JsonDbSettings() :
   , mEnforceAccessControl(false)
   , mTransactionSize(100)
   , mValidateSchemas(false)
+  , mSoftValidation(false)
   , mSyncInterval(5000)
   , mIndexSyncInterval(12000)
   , mDebugQuery(false)

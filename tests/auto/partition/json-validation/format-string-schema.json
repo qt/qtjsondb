@@ -1,0 +1,46 @@
+{
+    "description": "check if the string format is correct",
+    "type": "object",
+    "properties": {
+        "date-time": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "date": {
+            "type": "string",
+            "format": "date"
+        },
+        "time": {
+            "type": "string",
+            "format": "time"
+        },
+        "url": {
+            "type": "string",
+            "format": "url"
+        },
+        "uri": {
+            "type": "string",
+            "format": "uri"
+        },
+        "uuid": {
+            "type": "string",
+            "format": "uuid"
+        },
+        "regex": {
+            "type": "string",
+            "format": "regex"
+        },
+        "identifier": {
+            "type": "string",
+            "format": "identifier"
+        },
+        "version": {
+            "type": "string",
+            "format": "version"
+        },
+        "nonnegativeinteger": {
+            "type": "string",
+            "format": "nonnegativeinteger"
+        }
+    }
+}

@@ -65,6 +65,7 @@ class Q_JSONDB_PARTITION_EXPORT JsonDbSettings : public QObject
     Q_PROPERTY(bool enforceAccessControl READ enforceAccessControl WRITE setEnforceAccessControl)
     Q_PROPERTY(int transactionSize READ transactionSize WRITE setTransactionSize)
     Q_PROPERTY(bool validateSchemas READ validateSchemas WRITE setValidateSchemas)
+    Q_PROPERTY(bool softValidation READ softValidation WRITE setSoftValidation)
     Q_PROPERTY(int syncInterval READ syncInterval WRITE setSyncInterval)
     Q_PROPERTY(int indexSyncInterval READ indexSyncInterval WRITE setIndexSyncInterval)
     Q_PROPERTY(bool debugQuery READ debugQuery WRITE setDebugQuery)
@@ -102,6 +103,9 @@ public:
     inline bool validateSchemas() const { return mValidateSchemas; }
     inline void setValidateSchemas(bool validate) { mValidateSchemas = validate; }
 
+    inline bool softValidation() const { return mSoftValidation; }
+    inline void setSoftValidation(bool soft) { mSoftValidation = soft; }
+
     inline int syncInterval() const { return mSyncInterval; }
     inline void setSyncInterval(int interval) { mSyncInterval = interval; }
 
@@ -128,6 +132,7 @@ private:
     bool mEnforceAccessControl;
     int mTransactionSize;
     bool mValidateSchemas;
+    bool mSoftValidation;
     int mSyncInterval;
     int mIndexSyncInterval;
     bool mDebugQuery;

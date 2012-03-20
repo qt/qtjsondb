@@ -42,8 +42,10 @@
 #include <QtCore/qhash.h>
 #include <QtCore/qlist.h>
 #include <QtCore/qregexp.h>
+#include <QtCore/qregularexpression.h>
+#include <QtCore/qurl.h>
+#include <QtCore/quuid.h>
 #include "object.h"
-
 #ifndef CHECKPOINTS_H
 #define CHECKPOINTS_H
 
@@ -607,6 +609,93 @@ private:
     int m_max;
 };
 
+// 5.23
+template<class T>
+class SchemaPrivate<T>::CheckFormat : public Check {
+public:
+    CheckFormat(SchemaPrivate *schema, const Value &format)
+        : Check(schema, "String format check failed for %1")
+    {
+        bool ok;
+        m_format = format.toString(&ok);
+        Q_ASSERT(ok);
+        //yyyy-MM-ddTHH:mm:ssZ or yyyy-MM-ddTHH:mm:ss.zzzZ in UTC time
+        m_dateTimeExp.setPattern(QString::fromLatin1("^[0-9]{4}-((0[1-9])|(1[0-2]))-(([0][1-9])|([12][0-9])|(3[01]))T(([01][0-9])|(2[0-3])):[0-5][0-9]:[0-5][0-9]([.][0-9]{3})?Z$"));
+        //yyyy-MM-dd
+        m_dateExp.setPattern(QString::fromLatin1("^([0-9]{4}-((0[1-9])|(1[0-2]))-(([0][1-9])|([12][0-9])|(3[01])))$"));
+        //HH:mm:ss or HH:mm:ss.zzz
+        m_timeExp.setPattern(QString::fromLatin1("^((([01][0-9])|(2[0-3])):[0-5][0-9]:[0-5][0-9]([.][0-9]{3})?)$"));
+        //Checking for dot-separated letters is sufficient, at least one dot is required.
+        m_identifierExp.setPattern(QString::fromLatin1("^([a-z]+([.][a-z]+)+)$"));
+        m_identifierExp.setPatternOptions(QRegularExpression::CaseInsensitiveOption);
+        //Checking for dot-separated digits is sufficient, at least one dot is required.
+        m_versionExp.setPattern(QString::fromLatin1("^([0-9]+([.][0-9]+)+)$"));
+    }
+
+    virtual bool doCheck(const Value &value)
+    {
+        bool ok;
+        QString str = value.toString(&ok);
+        if (!ok)
+            return false;
+
+        const int hash = QStaticStringHash<>::hash(m_format.toLower());
+
+        switch (hash) {
+        case QStaticStringHash<'d','a','t','e','-','t','i','m','e'>::Hash:
+            //Since "time" shares the same hash number with "date-time", check the string
+            if (m_format == QString::fromLatin1("time")) {
+                if (!m_timeExp.match(str).hasMatch())
+                    return false;
+                return true;
+            }
+            if (!m_dateTimeExp.match(str).hasMatch())
+                return false;
+            return true;
+        case QStaticStringHash<'d','a','t','e'>::Hash:
+            if (!m_dateExp.match(str).hasMatch())
+                return false;
+            return true;
+        case QStaticStringHash<'u','u','i','d'>::Hash:
+            m_uuid = QUuid(str);
+            if (m_uuid.isNull())
+                return false;
+            return true;
+        case QStaticStringHash<'r','e','g','e','x'>::Hash:
+            m_regExp.setPattern(str);
+            if (!m_regExp.isValid())
+                return false;
+            return true;
+        case QStaticStringHash<'i','d','e','n','t','i','f','i','e','r'>::Hash:
+            if (!m_identifierExp.match(str).hasMatch())
+                return false;
+            return true;
+        case QStaticStringHash<'v','e','r','s','i','o','n'>::Hash:
+            if (!m_versionExp.match(str).hasMatch())
+                return false;
+            return true;
+        case QStaticStringHash<'n','o','n','n','e','g','a','t','i','v','e','i','n','t','e','g','e','r'>::Hash: {
+            int a = str.toInt(&ok);
+            if (!ok || a < 0)
+                return false;
+            return true;
+        }
+        default:
+           return true;
+        }
+    }
+private:
+    QString m_format;
+    QRegularExpression m_dateTimeExp;
+    QRegularExpression m_dateExp;
+    QRegularExpression m_timeExp;
+    QRegularExpression m_identifierExp;
+    QRegularExpression m_versionExp;
+    QRegularExpression m_regExp;
+    QUuid m_uuid;
+    QUrl m_url;
+};
+
 // 5.26
 template<class T>
 class SchemaPrivate<T>::CheckExtends : public Check {
@@ -781,6 +870,10 @@ typename SchemaPrivate<T>::Check *SchemaPrivate<T>::createCheckPoint(const Key &
     case QStaticStringHash<'t','y','p','e'>::Hash:
         if (QString::fromLatin1("type") == keyName)
             return new CheckType(this, value);
+        break;
+    case QStaticStringHash<'f','o','r','m','a','t'>::Hash:
+        if (QString::fromLatin1("format") == keyName)
+            return new CheckFormat(this, value);
         break;
     default:
 //        qDebug() << "NOT FOUND"  << keyName;

@@ -201,6 +201,8 @@ class SchemaPrivate : public QSharedData
     class CheckMaxLength;
     // 5.21
     class CheckTitle;
+    // 5.23
+    class CheckFormat;
     // 5.26
     class CheckExtends;
     // 5.28

@@ -127,6 +127,7 @@ static void usage()
          << "     -compact-on-exit    Compact database before exiting" << endl
          << "     -reject-stale-updates" << endl
          << "     -validate-schemas   Validate schemas of objects on create and update" << endl
+         << "     -soft-validation    Won't reject invalid objects during schema validation but will output an according error message." << endl
          << "     -enforce-access-control " << endl
          << "     -limit megabytes" << endl
          << endl;
@@ -216,6 +217,10 @@ int main(int argc, char * argv[])
             jsondbSettings->setValidateSchemas(true);
         } else if (arg == "-no-validate-schemas") {
             jsondbSettings->setValidateSchemas(false);
+        } else if (arg == "-soft-validation") {
+            jsondbSettings->setSoftValidation(true);
+        } else if (arg == "-no-soft-validation") {
+            jsondbSettings->setSoftValidation(false);
         } else if (arg == "-reject-stale-updates") {
            jsondbSettings->setRejectStaleUpdates(true);
         } else if (arg == "-no-reject-stale-updates") {

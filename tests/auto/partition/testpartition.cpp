@@ -1041,6 +1041,7 @@ void TestPartition::schemaValidation_data()
 
 void TestPartition::schemaValidation()
 {
+    bool isValidated = jsondbSettings->validateSchemas();
     jsondbSettings->setValidateSchemas(true);
 
     QFETCH(QByteArray, schema);
@@ -1078,7 +1079,7 @@ void TestPartition::schemaValidation()
     qResult = remove(mOwner, schemaObject);
     verifyGoodResult(qResult);
 
-    jsondbSettings->setValidateSchemas(false);
+    jsondbSettings->setValidateSchemas(isValidated);
 }
 
 void TestPartition::schemaValidationExtends_data()
