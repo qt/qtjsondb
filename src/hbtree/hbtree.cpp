@@ -85,7 +85,7 @@ const quint32 HBtreePrivate::PageInfo::INVALID_PAGE = 0xFFFFFFFF;
 // ######################################################################
 
 HBtreePrivate::HBtreePrivate(HBtree *q, const QString &name)
-    : q_ptr(q), fileName_(name), fd_(-1), openMode_(HBtree::ReadOnly), size_(0), lastSyncedId_(0),
+    : q_ptr(q), fileName_(name), fd_(-1), openMode_(HBtree::ReadOnly), size_(0), lastSyncedId_(0), cacheSize_(20),
       compareFunction_(0),
       writeTransaction_(0), lastPage_(PageInfo::INVALID_PAGE)
 {
@@ -864,6 +864,9 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
         if (!writePage(&ba))
             return false;
         it.value()->commited = true;
+
+        if (it.value()->info.type == PageInfo::Overflow)
+            cacheDelete(it.value()->info.number);
         it = dirtyPages_.erase(it);
     }
 
@@ -888,9 +891,6 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
     Q_Q(HBtree);
     q->stats_.numCommits++;
 
-    // TODO: don't delete everything from the cache.
-    cacheClear();
-
     return true;
 }
 
@@ -909,6 +909,7 @@ void HBtreePrivate::abort(HBtreeTransaction *transaction)
         writeTransaction_ = 0;
     }
     delete transaction;
+    cachePrune();
 }
 
 quint32 HBtreePrivate::calculateChecksum(const char *begin, const char *end) const
@@ -1185,17 +1186,28 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
         pageNumber = lastPage_++;
     }
 
-    Page *page = 0;
+
+    Page *page = cacheRemove(pageNumber);
+
+    if (page) {
+        if (page->info.type == type) {
+            destructPage(page);
+        } else {
+            deletePage(page);
+            page = 0;
+        }
+    }
+
     switch (type) {
         case PageInfo::Leaf:
         case PageInfo::Branch: {
-            NodePage *np = new NodePage(type, pageNumber);
+            NodePage *np = page ? new (page) NodePage(type, pageNumber) : new NodePage(type, pageNumber);
             np->meta.syncId = lastSyncedId_ + 1;
             page = np;
             break;
         }
         case PageInfo::Overflow: {
-            OverflowPage *ofp = new OverflowPage(type, pageNumber);
+            OverflowPage *ofp = page ? new (page) OverflowPage(type, pageNumber) : new OverflowPage(type, pageNumber);
             page = ofp;
             break;
         }
@@ -1261,7 +1273,6 @@ HBtreePrivate::NodePage *HBtreePrivate::touchNodePage(HBtreePrivate::NodePage *p
     touched->commited = false;
 
     addHistoryNode(touched, HistoryNode(page));
-    collectHistory(touched);
 
     Q_ASSERT(verifyIntegrity(touched));
 
@@ -1375,16 +1386,19 @@ quint16 HBtreePrivate::collectHistory(NodePage *page)
 HBtreePrivate::Page *HBtreePrivate::cacheFind(quint32 pgno) const
 {
     PageMap::const_iterator it = cache_.find(pgno);
-    if (it != cache_.constEnd())
+    if (it != cache_.constEnd()) {
+        const_cast<HBtreePrivate *>(this)->lru_.removeOne(it.value());
+        const_cast<HBtreePrivate *>(this)->lru_.append(it.value());
         return it.value();
+    }
     return 0;
 }
 
 HBtreePrivate::Page *HBtreePrivate::cacheRemove(quint32 pgno)
 {
-    Page *page = cacheFind(pgno);
+    Page *page = cache_.take(pgno);
     if (page)
-        cache_.remove(pgno);
+        lru_.removeOne(page);
     return page;
 }
 
@@ -1403,6 +1417,7 @@ void HBtreePrivate::cacheClear()
         ++it;
     }
     cache_.clear();
+    lru_.clear();
 }
 
 void HBtreePrivate::cacheInsert(quint32 pgno, HBtreePrivate::Page *page)
@@ -1411,6 +1426,49 @@ void HBtreePrivate::cacheInsert(quint32 pgno, HBtreePrivate::Page *page)
     Q_ASSERT(pgno != PageInfo::INVALID_PAGE);
     Q_ASSERT(pgno < lastPage_);
     cache_.insert(pgno, page);
+    lru_.removeOne(page);
+    lru_.append(page);
+}
+
+void HBtreePrivate::cachePrune()
+{
+    if (lru_.size() > (int)cacheSize_) {
+        QList<Page *>::iterator it = lru_.begin();
+        while (it != lru_.end()) {
+            if (lru_.size() <= (int)cacheSize_)
+                break;
+            Page *page = *it;
+            if (page->commited) {
+                cache_.remove(page->info.number);
+                Q_ASSERT(page);
+                it = lru_.erase(it);
+                deletePage(page);
+            } else {
+                ++it;
+            }
+        }
+    }
+}
+
+void HBtreePrivate::removeFromTree(HBtreePrivate::NodePage *page)
+{
+    // Can be reused immediately if not synced
+    if (page->meta.syncId > lastSyncedId_)
+        collectiblePages_.insert(page->info.number);
+    else
+        addHistoryNode(NULL, HistoryNode(page));
+
+    // Same for history nodes
+    foreach (const HistoryNode &hn, page->history) {
+        if (hn.syncId > lastSyncedId_)
+            collectiblePages_.insert(hn.pageNumber);
+        else
+            addHistoryNode(NULL, hn);
+    }
+
+    // Don't need to commit since it's not part of our tree
+    dirtyPages_.remove(page->info.number);
+    cacheDelete(page->info.number);
 }
 
 bool HBtreePrivate::searchPage(HBtreeCursor *cursor, HBtreeTransaction *transaction, const NodeKey &key, SearchType searchType,
@@ -1612,6 +1670,22 @@ void HBtreePrivate::deletePage(HBtreePrivate::Page *page) const
     case PageInfo::Leaf:
     case PageInfo::Branch:
         delete static_cast<NodePage *>(page);
+        break;
+    default:
+        Q_ASSERT(0);
+    }
+}
+
+void HBtreePrivate::destructPage(HBtreePrivate::Page *page) const
+{
+    HBTREE_DEBUG("destructing page" << page->info);
+    switch (page->info.type) {
+    case PageInfo::Overflow:
+        static_cast<OverflowPage *>(page)->~OverflowPage();
+        break;
+    case PageInfo::Leaf:
+    case PageInfo::Branch:
+        static_cast<NodePage *>(page)->~NodePage();
         break;
     default:
         Q_ASSERT(0);
@@ -1947,19 +2021,14 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
         if (page->nodes.size() == 0) {
             HBTREE_DEBUG("making root invalid, btree empty");
             writeTransaction_->rootPage_ = PageInfo::INVALID_PAGE;
-            foreach (const HistoryNode &hn, page->history)
-                addHistoryNode(NULL, hn);
-            page->clearHistory();
+            removeFromTree(page);
         } else if (page->info.type == PageInfo::Branch && page->nodes.size() == 1) {
             NodePage *root = static_cast<NodePage *>(getPage(page->nodes.constBegin().value().overflowPage));
             root->parent = NULL;
             writeTransaction_->rootPage_ = page->nodes.constBegin().value().overflowPage;
             HBTREE_DEBUG("One node in root branch" << page->info << "setting root to page" << writeTransaction_->rootPage_);
             q->stats_.depth--;
-            foreach (const HistoryNode &hn, page->history)
-                addHistoryNode(NULL, hn);
-            addHistoryNode(NULL, HistoryNode(page));
-            page->clearHistory();
+            removeFromTree(page);
         } else {
             HBTREE_DEBUG("No need to rebalance root page");
         }
@@ -2152,10 +2221,6 @@ bool HBtreePrivate::mergePages(HBtreePrivate::NodePage *page, HBtreePrivate::Nod
         ++it;
     }
 
-    addHistoryNode(NULL, HistoryNode(page));
-    foreach (const HistoryNode &hn, page->history)
-        addHistoryNode(NULL, hn);
-
     if (page->parentKey > dst->parentKey) {
         // Merging a page with larger key values in to a page
         // with smaller key values. Just delete the key to
@@ -2177,6 +2242,7 @@ bool HBtreePrivate::mergePages(HBtreePrivate::NodePage *page, HBtreePrivate::Nod
     if (page->meta.flags & NodeHeader::Overflow)
         dst->meta.flags |= NodeHeader::Overflow;
 
+    removeFromTree(page);
     return rebalance(dst->parent);
 }
 
@@ -2573,13 +2639,6 @@ size_t HBtree::size() const
 {
     Q_D(const HBtree);
     return d->size_;
-}
-
-quint16 HBtree::pageSize() const
-{
-    Q_D(const HBtree);
-    Q_ASSERT(d->fd_ != -1);
-    return d->spec_.pageSize;
 }
 
 bool HBtree::sync()

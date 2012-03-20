@@ -319,6 +319,7 @@ public:
     Page *newPage(PageInfo::Type type);
     Page *getPage(quint32 pageNumber, bool insertInCache = true);
     void deletePage(Page *page) const;
+    void destructPage(Page *page) const;
     NodePage *touchNodePage(NodePage *page);
     quint32 putDataOnOverflow(const QByteArray &value);
     QByteArray getDataFromNode(const NodeValue &nval) const;
@@ -330,6 +331,8 @@ public:
     void cacheDelete(quint32 pgno);
     void cacheClear();
     void cacheInsert(quint32 pgno, Page *page);
+    void cachePrune();
+    void removeFromTree(NodePage *page);
 
     enum SearchType {
         SearchKey,
@@ -376,6 +379,7 @@ public:
     HBtree::OpenMode     openMode_;
     quint32              size_;
     quint32              lastSyncedId_;
+    quint32              cacheSize_;
 
     typedef QMap<quint32, Page *> PageMap;
     Spec spec_;
@@ -387,6 +391,7 @@ public:
     PageMap cache_;
     quint32 lastPage_;
     QSet<quint32> residueHistory_;
+    QList<Page *> lru_;
 
     QByteArray qInitializedByteArray() const;
     QByteArray qUninitializedByteArray() const;

@@ -136,7 +136,6 @@ public:
     bool open(OpenMode mode) { setOpenMode(mode); return open(); }
 
     size_t size() const;
-    quint16 pageSize() const;
     bool sync();
     bool rollback();
 

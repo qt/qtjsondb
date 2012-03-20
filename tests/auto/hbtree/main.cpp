@@ -180,6 +180,7 @@ void TestHBtree::cleanup()
     qDebug() << "Stats:" << db->stats();
     if (printOutCollectibles_)
         qDebug() << "Collectible pages: " << d->collectiblePages_;
+    qDebug() << "Cache size:" << d->cache_.size();
 
     delete db;
     db = 0;
@@ -196,7 +197,7 @@ void TestHBtree::reopen()
 {
     db->close();
     QVERIFY(db->open());
-    QCOMPARE(db->size(), (size_t)db->pageSize() * 3);
+    QCOMPARE(db->size(), (size_t)d->spec_.pageSize * 3);
 }
 
 void TestHBtree::reopenMultiple()
@@ -1399,7 +1400,7 @@ void TestHBtree::deleteReinsertVerify()
         removedKeyValues.insert(keys[idx], removedValue);
         QVERIFY(txn->remove(keys[idx]));
     }
-    txn->commit(200);
+    QVERIFY(txn->commit(200));
 
     // Verify
     txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
@@ -1408,6 +1409,12 @@ void TestHBtree::deleteReinsertVerify()
         QCOMPARE(txn->get(it.key()), it.value());
         ++it;
     }
+    it = removedKeyValues.begin();
+    while (it != removedKeyValues.end()) {
+        QCOMPARE(txn->get(it.key()), QByteArray());
+        ++it;
+    }
+    txn->abort();
 
     // Reinsert
     txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
@@ -1418,7 +1425,6 @@ void TestHBtree::deleteReinsertVerify()
         keyValueMap.insert(it.key(), it.value());
         ++it;
     }
-    txn->commit(300);
 
     // Verify in order.
     txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
@@ -1628,7 +1634,7 @@ void TestHBtree::markerOnReopen_data()
 void TestHBtree::markerOnReopen()
 {
     QFETCH(quint32, numCommits);
-    const quint32 pageSize = db->pageSize();
+    const quint32 pageSize = d->spec_.pageSize;
 
     for (quint32 i = 0; i < numCommits; ++i) {
         HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
@@ -1726,7 +1732,7 @@ void TestHBtree::corruptSyncMarker1()
 {
     QFETCH(quint32, numCommits);
 
-    quint32 psize = db->pageSize();
+    quint32 psize = d->spec_.pageSize;
     for (quint32 i = 0; i < numCommits; ++i) {
         HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(txn);
@@ -1765,7 +1771,7 @@ void TestHBtree::corruptBothSyncMarkers()
 {
     QFETCH(quint32, numCommits);
 
-    quint32 psize = db->pageSize();
+    quint32 psize = d->spec_.pageSize;
     for (quint32 i = 0; i < numCommits; ++i) {
         HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(txn);
@@ -1773,7 +1779,7 @@ void TestHBtree::corruptBothSyncMarkers()
         QVERIFY(txn->commit(i));
     }
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 1; ++i) {
         db->close();
 
         corruptSinglePage(psize, 1, HBtreePrivate::PageInfo::Marker);
