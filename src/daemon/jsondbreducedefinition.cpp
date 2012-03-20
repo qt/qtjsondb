@@ -118,25 +118,16 @@ void JsonDbReduceDefinition::initScriptEngine()
         return;
 
     mScriptEngine = new QJSEngine(this);
+    QString message;
+    bool status = compileFunctions(mScriptEngine, mDefinition, mAddFunction, mSubtractFunction, message);
+    if (!status)
+        setError(message);
+
     Q_ASSERT(!mDefinition.value("add").toString().isEmpty());
     Q_ASSERT(!mDefinition.value("subtract").toString().isEmpty());
 
     QJSValue globalObject = mScriptEngine->globalObject();
     globalObject.setProperty("console", mScriptEngine->newQObject(new Console()));
-
-    QString script = mDefinition.value("add").toString();
-    mAddFunction = mScriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("add").arg(script));
-
-    if (mAddFunction.isError() || !mAddFunction.isCallable()) {
-        setError("Unable to parse add function: " + mAddFunction.toString());
-        return;
-    }
-
-    script = mDefinition.value("subtract").toString();
-    mSubtractFunction = mScriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("subtract").arg(script));
-
-    if (mSubtractFunction.isError() || !mSubtractFunction.isCallable())
-        setError("Unable to parse subtract function: " + mSubtractFunction.toString());
 }
 
 void JsonDbReduceDefinition::releaseScriptEngine()
@@ -315,8 +306,37 @@ bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, Json
         message = QLatin1Literal("add function for Reduce not specified");
     else if (reduce.value("subtract").toString().isEmpty())
         message = QLatin1Literal("subtract function for Reduce not specified");
-
+    else {
+        QJSEngine scriptEngine;
+        QJSValue addFunction, subtractFunction;
+        // check for script errors
+        compileFunctions(&scriptEngine, reduce, addFunction, subtractFunction, message);
+    }
     return message.isEmpty();
+}
+
+bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObject definition, QJSValue &addFunction, QJSValue &subtractFunction, QString &message)
+{
+    Q_ASSERT(!definition.value("add").toString().isEmpty());
+    Q_ASSERT(!definition.value("subtract").toString().isEmpty());
+    QString script = definition.value("add").toString();
+    QJSValue result = scriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("add").arg(script));
+
+    if (result.isError() || !result.isCallable()) {
+        message = QString("Unable to parse add function: %1").arg(result.toString());
+        return false;
+    }
+    addFunction = result;
+
+    script = definition.value("subtract").toString();
+    result = scriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("subtract").arg(script));
+
+    if (result.isError() || !result.isCallable()) {
+        message = QString("Unable to parse subtract function: %1").arg(result.toString());
+        return false;
+    }
+    subtractFunction = result;
+    return true;
 }
 
 QT_END_NAMESPACE_JSONDB

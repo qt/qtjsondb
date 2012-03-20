@@ -93,6 +93,7 @@ public:
     void setError(const QString &errorMsg);
 
     static bool validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message);
+    static bool compileFunctions(QJSEngine *scriptEngine, QJsonObject definition, QJSValue &addFunction, QJSValue &subFunction, QString &message);
 
 private:
     const JsonDbOwner *mOwner;

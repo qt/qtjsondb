@@ -1580,20 +1580,9 @@ void TestJsonDb::mapInvalidMapFunc()
     mapDefinition.insert("map", sourceToMapFunctions);
 
     JsonDbWriteResult defRes = create(mOwner, mapDefinition);
-    verifyGoodResult(defRes);
-    QString uuid = defRes.objectsWritten[0].uuid().toString();
+    verifyErrorResult(defRes);
+    QCOMPARE(defRes.objectsWritten.size(), 0);
 
-    // force the view to be updated
-    mJsonDbPartition->updateView("InvalidMapViewType");
-
-    // now check for an error
-    GetObjectsResult res = mJsonDbPartition->getObjects("_uuid", uuid, JsonDbString::kMapTypeStr);
-    QVERIFY(res.data.size() > 0);
-    mapDefinition = res.data.at(0);
-    QVERIFY(mapDefinition.contains(JsonDbString::kActiveStr) && !mapDefinition.value(JsonDbString::kActiveStr).toBool());
-    QVERIFY(!mapDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
-
-    verifyGoodResult(remove(mOwner, mapDefinition));
     verifyGoodResult(remove(mOwner, schema));
 }
 
@@ -1617,16 +1606,8 @@ void TestJsonDb::reduceInvalidAddSubtractFuncs()
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { ;")); // non-parsable add function
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
     JsonDbWriteResult res = create(mOwner, reduceDefinition);
-    verifyGoodResult(res);
+    verifyErrorResult(res);
 
-    mJsonDbPartition->updateView("MyViewType");
-
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", res.objectsWritten[0].uuid().toString());
-    reduceDefinition = getObjects.data.at(0);
-    QVERIFY(reduceDefinition.contains(JsonDbString::kActiveStr) && !reduceDefinition.value(JsonDbString::kActiveStr).toBool());
-    QVERIFY(!reduceDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
-
-    verifyGoodResult(remove(mOwner, reduceDefinition));
     verifyGoodResult(remove(mOwner, schema));
 }
 

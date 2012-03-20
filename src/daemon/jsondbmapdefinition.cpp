@@ -135,22 +135,14 @@ void JsonDbMapDefinition::initScriptEngine()
         return;
 
     mScriptEngine = new QJSEngine(this);
+    QString message;
+    bool compiled = compileMapFunctions(mScriptEngine, mDefinition, mMapFunctions, message);
+    if (!compiled)
+      setError(message);
     QJSValue globalObject = mScriptEngine->globalObject();
     globalObject.setProperty("console", mScriptEngine->newQObject(new Console()));
 
     if (!mDefinition.contains("sourceType")) {
-        QJsonObject sourceFunctions(mDefinition.contains("join")
-                                   ? mDefinition.value("join").toObject()
-                                   : mDefinition.value("map").toObject());
-        for (int i = 0; i < mSourceTypes.size(); i++) {
-            const QString &sourceType = mSourceTypes[i];
-            const QString &script = sourceFunctions.value(sourceType).toString();
-            QJSValue mapFunction =
-                mScriptEngine->evaluate(QString("var map_%1 = (%2); map_%1;").arg(QString(sourceType).replace(".", "_")).arg(script));
-            if (mapFunction.isError() || !mapFunction.isCallable())
-                setError( "Unable to parse map function: " + mapFunction.toString());
-            mMapFunctions[sourceType] = mapFunction;
-        }
 
         mJoinProxy = new JsonDbJoinProxy(mOwner, mPartition, this);
         connect(mJoinProxy, SIGNAL(lookupRequested(QJSValue,QJSValue)),
@@ -168,12 +160,6 @@ void JsonDbMapDefinition::initScriptEngine()
 
     } else {
         const QString sourceType = mDefinition.value("sourceType").toString();
-        const QString &script = mDefinition.value("map").toString();
-        QJSValue mapFunction =
-            mScriptEngine->evaluate(QString("var map_%1 = (%2); map_%1;").arg(QString(sourceType).replace(".", "_")).arg(script));
-        if (mapFunction.isError() || !mapFunction.isCallable())
-            setError( "Unable to parse map function: " + mapFunction.toString());
-        mMapFunctions[sourceType] = mapFunction;
 
         mMapProxy = new JsonDbMapProxy(mOwner, mPartition, this);
         connect(mMapProxy, SIGNAL(lookupRequested(QJSValue,QJSValue)),
@@ -183,6 +169,38 @@ void JsonDbMapDefinition::initScriptEngine()
         globalObject.setProperty("jsondb", mScriptEngine->newQObject(mMapProxy));
         qWarning() << "Old-style Map from sourceType" << sourceType << " to targetType" << mDefinition.value("targetType");
     }
+}
+
+bool JsonDbMapDefinition::compileMapFunctions(QJSEngine *scriptEngine, QJsonObject definition, QMap<QString,QJSValue> &mapFunctions, QString &message)
+{
+    bool status = true;
+    if (!definition.contains("sourceType")) {
+        QJsonObject sourceFunctions(definition.contains("join")
+                                   ? definition.value("join").toObject()
+                                   : definition.value("map").toObject());
+        for (QJsonObject::const_iterator it = sourceFunctions.begin(); it != sourceFunctions.end(); ++it) {
+            const QString &sourceType = it.key();
+            const QString &script = it.value().toString();
+            QJSValue mapFunction =
+                scriptEngine->evaluate(QString("var map_%1 = (%2); map_%1;").arg(QString(sourceType).replace(".", "_")).arg(script));
+            if (mapFunction.isError() || !mapFunction.isCallable()) {
+                message = QString( "Unable to parse map function: " + mapFunction.toString());
+                status = false;
+            }
+            mapFunctions[sourceType] = mapFunction;
+        }
+    } else {
+        const QString sourceType = definition.value("sourceType").toString();
+        const QString &script = definition.value("map").toString();
+        QJSValue mapFunction =
+            scriptEngine->evaluate(QString("var map_%1 = (%2); map_%1;").arg(QString(sourceType).replace(".", "_")).arg(script));
+        if (mapFunction.isError() || !mapFunction.isCallable()) {
+            message = QString( "Unable to parse map function: " + mapFunction.toString());
+            status = false;
+        }
+        mapFunctions[sourceType] = mapFunction;
+    }
+    return status;
 }
 
 void JsonDbMapDefinition::releaseScriptEngine()
@@ -410,6 +428,10 @@ bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPart
         else if (!mapValue.isString() && !mapValue.isObject())
             message = QLatin1String("map function for Map not specified");
     }
+    // check for parse errors
+    QJSEngine scriptEngine;
+    QMap<QString,QJSValue> mapFunctions;
+    compileMapFunctions(&scriptEngine, map, mapFunctions, message);
 
     return message.isEmpty();
 }
