@@ -229,6 +229,8 @@ bool DBServer::loadPartitions()
                 this, SLOT(objectsUpdated(JsonDbUpdateList)));
     }
 
+    QHash<QString, JsonDbPartition*> oldPartitions = mPartitions;
+    oldPartitions.remove(mBaseName);
 
     if (!mDefaultPartition) {
         mDefaultPartition = new JsonDbPartition(QDir(mFilePath).absoluteFilePath(mBaseName + QLatin1String(".db")),
@@ -238,9 +240,10 @@ bool DBServer::loadPartitions()
 
         if (!mDefaultPartition->open())
             return false;
+
+        mPartitions[mBaseName] = mDefaultPartition;
     }
 
-    QHash<QString, JsonDbPartition*> oldPartitions = mPartitions;
     JsonDbQueryResult partitions = mDefaultPartition->queryObjects(mOwner, JsonDbQuery::parse(QLatin1String("[?_type=\"Partition\"]")));
 
     foreach (const JsonDbObject &partition, partitions.data) {
@@ -908,8 +911,7 @@ void DBServer::updateEagerViewTypes(const QString &objectType, JsonDbPartition *
 JsonDbPartition *DBServer::findPartition(const QString &partitionName)
 {
     JsonDbPartition *partition = mDefaultPartition;
-    // default partition is not in mPartitions
-    if (!partitionName.isEmpty() && partitionName != mDefaultPartition->name()) {
+    if (!partitionName.isEmpty()) {
         if (mPartitions.contains(partitionName))
             partition = mPartitions[partitionName];
         else
