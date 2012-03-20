@@ -146,6 +146,7 @@ bool HBtreePrivate::open(int fd)
             }
 
             marker_ = synced0;
+            synced_ = synced0;
 
             lastSyncedId_ = 0;
             size_ = initSize;
@@ -164,6 +165,8 @@ bool HBtreePrivate::open(int fd)
             HBTREE_ERROR("sync markers invalid.");
             return false;
         }
+
+        synced_ = marker_;
 
         if (openMode_ == HBtree::ReadWrite) {
             off_t currentSize = lseek(fd_, 0, SEEK_END);
@@ -751,13 +754,9 @@ bool HBtreePrivate::sync()
 
     MarkerPage synced0(1);
     MarkerPage synced1(2);
-    if (!readMarker(1, &synced0)) {
-        HBTREE_ERROR("failed to read sync marker");
-        return false;
-    }
 
-    copy(synced0, &synced1);
     copy(marker_, &synced0);
+    copy(marker_, &synced1);
 
     if (fsync(fd_) != 0) {
         HBTREE_ERROR("failed to sync data");
@@ -770,9 +769,9 @@ bool HBtreePrivate::sync()
     }
 
     // Add previous synced marker overflow pages to collectible list
-    if (synced1.meta.flags & MarkerPage::DataOnOverflow) {
+    if (synced_.meta.flags & MarkerPage::DataOnOverflow) {
         QList<quint32> pages;
-        if (!getOverflowPageNumbers(synced1.overflowPage, &pages)) {
+        if (!getOverflowPageNumbers(synced_.overflowPage, &pages)) {
             HBTREE_DEBUG("failed to get overflow pages for" << synced0);
             return false;
         }
@@ -781,8 +780,9 @@ bool HBtreePrivate::sync()
     }
 
     lastSyncedId_++;
+
+    copy(synced0, &synced_);
     copy(synced0, &marker_);
-    copy(synced0, &synced1);
 
     // Collect residue pages
     collectiblePages_.unite(marker_.residueHistory);
@@ -1386,11 +1386,8 @@ quint16 HBtreePrivate::collectHistory(NodePage *page)
 HBtreePrivate::Page *HBtreePrivate::cacheFind(quint32 pgno) const
 {
     PageMap::const_iterator it = cache_.find(pgno);
-    if (it != cache_.constEnd()) {
-        const_cast<HBtreePrivate *>(this)->lru_.removeOne(it.value());
-        const_cast<HBtreePrivate *>(this)->lru_.append(it.value());
+    if (it != cache_.constEnd())
         return it.value();
-    }
     return 0;
 }
 
@@ -1634,6 +1631,8 @@ HBtreePrivate::Page *HBtreePrivate::getPage(quint32 pageNumber, bool insertInCac
             Q_Q(HBtree);
             q->stats_.hits++;
             HBTREE_DEBUG("got" << page->info << "from cache");
+            lru_.removeOne(page);
+            lru_.append(page);
             return page;
         }
     }

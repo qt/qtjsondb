@@ -384,6 +384,7 @@ public:
     typedef QMap<quint32, Page *> PageMap;
     Spec spec_;
     MarkerPage marker_;
+    MarkerPage synced_;
     PageMap dirtyPages_;
     HBtree::CompareFunction compareFunction_;
     HBtreeTransaction *writeTransaction_;

@@ -934,7 +934,6 @@ void TestHBtree::prev2()
         QByteArray data = QUuid::createUuid().toRfc4122();
         HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(txn);
-//        qDebug() << i;
         QVERIFY(txn->put(data, QByteArray("value_")+QByteArray::number(i)));
         txn->commit(0);
         int size = file.size();
