@@ -41,27 +41,13 @@
 #ifndef TESTJSONDBQUERYOBJECT_H
 #define TESTJSONDBQUERYOBJECT_H
 
-#include <QCoreApplication>
-#include <QList>
-#include <QTest>
-#include <QFile>
-#include <QProcess>
-#include <QEventLoop>
-#include <QDebug>
-#include <QLocalSocket>
-#include <QTimer>
-#include <QJSValue>
-
-#include <jsondb-client.h>
-#include <jsondb-error.h>
-
 #include <QAbstractItemModel>
-#include "clientwrapper.h"
-#include "../../shared/qmltestutil.h"
+#include "requestwrapper.h"
+#include "qmltestutil.h"
 
 QT_USE_NAMESPACE_JSONDB
 
-class TestJsonDbQueryObject: public ClientWrapper
+class TestJsonDbQueryObject: public RequestWrapper
 {
     Q_OBJECT
 public:
@@ -85,7 +71,7 @@ public slots:
     void errorSlot(const QVariantMap &newError);
     void finishedSlot();
 
-protected slots:
+public:
     void timeout();
 
 private:
@@ -95,17 +81,12 @@ private:
 
 private:
     QProcess *mProcess;
-    QStringList mNotificationsReceived;
     QList<ComponentData*> mComponents;
     QString mPluginPath;
-    bool mTimedOut;
-    bool callbackError;
-    int callbackErrorCode;
-    QString callbackErrorMessage;
-    QVariantList cbData;
-    QEventLoop mEventLoop2;
-    QObject *currentQmlElement;
 
+    bool mTimedOut;
+    QObject *currentQmlElement;
+    QVariantList callbackData;
 };
 
 #endif

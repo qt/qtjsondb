@@ -39,7 +39,6 @@
 **
 ****************************************************************************/
 
-
 #ifndef JSONDBMODELUTILS_H
 #define JSONDBMODELUTILS_H
 #include <QSharedData>
@@ -47,7 +46,9 @@
 #include <QUuid>
 #include <QJSValue>
 #include <QVariant>
-#include "jsondb-client.h"
+#include <QPointer>
+#include <QJsonDbWatcher>
+#include <QJsonDbReadRequest>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -58,9 +59,9 @@ struct CallbackInfo {
 };
 
 struct NotifyItem {
-    QString  notifyUuid;
-    QVariant item;
-    JsonDbClient::NotifyType action;
+    int partitionIndex;
+    QVariantMap item;
+    QJsonDbWatcher::Action action;
 };
 
 struct SortIndexSpec
@@ -82,6 +83,29 @@ struct SortIndexSpec
     {}
 
 };
+class JsonDbListModelPrivate;
+class ModelRequest : public QObject
+{
+    friend class JsonDbListModelPrivate;
+    Q_OBJECT
+public:
+
+    ModelRequest(QObject *parent = 0);
+    ~ModelRequest();
+
+    QJsonDbReadRequest* newRequest(int newIndex);
+    void resetRequest();
+Q_SIGNALS:
+    void finished(int index, const QList<QJsonObject> &items, const QString &sortKey);
+    void error(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
+
+private Q_SLOTS:
+    void onQueryFinished();
+
+private:
+    QPointer<QJsonDbReadRequest> request;
+    int index;
+};
 
 struct IndexInfo
 {
@@ -102,6 +126,7 @@ class SortingKey {
 public:
     SortingKey(int partitionIndex, const QVariantMap &object, const QList<bool> &directions, const QList<QStringList> &paths, const SortIndexSpec &spec = SortIndexSpec());
     SortingKey(int partitionIndex, const QVariantList &object, const QList<bool> &directions, const SortIndexSpec &spec = SortIndexSpec());
+    SortingKey(int partitionIndex, const QByteArray &uuid, const QVariantList &object, const QList<bool> &directions, const SortIndexSpec &spec = SortIndexSpec());
     SortingKey(const SortingKey&);
     SortingKey() {}
     int partitionIndex() const;
@@ -113,20 +138,21 @@ private:
 
 struct RequestInfo
 {
-    int requestId;
     int lastOffset;
-    QString notifyUuid;
     int lastSize;
     int requestCount;
+    QPointer<QJsonDbWatcher> watcher;
 
     RequestInfo() { clear();}
     void clear()
     {
-        requestId = -1;
         lastOffset = 0;
         lastSize = -1;
         requestCount = 0;
-        notifyUuid.clear();
+        if (watcher) {
+            delete watcher;
+            watcher = 0;
+        }
     }
 };
 
@@ -168,6 +194,8 @@ template <typename T> int iterator_position(T &begin, T &end, T &value)
 
 QVariant lookupProperty(QVariantMap object, const QStringList &path);
 QString removeArrayOperator(QString propertyName);
+QList<QJsonObject> qvariantlist_to_qjsonobject_list(const QVariantList &list);
+QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list);
 
 QT_END_NAMESPACE_JSONDB
 

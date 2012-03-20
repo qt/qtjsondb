@@ -53,7 +53,6 @@
 #include <QJSValue>
 #include <QScopedPointer>
 
-#include "jsondb-global.h"
 #include "jsondbpartition.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -79,8 +78,8 @@ public:
     Q_PROPERTY(QVariant roleNames READ scriptableRoleNames WRITE setScriptableRoleNames)
     Q_PROPERTY(int queryLimit READ queryLimit WRITE setQueryLimit)
     Q_PROPERTY(bool overflow READ overflow)
-
     Q_PROPERTY(QQmlListProperty<JsonDbPartition> partitions READ partitions)
+    Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
 
     virtual void classBegin();
     virtual void componentComplete();
@@ -111,10 +110,12 @@ public:
     Q_INVOKABLE QJSValue get(int index) const;
     Q_INVOKABLE QVariant get(int index, const QString &property) const;
     Q_INVOKABLE JsonDbPartition* getPartition(int index) const;
+    QVariantMap error() const;
 
 signals:
     void stateChanged(State state) const;
     void rowCountChanged(int newCount) const;
+    void errorChanged(QVariantMap newError);
 
 private Q_SLOTS:
     void partitionNameChanged(const QString &partitionName);
@@ -123,12 +124,12 @@ private:
     Q_DISABLE_COPY(JsonDbSortingListModel)
     Q_DECLARE_PRIVATE(JsonDbSortingListModel)
     QScopedPointer<JsonDbSortingListModelPrivate> d_ptr;
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QVariant&))
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, int, const QString&))
+
     Q_PRIVATE_SLOT(d_func(), void _q_refreshModel())
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotified(QString, QtAddOn::JsonDb::JsonDbNotification))
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyReadyResponse(int, QVariant))
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyErrorResponse(int, int, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_notificationsAvailable())
+    Q_PRIVATE_SLOT(d_func(), void _q_notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_valueResponse(int, QList<QJsonObject>))
+    Q_PRIVATE_SLOT(d_func(), void _q_readError(QtJsonDb::QJsonDbRequest::ErrorCode, QString))
 
 };
 

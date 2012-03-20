@@ -41,22 +41,9 @@
 #ifndef TestJsonDbCachingListModel_H
 #define TestJsonDbCachingListModel_H
 
-#include <QCoreApplication>
-#include <QList>
-#include <QTest>
-#include <QFile>
-#include <QProcess>
-#include <QEventLoop>
-#include <QDebug>
-#include <QLocalSocket>
-#include <QTimer>
-
-#include <jsondb-client.h>
-#include <jsondb-error.h>
-
 #include <QAbstractListModel>
-#include "clientwrapper.h"
-#include "../../shared/qmltestutil.h"
+#include "requestwrapper.h"
+#include "qmltestutil.h"
 
 QT_BEGIN_NAMESPACE
 class QQmlEngine;
@@ -73,14 +60,10 @@ public:
     ~ModelData();
     QQmlEngine *engine;
     QQmlComponent *component;
-    QQmlComponent *partitionComponent1;
-    QQmlComponent *partitionComponent2;
     QObject *model;
-    QObject *partition1;
-    QObject *partition2;
 };
 
-class TestJsonDbCachingListModel: public ClientWrapper
+class TestJsonDbCachingListModel: public RequestWrapper
 {
     Q_OBJECT
 public:
@@ -98,15 +81,10 @@ public slots:
     void modelReset();
     void stateChanged();
 
-    void callbackSlot(QVariant error, QVariant response);
-
-
-protected slots:
-    void timeout();
-
 private slots:
     void initTestCase();
     void cleanupTestCase();
+
     void createItem();
     void createModelTwoPartitions();
     void updateItemClient();
@@ -121,40 +99,37 @@ private slots:
     void indexOfUuid();
     void roleNames();
     void getItemNotInCache();
-
+public:
+    void timeout();
 private:
     void waitForExitOrTimeout();
     void waitForItemsCreated(int items);
+    void waitForItemsRemoved(int items);
     void waitForStateOrTimeout();
     void waitForItemChanged(bool waitForRemove = false);
     QStringList getOrderValues(QAbstractListModel *listModel);
-    void getIndex(int index);
+    QVariant getIndex(QAbstractListModel *model, int index, int role);
     void createIndex(const QString &property, const QString &propertyType);
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);
+    void resetWaitFlags();
 
 private:
     QProcess *mProcess;
-    QStringList mNotificationsReceived;
+    //QStringList mNotificationsReceived;
     QList<ModelData*> mModels;
     QString mPluginPath;
-    QEventLoop mEventLoop2; // for all listmodel slots
 
     // Response values
-    int mItemsCreated;
-    bool mWaitingForNotification;
-    bool mWaitingForDataChange;
-    bool mWaitingForRowsRemoved;
-    bool mTimeoutCalled;
-    bool mWaitingForReset;
-    bool mWaitingForStateChanged;
-
     bool mTimedOut;
-    bool callbackError;
-    bool mCallbackReceived;
-    QVariant callbackMeta;
-    QVariant callbackResponse;
-
+    int mItemsCreated;
+    int mItemsUpdated;
+    int mItemsRemoved;
+    bool mWaitingForStateChanged;
+    bool mWaitingForRowsInserted;
+    bool mWaitingForReset;
+    bool mWaitingForChanged;
+    bool mWaitingForRemoved;
 };
 
 #endif

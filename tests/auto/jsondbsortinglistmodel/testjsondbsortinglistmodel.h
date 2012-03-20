@@ -41,22 +41,9 @@
 #ifndef TestJsonDbListModel_H
 #define TestJsonDbListModel_H
 
-#include <QCoreApplication>
-#include <QList>
-#include <QTest>
-#include <QFile>
-#include <QProcess>
-#include <QEventLoop>
-#include <QDebug>
-#include <QLocalSocket>
-#include <QTimer>
-
-#include <jsondb-client.h>
-#include <jsondb-error.h>
-
 #include <QAbstractListModel>
-#include "clientwrapper.h"
-#include "../../shared/qmltestutil.h"
+#include "requestwrapper.h"
+#include "qmltestutil.h"
 
 QT_BEGIN_NAMESPACE
 class QQmlEngine;
@@ -65,7 +52,8 @@ QT_END_NAMESPACE
 
 QT_USE_NAMESPACE_JSONDB
 
-class JsonDbListModel;
+//class JsonDbListModel;
+enum State { None, Querying, Ready };
 
 class ModelData {
 public:
@@ -73,14 +61,10 @@ public:
     ~ModelData();
     QQmlEngine *engine;
     QQmlComponent *component;
-    QQmlComponent *partitionComponent1;
-    QQmlComponent *partitionComponent2;
     QObject *model;
-    QObject *parttion1;
-    QObject *parttion2;
 };
 
-class TestJsonDbSortingListModel: public ClientWrapper
+class TestJsonDbSortingListModel: public RequestWrapper
 {
     Q_OBJECT
 public:
@@ -96,12 +80,12 @@ public slots:
     void rowsRemoved(const QModelIndex &parent, int first, int last);
     void rowsMoved( const QModelIndex &parent, int start, int end, const QModelIndex &destination, int row );
     void modelReset();
-    void stateChanged();
-    void timeout();
+    void stateChanged(State);
 
 private slots:
     void initTestCase();
     void cleanupTestCase();
+
     void createItem();
     void updateItemClient();
     void deleteItem();
@@ -117,32 +101,37 @@ private slots:
     void indexOfUuid();
     void queryLimit();
     void roleNames();
-
+public:
+    void timeout();
 private:
     void waitForExitOrTimeout();
     void waitForItemsCreated(int items);
+    void waitForItemsRemoved(int items);
     void waitForStateOrTimeout();
+    void waitForReadyStateOrTimeout();
+    void waitForStateChanged(QAbstractListModel *listModel);
     void waitForItemChanged(bool waitForRemove = false);
     QStringList getOrderValues(QAbstractListModel *listModel);
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);
+    void resetWaitFlags();
 
 private:
     QProcess *mProcess;
-    QStringList mNotificationsReceived;
     QList<ModelData*> mModels;
     QString mPluginPath;
-    QEventLoop mEventLoop2; // for all listmodel slots
 
     // Response values
+    bool mTimedOut;
     int mItemsCreated;
-    bool mWaitingForNotification;
-    bool mWaitingForDataChange;
-    bool mWaitingForRowsRemoved;
-    bool mTimeoutCalled;
+    int mItemsUpdated;
+    int mItemsRemoved;
+    bool mWaitingForRowsInserted;
     bool mWaitingForReset;
+    bool mWaitingForChanged;
+    bool mWaitingForRemoved;
     bool mWaitingForStateChanged;
-
+    bool mWaitingForReadyState;
 };
 
 #endif

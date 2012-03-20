@@ -52,7 +52,7 @@
 #include <QJSValue>
 #include <QScopedPointer>
 
-#include "jsondb-global.h"
+#include <QJsonDbReadRequest>
 #include "jsondbpartition.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -92,6 +92,7 @@ public:
     Q_PROPERTY(int lowWaterMark READ lowWaterMark WRITE setLowWaterMark)
     Q_PROPERTY(QVariant roleNames READ scriptableRoleNames WRITE setScriptableRoleNames)
     Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
+    Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
 
     virtual void classBegin();
     virtual void componentComplete();
@@ -136,11 +137,13 @@ public:
                                  const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
     Q_INVOKABLE int sectionIndex(const QString &section, const QJSValue &successCallback = QJSValue(QJSValue::UndefinedValue),
                                   const QJSValue &errorCallback = QJSValue(QJSValue::UndefinedValue));
+    QVariantMap error() const;
 
 signals:
     void stateChanged() const;
     void countChanged() const;
     void rowCountChanged() const;
+    void errorChanged(QVariantMap newError);
 
 private Q_SLOTS:
     void partitionNameChanged(const QString &partitionName);
@@ -149,13 +152,37 @@ private:
     Q_DISABLE_COPY(JsonDbListModel)
     Q_DECLARE_PRIVATE(JsonDbListModel)
     QScopedPointer<JsonDbListModelPrivate> d_ptr;
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QVariant&))
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, int, const QString&))
     Q_PRIVATE_SLOT(d_func(), void _q_requestAnotherChunk(int))
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotified(QString, QtAddOn::JsonDb::JsonDbNotification))
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyReadyResponse(int, QVariant))
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyErrorResponse(int, int, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_notificationsAvailable())
+    Q_PRIVATE_SLOT(d_func(), void _q_notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_valueResponse(int, QList<QJsonObject>))
+    Q_PRIVATE_SLOT(d_func(), void _q_countResponse(int, QList<QJsonObject>))
+    Q_PRIVATE_SLOT(d_func(), void _q_readError(QtJsonDb::QJsonDbRequest::ErrorCode, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_sectionIndexResponse())
+    Q_PRIVATE_SLOT(d_func(), void _q_sectionIndexError(QtJsonDb::QJsonDbRequest::ErrorCode, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_updateResponse())
+    Q_PRIVATE_SLOT(d_func(), void _q_updateError(QtJsonDb::QJsonDbRequest::ErrorCode, QString))
 
+};
+
+class ModelSyncCall : public QObject
+{
+    Q_OBJECT
+public:
+    ModelSyncCall(const QString &_query, int _offset, int _maxItems, const QString & _partitionName, QVariantList *_data);
+    ~ModelSyncCall();
+public Q_SLOTS:
+    void createSyncRequest();
+    void onQueryFinished();
+    void onQueryError(QtJsonDb::QJsonDbRequest::ErrorCode, const QString&);
+private:
+    QString query;
+    int offset;
+    int maxItems;
+    QString partitionName;
+    QVariantList *data;
+    QPointer<QJsonDbConnection> connection;
+    QPointer<QJsonDbReadRequest> request;
 };
 
 QT_END_NAMESPACE_JSONDB

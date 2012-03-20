@@ -101,6 +101,22 @@ QT_USE_NAMESPACE_JSONDB
 #define waitForResponse3(id, code, notificationId) waitForResponse(mEventLoop, this, id, code, notificationId, 0)
 #define waitForResponse4(id, code, notificationId, count) waitForResponse(mEventLoop, this, id, code, notificationId, count)
 
+#define waitForCallbackGeneric(eventloop) \
+{ \
+    QTimer timer; \
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout())); \
+    QObject::connect(&timer, SIGNAL(timeout()), &eventloop, SLOT(quit())); \
+    timer.start(mClientTimeout);                                       \
+    mElapsedTimer.start(); \
+    mTimedOut = false;\
+    callbackError = false; \
+    eventloop.exec(QEventLoop::AllEvents); \
+    QCOMPARE(false, mTimedOut); \
+}
+
+#define waitForCallback() waitForCallbackGeneric(mEventLoop)
+#define waitForCallback2() waitForCallbackGeneric(mEventLoop2)
+
 class JsonDbTestNotification
 {
 public:

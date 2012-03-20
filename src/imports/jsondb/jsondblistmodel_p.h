@@ -49,8 +49,10 @@
 #include <QStringList>
 #include <QPointer>
 
-#include "jsondb-client.h"
-#include "private/jsondb-connection_p.h"
+
+#include <QJsonDbWatcher>
+#include <QJsonDbReadRequest>
+#include <QJsonDbUpdateRequest>
 #include "jsondbmodelutils.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -72,10 +74,8 @@ public:
     int cacheEnd;
     int newChunkOffset;
 
-    QSet<int> requestIds;
-    QMap<int, CallbackInfo> updateRequestIds;
-    QMap<int, CallbackInfo> sectionIndexRequestIds;
-    int totalCountRequestId;
+    QMap< QPointer<QJsonDbWriteRequest>, CallbackInfo> updateCallbacks;
+    QMap< QPointer<QJsonDbReadRequest>, CallbackInfo> sectionIndexCallbacks;
 
     QHash<QString,QVariantMap> data; // cache that holds all the items.
     QMultiMap<JsonDbSortKey,QString> objectUuids; // sort value -> uuid
@@ -94,15 +94,17 @@ public:
     bool requestInProgress;
     bool componentComplete;
     bool resetModel;
-    bool updateRecieved;
+    bool updateReceived;
     bool totalRowCountRecieved;
 
-    QString notifyUuid;
     QVariantMap roleMap;
 
     QHash<int,QByteArray> roleNames;
     QHash<int,QStringList> properties;
     QList<NotifyItem> pendingNotifications;
+    ModelRequest valueRequest;
+    ModelRequest countRequest;
+    QPointer<QJsonDbWatcher> watcher;
 
     enum State {
         None,
@@ -110,9 +112,9 @@ public:
         Ready
     };
     State state;
-
-    JsonDbClient jsonDb;
-    JsonDbConnection *jsonDbConnection;
+    QModelIndex parent;
+    int errorCode;
+    QString errorString;
 
 public:
     JsonDbListModelPrivate(JsonDbListModel *q);
@@ -130,26 +132,31 @@ public:
     QVariantMap getItem(const QModelIndex &modelIndex, int role, bool handleCacheMiss, bool &cacheMiss);
     void set(int index, const QJSValue& valuemap, const QJSValue &successCallback,
              const QJSValue &errorCallback);
-    void setProperty(int index, const QString& property, const QVariant& value, const QJSValue &successCallback,
-                     const QJSValue &errorCallback);
+    void setProperty(int index, const QString& property, const QVariant& value,
+                     const QJSValue &successCallback, const QJSValue &errorCallback);
 
     void fetchChunkSynchronous(int offset);
-    void updateCache(const QVariantMap &v);
+    void updateCache(const QVariantList &items);
     void resetModelFinished();
-
-    // private slots
-    void _q_jsonDbResponse(int , const QVariant &);
-    void _q_jsonDbNotified(const QString&, const QVariant &, const QString &);
-    void _q_jsonDbErrorResponse(int , int, const QString&);
+    void update(int index, const QVariantMap &item,
+                const QJSValue &successCallback, const QJSValue &errorCallback);
 
     void _q_requestAnotherChunk(int offset);
-    void _q_dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification);
-    void _q_dbNotifyReadyResponse(int /* id */, const QVariant &/* result */);
-    void _q_dbNotifyErrorResponse(int id, int code, const QString &message);
 
-    void sendNotifications(const QVariant &v, JsonDbClient::NotifyType action);
+    void _q_notificationsAvailable();
+    void _q_notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
+    void _q_valueResponse(int , const QList<QJsonObject>&);
+    void _q_countResponse(int , const QList<QJsonObject>&);
+    void _q_readError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString & message);
+    void _q_sectionIndexResponse();
+    void _q_sectionIndexError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString & message);
+    void _q_updateResponse();
+    void _q_updateError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString & message);
+
+    void sendNotifications(const QVariantMap &v, QJsonDbWatcher::Action action);
 
     void populateModel();
+    void clearNotification();
     void createOrUpdateNotification();
     bool findSortOrder();
 

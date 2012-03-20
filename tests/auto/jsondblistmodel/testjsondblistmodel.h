@@ -41,22 +41,9 @@
 #ifndef TestJsonDbListModel_H
 #define TestJsonDbListModel_H
 
-#include <QCoreApplication>
-#include <QList>
-#include <QTest>
-#include <QFile>
-#include <QProcess>
-#include <QEventLoop>
-#include <QDebug>
-#include <QLocalSocket>
-#include <QTimer>
-
-#include <jsondb-client.h>
-#include <jsondb-error.h>
-
 #include <QAbstractItemModel>
-#include "clientwrapper.h"
-#include "../../shared/qmltestutil.h"
+#include "requestwrapper.h"
+#include "qmltestutil.h"
 
 QT_BEGIN_NAMESPACE
 class QQmlEngine;
@@ -76,7 +63,7 @@ public:
     QObject *model;
 };
 
-class TestJsonDbListModel: public ClientWrapper
+class TestJsonDbListModel: public RequestWrapper
 {
     Q_OBJECT
 public:
@@ -108,25 +95,30 @@ private slots:
     void roles();
     void totalRowCount();
     void listProperty();
-
+public:
+    void timeout();
 private:
     void waitForExitOrTimeout();
     void waitForItemsCreated(int items);
     QStringList getOrderValues(QAbstractItemModel *listModel);
     QAbstractItemModel *createModel();
     void deleteModel(QAbstractItemModel *model);
+    void resetWaitFlags();
 
 private:
-    QProcess        *mProcess;
-    QStringList      mNotificationsReceived;
+    QProcess *mProcess;
     QList<ModelData*> mModels;
     QString           mPluginPath;
 
     // Response values
-    int              mItemsCreated;
-    bool             mWaitingForNotification;
-    bool             mWaitingForDataChange;
-    bool             mWaitingForRowsRemoved;
+    bool mTimedOut;
+    int mItemsCreated;
+    int mItemsUpdated;
+    int mItemsRemoved;
+    bool mWaitingForRowsInserted;
+    bool mWaitingForReset;
+    bool mWaitingForChanged;
+    bool mWaitingForRemoved;
 };
 
 #endif

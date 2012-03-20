@@ -11,7 +11,7 @@ SUBDIRS = \
     jsondbpartition \
     jsondbnotification \
     jsondbqueryobject \
-    jsondbchangessinceobject \
+#    jsondbchangessinceobject \
     queries \
     qjsondbrequest \
     qjsondbwatcher \

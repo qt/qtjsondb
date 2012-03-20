@@ -38,10 +38,11 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-#include "jsondb-global.h"
 #include "jsondbqueryobject.h"
 #include "jsondbpartition.h"
-#include "private/jsondb-strings_p.h"
+#include "jsondatabase.h"
+#include <private/qjsondbstrings_p.h>
+#include <jsondbmodelutils.h>
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -84,7 +85,6 @@ JsonDbQueryObject::JsonDbQueryObject(QObject *parent)
     , queryLimit(-1)
     , partitionObject(0)
     , defaultPartitionObject(0)
-    , jsondbQuery(0)
     , errorCode(0)
     , objectStatus(JsonDbQueryObject::Null)
 {
@@ -94,8 +94,8 @@ JsonDbQueryObject::~JsonDbQueryObject()
 {
     if (defaultPartitionObject)
         delete defaultPartitionObject;
-    if (jsondbQuery)
-        delete jsondbQuery;
+    if (readRequest)
+        delete readRequest;
 }
 
 
@@ -145,8 +145,8 @@ void JsonDbQueryObject::setPartition(JsonDbPartition *newPartition)
 */
 quint32 JsonDbQueryObject::stateNumber() const
 {
-    if (jsondbQuery)
-        return jsondbQuery->stateNumber();
+    if (readRequest)
+        return readRequest->stateNumber();
     return 0;
 }
 
@@ -240,8 +240,8 @@ void JsonDbQueryObject::setBindings(const QVariantMap &newBindings)
 QVariantList JsonDbQueryObject::takeResults()
 {
     QVariantList list;
-    if (jsondbQuery) {
-        list  = jsondbQuery->takeResults();
+    if (readRequest) {
+        list  = qjsonobject_list_to_qvariantlist(readRequest->takeResults());
     }
     return list;
 }
@@ -329,32 +329,29 @@ int JsonDbQueryObject::start()
         return -1;
     }
 
-    if (jsondbQuery) {
-        delete jsondbQuery;
+    if (readRequest) {
+        delete readRequest;
     }
-    jsondbQuery = partitionObject->jsonDb.query();
-    jsondbQuery->setQuery(queryString);
-    jsondbQuery->setQueryLimit(queryLimit);
-    jsondbQuery->setQueryOffset(0);
-    jsondbQuery->setPartition(partitionObject->name());
+    QJsonDbReadRequest *request = new QJsonDbReadRequest;
+    request->setQuery(queryString);
+    request->setQueryLimit(queryLimit);
+    request->setPartition(partitionObject->name());
     QVariantMap::ConstIterator i = queryBindings.constBegin();
     while (i != queryBindings.constEnd()) {
-        jsondbQuery->bindValue(i.key(), i.value());
+        request->bindValue(i.key(), QJsonValue::fromVariant(i.value()));
         ++i;
     }
-    connect(jsondbQuery, SIGNAL(resultsReady(int)),
-            this, SIGNAL(resultsReady(int)));
-    connect(jsondbQuery, SIGNAL(finished()),
-            this, SLOT(setReadyStatus()));
-    connect(jsondbQuery, SIGNAL(finished()),
-            this, SIGNAL(finished()));
-    connect(jsondbQuery, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)),
-            this, SLOT(setError(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
+    connect(request, SIGNAL(resultsAvailable(int)), this, SIGNAL(resultsReady(int)));
+    connect(request, SIGNAL(finished()), this, SLOT(setReadyStatus()));
+    connect(request, SIGNAL(finished()), this, SIGNAL(finished()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(setError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
 
-    jsondbQuery->start();
     objectStatus = JsonDbQueryObject::Loading;
     emit statusChanged(objectStatus);
-    return jsondbQuery->requestId();
+    JsonDatabase::sharedConnection().send(request);
+    readRequest = request;
+    return request->property("requestId").toInt();
 
 }
 
@@ -405,16 +402,17 @@ void JsonDbQueryObject::setReadyStatus()
         emit statusChanged(objectStatus);
 }
 
-void JsonDbQueryObject::setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message)
+void JsonDbQueryObject::setError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString & message)
 {
     int oldErrorCode = errorCode;
     errorCode = code;
     errorString = message;
-    if (objectStatus != JsonDbQueryObject::Error) {
+    bool changed = (objectStatus != JsonDbQueryObject::Error);
+    if (changed) {
         objectStatus = JsonDbQueryObject::Error;
         emit statusChanged(objectStatus);
     }
-    if (oldErrorCode != errorCode) {
+    if (oldErrorCode != errorCode || changed) {
         emit errorChanged(error());
     }
 }

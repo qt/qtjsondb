@@ -38,14 +38,14 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-
-#include "private/jsondb-strings_p.h"
 #include "jsondbpartition.h"
+#include "jsondatabase.h"
 #include "jsondbnotification.h"
 #include "plugin.h"
-#include "jsondb-client.h"
 #include "jsondbqueryobject.h"
 #include "jsondbchangessinceobject.h"
+#include <QJsonDbCreateRequest>
+#include <private/qjsondbstrings_p.h>
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -67,11 +67,8 @@ JsonDbPartition::JsonDbPartition(const QString &partitionName, QObject *parent)
     :QObject(parent)
     ,_name(partitionName)
 {
-    connect(&jsonDb, SIGNAL(response(int,const QVariant&)),
-            this, SLOT(dbResponse(int,const QVariant&)));
-    connect(&jsonDb, SIGNAL(error(int,int,QString)),
-            this, SLOT(dbErrorResponse(int,int,QString)));
 }
+
 
 JsonDbPartition::~JsonDbPartition()
 {
@@ -91,10 +88,10 @@ void JsonDbPartition::setName(const QString &partitionName)
 {
     if (partitionName != _name) {
         _name = partitionName;
-        foreach (QPointer<JsonDbNotify> notify, notifications) {
-            removeNotification(notify);
+        foreach (QPointer<QJsonDbWatcher> watcher, watchers) {
+            JsonDatabase::sharedConnection().removeWatcher(watcher);
         }
-        notifications.clear();
+        watchers.clear();
         // tell notifications to resubscribe
         emit nameChanged(partitionName);
     }
@@ -112,6 +109,27 @@ static QVariant qjsvalue_to_qvariant(const QJSValue &value)
     }
 }
 }
+
+QList<QJsonObject> qvariantlist_to_qjsonobject_list(const QVariantList &list)
+{
+    QList<QJsonObject> objects;
+    int count = list.count();
+    for (int i = 0; i < count; i++) {
+        objects.append(QJsonObject::fromVariantMap(list[i].toMap()));
+    }
+    return objects;
+}
+
+QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list)
+{
+    QVariantList objects;
+    int count = list.count();
+    for (int i = 0; i < count; i++) {
+        objects.append(list[i].toVariantMap());
+    }
+    return objects;
+}
+
 /*!
     \qmlmethod int QtJsonDb::Partition::create(object newObject, object options, function callback)
 
@@ -168,9 +186,23 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
         actualOptions = QJSValue(QJSValue::UndefinedValue);
     }
     //#TODO ADD options
-    int id = jsonDb.create(qjsvalue_to_qvariant(object), _name);
-    createCallbacks.insert(id, actualCallback);
-    return id;
+    QVariant obj = qjsvalue_to_qvariant(object);
+    QJsonDbWriteRequest *request(0);
+    if (obj.type() == QVariant::List) {
+        request = new QJsonDbCreateRequest(qvariantlist_to_qjsonobject_list(obj.toList()));
+    } else {
+        request = new QJsonDbCreateRequest(QJsonObject::fromVariantMap(obj.toMap()));
+    }
+    request->setPartition(_name);
+    connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
+    connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            request, SLOT(deleteLater()));
+    JsonDatabase::sharedConnection().send(request);
+    writeCallbacks.insert(request, actualCallback);
+    return request->property("requestId").toInt();
 }
 
 /*!
@@ -241,9 +273,23 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
         actualOptions = QJSValue(QJSValue::UndefinedValue);
     }
     //#TODO ADD options
-    int id = jsonDb.update(qjsvalue_to_qvariant(object), _name);
-    updateCallbacks.insert(id, actualCallback);
-    return id;
+    QVariant obj = qjsvalue_to_qvariant(object);
+    QJsonDbWriteRequest *request(0);
+    if (obj.type() == QVariant::List) {
+        request = new QJsonDbUpdateRequest(qvariantlist_to_qjsonobject_list(obj.toList()));
+    } else {
+        request = new QJsonDbUpdateRequest(QJsonObject::fromVariantMap(obj.toMap()));
+    }
+    request->setPartition(_name);
+    connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
+    connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            request, SLOT(deleteLater()));
+    JsonDatabase::sharedConnection().send(request);
+    writeCallbacks.insert(request, actualCallback);
+    return request->property("requestId").toInt();
 }
 
 /*!
@@ -306,9 +352,23 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
         actualOptions = QJSValue(QJSValue::UndefinedValue);
     }
     //#TODO ADD options
-    int id = jsonDb.remove(qjsvalue_to_qvariant(object), _name);
-    removeCallbacks.insert(id, actualCallback);
-    return id;
+    QVariant obj = qjsvalue_to_qvariant(object);
+    QJsonDbWriteRequest *request(0);
+    if (obj.type() == QVariant::List) {
+        request = new QJsonDbRemoveRequest(qvariantlist_to_qjsonobject_list(obj.toList()));
+    } else {
+        request = new QJsonDbRemoveRequest(QJsonObject::fromVariantMap(obj.toMap()));
+    }
+    request->setPartition(_name);
+    connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
+    connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            request, SLOT(deleteLater()));
+    JsonDatabase::sharedConnection().send(request);
+    writeCallbacks.insert(request, actualCallback);
+    return request->property("requestId").toInt();
 }
 
 /*!
@@ -503,65 +563,47 @@ QQmlListProperty<QObject> JsonDbPartition::childElements()
 
 void JsonDbPartition::updateNotification(JsonDbNotify *notify)
 {
-    JsonDbClient::NotifyTypes notifyActions = JsonDbClient::NotifyCreate
-            | JsonDbClient::NotifyUpdate| JsonDbClient::NotifyRemove;
-    notify->uuid= jsonDb.registerNotification(notifyActions, notify->query(), _name
-                                              , notify, SLOT(dbNotified(QString,QtAddOn::JsonDb::JsonDbNotification))
-                                              , notify, SLOT(dbNotifyReadyResponse(int,QVariant))
-                                              , SLOT(dbNotifyErrorResponse(int,int,QString)));
-    notifications.insert(notify->uuid, notify);
+    JsonDatabase::sharedConnection().addWatcher(notify->watcher);
+    watchers.append(notify->watcher);
 }
-
 
 void JsonDbPartition::removeNotification(JsonDbNotify *notify)
 {
-    if (notifications.contains(notify->uuid)) {
-        jsonDb.unregisterNotification(notify->uuid);
-        notifications.remove(notify->uuid);
+    if (watchers.contains(notify->watcher)) {
+        JsonDatabase::sharedConnection().removeWatcher(notify->watcher);
+        watchers.removeAll(notify->watcher);
     }
 }
 
-void JsonDbPartition::call(QMap<int, QJSValue> &callbacks, int id, const QVariant &result)
+void JsonDbPartition::call(QMap<QJsonDbWriteRequest*, QJSValue> &callbacks, QJsonDbWriteRequest *request)
 {
-    // Make sure that id exists in the map.
-    QJSValue callback = callbacks[id];
+    QJSValue callback = callbacks[request];
     QJSEngine *engine = callback.engine();
     if (!engine) {
-        callbacks.remove(id);
+        callbacks.remove(request);
         return;
     }
+    QList<QJsonObject> objects = request->takeResults();
     QJSValueList args;
-    QVariantMap object = result.toMap();
     // object : id  , statenumber , items
     QJSValue response= engine->newObject();
-    response.setProperty(JsonDbString::kStateNumberStr, object.value(JsonDbString::kStateNumberStr).toInt());
-    response.setProperty(JsonDbString::kIdStr,  id);
+    response.setProperty(JsonDbStrings::Protocol::stateNumber(), request->stateNumber());
+    response.setProperty(JsonDbStrings::Protocol::requestId(), request->property("requestId").toInt());
+    QJSValue items = engine->toScriptValue(qjsonobject_list_to_qvariantlist(objects));
+    response.setProperty(QLatin1String("items"), items);
 
-    // response object : object { _version & _uuid } (can be a list)
-    if (object.contains(QLatin1String("data"))) {
-        QJSValue items = engine->toScriptValue(object.value(QLatin1String("data")));
-        response.setProperty(QLatin1String("items"), items);
-    } else {
-        // Create an array with a single element
-        QJSValue responseObject = engine->newObject();
-        responseObject.setProperty(JsonDbString::kUuidStr, object.value(JsonDbString::kUuidStr).toString());
-        responseObject.setProperty(JsonDbString::kVersionStr, object.value(JsonDbString::kVersionStr).toString());
-        QJSValue items = engine->newArray(1);
-        items.setProperty(0, responseObject);
-        response.setProperty(QLatin1String("items"), items);
-    }
     args << QJSValue(QJSValue::UndefinedValue) << response;
     callback.call(args);
-    callbacks.remove(id);
+    callbacks.remove(request);
 }
 
-void JsonDbPartition::callErrorCallback(QMap<int, QJSValue> &callbacks, int id, int code, const QString &message)
+void JsonDbPartition::callErrorCallback(QMap<QJsonDbWriteRequest*, QJSValue> &callbacks, QJsonDbWriteRequest *request,
+                                        QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
 {
-    // Make sure that id exists in the map.
-    QJSValue callback = callbacks[id];
+    QJSValue callback = callbacks[request];
     QJSEngine *engine = callback.engine();
     if (!engine) {
-        callbacks.remove(id);
+        callbacks.remove(request);
         return;
     }
     QJSValueList args;
@@ -571,36 +613,13 @@ void JsonDbPartition::callErrorCallback(QMap<int, QJSValue> &callbacks, int id, 
 
     // object : id
     QJSValue response = engine->newObject();
-    response.setProperty(JsonDbString::kStateNumberStr, -1);
-    response.setProperty(JsonDbString::kIdStr,  id);
+    response.setProperty(JsonDbStrings::Protocol::stateNumber(), -1);
+    response.setProperty(JsonDbStrings::Protocol::requestId(), request->property("requestId").toInt());
     response.setProperty(QLatin1String("items"), engine->newArray());
 
     args << engine->toScriptValue(QVariant(error))<< response;
     callback.call(args);
-    callbacks.remove(id);
-}
-
-
-void JsonDbPartition::dbResponse(int id, const QVariant &result)
-{
-    if (createCallbacks.contains(id)) {
-        call(createCallbacks, id, result);
-    } else if (updateCallbacks.contains(id)) {
-        call(updateCallbacks, id, result);
-    } else if (removeCallbacks.contains(id)) {
-        call(removeCallbacks, id, result);
-    }
-}
-
-void JsonDbPartition::dbErrorResponse(int id, int code, const QString &message)
-{
-    if (createCallbacks.contains(id)) {
-        callErrorCallback(createCallbacks, id, code, message);
-    } else if (removeCallbacks.contains(id)) {
-        callErrorCallback(removeCallbacks, id, code, message);
-    } else if (updateCallbacks.contains(id)) {
-        callErrorCallback(updateCallbacks, id, code, message);
-    }
+    callbacks.remove(request);
 }
 
 void JsonDbPartition::queryFinished()
@@ -614,8 +633,8 @@ void JsonDbPartition::queryFinished()
             QJSValueList args;
             // object : id  , statenumber , items
             QJSValue response= engine->newObject();
-            response.setProperty(JsonDbString::kStateNumberStr, object->stateNumber());
-            response.setProperty(JsonDbString::kIdStr,  id);
+            response.setProperty(JsonDbStrings::Protocol::stateNumber(), object->stateNumber());
+            response.setProperty(JsonDbStrings::Protocol::requestId(),  id);
             response.setProperty(QLatin1String("items"), engine->toScriptValue(object->takeResults()));
             args << QJSValue(QJSValue::UndefinedValue) << response;
             callback.call(args);
@@ -637,8 +656,8 @@ void JsonDbPartition::queryStatusChanged()
             QJSValueList args;
 
             QJSValue response = engine->newObject();
-            response.setProperty(JsonDbString::kStateNumberStr, -1);
-            response.setProperty(JsonDbString::kIdStr,  id);
+            response.setProperty(JsonDbStrings::Protocol::stateNumber(), -1);
+            response.setProperty(JsonDbStrings::Protocol::requestId(),  id);
             response.setProperty(QLatin1String("items"), engine->newArray());
 
             args << engine->toScriptValue(object->error())<< response;
@@ -647,6 +666,22 @@ void JsonDbPartition::queryStatusChanged()
         findIds.remove(object);
         findCallbacks.remove(object);
         object->deleteLater();
+    }
+
+}
+void JsonDbPartition::requestFinished()
+{
+    QJsonDbWriteRequest *request = qobject_cast<QJsonDbWriteRequest *>(sender());
+    if (writeCallbacks.contains(request)) {
+        call(writeCallbacks, request);
+    }
+}
+
+void JsonDbPartition::requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
+{
+    QJsonDbWriteRequest *request = qobject_cast<QJsonDbWriteRequest *>(sender());
+    if (writeCallbacks.contains(request)) {
+        callErrorCallback(writeCallbacks, request, code, message);
     }
 
 }

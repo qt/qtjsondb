@@ -43,7 +43,6 @@
 
 #include "jsondbcachinglistmodel.h"
 #include "jsondbcachinglistmodel_p.h"
-#include "private/jsondb-strings_p.h"
 #include "plugin.h"
 
 #include <QJSEngine>
@@ -70,13 +69,6 @@ JsonDbCachingListModelPrivate::JsonDbCachingListModelPrivate(JsonDbCachingListMo
 
 void JsonDbCachingListModelPrivate::init()
 {
-    Q_Q(JsonDbCachingListModel);
-    q->connect(&dbClient, SIGNAL(response(int,const QVariant&)),
-               q, SLOT(_q_jsonDbResponse(int,const QVariant&)),
-               Qt::QueuedConnection);
-    q->connect(&dbClient, SIGNAL(error(int,int,const QString&)),
-               q, SLOT(_q_jsonDbErrorResponse(int,int,const QString&)),
-               Qt::QueuedConnection);
 }
 
 void JsonDbCachingListModelPrivate::setCacheParams(int maxItems)
@@ -84,13 +76,24 @@ void JsonDbCachingListModelPrivate::setCacheParams(int maxItems)
     objectCache.setPageSize(maxItems);
     chunkSize = objectCache.chunkSize();
     lowWaterMark = objectCache.chunkSize()/4;
-    //lowWaterMark = objectCache.pageSize/4;
 }
 
 JsonDbCachingListModelPrivate::~JsonDbCachingListModelPrivate()
 {
-    // Why do we need to do this while destroying the object
     clearNotifications();
+    while (!keyRequests.isEmpty()) {
+        delete keyRequests[0];
+        keyRequests.removeFirst();
+    }
+    while (!indexRequests.isEmpty()) {
+        delete indexRequests[0];
+        indexRequests.removeFirst();
+    }
+    while (!valueRequests.isEmpty()) {
+        delete valueRequests[0];
+        valueRequests.removeFirst();
+    }
+
 }
 
 // insert item notification handler
@@ -276,18 +279,20 @@ void JsonDbCachingListModelPrivate::createObjectRequests(int startIndex, int max
             r.lastOffset = indexNSizes[i].index;
             r.lastSize = -1;
             r.requestCount = indexNSizes[i].count;
-            r.requestId = dbClient.query(query+sortOrder, indexNSizes[i].index,
-                                         qMin(r.requestCount, chunkSize),
-                                         partitionObjects[i]->name());
+            QJsonDbReadRequest *request = valueRequests[i]->newRequest(i);
+            request->setQuery(query+sortOrder);
+            request->setProperty("queryOffset", indexNSizes[i].index);
+            request->setQueryLimit(qMin(r.requestCount, chunkSize));
+            request->setPartition(partitionObjects[i]->name());
+            JsonDatabase::sharedConnection().send(request);
 #ifdef JSONDB_LISTMODEL_DEBUG
             qDebug()<<"Query"<<query+sortOrder<<partitionObjects[i]->name();
-            qDebug()<<"Request "<<r.requestId <<
+            qDebug()<<"Request "<<request->property("requestId") <<
                       "Total Count "<<r.requestCount <<
                       "Offset"<<r.lastOffset<<
                       "Count "<<qMin(r.requestCount,chunkSize);
 #endif
         } else {
-            r.requestId = -1;
             r.lastSize = 0;
             r.requestCount = 0;
         }
@@ -295,13 +300,9 @@ void JsonDbCachingListModelPrivate::createObjectRequests(int startIndex, int max
     delete [] indexNSizes;
 }
 
-void JsonDbCachingListModelPrivate::verifyIndexSpec(const QVariant &v, int partitionIndex)
+void JsonDbCachingListModelPrivate::verifyIndexSpec(const QVariantList &items, int partitionIndex)
 {
     Q_Q(JsonDbCachingListModel);
-    QVariantMap m = v.toMap();
-    QVariantList items;
-    if (m.contains(QLatin1String("data")))
-        items = m.value(QLatin1String("data")).toList();
     SortIndexSpec &indexSpec = partitionIndexDetails[partitionIndex].spec;
     QString propertyFunction;
     QString indexName;
@@ -354,24 +355,17 @@ void JsonDbCachingListModelPrivate::verifyIndexSpec(const QVariant &v, int parti
     }
 }
 
-void JsonDbCachingListModelPrivate::fillKeys(const QVariant &v, int partitionIndex)
+void JsonDbCachingListModelPrivate::fillKeys(const QVariantList &items, int partitionIndex, const QString &sortKey)
 {
     Q_Q(JsonDbCachingListModel);
-    QVariantMap m = v.toMap();
-    QVariantList items;
-    if (m.contains(QLatin1String("data")))
-        items = m.value(QLatin1String("data")).toList();
     // Check if the sort key is same as requested.
     // We can only support this model if an index is present
-    if (m.contains(QLatin1String("sortKeys"))) {
-        const QVariantList &sortKeys = m.value(QLatin1String("sortKeys")).toList();
-        if (!(sortKeys.count() && sortKeys[0].toString() == orderProperties[0])) {
-            qWarning() << "Error JsonDbCachingListModel requires Index for "<<orderProperties[0]<<" Sort Keys"<<sortKeys;
-            reset();
-            state = JsonDbCachingListModel::Error;
-            emit q->stateChanged(state);
-            return;
-        }
+    if (sortKey != orderProperties[0]) {
+        qWarning() << "Error JsonDbCachingListModel requires Index for "<<orderProperties[0]<<" Sort Keys"<<sortKey;
+        reset();
+        state = JsonDbCachingListModel::Error;
+        emit q->stateChanged(state);
+        return;
     }
     RequestInfo &r = partitionKeyRequestDetails[partitionIndex];
     r.lastSize = items.size();
@@ -400,7 +394,7 @@ void JsonDbCachingListModelPrivate::fillKeys(const QVariant &v, int partitionInd
 #endif
         if (!objectUuids.count()) {
             for (int i = 0; i<partitionObjectDetails.count(); i++) {
-                fillData(QVariant(), i);
+                fillData(QVariantList(), i);
             }
             return;
         }
@@ -419,13 +413,9 @@ void JsonDbCachingListModelPrivate::emitDataChanged(int from, int to)
     emit q->dataChanged(modelIndexFrom, modelIndexTo);
 }
 
-void JsonDbCachingListModelPrivate::fillData(const QVariant &v, int partitionIndex)
+void JsonDbCachingListModelPrivate::fillData(const QVariantList &items, int partitionIndex)
 {
     Q_Q(JsonDbCachingListModel);
-    QVariantMap m = v.toMap();
-    QVariantList items;
-    if (m.contains(QLatin1String("data")))
-        items = m.value(QLatin1String("data")).toList();
     RequestInfo &r = partitionObjectDetails[partitionIndex];
     r.lastSize = items.size();
     r.requestCount -= r.lastSize;
@@ -500,7 +490,7 @@ void JsonDbCachingListModelPrivate::fillData(const QVariant &v, int partitionInd
         emit q->stateChanged(state);
         for (int i = 0; i < pendingNotifications.size(); i++) {
             const NotifyItem &pending = pendingNotifications[i];
-            sendNotifications(pending.notifyUuid, pendingNotifications[i].item, pendingNotifications[i].action);
+            sendNotifications(pending.partitionIndex, pending.item, pending.action);
         }
         pendingNotifications.clear();
         if (requestQueue.count()) {
@@ -573,10 +563,12 @@ void JsonDbCachingListModelPrivate::fetchIndexSpec(int index)
         state = JsonDbCachingListModel::Querying;
         emit q->stateChanged(state);
     }
-    IndexInfo &r = partitionIndexDetails[index];
     QPointer<JsonDbPartition> p = partitionObjects[index];
     if (p) {
-        r.requestId = dbClient.query(queryForIndexSpec, 0, -1, p->name());
+        QJsonDbReadRequest *request = indexRequests[index]->newRequest(index);
+        request->setQuery(queryForIndexSpec);
+        request->setPartition(p->name());
+        JsonDatabase::sharedConnection().send(request);
     }
 }
 
@@ -595,7 +587,11 @@ void JsonDbCachingListModelPrivate::fetchPartitionKeys(int index)
     if (p) {
         r.lastSize = -1;
         r.lastOffset = 0;
-        r.requestId = dbClient.query(queryForSortKeys, 0, chunkSize*2, p->name());
+        QJsonDbReadRequest *request = keyRequests[index]->newRequest(index);
+        request->setQuery(queryForSortKeys);
+        request->setQueryLimit(chunkSize*2);
+        request->setPartition(p->name());
+        JsonDatabase::sharedConnection().send(request);
     }
 }
 
@@ -608,6 +604,9 @@ void JsonDbCachingListModelPrivate::initializeModel(bool reset)
         objectSortValues.clear();
         for (int i = 0; i < partitionObjectUuids.count(); i++) {
             partitionObjectUuids[i].clear();
+        }
+        for (int i = 0; i < partitionIndexDetails.count(); i++) {
+            partitionIndexDetails[i].clear();
         }
     }
     for (int i = 0; i < partitionObjects.count(); i++) {
@@ -625,16 +624,25 @@ void JsonDbCachingListModelPrivate::fetchNextKeyChunk(int partitionIndex)
 {
     RequestInfo &r = partitionKeyRequestDetails[partitionIndex];
     r.lastOffset += chunkSize*2;
-    r.requestId = dbClient.query(queryForSortKeys, r.lastOffset,
-                                 chunkSize*2, partitionObjects[partitionIndex]->name());
+    QJsonDbReadRequest *request = keyRequests[partitionIndex]->newRequest(partitionIndex);
+    request->setQuery(queryForSortKeys);
+    request->setProperty("queryOffset", r.lastOffset);
+    request->setQueryLimit(chunkSize*2);
+    request->setPartition(partitionObjects[partitionIndex]->name());
+    JsonDatabase::sharedConnection().send(request);
+
 }
 
 void JsonDbCachingListModelPrivate::fetchNextChunk(int partitionIndex)
 {
     RequestInfo &r = partitionObjectDetails[partitionIndex];
-    r.requestId = dbClient.query(query+sortOrder, r.lastOffset,
-                                 qMin(r.requestCount, chunkSize),
-                                 partitionObjects[partitionIndex]->name());
+    QJsonDbReadRequest *request = valueRequests[partitionIndex]->newRequest(partitionIndex);
+    request->setQuery(query+sortOrder);
+    request->setProperty("queryOffset", r.lastOffset);
+    request->setQueryLimit(qMin(r.requestCount, chunkSize));
+    request->setPartition(partitionObjects[partitionIndex]->name());
+    JsonDatabase::sharedConnection().send(request);
+
 }
 
 void JsonDbCachingListModelPrivate::prefetchNearbyPages(int index)
@@ -687,15 +695,14 @@ void JsonDbCachingListModelPrivate::requestPageContaining(int index)
 
 }
 
-
 void JsonDbCachingListModelPrivate::clearNotification(int index)
 {
     if (index >= partitionObjects.count())
         return;
 
     RequestInfo &r = partitionObjectDetails[index];
-    if (!r.notifyUuid.isEmpty()) {
-        dbClient.unregisterNotification(r.notifyUuid);
+    if (r.watcher) {
+        JsonDatabase::sharedConnection().removeWatcher(r.watcher);
     }
     r.clear();
 }
@@ -712,13 +719,16 @@ void JsonDbCachingListModelPrivate::createOrUpdateNotification(int index)
     if (index >= partitionObjects.count())
         return;
     clearNotification(index);
-    JsonDbClient::NotifyTypes notifyActions = JsonDbClient::NotifyCreate
-            | JsonDbClient::NotifyUpdate| JsonDbClient::NotifyRemove;
-    partitionObjectDetails[index].notifyUuid= dbClient.registerNotification(
-                notifyActions , query, partitionObjects[index]->name(),
-                q, SLOT(_q_dbNotified(QString,QtAddOn::JsonDb::JsonDbNotification)),
-                q, SLOT(_q_dbNotifyReadyResponse(int,QVariant)),
-                SLOT(_q_dbNotifyErrorResponse(int,int,QString)));
+    QJsonDbWatcher *watcher = new QJsonDbWatcher();
+    watcher->setQuery(query);
+    watcher->setWatchedActions(QJsonDbWatcher::Created | QJsonDbWatcher::Updated |QJsonDbWatcher::Removed);
+    watcher->setPartition(partitionObjects[index]->name());
+    QObject::connect(watcher, SIGNAL(notificationsAvailable(int)),
+                     q, SLOT(_q_notificationsAvailable()));
+    QObject::connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+                     q, SLOT(_q_notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+    JsonDatabase::sharedConnection().addWatcher(watcher);
+    partitionObjectDetails[index].watcher = watcher;
 }
 
 void JsonDbCachingListModelPrivate::createOrUpdateNotifications()
@@ -742,7 +752,8 @@ void JsonDbCachingListModelPrivate::parseSortOrder()
             ascendingOrder = true;
         ascendingOrders << ascendingOrder;
         orderProperties << orderMatch.cap(2);
-        orderPaths << orderMatch.cap(2).split('.');
+        // We dont retrieve subobjects when retrieving sortkeys, only the actual value is retrieved
+        orderPaths << QStringList(orderMatch.cap(2));
         if (firstMatch == -1)
             firstMatch = matchIndex;
         matchIndex += orderMatch.matchedLength();
@@ -758,42 +769,19 @@ void JsonDbCachingListModelPrivate::parseSortOrder()
 void JsonDbCachingListModelPrivate::setQueryForSortKeys()
 {
     // Query to retrieve the sortKeys
-    queryForSortKeys = (QString("%1%2")
-                        .arg(query)
-                        .arg(sortOrder));
-}
-
-int JsonDbCachingListModelPrivate::indexOfKeyIndexSpecId(int requestId)
-{
-    for (int i = 0; i < partitionIndexDetails.count(); i++) {
-        if (requestId == partitionIndexDetails[i].requestId)
-            return i;
+    // TODO remove the "[= {}]" from query
+    queryForSortKeys = query + QLatin1String("[= { _uuid: _uuid");
+    for (int i = 0; i < orderProperties.count() ; i++) {
+        queryForSortKeys += QLatin1String(", ") + orderProperties[i]+QLatin1String(" : ") + orderProperties[i];
     }
-    return -1;
+    queryForSortKeys += QLatin1String("}]");
+    queryForSortKeys += sortOrder;
 }
 
-int JsonDbCachingListModelPrivate::indexOfKeyRequestId(int requestId)
-{
-    for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
-        if (requestId == partitionKeyRequestDetails[i].requestId)
-            return i;
-    }
-    return -1;
-}
-
-int JsonDbCachingListModelPrivate::indexOfRequestId(int requestId)
+int JsonDbCachingListModelPrivate::indexOfWatcher(QJsonDbWatcher *watcher)
 {
     for (int i = 0; i < partitionObjectDetails.count(); i++) {
-        if (requestId == partitionObjectDetails[i].requestId)
-            return i;
-    }
-    return -1;
-}
-
-int JsonDbCachingListModelPrivate::indexOfNotifyUUID(const QString& notifyUuid)
-{
-    for (int i = 0; i < partitionObjectDetails.count(); i++) {
-        if (notifyUuid == partitionObjectDetails[i].notifyUuid)
+        if (watcher == partitionObjectDetails[i].watcher)
             return i;
     }
     return -1;
@@ -904,39 +892,33 @@ int JsonDbCachingListModelPrivate::indexOf(const QString &uuid) const
     return iterator_position(begin, end, i);
 }
 
-void JsonDbCachingListModelPrivate::sendNotifications(const QString& currentNotifyUuid, const QVariant &v, JsonDbClient::NotifyType action)
+void JsonDbCachingListModelPrivate::sendNotifications(int partitionIndex, const QVariantMap &v, QJsonDbWatcher::Action action)
 {
-    int idx = indexOfNotifyUUID(currentNotifyUuid);
-    if (idx == -1)
-        return;
-
-    const QVariantMap &item = v.toMap();
-    if (action == JsonDbClient::NotifyCreate) {
-        addItem(item, idx);
-    } else if (action == JsonDbClient::NotifyRemove) {
-        deleteItem(item, idx);
-    } else if (action == JsonDbClient::NotifyUpdate) {
-        updateItem(item, idx);
+    if (action == QJsonDbWatcher::Created) {
+        addItem(v, partitionIndex);
+    } else if (action == QJsonDbWatcher::Removed) {
+        deleteItem(v, partitionIndex);
+    } else if (action == QJsonDbWatcher::Updated) {
+        updateItem(v, partitionIndex);
     }
 }
 
-void JsonDbCachingListModelPrivate::_q_jsonDbResponse(int id, const QVariant &v)
+void JsonDbCachingListModelPrivate::_q_keyResponse(int index, const QList<QJsonObject> &v, const QString &sortKey)
 {
-    int idx = -1;
-    if ((idx = indexOfKeyRequestId(id)) != -1) {
-        partitionKeyRequestDetails[idx].requestId = -1;
-        partitionObjectDetails[idx].requestId = -1;
-        fillKeys(v, idx);
-    } else if ((idx = indexOfRequestId(id)) != -1) {
-        partitionObjectDetails[idx].requestId = -1;
-        fillData(v, idx);
-    } else if ((idx = indexOfKeyIndexSpecId(id)) != -1) {
-        partitionIndexDetails[idx].requestId = -1;
-        verifyIndexSpec(v, idx);
-    }
+    fillKeys(qjsonobject_list_to_qvariantlist(v), index, sortKey);
 }
 
-void JsonDbCachingListModelPrivate::_q_jsonDbErrorResponse(int, int code, const QString &message)
+void JsonDbCachingListModelPrivate::_q_valueResponse(int index, const QList<QJsonObject> &v)
+{
+    fillData(qjsonobject_list_to_qvariantlist(v), index);
+}
+
+void JsonDbCachingListModelPrivate::_q_indexResponse(int index, const QList<QJsonObject> &v)
+{
+    verifyIndexSpec(qjsonobject_list_to_qvariantlist(v), index);
+}
+
+void JsonDbCachingListModelPrivate::_q_readError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString & message)
 {
     Q_Q(JsonDbCachingListModel);
     qWarning() << QString("JsonDb error: %1 %2").arg(code).arg(message);
@@ -947,26 +929,31 @@ void JsonDbCachingListModelPrivate::_q_jsonDbErrorResponse(int, int code, const 
         emit q->errorChanged(q->error());
 }
 
-void JsonDbCachingListModelPrivate::_q_dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification)
+void JsonDbCachingListModelPrivate::_q_notificationsAvailable()
 {
-    if (state == JsonDbCachingListModel::Querying) {
-        NotifyItem  pending;
-        pending.notifyUuid = notify_uuid;
-        pending.item = _notification.object();
-        pending.action = _notification.action();
-        pendingNotifications.append(pending);
-    } else if (state == JsonDbCachingListModel::Ready) {
-        sendNotifications(notify_uuid, _notification.object(), _notification.action());
+    Q_Q(JsonDbCachingListModel);
+    QJsonDbWatcher *watcher = qobject_cast<QJsonDbWatcher *>(q->sender());
+    int partitionIndex = indexOfWatcher(watcher);
+    if (!watcher || partitionIndex == -1)
+        return;
+    QList<QJsonDbNotification> list = watcher->takeNotifications();
+    for (int i = 0; i < list.count(); i++) {
+        const QJsonDbNotification & notification = list[i];
+        QVariantMap object = notification.object().toVariantMap();
+        if (state == JsonDbCachingListModel::Querying) {
+            NotifyItem  pending;
+            pending.partitionIndex = partitionIndex;
+            pending.item = object;
+            pending.action = notification.action();
+            pendingNotifications.append(pending);
+        } else if (state == JsonDbCachingListModel::Ready) {
+            sendNotifications(partitionIndex, object, notification.action());
+        }
     }
 }
 
-void JsonDbCachingListModelPrivate::_q_dbNotifyReadyResponse(int /* id */, const QVariant &/* result */)
+void JsonDbCachingListModelPrivate::_q_notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message)
 {
-}
-
-void JsonDbCachingListModelPrivate::_q_dbNotifyErrorResponse(int id, int code, const QString &message)
-{
-    Q_UNUSED(id);
     Q_Q(JsonDbCachingListModel);
     qWarning() << QString("JsonDbCachingListModel Notification error: %1 %2").arg(code).arg(message);
     int oldErrorCode = errorCode;
@@ -1012,23 +999,52 @@ void JsonDbCachingListModelPrivate::_q_verifyDefaultIndexType(int index)
     }
 }
 
+void JsonDbCachingListModelPrivate::appendPartition(JsonDbPartition *v)
+{
+    Q_Q(JsonDbCachingListModel);
+    partitionObjects.append(QPointer<JsonDbPartition>(v));
+
+    partitionObjectDetails.append(RequestInfo());
+    ModelRequest *valueRequest = new ModelRequest();
+    QObject::connect(valueRequest, SIGNAL(finished(int,QList<QJsonObject>,QString)),
+                     q, SLOT(_q_valueResponse(int,QList<QJsonObject>)));
+    QObject::connect(valueRequest, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                     q, SLOT(_q_readError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    valueRequests.append(valueRequest);
+
+    partitionKeyRequestDetails.append(RequestInfo());
+    ModelRequest *keyRequest = new ModelRequest();
+    QObject::connect(keyRequest, SIGNAL(finished(int,QList<QJsonObject>,QString)),
+                     q, SLOT(_q_keyResponse(int,QList<QJsonObject>,QString)));
+    QObject::connect(keyRequest, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                     q, SLOT(_q_readError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    keyRequests.append(keyRequest);
+
+    partitionObjectUuids.append(JsonDbModelIndexType());
+
+    partitionIndexDetails.append(IndexInfo());
+    ModelRequest *indexRequest = new ModelRequest();
+    QObject::connect(indexRequest, SIGNAL(finished(int,QList<QJsonObject>,QString)),
+                     q, SLOT(_q_indexResponse(int,QList<QJsonObject>)));
+    QObject::connect(indexRequest, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                     q, SLOT(_q_readError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    indexRequests.append(indexRequest);
+
+    if (componentComplete && !query.isEmpty()) {
+        parseSortOrder();
+        createOrUpdateNotification(partitionObjects.count()-1);
+        if (state == JsonDbCachingListModel::None)
+            resetModel = true;
+        fetchIndexSpec(partitionObjects.count()-1);
+    }
+}
+
 void JsonDbCachingListModelPrivate::partitions_append(QQmlListProperty<JsonDbPartition> *p, JsonDbPartition *v)
 {
     JsonDbCachingListModel *q = qobject_cast<JsonDbCachingListModel *>(p->object);
     JsonDbCachingListModelPrivate *pThis = (q) ? q->d_func() : 0;
     if (pThis) {
-        pThis->partitionObjects.append(QPointer<JsonDbPartition>(v));\
-        pThis->partitionObjectDetails.append(RequestInfo());
-        pThis->partitionKeyRequestDetails.append(RequestInfo());
-        pThis->partitionObjectUuids.append(JsonDbModelIndexType());
-        pThis->partitionIndexDetails.append(IndexInfo());
-        if (pThis->componentComplete && !pThis->query.isEmpty()) {
-            pThis->parseSortOrder();
-            pThis->createOrUpdateNotification(pThis->partitionObjects.count()-1);
-            if (pThis->state == JsonDbCachingListModel::None)
-                pThis->resetModel = true;
-            pThis->fetchIndexSpec(pThis->partitionObjects.count()-1);
-        }
+        pThis->appendPartition(v);
     }
 }
 
@@ -1052,17 +1068,34 @@ JsonDbPartition* JsonDbCachingListModelPrivate::partitions_at(QQmlListProperty<J
     return 0;
 }
 
+void JsonDbCachingListModelPrivate::clearPartitions()
+{
+    partitionObjects.clear();
+    partitionObjectDetails.clear();
+    partitionKeyRequestDetails.clear();
+    partitionObjectUuids.clear();
+    partitionIndexDetails.clear();
+    while (!keyRequests.isEmpty()) {
+        delete keyRequests[0];
+        keyRequests.removeFirst();
+    }
+    while (!indexRequests.isEmpty()) {
+        delete indexRequests[0];
+        indexRequests.removeFirst();
+    }
+    while (!valueRequests.isEmpty()) {
+        delete valueRequests[0];
+        valueRequests.removeFirst();
+    }
+    reset();
+}
+
 void JsonDbCachingListModelPrivate::partitions_clear(QQmlListProperty<JsonDbPartition> *p)
 {
     JsonDbCachingListModel *q = qobject_cast<JsonDbCachingListModel *>(p->object);
     JsonDbCachingListModelPrivate *pThis = (q) ? q->d_func() : 0;
     if (pThis) {
-        pThis->partitionObjects.clear();
-        pThis->partitionObjectDetails.clear();
-        pThis->partitionKeyRequestDetails.clear();
-        pThis->partitionObjectUuids.clear();
-        pThis->partitionIndexDetails.clear();
-        pThis->reset();
+        pThis->clearPartitions();
     }
 }
 

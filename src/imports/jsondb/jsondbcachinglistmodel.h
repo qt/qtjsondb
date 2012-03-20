@@ -53,7 +53,6 @@
 #include <QJSValue>
 #include <QScopedPointer>
 
-#include "jsondb-global.h"
 #include "jsondbpartition.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -121,13 +120,14 @@ private:
     Q_DISABLE_COPY(JsonDbCachingListModel)
     Q_DECLARE_PRIVATE(JsonDbCachingListModel)
     QScopedPointer<JsonDbCachingListModelPrivate> d_ptr;
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbResponse(int, const QVariant&))
-    Q_PRIVATE_SLOT(d_func(), void _q_jsonDbErrorResponse(int, int, const QString&))
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotified(QString, QtAddOn::JsonDb::JsonDbNotification))
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyReadyResponse(int, QVariant))
-    Q_PRIVATE_SLOT(d_func(), void _q_dbNotifyErrorResponse(int, int, QString))
-    Q_PRIVATE_SLOT(d_func(), void _q_verifyDefaultIndexType(int))
 
+    Q_PRIVATE_SLOT(d_func(), void _q_verifyDefaultIndexType(int))
+    Q_PRIVATE_SLOT(d_func(), void _q_notificationsAvailable())
+    Q_PRIVATE_SLOT(d_func(), void _q_notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_keyResponse(int, QList<QJsonObject>, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_valueResponse(int, QList<QJsonObject>))
+    Q_PRIVATE_SLOT(d_func(), void _q_indexResponse(int, QList<QJsonObject>))
+    Q_PRIVATE_SLOT(d_func(), void _q_readError(QtJsonDb::QJsonDbRequest::ErrorCode, QString))
 };
 
 QT_END_NAMESPACE_JSONDB

@@ -49,9 +49,9 @@
 #include <QStringList>
 #include <QPointer>
 #include <QUuid>
+#include <QJSEngine>
+#include <QJSValueIterator>
 
-#include "jsondb-client.h"
-#include "private/jsondb-connection_p.h"
 #include "jsondbmodelutils.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -88,10 +88,12 @@ public:
 
     QHash<int, QStringList> properties;
     QList<NotifyItem> pendingNotifications;
+    QList< QPointer<ModelRequest> >valueRequests;
 
     JsonDbSortingListModel::State state;
-    JsonDbClient dbClient;
     QModelIndex parent;
+    int errorCode;
+    QString errorString;
 
 public:
     JsonDbSortingListModelPrivate(JsonDbSortingListModel *q);
@@ -102,13 +104,12 @@ public:
     void addItem(const QVariantMap &item, int partitionIndex);
     void deleteItem(const QVariantMap &item, int partitionIndex);
     void updateItem(const QVariantMap &item, int partitionIndex);
-    void fillData(const QVariant &v, int partitionIndex);
+    void fillData(const QVariantList &items, int partitionIndex);
     void sortObjects();
     void reset();
 
-    void fetchPartition(int index);
+    void fetchPartition(int index, bool reset = true);
     void fetchModel(bool reset = true);
-    void fetchNextChunk(int partitionIndex);
 
     void clearNotification(int index);
     void clearNotifications();
@@ -118,7 +119,10 @@ public:
 
     int indexOfrequestId(int requestId);
     int indexOfNotifyUUID(const QString& notifyUuid);
+    int indexOfWatcher(QJsonDbWatcher *watcher);
 
+    void appendPartition(JsonDbPartition *v);
+    void clearPartitions();
     QVariant getItem(int index);
     QVariant getItem(int index, int role);
     JsonDbPartition* getItemPartition(int index);
@@ -126,15 +130,14 @@ public:
     void set(int index, const QJSValue& valuemap,
                                      const QJSValue &successCallback,
                                      const QJSValue &errorCallback);
-    void sendNotifications(const QString&, const QVariant &, JsonDbClient::NotifyType);
+    void sendNotifications(int partitionIndex, const QVariantMap &v, QJsonDbWatcher::Action action);
 
     // private slots
-    void _q_jsonDbResponse(int , const QVariant &);
-    void _q_jsonDbErrorResponse(int , int, const QString&);
     void _q_refreshModel();
-    void _q_dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification);
-    void _q_dbNotifyReadyResponse(int id, const QVariant &result);
-    void _q_dbNotifyErrorResponse(int id, int code, const QString &message);
+    void _q_notificationsAvailable();
+    void _q_notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
+    void _q_readError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString & message);
+    void _q_valueResponse(int , const QList<QJsonObject>&);
 
     static void partitions_append(QQmlListProperty<JsonDbPartition> *p, JsonDbPartition *v);
     static int partitions_count(QQmlListProperty<JsonDbPartition> *p);

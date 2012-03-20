@@ -38,11 +38,10 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-#include "jsondb-global.h"
 #include "jsondbnotification.h"
 #include "jsondbpartition.h"
-#include "private/jsondb-strings_p.h"
 #include "plugin.h"
+#include <QJsonDbNotification>
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -118,6 +117,10 @@ JsonDbNotify::JsonDbNotify(QObject *parent)
 
 JsonDbNotify::~JsonDbNotify()
 {
+    if (partitionObject && active && watcher)
+        partitionObject->removeNotification(this);
+    if (watcher)
+        delete watcher;
     if (defaultPartitionObject)
         delete defaultPartitionObject;
 }
@@ -347,11 +350,32 @@ void JsonDbNotify::init()
     }
     if (partitionObject && active) {
         // remove the current notification
-        partitionObject->removeNotification(this);
+        if (watcher) {
+            partitionObject->removeNotification(this);
+            delete watcher;
+        }
+        watcher = new QJsonDbWatcher();
+        watcher->setQuery(queryString);
+        QJsonDbWatcher::Actions actions;
+        if (actionsList.isEmpty()) {
+            actions = QJsonDbWatcher::Created | QJsonDbWatcher::Updated |QJsonDbWatcher::Removed;
+        } else {
+            if (actionsList.contains(JsonDbNotify::Create))
+                actions |= QJsonDbWatcher::Created;
+            if (actionsList.contains(JsonDbNotify::Update))
+                actions |= QJsonDbWatcher::Updated;
+            if (actionsList.contains(JsonDbNotify::Remove))
+                actions |= QJsonDbWatcher::Removed;
+        }
+        watcher->setWatchedActions(actions);
+        watcher->setPartition(partitionObject->name());
+        QObject::connect(watcher, SIGNAL(notificationsAvailable(int)),
+                         this, SLOT(onNotificationsAvailable()));
+        QObject::connect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
+                         this, SLOT(onStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+        QObject::connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+                         this, SLOT(onNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
         partitionObject->updateNotification(this);
-        objectStatus = JsonDbNotify::Registering;
-        if (objectStatus != oldStatus)
-            emit statusChanged(objectStatus);
     }
 }
 
@@ -370,42 +394,54 @@ bool JsonDbNotify::parametersReady()
     return (completed && !queryString.isEmpty() && actionsList.count() && partitionObject);
 }
 
-void JsonDbNotify::dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification)
+void JsonDbNotify::onNotificationsAvailable()
 {
-    Q_UNUSED(notify_uuid);
     if (objectStatus != JsonDbNotify::Ready) {
         clearError();
         objectStatus = JsonDbNotify::Ready;
         emit statusChanged(objectStatus);
     }
-    if (active) {
-        QJSValue obj = g_declEngine->toScriptValue(QVariant(_notification.object()));
-        emit notification(obj, (Actions)_notification.action(), _notification.stateNumber());
+    if (active && watcher) {
+        QList<QJsonDbNotification> list = watcher->takeNotifications();
+        for (int i = 0; i < list.count(); i++) {
+            const QJsonDbNotification & _notification = list[i];
+            QJSValue obj = g_declEngine->toScriptValue(_notification.object().toVariantMap());
+            emit notification(obj, (Actions)_notification.action(), _notification.stateNumber());
+        }
     }
 }
 
-void JsonDbNotify::dbNotifyReadyResponse(int id, const QVariant &result)
+void JsonDbNotify::onStatusChanged(QtJsonDb::QJsonDbWatcher::Status newStatus)
 {
-    Q_UNUSED(id);
-    Q_UNUSED(result);
+    JsonDbNotify::Status oldStatus = objectStatus;
+    switch (newStatus) {
+    case QJsonDbWatcher::Inactive:
+        objectStatus =  JsonDbNotify::Null;
+        break;
+    case QJsonDbWatcher::Activating:
+        objectStatus =  JsonDbNotify::Registering;
+        break;
+    case QJsonDbWatcher::Active:
+        objectStatus =  JsonDbNotify::Ready;
+        break;
+    }
     clearError();
-    if (objectStatus != JsonDbNotify::Ready) {
-        objectStatus = JsonDbNotify::Ready;
+    if (oldStatus != objectStatus) {
         emit statusChanged(objectStatus);
     }
 }
 
-void JsonDbNotify::dbNotifyErrorResponse(int id, int code, const QString &message)
+void JsonDbNotify::onNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message)
 {
-    Q_UNUSED(id);
     int oldErrorCode = errorCode;
     errorCode = code;
     errorString = message;
-    if (objectStatus != JsonDbNotify::Error) {
+    bool changed = (objectStatus != JsonDbNotify::Error);
+    if (changed) {
         objectStatus = JsonDbNotify::Error;
         emit statusChanged(objectStatus);
     }
-    if (oldErrorCode != errorCode) {
+    if (oldErrorCode != errorCode || changed) {
         emit errorChanged(error());
     }
 }

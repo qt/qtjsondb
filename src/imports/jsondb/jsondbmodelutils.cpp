@@ -40,6 +40,7 @@
 ****************************************************************************/
 
 #include "jsondbmodelutils.h"
+#include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -57,6 +58,11 @@ SortingKey::SortingKey(int partitionIndex, const QVariantList &object, const QLi
     QVariantList values = object.mid(1);
     QByteArray uuid = QUuid(object.at(0).toString()).toRfc4122();
     d = new SortingKeyPrivate(partitionIndex, uuid, directions, values, spec);
+}
+
+SortingKey::SortingKey(int partitionIndex, const QByteArray &uuid, const QVariantList &object, const QList<bool> &directions, const SortIndexSpec &spec)
+{
+    d = new SortingKeyPrivate(partitionIndex, uuid, directions, object, spec);
 }
 
 SortingKey::SortingKey(const SortingKey &other)
@@ -117,7 +123,7 @@ bool SortingKey::operator <(const SortingKey &rhs) const
     // In case of even score jsondb sorts according to _uuid in the same direction as the last sort item
     if (nKeys)
         return (dLhs->directions[nKeys-1] ? (cmp < 0) : (cmp > 0));
-    return cmp;
+    return (cmp < 0);
 }
 
 bool SortingKey::operator ==(const SortingKey &rhs) const
@@ -204,4 +210,43 @@ QString removeArrayOperator(QString propertyName)
     return propertyName;
 }
 
+
+ModelRequest::ModelRequest(QObject *parent)
+    :QObject(parent)
+{
+}
+
+ModelRequest::~ModelRequest()
+{
+    resetRequest();
+}
+
+QJsonDbReadRequest* ModelRequest::newRequest(int newIndex)
+{
+    resetRequest();
+    index = newIndex;
+    request = new QJsonDbReadRequest();
+    connect(request, SIGNAL(finished()), this, SLOT(onQueryFinished()));
+    connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            request, SLOT(deleteLater()));
+    return request;
+}
+
+void ModelRequest::resetRequest()
+{
+    if (request) {
+        delete request;
+        request = 0;
+    }
+}
+
+void ModelRequest::onQueryFinished()
+{
+    emit finished(index, request->takeResults(), request->sortKey());
+}
+
+#include "moc_jsondbmodelutils.cpp"
 QT_END_NAMESPACE_JSONDB

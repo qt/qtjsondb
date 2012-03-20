@@ -41,26 +41,13 @@
 #ifndef TESTJSONDBPARTITION_H
 #define TESTJSONDBPARTITION_H
 
-#include <QCoreApplication>
-#include <QList>
-#include <QTest>
-#include <QFile>
-#include <QProcess>
-#include <QEventLoop>
-#include <QDebug>
-#include <QLocalSocket>
-#include <QTimer>
-
-#include <jsondb-client.h>
-#include <jsondb-error.h>
-
 #include <QAbstractItemModel>
-#include "clientwrapper.h"
-#include "../../shared/qmltestutil.h"
+#include "requestwrapper.h"
+#include "qmltestutil.h"
 
 QT_USE_NAMESPACE_JSONDB
 
-class TestJsonDbPartition: public ClientWrapper
+class TestJsonDbPartition: public RequestWrapper
 {
     Q_OBJECT
 public:
@@ -80,7 +67,7 @@ private slots:
 public slots:
     void callbackSlot(QVariant error, QVariant response);
 
-protected slots:
+public:
     void timeout();
 
 private:
@@ -92,10 +79,9 @@ private:
     QStringList mNotificationsReceived;
     QList<ComponentData*> mComponents;
     QString mPluginPath;
+
+    // Response values
     bool mTimedOut;
-    bool callbackError;
-    QVariant callbackMeta;
-    QVariant callbackResponse;
 };
 
 #endif

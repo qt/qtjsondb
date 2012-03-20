@@ -41,22 +41,14 @@
 
 #include "jsondatabase.h"
 #include "jsondbpartition.h"
-#include "jsondb-object.h"
 #include <QJSEngine>
 #include <QQmlEngine>
+#include <qjsondbobject.h>
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-struct Uuid
-{
-    uint    data1;
-    ushort  data2;
-    ushort  data3;
-    uchar   data4[8];
-};
-
-static const Uuid JsonDbNamespace = {0x6ba7b810, 0x9dad, 0x11d1, { 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8} };
+QPointer<QJsonDbConnection> JsonDatabase::connection(0);
 
 /*!
     \qmlclass JsonDatabase
@@ -70,17 +62,13 @@ static const Uuid JsonDbNamespace = {0x6ba7b810, 0x9dad, 0x11d1, { 0x80, 0xb4, 0
 JsonDatabase::JsonDatabase(QObject *parent)
     :QObject(parent)
 {
-    connect(&jsonDb, SIGNAL(response(int,const QVariant&)),
-            this, SLOT(dbResponse(int,const QVariant&)),
-            Qt::QueuedConnection);
-    connect(&jsonDb, SIGNAL(error(int,int,QString)),
-            this, SLOT(dbErrorResponse(int,int,QString)),
-            Qt::QueuedConnection);
-
 }
 
 JsonDatabase::~JsonDatabase()
 {
+    if (connection) {
+        delete connection;
+    }
 }
 
 /*!
@@ -133,9 +121,16 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback)
         qWarning() << "Invalid callback specified.";
         return;
     }
-    QString query(QLatin1String("[?_type=\"Partition\"]"));
-    int id = jsonDb.query(query, 0, -1);
-    listCallbacks.insert(id, listCallback);
+    QJsonDbReadRequest *request = new QJsonDbReadRequest;
+    request->setQuery(QLatin1String("[?_type=\"Partition\"]"));
+    connect(request, SIGNAL(finished()), this, SLOT(onQueryFinished()));
+    connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(onQueryError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            request, SLOT(deleteLater()));
+    sharedConnection().send(request);
+    listCallbacks.insert(request, listCallback);
 }
 
 /*!
@@ -156,29 +151,23 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback)
 
 QString JsonDatabase::uuidFromString(const QString &identifier)
 {
-    const QUuid ns(JsonDbNamespace.data1, JsonDbNamespace.data2, JsonDbNamespace.data3,
-                   JsonDbNamespace.data4[0], JsonDbNamespace.data4[1], JsonDbNamespace.data4[2],
-                   JsonDbNamespace.data4[3], JsonDbNamespace.data4[4], JsonDbNamespace.data4[5],
-                   JsonDbNamespace.data4[6], JsonDbNamespace.data4[7]);
-    return QUuid::createUuidV3(ns, identifier).toString();
+    return QJsonDbObject::createUuidFromString(identifier).toString();
 }
 
-void JsonDatabase::dbResponse(int id, const QVariant &result)
+void JsonDatabase::onQueryFinished()
 {
-    if (listCallbacks.contains(id)) {
-        // Make sure that id exists in the map.
-        QJSValue callback = listCallbacks[id];
+    QJsonDbReadRequest *request = qobject_cast<QJsonDbReadRequest *>(sender());
+    if (listCallbacks.contains(request)) {
+        QJSValue callback = listCallbacks[request];
         QJSEngine *engine = callback.engine();
         QJSValueList args;
         args << QJSValue(QJSValue::UndefinedValue);
-        QVariantMap objectMap = result.toMap();
-        if (objectMap.contains(QLatin1String("data"))) {
-            QVariantList items = objectMap.value(QLatin1String("data")).toList();
-            int count = items.count();
+        QList<QJsonObject> objects = request->takeResults();
+        int count = objects.count();
+        if (count) {
             QJSValue response = engine->newArray(count);
             for (int i = 0; i < count; ++i) {
-                QVariantMap object = items.at(i).toMap();
-                QString partitionName = object.value(QLatin1String("name")).toString();
+                QString partitionName = objects[i].value(QLatin1String("name")).toString();
                 response.setProperty(i, engine->newQObject(partition(partitionName)));
             }
             args << response;
@@ -186,14 +175,15 @@ void JsonDatabase::dbResponse(int id, const QVariant &result)
             args << engine->newArray();
         }
         callback.call(args);
-        listCallbacks.remove(id);
+        listCallbacks.remove(request);
     }
 }
 
-void JsonDatabase::dbErrorResponse(int id, int code, const QString &message)
+void JsonDatabase::onQueryError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
 {
-    if (listCallbacks.contains(id)) {
-        QJSValue callback = listCallbacks[id];
+    QJsonDbReadRequest *request = qobject_cast<QJsonDbReadRequest *>(sender());
+    if (listCallbacks.contains(request)) {
+        QJSValue callback = listCallbacks[request];
         QJSEngine *engine = callback.engine();
 
         QJSValueList args;
@@ -204,9 +194,19 @@ void JsonDatabase::dbErrorResponse(int id, int code, const QString &message)
         args << engine->toScriptValue(QVariant(error))<< engine->newArray();
 
         callback.call(args);
-        listCallbacks.remove(id);
+        listCallbacks.remove(request);
     }
 }
+
+QJsonDbConnection& JsonDatabase::sharedConnection()
+{
+    if (!connection) {
+        connection = new QJsonDbConnection();
+        connection->connectToServer();
+    }
+    return *connection;
+}
+
 
 #include "moc_jsondatabase.cpp"
 QT_END_NAMESPACE_JSONDB

@@ -3,9 +3,9 @@ TARGETPATH = QtJsonDb
 
 include(../qimportbase.pri)
 
-QT += network qml jsondbcompat-private
+QT += network qml jsondb jsondb-private
 
-DESTDIR = $$QT.jsondbcompat.imports/$$TARGETPATH
+DESTDIR = $$QT.jsondb.imports/$$TARGETPATH
 target.path = $$[QT_INSTALL_IMPORTS]/$$TARGETPATH
 
 qmldir.files += $$PWD/qmldir
@@ -33,30 +33,30 @@ include(../../common/common.pri)
 HEADERS += \
     jsondbpartition.h \
     jsondbnotification.h \
-    jsondbsortinglistmodel.h \
-    jsondbsortinglistmodel_p.h \
-    jsondblistmodel.h \
-    jsondblistmodel_p.h \
     plugin.h \
     jsondatabase.h \
     jsondbqueryobject.h \
     jsondbchangessinceobject.h \
+    jsondbmodelutils.h \
     jsondbmodelcache.h \
+    jsondblistmodel.h \
+    jsondblistmodel_p.h \
+    jsondbsortinglistmodel_p.h \
+    jsondbsortinglistmodel.h \
     jsondbcachinglistmodel_p.h \
-    jsondbcachinglistmodel.h \
-    jsondbmodelutils.h
+    jsondbcachinglistmodel.h
 
 SOURCES += \
     jsondbpartition.cpp \
     jsondbnotification.cpp \
-    jsondbsortinglistmodel.cpp \
-    jsondblistmodel.cpp \
     plugin.cpp \
     jsondatabase.cpp \
     jsondbqueryobject.cpp \
     jsondbchangessinceobject.cpp \
-    jsondbcachinglistmodel.cpp \
+    jsondbmodelutils.cpp \
     jsondbmodelcache.cpp \
-    jsondbmodelutils.cpp
+    jsondblistmodel.cpp \
+    jsondbsortinglistmodel.cpp \
+    jsondbcachinglistmodel.cpp
 
 OTHER_FILES += jsondb.json

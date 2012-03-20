@@ -38,10 +38,9 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
-#include "jsondb-global.h"
 #include "jsondbchangessinceobject.h"
 #include "jsondbpartition.h"
-#include "private/jsondb-strings_p.h"
+#include <private/qjsondbstrings_p.h>
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -88,7 +87,6 @@ JsonDbChangesSinceObject::JsonDbChangesSinceObject(QObject *parent)
     , startStateNumber(0)
     , partitionObject(0)
     , defaultPartitionObject(0)
-    , jsondbChangesSince(0)
     , errorCode(0)
     , objectStatus(JsonDbChangesSinceObject::Null)
 {
@@ -98,8 +96,8 @@ JsonDbChangesSinceObject::~JsonDbChangesSinceObject()
 {
     if (defaultPartitionObject)
         delete defaultPartitionObject;
-    if (jsondbChangesSince)
-        delete jsondbChangesSince;
+//    if (jsondbChangesSince)
+//        delete jsondbChangesSince;
 }
 
 
@@ -167,8 +165,8 @@ void JsonDbChangesSinceObject::setStateNumber(quint32 newStateNumber)
 */
 quint32 JsonDbChangesSinceObject::startingStateNumber() const
 {
-    if (jsondbChangesSince)
-        return jsondbChangesSince->startingStateNumber();
+//    if (jsondbChangesSince)
+//        return jsondbChangesSince->startingStateNumber();
     return startStateNumber;
 }
 
@@ -179,8 +177,8 @@ quint32 JsonDbChangesSinceObject::startingStateNumber() const
 */
 quint32 JsonDbChangesSinceObject::currentStateNumber() const
 {
-    if (jsondbChangesSince)
-        return jsondbChangesSince->currentStateNumber();
+//    if (jsondbChangesSince)
+//        return jsondbChangesSince->currentStateNumber();
     return startStateNumber;
 }
 
@@ -227,9 +225,9 @@ quint32 JsonDbChangesSinceObject::currentStateNumber() const
 QVariantList JsonDbChangesSinceObject::takeResults()
 {
     QVariantList list;
-    if (jsondbChangesSince) {
-        list = jsondbChangesSince->takeResults();
-    }
+//    if (jsondbChangesSince) {
+//        list = jsondbChangesSince->takeResults();
+//    }
     return list;
 }
 
@@ -339,8 +337,9 @@ void JsonDbChangesSinceObject::setReadyStatus()
         emit statusChanged(objectStatus);
 }
 
-void JsonDbChangesSinceObject::setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message)
+void JsonDbChangesSinceObject::setError(/*QtAddOn::JsonDb::JsonDbError::ErrorCode code, */const QString& message)
 {
+    int code = 0;
     int oldErrorCode = errorCode;
     errorCode = code;
     errorString = message;
@@ -376,28 +375,28 @@ int JsonDbChangesSinceObject::start()
         return -1;
     }
 
-    if (jsondbChangesSince) {
-        delete jsondbChangesSince;
-    }
-    jsondbChangesSince = partitionObject->jsonDb.changesSince();
-    jsondbChangesSince->setTypes(filterTypes);
-    jsondbChangesSince->setStateNumber(startStateNumber);
-    jsondbChangesSince->setPartition(partitionObject->name());
-    connect(jsondbChangesSince, SIGNAL(resultsReady(int)),
-            this, SIGNAL(resultsReady(int)));
-    connect(jsondbChangesSince, SIGNAL(finished()),
-            this, SLOT(setReadyStatus()));
-    connect(jsondbChangesSince, SIGNAL(finished()),
-            this, SIGNAL(finished()));
-    connect(jsondbChangesSince, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)),
-            this, SLOT(setError(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
+//    if (jsondbChangesSince) {
+//        delete jsondbChangesSince;
+//    }
+//    jsondbChangesSince = partitionObject->jsonDb.changesSince();
+//    jsondbChangesSince->setTypes(filterTypes);
+//    jsondbChangesSince->setStateNumber(startStateNumber);
+//    jsondbChangesSince->setPartition(partitionObject->name());
+//    connect(jsondbChangesSince, SIGNAL(resultsReady(int)),
+//            this, SIGNAL(resultsReady(int)));
+//    connect(jsondbChangesSince, SIGNAL(finished()),
+//            this, SLOT(setReadyStatus()));
+//    connect(jsondbChangesSince, SIGNAL(finished()),
+//            this, SIGNAL(finished()));
+//    connect(jsondbChangesSince, SIGNAL(error(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)),
+//            this, SLOT(setError(QtAddOn::JsonDb::JsonDbError::ErrorCode,QString)));
 
-    jsondbChangesSince->start();
-    objectStatus = JsonDbChangesSinceObject::Loading;
-    emit statusChanged(objectStatus);
+//    jsondbChangesSince->start();
+//    objectStatus = JsonDbChangesSinceObject::Loading;
+//    emit statusChanged(objectStatus);
 
-    return jsondbChangesSince->requestId();
-
+//    return jsondbChangesSince->requestId();
+    return -1;
 }
 
 #include "moc_jsondbchangessinceobject.cpp"
