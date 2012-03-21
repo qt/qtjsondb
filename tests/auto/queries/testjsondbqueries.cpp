@@ -98,6 +98,7 @@ private slots:
     void queryNotEqual();
     void queryQuotedProperties();
     void querySortedByIndexName();
+    void queryInvalid();
 
 private:
     void removeDbFiles();
@@ -396,6 +397,12 @@ void TestJsonDbQueries::querySortedByIndexName()
     queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][\\dragonSort]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 8 << 8 << 6 << 6 << 4 << 4 << 2 << 2 << 0 << 0)));
+}
+
+void TestJsonDbQueries::queryInvalid()
+{
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("foo"));
+    QVERIFY(queryResult.data.isEmpty());
 }
 
 QTEST_MAIN(TestJsonDbQueries)

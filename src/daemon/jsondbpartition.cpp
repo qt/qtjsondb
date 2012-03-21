@@ -1091,6 +1091,14 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     JsonDbObjectList results;
     JsonDbObjectList joinedResults;
 
+    if (!(query->queryTerms.size() || query->orderTerms.size())) {
+        QJsonObject error;
+        error.insert(JsonDbString::kCodeStr, JsonDbError::MissingQuery);
+        error.insert(JsonDbString::kMessageStr, QString("Missing query: %1").arg(query->queryExplanation.join("\n")));
+        result.error = error;
+        return result;
+    }
+
     QElapsedTimer time;
     time.start();
     JsonDbIndexQuery *indexQuery = compileIndexQuery(owner, query);

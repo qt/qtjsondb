@@ -261,6 +261,9 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
     JsonDbQuery *parsedQuery = new JsonDbQuery;
     parsedQuery->query = query;
 
+    if (!query.startsWith('['))
+        return parsedQuery;
+
     bool parseError = false;
     JsonDbQueryTokenizer tokenizer(query);
     QString token;
@@ -472,7 +475,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
             }
         }
     }
-    // TODO look at this again
+
     if (!parsedQuery->queryTerms.size() && !parsedQuery->orderTerms.size()) {
         // match everything -- sort on type
         OrderTerm term;

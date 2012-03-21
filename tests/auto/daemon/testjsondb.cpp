@@ -2777,7 +2777,7 @@ void TestJsonDb::find1()
     item.insert("find1", QString("Foobar!"));
     create(mOwner, item);
 
-    JsonDbQueryResult queryResult= find(mOwner, QLatin1String(".*"));
+    JsonDbQueryResult queryResult= find(mOwner, QLatin1String("[*]"));
 
     verifyGoodQueryResult(queryResult);
     QVERIFY(queryResult.data.size() >= 1);

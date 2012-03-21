@@ -588,9 +588,7 @@ void DBServer::processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonVa
     int limit = request.contains(JsonDbString::kLimitStr) ? request.value(JsonDbString::kLimitStr).toDouble() : -1;
     int offset = request.value(JsonDbString::kOffsetStr).toDouble();
 
-    if (!parsedQuery->queryTerms.size() && !parsedQuery->orderTerms.size())
-        response = createError(JsonDbError::MissingQuery, QString("Missing query: ") + parsedQuery->queryExplanation.join("\n"));
-    else if (limit < -1)
+    if (limit < -1)
         response = createError(JsonDbError::InvalidLimit, "Invalid limit");
     else if (offset < 0)
         response = createError(JsonDbError::InvalidOffset, "Invalid offset");
