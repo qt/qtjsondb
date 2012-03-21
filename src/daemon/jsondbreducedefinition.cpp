@@ -82,13 +82,9 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(const JsonDbOwner *owner, JsonDbP
 
 void JsonDbReduceDefinition::definitionCreated()
 {
-    // TODO: this index should not be automatic
-    mTargetTable->addIndexOnProperty(mSourceKeyName, QLatin1String("string"), mSourceType);
-    // TODO: this index should not be automatic
-    mTargetTable->addIndexOnProperty(mTargetKeyName, QLatin1String("string"), mTargetType);
-    mTargetTable->addIndexOnProperty(QLatin1String("_reduceUuid"), QLatin1String("string"), mTargetType);
-
     initScriptEngine();
+    initIndexes();
+
     GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, mSourceType);
     if (!getObjectResponse.error.isNull()) {
         if (jsondbSettings->verbose())
@@ -136,6 +132,15 @@ void JsonDbReduceDefinition::releaseScriptEngine()
     mSubtractFunction = QJSValue();
     delete mScriptEngine;
     mScriptEngine = 0;
+}
+
+void JsonDbReduceDefinition::initIndexes()
+{
+    // TODO: this index should not be automatic
+    mTargetTable->addIndexOnProperty(mSourceKeyName, QLatin1String("string"), mSourceType);
+    // TODO: this index should not be automatic
+    mTargetTable->addIndexOnProperty(mTargetKeyName, QLatin1String("string"), mTargetType);
+    mTargetTable->addIndexOnProperty(QLatin1String("_reduceUuid"), QLatin1String("string"), mTargetType);
 }
 
 void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject after)

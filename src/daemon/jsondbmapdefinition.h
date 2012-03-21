@@ -83,6 +83,8 @@ public:
 
     void initScriptEngine();
     void releaseScriptEngine();
+    void initIndexes();
+
     void setError(const QString &errorMsg);
     void updateObject(const JsonDbObject &before, const JsonDbObject &after);
     static bool validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message);

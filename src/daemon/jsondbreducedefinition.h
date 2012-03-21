@@ -86,6 +86,8 @@ public:
 
     void initScriptEngine();
     void releaseScriptEngine();
+    void initIndexes();
+
     void updateObject(JsonDbObject before, JsonDbObject after);
     QJsonValue addObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);
     QJsonValue subtractObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);

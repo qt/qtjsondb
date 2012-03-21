@@ -92,9 +92,8 @@ JsonDbMapDefinition::JsonDbMapDefinition(const JsonDbOwner *owner, JsonDbPartiti
 
 void JsonDbMapDefinition::definitionCreated()
 {
-  initScriptEngine();
-
-  mTargetTable->addIndexOnProperty(QLatin1String("_sourceUuids.*"), QLatin1String("string"), mTargetType);
+    initScriptEngine();
+    initIndexes();
 
     foreach (const QString &sourceType, mSourceTypes) {
         GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, sourceType);
@@ -208,6 +207,12 @@ void JsonDbMapDefinition::releaseScriptEngine()
     mMapFunctions.clear();
     delete mScriptEngine;
     mScriptEngine = 0;
+}
+
+
+void JsonDbMapDefinition::initIndexes()
+{
+    mTargetTable->addIndexOnProperty(QLatin1String("_sourceUuids.*"), QLatin1String("string"), mTargetType);
 }
 
 void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const JsonDbObject &afterObject)
