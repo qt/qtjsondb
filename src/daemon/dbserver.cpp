@@ -237,6 +237,9 @@ bool DBServer::loadPartitions()
                                                 mBaseName, mOwner, this);
         connect(mDefaultPartition, SIGNAL(objectsUpdated(JsonDbUpdateList)),
                             this, SLOT(objectsUpdated(JsonDbUpdateList)));
+        connect(mDefaultPartition, SIGNAL(viewUpdated(QString)),
+                this, SLOT(viewUpdated(QString)),
+                Qt::QueuedConnection);
 
         if (!mDefaultPartition->open())
             return false;
@@ -257,6 +260,9 @@ bool DBServer::loadPartitions()
                 JsonDbPartition *p = new JsonDbPartition(filename, name, mOwner, this);
                 connect(p, SIGNAL(objectsUpdated(JsonDbUpdateList)),
                         this, SLOT(objectsUpdated(JsonDbUpdateList)));
+                connect(p, SIGNAL(viewUpdated(QString)),
+                        this, SLOT(viewUpdated(QString)),
+                        Qt::QueuedConnection);
 
                 if (!p->open())
                     return false;
@@ -455,7 +461,10 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
         QStringList notificationKeys;
         if (object.contains(JsonDbString::kTypeStr)) {
             notificationKeys << objectType;
-            if (mEagerViewSourceTypes.contains(objectType)) {
+
+            // eagerly update views if this object that was created isn't a view type itself
+            if (mEagerViewSourceTypes.contains(objectType) && partition
+                    && !partition->findView(objectType)) {
                 const QSet<QString> &targetTypes = mEagerViewSourceTypes[objectType];
                 for (QSet<QString>::const_iterator it = targetTypes.begin(); it != targetTypes.end(); ++it) {
                     if (partition)
@@ -463,6 +472,7 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
                 }
             }
         }
+
         if (object.contains(JsonDbString::kUuidStr))
             notificationKeys << object.value(JsonDbString::kUuidStr).toString();
         notificationKeys << "__generic_notification__";
@@ -478,6 +488,21 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
                     qDebug() << "Notification" << n->query() << n->actions();
                 objectUpdated(partitionName, stateNumber, n, action, oldObject, object);
             }
+        }
+    }
+}
+
+void DBServer::viewUpdated(const QString &type)
+{
+    JsonDbPartition *partition = qobject_cast<JsonDbPartition*>(sender());
+    if (!partition)
+        return;
+
+    if (mEagerViewSourceTypes.contains(type)) {
+        const QSet<QString> &targetTypes = mEagerViewSourceTypes[type];
+        for (QSet<QString>::const_iterator it = targetTypes.begin(); it != targetTypes.end(); ++it) {
+            if (partition)
+                partition->updateView(*it);
         }
     }
 }

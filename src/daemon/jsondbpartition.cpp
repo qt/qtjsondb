@@ -447,6 +447,7 @@ JsonDbView *JsonDbPartition::addView(const QString &viewType)
         return view;
 
     view = new JsonDbView(this, viewType, this);
+    connect(view, SIGNAL(updated(QString)), this, SIGNAL(viewUpdated(QString)));
     view->open();
     mViews.insert(viewType, view);
     return view;

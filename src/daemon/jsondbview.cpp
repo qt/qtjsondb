@@ -381,6 +381,8 @@ void JsonDbView::updateView(quint32 desiredStateNumber)
     if (jsondbSettings->performanceLog())
         qDebug() << "updateView" << mViewType << timer.elapsed() << "ms";
     mUpdating = false;
+
+    emit updated(mViewType);
 }
 
 bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targetStateNumber,

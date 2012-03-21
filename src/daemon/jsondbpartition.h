@@ -173,6 +173,7 @@ public Q_SLOTS:
     void updateView(const QString &objectType, quint32 stateNumber=0);
 
 Q_SIGNALS:
+    void viewUpdated(const QString &objectType);
     void objectsUpdated(const JsonDbUpdateList &objects);
 
 protected:
@@ -205,7 +206,6 @@ protected:
     void updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path=QStringList());
 
 private:
-
     JsonDbObjectTable     *mObjectTable;
     QVector<JsonDbObjectTable *> mTableTransactions;
 

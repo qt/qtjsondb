@@ -92,6 +92,7 @@ protected slots:
 
     void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
     void objectsUpdated(const JsonDbUpdateList &objects);
+    void viewUpdated(const QString &type);
 
 private:
     void objectUpdated(const QString &partitionName, quint32 stateNumber, JsonDbNotification *n, JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object);
