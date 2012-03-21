@@ -45,18 +45,18 @@
 
 
 HBtreeCursor::HBtreeCursor()
-    : transaction_(0), btree_(0), initialized_(false), eof_(false), valid_(false)
+    : transaction_(0), btree_(0)
 {
 }
 
 HBtreeCursor::HBtreeCursor(HBtreeTransaction *transaction)
-    : transaction_(transaction), initialized_(false), eof_(false), valid_(false)
+    : transaction_(transaction), lastLeaf_(0), valid_(false)
 {
     btree_ = transaction->btree_;
 }
 
 HBtreeCursor::HBtreeCursor(HBtree *btree, bool commited)
-    : transaction_(0), btree_(btree), initialized_(false), eof_(false), valid_(false)
+    : transaction_(0), btree_(btree), lastLeaf_(0), valid_(false)
 {
     if (!commited)
         transaction_ = btree_->writeTransaction();
@@ -94,35 +94,36 @@ bool HBtreeCursor::current(QByteArray *pKey, QByteArray *pValue)
 
 bool HBtreeCursor::last()
 {
-    return doOp(Last);
+    Q_ASSERT(btree_);
+    return btree_->doCursorOp(this, Last);
 }
 
 bool HBtreeCursor::first()
 {
-    return doOp(First);
+    Q_ASSERT(btree_);
+    return btree_->doCursorOp(this, First);
 }
 
 bool HBtreeCursor::next()
 {
-    return doOp(Next);
+    Q_ASSERT(btree_);
+    return btree_->doCursorOp(this, Next);
 }
 
 bool HBtreeCursor::previous()
 {
-    return doOp(Previous);
+    Q_ASSERT(btree_);
+    return btree_->doCursorOp(this, Previous);
 }
 
 bool HBtreeCursor::seek(const QByteArray &key)
 {
-    return doOp(ExactMatch, key);
+    Q_ASSERT(btree_);
+    return btree_->doCursorOp(this, ExactMatch, key);
 }
 
 bool HBtreeCursor::seekRange(const QByteArray &key)
 {
-    return doOp(FuzzyMatch, key);
-}
-
-bool HBtreeCursor::doOp(HBtreeCursor::Op op, const QByteArray &key)
-{
-    return btree_->doCursorOp(this, op, key);
+    Q_ASSERT(btree_);
+    return btree_->doCursorOp(this, FuzzyMatch, key);
 }

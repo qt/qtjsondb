@@ -97,7 +97,6 @@ private slots:
     void multipleRollbacks();
     void createWithCmp();
     void variableSizeKeysAndData();
-    void transactionTag();
     void compareSequenceOfVarLengthKeys();
     void asciiAsSortedNumbers();
     void deleteReinsertVerify_data();
@@ -113,6 +112,9 @@ private slots:
     void corruptSyncMarker1();
     void corruptBothSyncMarkers_data();
     void corruptBothSyncMarkers();
+    void cursorWhileDelete_data();
+    void cursorWhileDelete();
+    void getDataFromLastSync();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 type = -1);
@@ -185,6 +187,65 @@ void TestHBtree::cleanup()
     delete db;
     db = 0;
     QFile::remove(dbname);
+}
+
+void TestHBtree::orderedList()
+{
+    OrderedList<HBtreePrivate::NodeKey, HBtreePrivate::NodeValue> list;
+
+    typedef HBtreePrivate::NodeKey Key;
+    typedef HBtreePrivate::NodeValue Value;
+
+    Key key;
+
+    key = Key(0, QByteArray("B"));
+    list.insert(key, Value("_B_"));
+
+    key = Key(0, QByteArray("A"));
+    list.insert(key, Value("_A_"));
+
+    key = Key(0, QByteArray("C"));
+    list.insert(key, Value("_C_"));
+
+    QCOMPARE(list.size(), 3);
+    QVERIFY((list.constBegin() + 0).key().data == QByteArray("A"));
+    QVERIFY((list.constBegin() + 1).key().data == QByteArray("B"));
+    QVERIFY((list.constBegin() + 2).key().data == QByteArray("C"));
+
+    QVERIFY(list.contains(Key(0, "A")));
+    QVERIFY(!list.contains(Key(0, "AA")));
+    QVERIFY(!list.contains(Key(0, "D")));
+
+    QVERIFY(list.lowerBound(Key(0, "A")) == list.constBegin());
+    QVERIFY(list.lowerBound(Key(0, "AA")) == list.constBegin()+1);
+    QVERIFY(list.lowerBound(Key(0, "B")) == list.constBegin()+1);
+    QVERIFY(list.lowerBound(Key(0, "D")) == list.constEnd());
+
+    QVERIFY(list.upperBound(Key(0, "A")) == list.constBegin()+1);
+    QVERIFY(list.upperBound(Key(0, "AA")) == list.constBegin()+1);
+    QVERIFY(list.upperBound(Key(0, "B")) == list.constBegin()+2);
+    QVERIFY(list.upperBound(Key(0, "D")) == list.constEnd());
+
+    QCOMPARE(list.size(), 3);
+    QVERIFY(list[Key(0, "C")].data == QByteArray("_C_"));
+    QCOMPARE(list.size(), 3);
+    list[Key(0, "C")].data = QByteArray("_C2_");
+    QVERIFY(list[Key(0, "C")].data == QByteArray("_C2_"));
+    QCOMPARE(list.size(), 3);
+    QVERIFY(list[Key(0, "AA")].data.isEmpty());
+    QVERIFY(list.contains(Key(0, "AA")));
+    QCOMPARE(list.size(), 4);
+
+    QVERIFY(list.find(Key(0, "D")) == list.constEnd());
+
+    QCOMPARE(list.size(), 4);
+    list.insert(Key(0, "B"), Value("_B2_"));
+    QCOMPARE(list.size(), 4);
+
+    QCOMPARE(list.value(Key(0, "A")).data, QByteArray("_A_"));
+    QCOMPARE(list.value(Key(0, "B")).data, QByteArray("_B2_"));
+    QCOMPARE(list.value(Key(0, "C")).data, QByteArray("_C2_"));
+    QCOMPARE(list.value(Key(0, "AA")).data, QByteArray(""));
 }
 
 void TestHBtree::openClose()
@@ -960,9 +1021,9 @@ void TestHBtree::prev2()
 
 void TestHBtree::multiBranchSplits()
 {
-    const int numItems = 40; // must cause multiple branch splits
-    const int valueSize = 1;
-    const int keySize = 1500;
+    const int numItems = 1000; // must cause multiple branch splits
+    const int valueSize = 1000;
+    const int keySize = 1000;
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
@@ -1183,39 +1244,6 @@ void TestHBtree::variableSizeKeysAndData()
     // Set this to false because after all those deleted we get a shit load of collectible pages
     // I don't know what to do with all of them. Commit them to disk on a new GC Page type?
     printOutCollectibles_ = false;
-}
-
-void TestHBtree::transactionTag()
-{
-    QSKIP("beginTransaction doesn't check for updated marker page. This won't work yet.");
-    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-    QVERIFY(txn);
-    QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
-    QVERIFY(txn->put(QByteArray("bla"), QByteArray("bla")));
-    QVERIFY(txn->commit(1));
-    QCOMPARE(db->tag(), int(1));
-
-    HBtree rdb;
-    rdb.setFileName(dbname);
-    rdb.setOpenMode(HBtree::ReadOnly);
-    QVERIFY(rdb.open());
-    QCOMPARE(rdb.tag(), (int)1);
-    HBtreeTransaction *rdbtxn = rdb.beginTransaction(HBtreeTransaction::ReadOnly);
-    QCOMPARE(rdb.tag(), (int)1);
-    QCOMPARE(rdbtxn->tag(), (quint64)1);
-
-    txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-    QVERIFY(txn);
-    QVERIFY(txn->put(QByteArray("foo"), QByteArray("bar")));
-    QVERIFY(txn->commit(2));
-    QCOMPARE(db->tag(), (int)2);
-
-    QCOMPARE(rdb.tag(), (int)1);
-    rdbtxn->abort();
-
-    rdbtxn = rdb.beginTransaction(HBtreeTransaction::ReadOnly);
-    QCOMPARE(rdbtxn->tag(), (quint64)2);
-    rdbtxn->abort();
 }
 
 int findLongestSequenceOf(const char *a, size_t size, char x)
@@ -1788,63 +1816,141 @@ void TestHBtree::corruptBothSyncMarkers()
     }
 }
 
-void TestHBtree::orderedList()
+void TestHBtree::cursorWhileDelete_data()
 {
-    OrderedList<HBtreePrivate::NodeKey, HBtreePrivate::NodeValue> list;
+    const int lessItems = 100;
+    const int smallKeys = 100;
+    const int smallData = 100;
+    const int moreItems = 1000;
+    const int bigKeys = 1000;
+    const int bigData = 1000;
+    const int overflowData = 2000;
+    const int multiOverflowData = 5000;
 
-    typedef HBtreePrivate::NodeKey Key;
-    typedef HBtreePrivate::NodeValue Value;
+    QTest::addColumn<int>("numItems");
+    QTest::addColumn<int>("keySize");
+    QTest::addColumn<int>("valueSize");
 
-    Key key;
+    QTest::newRow("Less items, small keys, small data") << lessItems << smallKeys << smallData;
+    QTest::newRow("more items, small keys, small data") << moreItems << smallKeys << smallData;
+    QTest::newRow("Less items, big keys, small data") << lessItems << bigKeys << smallData;
+    QTest::newRow("more items, big keys, small data") << moreItems << bigKeys << smallData;
+    QTest::newRow("Less items, small keys, big data") << lessItems << smallKeys << bigData;
+    QTest::newRow("more items, small keys, big data") << moreItems << smallKeys << bigData;
+    QTest::newRow("Less items, big keys, big data") << lessItems << bigKeys << bigData;
+    QTest::newRow("more items, big keys, big data") << moreItems << bigKeys << bigData;
 
-    key = Key(0, QByteArray("B"));
-    list.insert(key, Value("_B_"));
+    QTest::newRow("Less items, small keys, overflow data") << lessItems << smallKeys << overflowData;
+    QTest::newRow("more items, small keys, overflow data") << moreItems << smallKeys << overflowData;
+    QTest::newRow("Less items, big keys, overflow data") << lessItems << bigKeys << overflowData;
+    QTest::newRow("more items, big keys, overflow data") << moreItems << bigKeys << overflowData;
 
-    key = Key(0, QByteArray("A"));
-    list.insert(key, Value("_A_"));
+    QTest::newRow("Less items, small keys, multi-overflow data") << lessItems << smallKeys << multiOverflowData;
+    QTest::newRow("more items, small keys, multi-overflow data") << moreItems << smallKeys << multiOverflowData;
+    QTest::newRow("Less items, big keys, multi-overflow data") << lessItems << bigKeys << multiOverflowData;
+    QTest::newRow("more items, big keys, multi-overflow data") << moreItems << bigKeys << multiOverflowData;
+}
 
-    key = Key(0, QByteArray("C"));
-    list.insert(key, Value("_C_"));
+void TestHBtree::cursorWhileDelete()
+{
+    QFETCH(int, numItems);
+    QFETCH(int, keySize);
+    QFETCH(int, valueSize);
 
-    QCOMPARE(list.size(), 3);
-    QVERIFY((list.constBegin() + 0).key().data == QByteArray("A"));
-    QVERIFY((list.constBegin() + 1).key().data == QByteArray("B"));
-    QVERIFY((list.constBegin() + 2).key().data == QByteArray("C"));
+    // Insert data
+    QMap<QByteArray, QByteArray> keyValues;
+    for (int i = 0; i < numItems; ++i) {
+        QByteArray key = QString::number(i).toAscii();
+        if (key.size() < keySize)
+            key += QByteArray(keySize - key.size(), '-');
+        QByteArray value(valueSize, 'a' + (i % ('z' - 'a')));
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(transaction);
+        QVERIFY(transaction->put(key, value));
+        keyValues.insert(key, value);
+        QVERIFY(transaction->commit(i));
+    }
 
-    QVERIFY(list.contains(Key(0, "A")));
-    QVERIFY(!list.contains(Key(0, "AA")));
-    QVERIFY(!list.contains(Key(0, "D")));
+    // Delete all
+    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(txn);
+    HBtreeCursor cursor1(txn);
+    while (cursor1.next()) {
+        QVERIFY(txn->del(cursor1.key()));
+    }
+    txn->commit(0);
 
-    QVERIFY(list.lowerBound(Key(0, "A")) == list.constBegin());
-    QVERIFY(list.lowerBound(Key(0, "AA")) == list.constBegin()+1);
-    QVERIFY(list.lowerBound(Key(0, "B")) == list.constBegin()+1);
-    QVERIFY(list.lowerBound(Key(0, "D")) == list.constEnd());
+    // Verify
+    txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+    QVERIFY(txn);
+    QMap<QByteArray, QByteArray>::iterator it = keyValues.begin();
+    while (it != keyValues.end()) {
+        QCOMPARE(txn->get(it.key()), QByteArray());
+        ++it;
+    }
+    txn->abort();
 
-    QVERIFY(list.upperBound(Key(0, "A")) == list.constBegin()+1);
-    QVERIFY(list.upperBound(Key(0, "AA")) == list.constBegin()+1);
-    QVERIFY(list.upperBound(Key(0, "B")) == list.constBegin()+2);
-    QVERIFY(list.upperBound(Key(0, "D")) == list.constEnd());
+    // Reinsert
+    txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(txn);
+    it = keyValues.begin();
+    while (it != keyValues.end()) {
+        QVERIFY(txn->put(it.key(), it.value()));
+        ++it;
+    }
+    txn->commit(0);
 
-    QCOMPARE(list.size(), 3);
-    QVERIFY(list[Key(0, "C")].data == QByteArray("_C_"));
-    QCOMPARE(list.size(), 3);
-    list[Key(0, "C")].data = QByteArray("_C2_");
-    QVERIFY(list[Key(0, "C")].data == QByteArray("_C2_"));
-    QCOMPARE(list.size(), 3);
-    QVERIFY(list[Key(0, "AA")].data.isEmpty());
-    QVERIFY(list.contains(Key(0, "AA")));
-    QCOMPARE(list.size(), 4);
+    // Verify
+    txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+    QVERIFY(txn);
+    HBtreeCursor cursor2(txn);
+    it = keyValues.begin();
+    while (cursor2.next()) {
+        QCOMPARE(it.key(), cursor2.key());
+        QCOMPARE(it.value(), cursor2.value());
+        ++it;
+    }
+    txn->abort();
+}
 
-    QVERIFY(list.find(Key(0, "D")) == list.constEnd());
+void TestHBtree::getDataFromLastSync()
+{
+    db->setAutoSyncRate(0);
 
-    QCOMPARE(list.size(), 4);
-    list.insert(Key(0, "B"), Value("_B2_"));
-    QCOMPARE(list.size(), 4);
+    int numCommits = 1000;
+    for (int i = 0; i < numCommits / 2; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->put(QByteArray::number(i), QByteArray::number(i)));
+        QVERIFY(txn->commit(i));
+    }
+    db->sync();
 
-    QCOMPARE(list.value(Key(0, "A")).data, QByteArray("_A_"));
-    QCOMPARE(list.value(Key(0, "B")).data, QByteArray("_B2_"));
-    QCOMPARE(list.value(Key(0, "C")).data, QByteArray("_C2_"));
-    QCOMPARE(list.value(Key(0, "AA")).data, QByteArray(""));
+    for (int i = numCommits / 2; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->put(QByteArray::number(i), QByteArray::number(i)));
+        QVERIFY(txn->commit(i));
+    }
+
+    d->close(false);
+
+    QVERIFY(db->open());
+    QCOMPARE((int)db->tag(), numCommits / 2 - 1);
+
+    for (int i = 0; i < numCommits / 2; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+        QVERIFY(txn);
+        QCOMPARE(txn->get(QByteArray::number(i)), QByteArray::number(i));
+        txn->abort();
+    }
+
+    for (int i = numCommits / 2; i < numCommits; ++i) {
+        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(txn);
+        QVERIFY(txn->get(QByteArray::number(i)).isEmpty());
+        txn->abort();
+    }
 }
 
 QTEST_MAIN(TestHBtree)

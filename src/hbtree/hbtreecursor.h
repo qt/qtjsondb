@@ -86,11 +86,8 @@ private:
     QByteArray value_;
     HBtreeTransaction *transaction_;
     HBtree *btree_;
-    bool initialized_;
-    bool eof_;
     quint32 lastLeaf_;
     bool valid_;
-
 
     bool doOp(Op op, const QByteArray &key = QByteArray());
 };

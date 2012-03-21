@@ -171,13 +171,13 @@ public:
     // form just the page header.
     struct Page {
         PageInfo info;
-        bool commited;  // runtime information on whether a page has been commited or not (
+        bool dirty;
     protected:
         Page(PageInfo::Type type)
-            : info(type), commited(false)
+            : info(type), dirty(true)
         {}
         Page(PageInfo::Type type, quint32 pageNumber)
-            : info(type, pageNumber), commited(false)
+            : info(type, pageNumber), dirty(true)
         {}
     };
 
@@ -317,14 +317,15 @@ public:
     bool rollback();
 
     Page *newPage(PageInfo::Type type);
-    Page *getPage(quint32 pageNumber, bool insertInCache = true);
+    Page *getPage(quint32 pageNumber);
     void deletePage(Page *page) const;
     void destructPage(Page *page) const;
     NodePage *touchNodePage(NodePage *page);
     quint32 putDataOnOverflow(const QByteArray &value);
-    QByteArray getDataFromNode(const NodeValue &nval) const;
-    bool getOverflowData(quint32 startPage, QByteArray *data) const;
-    bool getOverflowPageNumbers(quint32 startPage, QList<quint32> *pages) const;
+    QByteArray getDataFromNode(const NodeValue &nval);
+    bool walkOverflowPages(quint32 startPage, QByteArray *data, QList<quint32> *pages);
+    bool getOverflowData(quint32 startPage, QByteArray *data);
+    bool getOverflowPageNumbers(quint32 startPage, QList<quint32> *pages);
     quint16 collectHistory(NodePage *page);
     Page *cacheFind(quint32 pgno) const;
     Page *cacheRemove(quint32 pgno);
@@ -351,7 +352,7 @@ public:
     quint16 spaceLeft(const Page *page) const;
     quint16 spaceUsed(const Page *page) const;
     quint16 capacity(const Page *page) const;
-    quint32 pageFullEnough(NodePage *page) const;
+    bool pageFullEnough(NodePage *page) const;
     bool hasSpaceFor(NodePage *page, const NodeKey &key, const NodeValue &value) const;
 
     bool insertNode(NodePage *page, const NodeKey &key, const NodeValue &value);
@@ -363,6 +364,7 @@ public:
     bool addHistoryNode(NodePage *src, const HistoryNode &hn);
 
     void dump();
+    void dump(HBtreeTransaction *transaction);
     void dumpPage(NodePage *page, int depth);
 
     bool cursorLast(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
@@ -370,6 +372,7 @@ public:
     bool cursorNext(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut, const QByteArray &matchKey, bool exact);
+    bool doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key = QByteArray());
 
     void copy(const Page &src, Page *dst);
 
