@@ -55,6 +55,7 @@
 #include "qjsondocument.h"
 
 #include "qjsondbconnection.h"
+#include "qjsondbreadrequest.h"
 #include "qjsondbwatcher.h"
 #include "qjsondbwriterequest.h"
 #include "private/qjsondbstrings_p.h"
@@ -82,6 +83,7 @@ private slots:
     void history();
     void currentState();
     void notificationTriggersView();
+    void notificationTriggersMapReduce();
 };
 
 static const char dbfileprefix[] = "test-jsondb-watcher";
@@ -183,7 +185,6 @@ void TestQJsonDbWatcher::history()
     QJsonArray array = doc.array();
     // make a request and connect it
     quint32 firstStateNumber = 0;
-    quint32 lastStateNumber = 0;
 
     // pass the empty object list to make the constructor happy
     QList<QJsonObject> objects;
@@ -204,7 +205,6 @@ void TestQJsonDbWatcher::history()
         waitForResponse(&request);
         if (!firstStateNumber)
             firstStateNumber = request.stateNumber();
-        lastStateNumber = request.stateNumber();
     }
     QVERIFY(firstStateNumber);
 
@@ -340,6 +340,77 @@ void TestQJsonDbWatcher::notificationTriggersView()
     QJsonDbRemoveRequest remove(toDelete);
     mConnection->send(&remove);
     waitForResponse(&remove);
+}
+
+void TestQJsonDbWatcher::notificationTriggersMapReduce()
+{
+    QVERIFY(mConnection);
+
+    QJsonParseError error;
+    QJsonArray array(readJsonFile(":/daemon/json/map-reduce.json", &error).array());
+    QVERIFY(error.error == QJsonParseError::NoError);
+    QList<QJsonObject> objects;
+    foreach (const QJsonValue v, array)
+        objects.append(v.toObject());
+
+    // create the objects
+    QJsonDbCreateRequest request(objects);
+    mConnection->send(&request);
+    waitForResponse(&request);
+
+    QString query = QLatin1String("[?_type=\"PhoneCount\"]");
+
+    {
+        QJsonDbReadRequest read(query);
+        mConnection->send(&read);
+        waitForResponse(&read);
+        int numObjects = read.takeResults().size();
+        QCOMPARE(numObjects, 5);
+    }
+
+    {
+        const char json[] = "{\"_type\":\"Contact\",\"displayName\":\"Will Robinson\",\"phoneNumbers\":[{\"type\":\"satellite\",\"number\":\"+614159\"}]}";
+        QJsonObject object(QJsonDocument::fromJson(json).object());
+
+        QJsonDbCreateRequest write(object);
+        mConnection->send(&write);
+        waitForResponse(&write);
+    }
+
+    // create a watcher
+    QJsonDbWatcher watcher;
+    watcher.setWatchedActions(QJsonDbWatcher::All);
+    watcher.setQuery(query);
+    mConnection->addWatcher(&watcher);
+
+    waitForResponseAndNotifications(0, &watcher, 1);
+    int numNotifications = watcher.takeNotifications().size();
+    QCOMPARE(numNotifications, 1);
+
+    {
+        QJsonDbReadRequest read(query);
+        mConnection->send(&read);
+        waitForResponse(&read);
+
+        QList<QJsonObject> results = read.takeResults();
+        QCOMPARE(results.size(), 6);
+    }
+
+    // now write another one
+    {
+        const char json[] = "{\"_type\":\"Contact\",\"displayName\":\"Jeffrey Goines\",\"phoneNumbers\":[{\"type\":\"satellite\",\"number\":\"+2718281828\"}]}";
+        QJsonObject object(QJsonDocument::fromJson(json).object());
+
+        QJsonDbCreateRequest write(object);
+        mConnection->send(&write);
+        waitForResponseAndNotifications(&write, &watcher, 1);
+
+        int numNotifications = watcher.takeNotifications().size();
+        QCOMPARE(numNotifications, 1);
+    }
+
+
+    mConnection->removeWatcher(&watcher);
 }
 
 QTEST_MAIN(TestQJsonDbWatcher)
