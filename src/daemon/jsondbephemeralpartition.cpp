@@ -129,6 +129,14 @@ JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *own
             if (!mObjects.contains(object.uuid()))
                 action = JsonDbNotification::Create;
 
+            // TODO: maybe be this somewhere else so that it doesn't pollute this code
+            if (object.type() == JsonDbString::kNotificationTypeStr &&
+                    object.value(JsonDbString::kQueryStr).toString().isEmpty()) {
+                result.code = JsonDbError::MissingQuery;
+                result.message = QLatin1String("Notification objects must contain a query paramater");
+                return result;
+            }
+
             object.insert(JsonDbString::kOwnerStr, owner->ownerId());
             object.computeVersion();
             mObjects[object.uuid()] = object;
