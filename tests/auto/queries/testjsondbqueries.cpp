@@ -98,6 +98,7 @@ private slots:
     void queryNotEqual();
     void queryQuotedProperties();
     void querySortedByIndexName();
+    void queryContains();
     void queryInvalid();
 
 private:
@@ -427,10 +428,31 @@ void TestJsonDbQueries::querySortedByIndexName()
     QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 8 << 8 << 6 << 6 << 4 << 4 << 2 << 2 << 0 << 0)));
 }
 
+void TestJsonDbQueries::queryContains()
+{
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains \"spike\" ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  { \"name\" : \"puffy\", \"dog\" : false } ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  [\"spike\", \"rover\"] ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
+
+    // invalid queries
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  { \"name\" : \"puffy\" \"dog\" : false } ]"));
+    QVERIFY(!queryResult.error.isNull());
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  [\"spike\", \"rover\" ]"));
+    QVERIFY(!queryResult.error.isNull());
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  \"spike\", \"rover\" ] ]"));
+    QVERIFY(!queryResult.error.isNull());
+}
+
 void TestJsonDbQueries::queryInvalid()
 {
     JsonDbQueryResult queryResult = find(mOwner, QLatin1String("foo"));
-    QVERIFY(queryResult.data.isEmpty());
+    QVERIFY(!queryResult.error.isNull());
 }
 
 QTEST_MAIN(TestJsonDbQueries)

@@ -41,6 +41,8 @@
 
 #include <QDebug>
 #include <QFile>
+#include <QJsonDocument>
+#include <QStack>
 #include <QString>
 #include <QStringList>
 
@@ -341,6 +343,57 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                         term.regExp().setCaseSensitivity(Qt::CaseInsensitive);
                     //qDebug() << "pattern" << tvs.mid(2, eor-2);
                     term.regExp().setPattern(tvs.mid(2, eor-2));
+                } else if (op == "contains") {
+                    bool ok = true;;
+
+                    QString value = tokenizer.pop();
+                    if (value == "[" || value == "{") {
+                        QStack<QString> tokenStack;
+                        tokenStack.push(value);
+                        QString tkn = value;
+
+                        while (ok && !tkn.isEmpty()) {
+                            tkn = tokenizer.pop();
+                            if (tkn == "]" && tokenStack.isEmpty()) {
+                                tokenizer.push(tkn);
+                                break;
+                            } else {
+                                value += tkn;
+                                if (tkn == "]") {
+                                    if (tokenStack.pop() != "[")
+                                        ok = false;
+                                } else if (tkn == "}") {
+                                    if (tokenStack.pop() != "{")
+                                        ok = false;
+                                }
+                            }
+                        }
+
+                        if (ok) {
+                            QJsonParseError parserError;
+                            QJsonDocument parsedValue = QJsonDocument::fromJson(value.toUtf8(), &parserError);
+                            if (parserError.error != QJsonParseError::NoError) {
+                                ok = false;
+                            } else {
+                                if (parsedValue.isArray())
+                                    term.setValue(parsedValue.array());
+                                else
+                                    term.setValue(parsedValue.object());
+                            }
+                        }
+                    } else {
+                        parseJsonLiteral(value, &term, bindings, &ok);
+                    }
+
+                    if (!ok) {
+                        parsedQuery->queryExplanation.append(QString("Failed to parse query value '%1' in query '%2' %3 op %4")
+                                                             .arg(value)
+                                                             .arg(parsedQuery->query)
+                                                             .arg(fieldSpec)
+                                                             .arg(op));
+                        parseError = true;
+                        break;
+                    }
                 } else if ((op != "exists") && (op != "notExists")) {
                     QString value = tokenizer.pop();
                     bool ok = true;;
