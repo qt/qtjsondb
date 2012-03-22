@@ -798,6 +798,7 @@ bool HBtreePrivate::sync()
     collectiblePages_.unite(marker_.residueHistory);
     marker_.residueHistory.clear();
     marker_.info.upperOffset = 0;
+    residueHistory_.clear();
 
     HBTREE_DEBUG("synced marker and upped revision to" << lastSyncedId_);
 
@@ -1118,6 +1119,7 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
     }
 
     q->stats_.numEntries++;
+    cachePrune();
 
     return ok;
 }
@@ -1134,7 +1136,9 @@ QByteArray HBtreePrivate::get(HBtreeTransaction *transaction, const QByteArray &
     }
 
     NodeValue nval = page->nodes.value(nkey, NodeValue());
-    return getDataFromNode(nval);
+    QByteArray ret = getDataFromNode(nval);
+    cachePrune();
+    return ret;
 }
 
 bool HBtreePrivate::del(HBtreeTransaction *transaction, const QByteArray &keyData)
@@ -1175,6 +1179,7 @@ bool HBtreePrivate::del(HBtreeTransaction *transaction, const QByteArray &keyDat
     Q_Q(HBtree);
     q->stats_.numEntries--;
 
+    cachePrune();
     return ok;
 }
 
