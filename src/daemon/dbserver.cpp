@@ -103,6 +103,9 @@ DBServer::DBServer(const QString &filePath, const QString &baseName, QObject *pa
       mFilePath(filePath),
       mBaseName(baseName)
 {
+    // for queued connection handling
+    qRegisterMetaType<JsonDbPartition*>("JsonDbPartition*");
+    qRegisterMetaType<QSet<QString> >("QSet<QString>");
 
     QFileInfo info(filePath);
 
@@ -439,6 +442,8 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
             return;
     }
 
+    QSet<QString> eagerViewUpdates;
+
     // FIXME: pretty good place to batch notifications
     foreach (const JsonDbUpdate &updated, objects) {
 
@@ -464,13 +469,8 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
 
             // eagerly update views if this object that was created isn't a view type itself
             if (mEagerViewSourceTypes.contains(objectType) && partition
-                    && !partition->findView(objectType)) {
-                const QSet<QString> &targetTypes = mEagerViewSourceTypes[objectType];
-                for (QSet<QString>::const_iterator it = targetTypes.begin(); it != targetTypes.end(); ++it) {
-                    if (partition)
-                        partition->updateView(*it);
-                }
-            }
+                    && !partition->findView(objectType))
+                eagerViewUpdates.insert(objectType);
         }
 
         if (object.contains(JsonDbString::kUuidStr))
@@ -490,6 +490,11 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
             }
         }
     }
+
+    if (!eagerViewUpdates.isEmpty())
+        QMetaObject::invokeMethod(this, "updateEagerViews", Qt::QueuedConnection,
+                                  Q_ARG(JsonDbPartition*, partition),
+                                  Q_ARG(QSet<QString>, eagerViewUpdates));
 }
 
 void DBServer::viewUpdated(const QString &type)
@@ -498,7 +503,13 @@ void DBServer::viewUpdated(const QString &type)
     if (!partition)
         return;
 
-    if (mEagerViewSourceTypes.contains(type)) {
+    if (mEagerViewSourceTypes.contains(type))
+        updateEagerViews(partition, QSet<QString>() << type);
+}
+
+void DBServer::updateEagerViews(JsonDbPartition *partition, const QSet<QString> &viewTypes)
+{
+    foreach (const QString &type, viewTypes) {
         const QSet<QString> &targetTypes = mEagerViewSourceTypes[type];
         for (QSet<QString>::const_iterator it = targetTypes.begin(); it != targetTypes.end(); ++it) {
             if (partition)
