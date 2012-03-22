@@ -109,6 +109,7 @@ protected:
     JsonDbPartition *mPartition;
     JsonDbObjectTable   *mObjectTable;
     JsonDbBtree *mBdbIndex;
+    bool isOwnTransaction;
     JsonDbBtree::Transaction *mTxn;
     JsonDbBtree::Cursor *mCursor;
     const JsonDbOwner *mOwner;

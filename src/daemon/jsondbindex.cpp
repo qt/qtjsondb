@@ -432,7 +432,8 @@ void JsonDbIndex::checkIndex()
 
     qDebug() << "checkIndex" << mPropertyName;
     int countf = 0;
-    JsonDbBtree::Transaction *txnf = mBdb.data()->btree()->beginRead();
+    bool isInTransaction = mBdb.data()->btree()->writeTransaction();
+    JsonDbBtree::Transaction *txnf = mBdb.data()->btree()->writeTransaction() ? mBdb.data()->btree()->writeTransaction() : mBdb.data()->btree()->beginWrite();
     JsonDbBtree::Cursor cursorf(txnf);
     bool ok = cursorf.first();
     if (ok) {
@@ -452,12 +453,14 @@ void JsonDbIndex::checkIndex()
             outkey1 = outkey2;
         }
     }
-    txnf->abort();
+    if (!isInTransaction)
+        txnf->abort();
 
     qDebug() << "checkIndex" << mPropertyName << "reversed";
     // now check other direction
     int countr = 0;
-    JsonDbBtree::Transaction *txnr = mBdb.data()->btree()->beginRead();
+    isInTransaction = mBdb.data()->btree()->writeTransaction();
+    JsonDbBtree::Transaction *txnr = mBdb.data()->btree()->writeTransaction() ? mBdb.data()->btree()->writeTransaction() : mBdb.data()->btree()->beginWrite();
     JsonDbBtree::Cursor cursorr(txnr);
     ok = cursorr.last();
     if (ok) {
@@ -477,7 +480,8 @@ void JsonDbIndex::checkIndex()
             outkey1 = outkey2;
         }
     }
-    txnr->abort();
+    if (!isInTransaction)
+        txnr->abort();
     qDebug() << "checkIndex" << mPropertyName << "done" << countf << countr << "entries checked";
 
 }
@@ -489,15 +493,17 @@ void JsonDbIndex::setCacheSize(quint32 cacheSize)
         mBdb->setCacheSize(cacheSize);
 }
 
-JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index) :
-    mTxn(index->bdb()->btree()->beginRead()),
-    mCursor(mTxn)
+JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index)
+    : isOwnTransaction(!index->bdb()->btree()->writeTransaction()),
+      mTxn(isOwnTransaction ? index->bdb()->btree()->beginWrite() : index->bdb()->btree()->writeTransaction()),
+      mCursor(mTxn)
 {
 }
 
 JsonDbIndexCursor::~JsonDbIndexCursor()
 {
-    mTxn->abort();
+    if (isOwnTransaction)
+        mTxn->abort();
 }
 
 bool JsonDbIndexCursor::seek(const QJsonValue &value)

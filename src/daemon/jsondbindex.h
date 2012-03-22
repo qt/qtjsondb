@@ -147,6 +147,7 @@ public:
     bool prev();
 
 private:
+    bool isOwnTransaction;
     JsonDbBtree::Transaction *mTxn;
     JsonDbBtree::Cursor mCursor;
     JsonDbIndex *mIndex;

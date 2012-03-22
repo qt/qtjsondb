@@ -84,27 +84,23 @@ JsonDbIndexQuery::JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable
 {
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->indexSpec(propertyName)->index->bdb();
-        mTxn = mBdbIndex->btree()->beginRead();
+        isOwnTransaction = !mBdbIndex->btree()->writeTransaction();
+        mTxn = isOwnTransaction ? mBdbIndex->btree()->beginWrite() : mBdbIndex->btree()->writeTransaction();
         mCursor = new JsonDbBtree::Cursor(mTxn);
     } else {
-        mTxn = table->bdb()->btree()->beginRead();
+        isOwnTransaction = !table->bdb()->btree()->writeTransaction();
+        mTxn = isOwnTransaction ? table->bdb()->btree()->beginWrite() : table->bdb()->btree()->writeTransaction();
         mCursor = new JsonDbBtree::Cursor(mTxn);
     }
 }
 JsonDbIndexQuery::~JsonDbIndexQuery()
 {
-    if (mResidualQuery) {
-        delete mResidualQuery;
-        mResidualQuery = 0;
-    }
-    if (mTxn && mCursor) {
+    delete mResidualQuery;
+    if (isOwnTransaction)
         mTxn->abort();
-        delete mCursor;
-        mCursor = 0;
-    }
-    for (int i = 0; i < mQueryConstraints.size(); i++) {
+    delete mCursor;
+    for (int i = 0; i < mQueryConstraints.size(); i++)
         delete mQueryConstraints[i];
-    }
 }
 
 QString JsonDbIndexQuery::partition() const
