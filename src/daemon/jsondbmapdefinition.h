@@ -102,6 +102,7 @@ private:
     JsonDbPartition *mPartition;
     const JsonDbOwner *mOwner;
     QJsonObject     mDefinition;
+    QString         mTargetKeyName;
     QJSEngine     *mScriptEngine;
     JsonDbMapProxy *mMapProxy; // to be removed when old map/lookup converted to join/lookup
     JsonDbJoinProxy *mJoinProxy;
@@ -111,7 +112,7 @@ private:
     QStringList    mSourceTypes;
     JsonDbObjectTable   *mTargetTable;
     QMap<QString,JsonDbObjectTable *> mSourceTables;
-    QList<QString> mSourceUuids;
+    QStringList    mSourceUuids; // a set of uuids with sorted elements
     QHash<QString,JsonDbObject> mEmittedObjects;
 };
 

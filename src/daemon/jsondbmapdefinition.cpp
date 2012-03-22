@@ -81,6 +81,8 @@ JsonDbMapDefinition::JsonDbMapDefinition(const JsonDbOwner *owner, JsonDbPartiti
         const QString &sourceType = mSourceTypes[i];
         mSourceTables[sourceType] = mPartition->findObjectTable(sourceType);
     }
+    if (mDefinition.contains("targetKeyName"))
+        mTargetKeyName = mDefinition.value("targetKeyName").toString();
 }
 
 void JsonDbMapDefinition::definitionCreated()
@@ -328,7 +330,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
         if (mapped.isError())
             setError("Error executing map function during lookup: " + mapped.toString());
 
-        mSourceUuids.removeLast();
+        mSourceUuids.removeOne(uuid);
     }
 }
 
@@ -336,13 +338,32 @@ void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
 {
     JsonDbObject newItem(JsonDbObject::fromJSValue(value).toObject());
     newItem.insert(JsonDbString::kTypeStr, mTargetType);
-    QJsonArray sourceUuids;
-    foreach (const QString &str, mSourceUuids)
-        sourceUuids.append(str);
-    newItem.insert("_sourceUuids", sourceUuids);
+    mSourceUuids.sort();
+    QJsonArray sourceUuidArray;
+    foreach (const QString &sourceUuid, mSourceUuids)
+        sourceUuidArray.append(sourceUuid);
+    newItem.insert("_sourceUuids", sourceUuidArray);
 
-    if (!newItem.contains(JsonDbString::kUuidStr))
-        newItem.generateUuid();
+    if (!newItem.contains(JsonDbString::kUuidStr)) {
+        if (newItem.contains(QLatin1String("_id")))
+            newItem.generateUuid();
+        else {
+            QString targetKeyString;
+            if (!mTargetKeyName.isEmpty())
+                targetKeyString = JsonDbObject(newItem).propertyLookup(mTargetKeyName).toString();
+
+            // colon separated sorted source uuids
+            QString sourceUuidString = mSourceUuids.join(":");
+            QString identifier =
+                QString("%1:%2%3%4")
+                .arg(mTargetType)
+                .arg(sourceUuidString)
+                .arg(targetKeyString.isEmpty() ? "" : ":")
+                .arg(targetKeyString);
+            newItem.insert(JsonDbString::kUuidStr,
+                           JsonDbObject::createUuidFromString(identifier).toString());
+        }
+    }
 
     QString uuid = newItem.value(JsonDbString::kUuidStr).toString();
     mEmittedObjects.insert(uuid, newItem);

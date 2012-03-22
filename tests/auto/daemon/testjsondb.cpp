@@ -173,6 +173,7 @@ private slots:
     void mapSelfJoinSourceUuids();
     void mapMapFunctionError();
     void mapSchemaViolation();
+    void mapMultipleEmitNoTargetKeyName();
     void mapArrayConversion();
     void reduce();
     void reduceFlattened();
@@ -2121,6 +2122,55 @@ void TestJsonDb::mapSchemaViolation()
 
     getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjects.data.size(), 5);
+
+    verifyGoodResult(remove(mOwner, map));
+    for (int ii = 0; ii < toDelete.size(); ii++)
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+
+    jsondbSettings->setValidateSchemas(false);
+}
+
+// verify that only one target object per source object is allowed without targetKeyName
+void TestJsonDb::mapMultipleEmitNoTargetKeyName()
+{
+    jsondbSettings->setValidateSchemas(true);
+
+    GetObjectsResult contactsRes = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
+    if (contactsRes.data.size() > 0) {
+        foreach (const JsonDbObject &toRemove, contactsRes.data)
+            remove(mOwner, toRemove);
+    }
+
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
+    JsonDbObjectList toDelete;
+    JsonDbObject map;
+
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        if (object.value(JsonDbString::kTypeStr).toString() != JsonDbString::kReduceTypeStr) {
+
+            if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr)
+                object.remove("targetKeyName");
+
+            JsonDbWriteResult result = create(mOwner, object);
+            if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr)
+                map = object;
+
+            verifyGoodResult(result);
+            if (object.value(JsonDbString::kTypeStr).toString() != JsonDbString::kMapTypeStr)
+                toDelete.append(object);
+        }
+    }
+
+    mJsonDbPartition->updateView(map.value("targetType").toString());
+
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
+    QJsonObject mapDefinition = getObjects.data.at(0);
+    QVERIFY(!mapDefinition.contains(JsonDbString::kActiveStr)|| mapDefinition.value(JsonDbString::kActiveStr).toBool());
+    QVERIFY(!mapDefinition.contains(JsonDbString::kErrorStr) || mapDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
+
+    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    QCOMPARE(getObjects.data.size(), 2);
 
     verifyGoodResult(remove(mOwner, map));
     for (int ii = 0; ii < toDelete.size(); ii++)

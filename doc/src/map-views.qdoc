@@ -47,9 +47,31 @@ values of a single target type. The target type must extend \l View.
 \li targetType
 \li The output type of this mapping
 \row
+\li targetKeyName
+\li Name of the key for the emitted objects. Optional. \sa deterministic-map-uuids
+\row
 \li map
 \li A dictionary whose keys are source type names and whose values are the functions to run on those source type.
 \endtable
+
+\section2 Deterministic Map Uuids
+\target{deterministic-map-uuids}
+
+By default, View objects created by Map are assigned a deterministic Uuid. If
+the "map" or "join" functions assign _uuid to the object they
+return, then that value is used as the uuid for the object. Otherwise,
+the view engine constructs an identifier string as follows:
+\code
+        sourceUuids.sort();
+        if (targeKeyName.isEmpty()) {
+            var identifier = targetType + ":" + sourceUuids.join(":");
+            object._uuid = jsondb.createUuidFromString(identifier);
+        } else {
+            var keyValue = object[targetKeyName];
+            var identifier = targetType + ":" + sourceUuids.join(":") + ":" + keyValue;
+            object._uuid = jsondb.createUuidFromString(identifier);
+        }
+\endcode
 
 \section2 Map Proxy
 
