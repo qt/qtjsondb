@@ -124,10 +124,6 @@ void JsonDbQueryObject::setQuery(const QString &newQuery)
 
 JsonDbPartition* JsonDbQueryObject::partition()
 {
-    if (!partitionObject) {
-        defaultPartitionObject = new JsonDbPartition();
-        setPartition(defaultPartitionObject);
-    }
     checkForReadyStatus();
     return partitionObject;
 }
@@ -384,8 +380,10 @@ void JsonDbQueryObject::checkForReadyStatus()
 
     JsonDbQueryObject::Status oldStatus = objectStatus;
 
-    if (!partitionObject)
-        partitionObject = qobject_cast<JsonDbPartition*>(parent());
+    if (!partitionObject) {
+        defaultPartitionObject = new JsonDbPartition();
+        setPartition(defaultPartitionObject);
+    }
     if (!parametersReady()) {
         objectStatus = JsonDbQueryObject::Null;
         if (objectStatus != oldStatus)
