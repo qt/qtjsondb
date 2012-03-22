@@ -495,7 +495,7 @@ bool Client::processCommand(const QString &command)
             else if (s == QLatin1String("update"))
                 action = QtJsonDb::QJsonDbWatcher::Updated;
             if (action == QtJsonDb::QJsonDbWatcher::Action(0)) {
-                InputThread::print("uknown notification type" % s);
+                InputThread::print("unknown notification type" % s);
                 return false;
             }
             actions |= action;
@@ -613,12 +613,12 @@ void Client::loadNextFile()
     }
 
     QFileInfo info(mFilesToLoad.first());
-    if (info.suffix() == QLatin1Literal("json")) {
+    if (info.suffix() == QLatin1String("json")) {
         loadJsonFile(info.filePath());
-    } else if (info.suffix() == QLatin1Literal("qml")) {
+    } else if (info.suffix() == QLatin1String("qml")) {
         loadQmlFile(info.filePath());
 #ifndef QTJSONDB_NO_DEPRECATED
-    } else if (info.suffix() == QLatin1Literal("js")) {
+    } else if (info.suffix() == QLatin1String("js")) {
         loadJavaScriptFile(info.filePath());
 #endif
     } else {
