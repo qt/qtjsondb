@@ -356,7 +356,7 @@ public:
     bool hasSpaceFor(NodePage *page, const NodeKey &key, const NodeValue &value) const;
 
     bool insertNode(NodePage *page, const NodeKey &key, const NodeValue &value);
-    bool removeNode(NodePage *page, const NodeKey &key);
+    bool removeNode(NodePage *page, const NodeKey &key, bool isTransfer = false);
     bool split(NodePage *page, const NodeKey &key, const NodeValue &value, NodePage **rightOut = 0);
     bool rebalance(NodePage *page);
     bool moveNode(NodePage *src, NodePage *dst, Node node);

@@ -115,9 +115,12 @@ private slots:
     void cursorWhileDelete_data();
     void cursorWhileDelete();
     void getDataFromLastSync();
+    void deleteAlotNoSyncReopen_data();
+    void deleteAlotNoSyncReopen();
 
 private:
     void corruptSinglePage(int psize, int pgno = -1, qint32 type = -1);
+    void set_data();
     HBtree *db;
     HBtreePrivate *d;
 
@@ -150,12 +153,78 @@ int myRand(int r)
     return (int)(((float)qrand() / (float)RAND_MAX) * (float)r);
 }
 
+static const char dbname[] = "tst_HBtree.db";
+
+void TestHBtree::corruptSinglePage(int psize, int pgno, qint32 type)
+{
+    const int asize = psize / 4;
+    quint32 *page = new quint32[asize];
+    QFile::OpenMode om = QFile::ReadWrite;
+
+    if (pgno == -1)  // we'll be appending
+        om |= QFile::Append;
+    QFile file(dbname);
+    QVERIFY(file.open(om));
+    QVERIFY(file.seek((pgno == -1 ? 0 : pgno * psize)));
+    QVERIFY(file.read((char*)page, asize));
+
+    if (pgno == -1)
+        pgno = file.size() / psize; // next pgno
+    page[2] = pgno;
+    if (type > 0)
+        page[1] = type; // set page flag if specified
+
+    for (int j = 3; j < asize; ++j) // randomly corrupt page (skip type and pgno)
+        page[j] = rand();
+
+    QVERIFY(file.seek(pgno * psize));
+    QCOMPARE(file.write((char*)page, psize), (qint64)psize);
+    file.close();
+
+    delete [] page;
+}
+
+void TestHBtree::set_data()
+{
+    const int lessItems = 100;
+    const int smallKeys = 100;
+    const int smallData = 100;
+    const int moreItems = 1000;
+    const int bigKeys = 1000;
+    const int bigData = 1000;
+    const int overflowData = 2000;
+    const int multiOverflowData = 5000;
+    const int syncRate = 100;
+
+    QTest::addColumn<int>("numItems");
+    QTest::addColumn<int>("keySize");
+    QTest::addColumn<int>("valueSize");
+    QTest::addColumn<int>("syncRate");
+
+    QTest::newRow("Less items, small keys, small data") << lessItems << smallKeys << smallData << syncRate;
+    QTest::newRow("more items, small keys, small data") << moreItems << smallKeys << smallData << syncRate;
+    QTest::newRow("Less items, big keys, small data") << lessItems << bigKeys << smallData << syncRate;
+    QTest::newRow("more items, big keys, small data") << moreItems << bigKeys << smallData << syncRate;
+    QTest::newRow("Less items, small keys, big data") << lessItems << smallKeys << bigData << syncRate;
+    QTest::newRow("more items, small keys, big data") << moreItems << smallKeys << bigData << syncRate;
+    QTest::newRow("Less items, big keys, big data") << lessItems << bigKeys << bigData << syncRate;
+    QTest::newRow("more items, big keys, big data") << moreItems << bigKeys << bigData << syncRate;
+
+    QTest::newRow("Less items, small keys, overflow data") << lessItems << smallKeys << overflowData << syncRate;
+    QTest::newRow("more items, small keys, overflow data") << moreItems << smallKeys << overflowData << syncRate;
+    QTest::newRow("Less items, big keys, overflow data") << lessItems << bigKeys << overflowData << syncRate;
+    QTest::newRow("more items, big keys, overflow data") << moreItems << bigKeys << overflowData << syncRate;
+
+    QTest::newRow("Less items, small keys, multi-overflow data") << lessItems << smallKeys << multiOverflowData << syncRate;
+    QTest::newRow("more items, small keys, multi-overflow data") << moreItems << smallKeys << multiOverflowData << syncRate;
+    QTest::newRow("Less items, big keys, multi-overflow data") << lessItems << bigKeys << multiOverflowData << syncRate;
+    QTest::newRow("more items, big keys, multi-overflow data") << moreItems << bigKeys << multiOverflowData << syncRate;
+}
+
 TestHBtree::TestHBtree()
     : db(NULL), printOutCollectibles_(true)
 {
 }
-
-static const char dbname[] = "tst_HBtree.db";
 
 void TestHBtree::initTestCase()
 {
@@ -1719,35 +1788,6 @@ void TestHBtree::markerOnReopen()
     QCOMPARE(d->marker_.meta.tag, (quint64)2000);
 }
 
-void TestHBtree::corruptSinglePage(int psize, int pgno, qint32 type)
-{
-    const int asize = psize / 4;
-    quint32 *page = new quint32[asize];
-    QFile::OpenMode om = QFile::ReadWrite;
-
-    if (pgno == -1)  // we'll be appending
-        om |= QFile::Append;
-    QFile file(dbname);
-    QVERIFY(file.open(om));
-    QVERIFY(file.seek((pgno == -1 ? 0 : pgno * psize)));
-    QVERIFY(file.read((char*)page, asize));
-
-    if (pgno == -1)
-        pgno = file.size() / psize; // next pgno
-    page[2] = pgno;
-    if (type > 0)
-        page[1] = type; // set page flag if specified
-
-    for (int j = 3; j < asize; ++j) // randomly corrupt page (skip type and pgno)
-        page[j] = rand();
-
-    QVERIFY(file.seek(pgno * psize));
-    QCOMPARE(file.write((char*)page, psize), (qint64)psize);
-    file.close();
-
-    delete [] page;
-}
-
 void TestHBtree::corruptSyncMarker1_data()
 {
     QTest::addColumn<quint32>("numCommits");
@@ -1818,37 +1858,7 @@ void TestHBtree::corruptBothSyncMarkers()
 
 void TestHBtree::cursorWhileDelete_data()
 {
-    const int lessItems = 100;
-    const int smallKeys = 100;
-    const int smallData = 100;
-    const int moreItems = 1000;
-    const int bigKeys = 1000;
-    const int bigData = 1000;
-    const int overflowData = 2000;
-    const int multiOverflowData = 5000;
-
-    QTest::addColumn<int>("numItems");
-    QTest::addColumn<int>("keySize");
-    QTest::addColumn<int>("valueSize");
-
-    QTest::newRow("Less items, small keys, small data") << lessItems << smallKeys << smallData;
-    QTest::newRow("more items, small keys, small data") << moreItems << smallKeys << smallData;
-    QTest::newRow("Less items, big keys, small data") << lessItems << bigKeys << smallData;
-    QTest::newRow("more items, big keys, small data") << moreItems << bigKeys << smallData;
-    QTest::newRow("Less items, small keys, big data") << lessItems << smallKeys << bigData;
-    QTest::newRow("more items, small keys, big data") << moreItems << smallKeys << bigData;
-    QTest::newRow("Less items, big keys, big data") << lessItems << bigKeys << bigData;
-    QTest::newRow("more items, big keys, big data") << moreItems << bigKeys << bigData;
-
-    QTest::newRow("Less items, small keys, overflow data") << lessItems << smallKeys << overflowData;
-    QTest::newRow("more items, small keys, overflow data") << moreItems << smallKeys << overflowData;
-    QTest::newRow("Less items, big keys, overflow data") << lessItems << bigKeys << overflowData;
-    QTest::newRow("more items, big keys, overflow data") << moreItems << bigKeys << overflowData;
-
-    QTest::newRow("Less items, small keys, multi-overflow data") << lessItems << smallKeys << multiOverflowData;
-    QTest::newRow("more items, small keys, multi-overflow data") << moreItems << smallKeys << multiOverflowData;
-    QTest::newRow("Less items, big keys, multi-overflow data") << lessItems << bigKeys << multiOverflowData;
-    QTest::newRow("more items, big keys, multi-overflow data") << moreItems << bigKeys << multiOverflowData;
+    set_data();
 }
 
 void TestHBtree::cursorWhileDelete()
@@ -1856,6 +1866,9 @@ void TestHBtree::cursorWhileDelete()
     QFETCH(int, numItems);
     QFETCH(int, keySize);
     QFETCH(int, valueSize);
+    QFETCH(int, syncRate);
+
+    db->setAutoSyncRate(syncRate);
 
     // Insert data
     QMap<QByteArray, QByteArray> keyValues;
@@ -1950,6 +1963,82 @@ void TestHBtree::getDataFromLastSync()
         QVERIFY(txn);
         QVERIFY(txn->get(QByteArray::number(i)).isEmpty());
         txn->abort();
+    }
+}
+
+void TestHBtree::deleteAlotNoSyncReopen_data()
+{
+    set_data();
+}
+
+void TestHBtree::deleteAlotNoSyncReopen()
+{
+    db->setAutoSyncRate(0);
+    QFETCH(int, numItems);
+    QFETCH(int, valueSize);
+
+    // Put all in
+    QMap<QByteArray, QByteArray> keyValues;
+    for (int i = 0; i < numItems; ++i) {
+        QByteArray key = QByteArray::number(i);
+        QByteArray value(valueSize, 'a' + (i % ('z' - 'a')));
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(transaction);
+        QVERIFY(transaction->put(key, value));
+        QVERIFY(transaction->commit(i));
+        keyValues.insert(key, value);
+    }
+
+    // Delete first half
+    for (int i = 0; i < numItems / 2; ++i) {
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(transaction);
+        QVERIFY(transaction->remove(QByteArray::number(i)));
+        QVERIFY(transaction->commit(i));
+    }
+
+    QVERIFY(d->sync());
+
+    // Delete second half
+    for (int i = numItems / 2; i < numItems; ++i) {
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(transaction);
+        QVERIFY(transaction->remove(QByteArray::number(i)));
+        QVERIFY(transaction->commit(i));
+    }
+
+    // Close without sync and reopen
+    d->close(false);
+    QVERIFY(db->open());
+
+    // Verify not first half and yes second half
+    HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
+    QVERIFY(transaction);
+    for (int i = 0; i < numItems / 2; ++i) {
+        QCOMPARE(transaction->get(QByteArray::number(i)), QByteArray());
+    }
+    for (int i = numItems / 2; i < numItems; ++i) {
+        QCOMPARE(transaction->get(QByteArray::number(i)), keyValues[QByteArray::number(i)]);
+    }
+    transaction->abort();
+
+    // Put in first half
+    for (int i = 0; i < numItems / 2; ++i) {
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(transaction);
+        QVERIFY(transaction->put(QByteArray::number(i), keyValues[QByteArray::number(i)]));
+        QVERIFY(transaction->commit(i));
+
+        // Verify all
+        transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
+        QVERIFY(transaction);
+        for (int j = 0; j < i; ++j) {
+            QCOMPARE(transaction->get(QByteArray::number(j)), keyValues[QByteArray::number(j)]);
+        }
+        for (int j = numItems / 2; j < numItems; ++j) {
+            QCOMPARE(transaction->get(QByteArray::number(j)), keyValues[QByteArray::number(j)]);
+        }
+        transaction->abort();
     }
 }
 

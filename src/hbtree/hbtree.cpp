@@ -212,6 +212,8 @@ void HBtreePrivate::close(bool doSync)
         lastSyncedId_ = 0;
         residueHistory_.clear();
         collectiblePages_.clear();
+        marker_ = MarkerPage(0);
+        synced_ = MarkerPage(0);
     }
 }
 
@@ -1822,7 +1824,7 @@ bool HBtreePrivate::insertNode(NodePage *page, const NodeKey &key, const NodeVal
     return true;
 }
 
-bool HBtreePrivate::removeNode(HBtreePrivate::NodePage *page, const HBtreePrivate::NodeKey &key)
+bool HBtreePrivate::removeNode(HBtreePrivate::NodePage *page, const HBtreePrivate::NodeKey &key, bool isTransfer)
 {
     Q_ASSERT(page->dirty);
     HBTREE_DEBUG("removing" << key << "from" << page->info);
@@ -1834,7 +1836,7 @@ bool HBtreePrivate::removeNode(HBtreePrivate::NodePage *page, const HBtreePrivat
 
     NodeValue value = page->nodes.value(key);
 
-    if (value.flags & NodeHeader::Overflow) {
+    if (value.flags & NodeHeader::Overflow && !isTransfer) {
         Q_ASSERT(page->info.type == PageInfo::Leaf);
         QList<quint32> overflowPages;
         if (!getOverflowPageNumbers(value.overflowPage, &overflowPages)) {
@@ -2167,7 +2169,7 @@ bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePa
         insertNode(dst->parent, dst->parentKey, NodeValue(dst->info.number));
     }
 
-    removeNode(src, node.key());
+    removeNode(src, node.key(), true);
 
     if (src->parentKey <= nkey && decending) {
         Q_ASSERT(!src->parentKey.data.isEmpty());
@@ -2261,7 +2263,7 @@ bool HBtreePrivate::mergePages(HBtreePrivate::NodePage *page, HBtreePrivate::Nod
     } else {
         // Merging page with smaller keys in to page
         // with bigger keys. Change dst parent key.
-        removeNode(dst->parent, dst->parentKey);
+        removeNode(dst->parent, dst->parentKey, true);
         removeNode(page->parent, page->parentKey);
         NodeKey nkey = page->parentKey;
         NodeValue nval;
