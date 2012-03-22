@@ -847,9 +847,6 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
         // first pass to find unindexable property names
         for (int i = 0; i < orQueryTerms.size(); i++)
             unindexablePropertyNames.append(orQueryTerms[i].findUnindexablePropertyNames());
-        if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
-            qDebug() << "unindexable property names due to notExists usage" << unindexablePropertyNames;
-
         for (int i = 0; i < orQueryTerms.size(); i++) {
             const OrQueryTerm orQueryTerm = orQueryTerms[i];
             const QList<QString> &querypropertyNames = orQueryTerm.propertyNames();
