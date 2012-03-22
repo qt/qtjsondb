@@ -1,0 +1,136 @@
+/****************************************************************************
+**
+** Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** GNU Free Documentation License
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.
+**
+** Other Usage
+** Alternatively, this file may be used in accordance with the terms
+** and conditions contained in a signed written agreement between you
+** and Nokia.
+**
+**
+**
+**
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page reduce-views.html
+\title Reduce Views
+
+\target reduce
+
+\section1 Performing a Reduce
+
+A reduce is defined by creating a \l Reduce object in the database. A
+Reduce operates on objects of a single source type, producing values
+of a single target type. A Reduce incrementally combines source
+objects with matching keys using JavaScript "add" and "subtract"
+functions.
+
+\table
+\row
+\li _type
+\li Reduce
+
+\row
+\li targetType
+\li The output type of this reduction. The target type must extend \l View.
+
+\row
+\li targetKeyName
+\li The name of the key property in the target objects. Defaults to "key" if unspecified.
+
+\row
+\li targetValueName (should be "null")
+
+\li The name of the value property in the target objects. Defaults to
+"value" if unspecified. If this is defined to be "null", then the
+object returned from the "add" and "subtract" functions is used as the
+whole target object. The old behavior is deprecated and will be
+removed.
+
+\row
+\li sourceType
+\li The type of the source objects used in this reduction
+
+\row
+\li sourceKeyName
+
+\li The name of the key property in the source objects. Defaults to
+"key" if unspecified. Exactly one of sourceKeyName and
+sourceKeyFunction must be specified.
+
+\row
+\li sourceKeyFunction
+
+\li A string that represents a JavaScript function that takes an
+object and returns the key value for that object.  Exactly one of
+sourceKeyName and sourceKeyFunction must be specified.
+
+\row
+\li add
+\li A string that evaluates to a Javascript function taking three arguments: keyValue, targetObject, sourceObject..
+
+\row
+\li subtract
+\li A string that evaluates to a Javascript function taking three arguments: keyValue, targetObject, sourceObject.
+\endtable
+
+
+\section2 Deterministic Uuids
+
+View objects created by Reduce are assigned a deterministic Uuid. If
+the "add" or "subtract" functions assign _uuid to the object they
+return, then that value is used as the uuid for the object. Otherwise,
+the view engine constructs an identifier string as follows:
+\code
+        var identifier = targetType + ":" + reduceDefinitionUuid + ":" + keyValue;
+        var uuid = jsondb.createUuidFromString(identifier);
+\endcode
+
+\section2 Theory of Operation
+
+When the view is updated, it operates on all of the source objects
+that were changed since the last time the view was updated.
+
+If a source object is created, the key is extracted from the object
+using either sourceKeyName or sourceKeyFunction. The "add" function is
+applied to three arguments: the key value, the previous target object
+for the key value or undefined, and the source object.
+
+If a source object is removed, the key is extracted from the object
+that was removed using either sourceKeyName or sourceKeyFunction. The
+"remove" function is applied to three arguments: the key value, the
+previous target object for the key value or undefined, and the source
+object.
+
+If a source object is updated, it is treated as a remove of the
+previous value and a creation of the new value, so there will be a
+call to the "subtract" function and then the "add" function.
+
+All of the changes are staged together during an update of the view to
+minimize the number of changes of target objects visible via
+notifications.
+
+\section2 Reduce Proxy
+
+When the map functions run, they have access to a jsondb proxy object with one method:
+
+\table
+\row
+\li \l {jsondb.createUuidFromString}{jsondb.createUuidFromString}(identifier)
+\endtable
+
+*/

@@ -175,6 +175,8 @@ private slots:
     void mapSchemaViolation();
     void mapArrayConversion();
     void reduce();
+    void reduceFlattened();
+    void reduceSourceKeyFunction();
     void reduceRemoval();
     void reduceUpdate();
     void reduceDuplicate();
@@ -1556,6 +1558,17 @@ void TestJsonDb::reduceDefinitionInvalid()
     verifyErrorResult(res);
     QVERIFY(res.message.contains("View"));
 
+    // fail because targetValue name is not a string or null
+    reduceDefinition = JsonDbObject();
+    reduceDefinition.insert(JsonDbString::kTypeStr, QLatin1String("Reduce"));
+    reduceDefinition.insert("targetType", QLatin1String("MyViewType"));
+    reduceDefinition.insert("sourceType", QLatin1String("Contact"));
+    reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { }"));
+    reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
+    reduceDefinition.insert("targetValueName", true);
+    res = create(mOwner, reduceDefinition);
+    verifyErrorResult(res);
+
     //schemaRes.value("result").toObject()
     verifyGoodResult(remove(mOwner, schema));
 }
@@ -2158,6 +2171,104 @@ void TestJsonDb::reduce()
     objects = readJsonFile(":/daemon/json/reduce.json").toArray();
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
+            reduces.append(object);
+        else
+            toDelete.append(object);
+    }
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
+
+    JsonDbObjectList data = queryResult.data;
+    for (int ii = 0; ii < data.size(); ii++) {
+        QCOMPARE((int)data.at(ii).value("count").toDouble(),
+                 firstNameCount[data.at(ii).value("firstName").toString()]);
+    }
+    for (int ii = 0; ii < reduces.size(); ii++)
+        verifyGoodResult(remove(mOwner, reduces.at(ii)));
+    for (int ii = 0; ii < toDelete.size(); ii++)
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+    mJsonDbPartition->removeIndex("MyContactCount");
+}
+
+void TestJsonDb::reduceFlattened()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+
+    JsonDbObjectList toDelete;
+    JsonDbObjectList reduces;
+
+    QHash<QString, int> firstNameCount;
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        firstNameCount[object.value("firstName").toString()]++;
+        toDelete.append(object);
+    }
+
+    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr) {
+            object.insert(QLatin1String("add"), object.value(QLatin1String("addFlattened")));
+            object.insert(QLatin1String("subtract"), object.value(QLatin1String("subtractFlattened")));
+            // transitional behavior: null targetValueName indicates whole object is value of the Reduce
+            object.insert(QLatin1String("targetValueName"), QJsonValue(QJsonValue::Null));
+        }
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
+            reduces.append(object);
+        else
+            toDelete.append(object);
+    }
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
+
+    JsonDbObjectList data = queryResult.data;
+    for (int ii = 0; ii < data.size(); ii++) {
+        QCOMPARE((int)data.at(ii).value("count").toDouble(),
+                 firstNameCount[data.at(ii).value("firstName").toString()]);
+    }
+    for (int ii = 0; ii < reduces.size(); ii++)
+        verifyGoodResult(remove(mOwner, reduces.at(ii)));
+    for (int ii = 0; ii < toDelete.size(); ii++)
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+    mJsonDbPartition->removeIndex("MyContactCount");
+}
+
+void TestJsonDb::reduceSourceKeyFunction()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+
+    JsonDbObjectList toDelete;
+    JsonDbObjectList reduces;
+
+    QHash<QString, int> firstNameCount;
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        firstNameCount[object.value("firstName").toString()]++;
+        toDelete.append(object);
+    }
+
+    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr) {
+            QString sourceKeyName = object.value(QLatin1String("sourceKeyName")).toString();
+            object.remove(QLatin1String("sourceKeyName"));
+            object.insert(QLatin1String("sourceKeyFunction"),
+                          QString("function (o) { return o.%1; }").arg(sourceKeyName));
+        }
         JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")

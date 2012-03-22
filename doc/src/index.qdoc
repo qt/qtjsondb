@@ -110,6 +110,7 @@ sets.
 
 \list
 \li \l {Map and Join Views}
+\li \l {Reduce Views}
 \endlist
 
 \section2 Notifications
@@ -134,6 +135,7 @@ See also \l{QJsonDbWatcher}
 \li \l{declarative/desktop-inspector}{Desktop Database Inspector Example}
 \li \l{declarative/map-phone}{Creating a Map View}
 \li \l{declarative/joinview}{Creating a Join View}
+\li \l{declarative/reduce-phone}{Creating a Reduce View}
 \li \l{client/chat}{Creating a chat client using the C++ API}
 \endlist
 */
