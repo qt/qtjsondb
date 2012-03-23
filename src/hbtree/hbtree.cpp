@@ -1569,8 +1569,11 @@ bool HBtreePrivate::searchPageRoot(HBtreeCursor *cursor, HBtreePrivate::NodePage
             HBTREE_ERROR("failed to touch page" << child->info);
             return false;
         }
+
+        Q_ASSERT(verifyIntegrity(parent));
     }
 
+    Q_ASSERT(verifyIntegrity(child));
     Q_ASSERT(child->info.type == PageInfo::Leaf);
 
     if (cursor) {
@@ -2128,7 +2131,7 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
     } else {
         // Account for transfer of history
         // Account for extra history node in dst page in the case of touch page.
-        if (spaceLeft(page) >= (spaceUsed(neighbour) + sizeof(HistoryNode) * (neighbour->history.size() + 1))) {
+        if (pageBranchNode == parent->nodes.constBegin() && spaceLeft(page) >= (spaceUsed(neighbour) + sizeof(HistoryNode) * (neighbour->history.size() + 1))) {
             if (!mergePages(neighbour, page))
                 return false;
         } else if (spaceLeft(neighbour) >= (spaceUsed(page) + sizeof(HistoryNode) * (page->history.size() + 1))) {
@@ -2164,26 +2167,21 @@ bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePa
     NodeKey nkey = node.key();
 
     insertNode(dst, node.key(), node.value());
+    removeNode(src, node.key(), true);
 
     if (dst->parentKey > nkey) {
         // must change destination parent key
-        NodePage *lowest;
-        searchPageRoot(NULL, dst, NodeKey(compareFunction_), SearchFirst, false, &lowest);
         removeNode(dst->parent, dst->parentKey);
-        dst->parentKey = lowest->nodes.constBegin().key();
-        insertNode(dst->parent, dst->parentKey, NodeValue(dst->info.number));
+        insertNode(dst->parent, nkey, NodeValue(dst->info.number));
+        dst->parentKey = nkey;
     }
-
-    removeNode(src, node.key(), true);
 
     if (src->parentKey <= nkey && decending) {
         Q_ASSERT(!src->parentKey.data.isEmpty());
         // must change source parent key
-        NodePage *lowest;
-        searchPageRoot(NULL, src, NodeKey(compareFunction_), SearchFirst, false, &lowest);
         removeNode(src->parent, src->parentKey);
-        src->parentKey = lowest->nodes.constBegin().key();
-        insertNode(src->parent, src->parentKey, NodeValue(src->info.number));
+        insertNode(src->parent, src->nodes.constBegin().key(), NodeValue(src->info.number));
+        src->parentKey = src->nodes.constBegin().key();
     }
 //    // If we move
 //    if (rightToLeft) {
