@@ -1,5 +1,7 @@
 INCLUDEPATH += $$PWD/
 
+include($$PWD/../3rdparty/zlib/zlib.pri)
+
 HEADERS += \
     $$PWD/orderedlist_p.h \
     $$PWD/hbtree.h \
