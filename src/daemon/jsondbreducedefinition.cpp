@@ -309,10 +309,12 @@ bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, Json
     else if (reduce.value("subtract").toString().isEmpty())
         message = QLatin1Literal("subtract function for Reduce not specified");
     else {
-        QJSEngine scriptEngine;
+        // FIXME: This is static because otherwise we leak memory per QJSEngine instance
+        static QJSEngine *scriptEngine = new QJSEngine;
         QJSValue addFunction, subtractFunction;
         // check for script errors
-        compileFunctions(&scriptEngine, reduce, addFunction, subtractFunction, message);
+        compileFunctions(scriptEngine, reduce, addFunction, subtractFunction, message);
+        scriptEngine->collectGarbage();
     }
     return message.isEmpty();
 }

@@ -377,9 +377,11 @@ bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPart
         message = QLatin1Literal("targetType must be of a type that extends View");
     } else if (map.contains("join")) {
         QJsonObject sourceFunctions = map.value("join").toObject();
-        sourceTypes = sourceFunctions.keys();
+
         if (sourceFunctions.isEmpty())
             message = QLatin1Literal("sourceTypes and functions for Map with join not specified");
+
+        sourceTypes = sourceFunctions.keys();
 
         foreach (const QString &sourceType, sourceTypes) {
             if (sourceFunctions.value(sourceType).toString().isEmpty())
@@ -399,11 +401,36 @@ bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPart
             message = QLatin1String("sourceType property for Map not specified");
         else if (!mapValue.isString() && !mapValue.isObject())
             message = QLatin1String("map function for Map not specified");
+
+        if (mapValue.isObject()) {
+
+            QJsonObject sourceFunctions = mapValue.toObject();
+
+            if (sourceFunctions.isEmpty())
+                message = QLatin1Literal("sourceTypes and functions for Map with map not specified");
+
+            sourceTypes = sourceFunctions.keys();
+
+            foreach (const QString &sourceType, sourceTypes) {
+                if (sourceFunctions.value(sourceType).toString().isEmpty())
+                    message = QString("map function for source type '%1' not specified for Map").arg(sourceType);
+                if (view->mMapDefinitionsBySource.contains(sourceType)
+                    && view->mMapDefinitionsBySource.value(sourceType)->uuid() != uuid)
+                    message =
+                      QString("duplicate Map definition on source %1 and target %2")
+                        .arg(sourceType).arg(targetType);
+            }
+        }
     }
+
     // check for parse errors
-    QJSEngine scriptEngine;
-    QMap<QString,QJSValue> mapFunctions;
-    compileMapFunctions(&scriptEngine, map, mapFunctions, message);
+    if (message.isEmpty()) {
+        // FIXME: This is static because otherwise we leak memory per QJSEngine instance
+        static QJSEngine *scriptEngine = new QJSEngine;
+        QMap<QString,QJSValue> mapFunctions;
+        compileMapFunctions(scriptEngine, map, mapFunctions, message);
+        scriptEngine->collectGarbage();
+    }
 
     return message.isEmpty();
 }

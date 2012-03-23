@@ -1706,7 +1706,8 @@ void JsonDbPartition::updateBuiltInTypes(const JsonDbObject &object, const JsonD
         if (!oldObject.isEmpty())
             JsonDbView::removeDefinition(this, oldObject);
 
-        if (!object.isDeleted())
+        if (!(object.isDeleted() ||
+              (object.contains(JsonDbString::kActiveStr) && !object.value(JsonDbString::kActiveStr).toBool())))
             JsonDbView::createDefinition(this, object);
     }
 }

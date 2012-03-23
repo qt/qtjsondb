@@ -166,13 +166,6 @@ void JsonDbView::createMapDefinition(QJsonObject mapDefinition)
     QStringList sourceTypes = def->sourceTypes();
     for (int i = 0; i < sourceTypes.size(); i++) {
         const QString sourceType = sourceTypes[i];
-        if (mMapDefinitionsBySource.contains(sourceType)) {
-            qWarning() << QString("Duplicate Map definition on source %1 and target %2")
-                .arg(sourceType).arg(targetType);
-            def->setError(QString("Duplicate Map definition on source %1 and target %2")
-                          .arg(sourceType).arg(targetType));
-            return;
-        }
         mMapDefinitionsBySource.insert(sourceType, def);
     }
     mMapDefinitions.insert(def->uuid(), def);
@@ -194,7 +187,6 @@ void JsonDbView::removeMapDefinition(QJsonObject mapDefinition)
             const QStringList &sourceTypes = def->sourceTypes();
             for (int i = 0; i < sourceTypes.size(); i++)
                 mMapDefinitionsBySource.remove(sourceTypes[i]);
-
             break;
         }
     }
@@ -215,13 +207,6 @@ void JsonDbView::createReduceDefinition(QJsonObject reduceDefinition)
     owner->setAllowAll(true);
     JsonDbReduceDefinition *def = new JsonDbReduceDefinition(owner, mPartition, reduceDefinition, this);
     def->initIndexes();
-
-    if (mReduceDefinitionsBySource.contains(sourceType)) {
-        def->setError(QString("Duplicate Reduce definition on source %1 and target %2")
-                      .arg(sourceType).arg(targetType));
-        return;
-    }
-
     mReduceDefinitionsBySource.insert(sourceType, def);
     mReduceDefinitions.insert(def->uuid(), def);
 
@@ -437,10 +422,12 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
                 }
                 definitionUuid = after.value(JsonDbString::kUuidStr).toString();
                 QString definitionType = after.value(JsonDbString::kTypeStr).toString();
-                if (definitionType == JsonDbString::kMapTypeStr)
-                    mMapDefinitions.value(definitionUuid)->definitionCreated();
-                else
-                    mReduceDefinitions.value(definitionUuid)->definitionCreated();
+                if (!after.contains(JsonDbString::kActiveStr) || after.value(JsonDbString::kActiveStr).toBool()) {
+                    if (definitionType == JsonDbString::kMapTypeStr)
+                        mMapDefinitions.value(definitionUuid)->definitionCreated();
+                    else
+                        mReduceDefinitions.value(definitionUuid)->definitionCreated();
+                }
             }
         }
         if (!definitionUuid.isEmpty())
