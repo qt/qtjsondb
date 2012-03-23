@@ -102,6 +102,9 @@ public:
     Console();
     Q_SCRIPTABLE void log(const QString &string);
     Q_SCRIPTABLE void debug(const QString &string);
+    Q_SCRIPTABLE void info(const QString &string);
+    Q_SCRIPTABLE void warn(const QString &string);
+    Q_SCRIPTABLE void error(const QString &string);
 };
 
 QT_END_NAMESPACE_JSONDB

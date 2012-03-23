@@ -45,6 +45,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QMessageHandler>
 #include <QTime>
 #include <QUuid>
 
@@ -172,6 +173,7 @@ private slots:
     void mapSchemaViolation();
     void mapMultipleEmitNoTargetKeyName();
     void mapArrayConversion();
+    void mapConsole();
     void reduce();
     void reduceFlattened();
     void reduceSourceKeyFunction();
@@ -2183,11 +2185,15 @@ void TestJsonDb::mapArrayConversion()
 {
     QJsonArray objects(readJsonFile(":/daemon/json/map-array-conversion.json").toArray());
     JsonDbObjectList toDelete;
+    JsonDbObject mapDefinition;
     for (int i = 0; i < objects.size(); i++) {
         JsonDbObject object(objects.at(i).toObject());
         JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
-        toDelete.append(object);
+        if (object.value(JsonDbString::kTypeStr) == JsonDbString::kMapTypeStr)
+            mapDefinition = object;
+        else
+            toDelete.append(object);
     }
 
     JsonDbObject testObject;
@@ -2200,6 +2206,94 @@ void TestJsonDb::mapArrayConversion()
     QCOMPARE(queryResult.data.size(), 1);
     JsonDbObject o = queryResult.data.at(0);
     QVERIFY(o.value("result").isArray());
+
+    verifyGoodResult(remove(mOwner, mapDefinition));
+    for (int ii = 0; ii < toDelete.size(); ii++)
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+}
+
+static QHash<QString, QList<QString> > sDebugMessages;
+void logMessageOutput(QtMsgType type, const QMessageLogContext &context, const char *msg)
+{
+    Q_UNUSED(context);
+    switch (type) {
+    case QtDebugMsg:
+        sDebugMessages[QLatin1Literal("Debug")].append(msg);
+        break;
+    case QtWarningMsg:
+        sDebugMessages[QLatin1Literal("Warning")].append(msg);
+        break;
+    case QtCriticalMsg:
+        sDebugMessages[QLatin1Literal("Critical")].append(msg);
+        break;
+    case QtFatalMsg:
+        sDebugMessages[QLatin1Literal("Fatal")].append(msg);
+        break;
+    }
+}
+
+void TestJsonDb::mapConsole()
+{
+    bool wasVerbose = jsondbSettings->verbose();
+    bool wasDebug = jsondbSettings->debug();
+    sDebugMessages.clear();
+    QMessageHandler oldMessageHandler = qInstallMessageHandler(logMessageOutput);
+    jsondbSettings->setVerbose(true);
+    jsondbSettings->setDebug(true);
+
+    QJsonArray objects(readJsonFile(":/daemon/json/map-array-conversion.json").toArray());
+    JsonDbObjectList toDelete;
+    JsonDbObject mapDefinition;
+    QLatin1Literal sourceType("com.test.Test");
+    for (int i = 0; i < objects.size(); i++) {
+        JsonDbObject object(objects.at(i).toObject());
+        if (object.value(JsonDbString::kTypeStr) == JsonDbString::kMapTypeStr) {
+            QJsonObject map = object.value(QLatin1Literal("map")).toObject();
+            // replace with a map that just calls console functions
+            map.insert(sourceType, QLatin1String("function(test) { console.warn('testing'); for (var i in test) { if (i.indexOf('_') < 0) console[i](test[i]); } }"));
+            object.insert(QLatin1Literal("map"), map);
+        }
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        if (object.value(JsonDbString::kTypeStr) == JsonDbString::kMapTypeStr)
+            mapDefinition = object;
+        else
+            toDelete.append(object);
+    }
+
+    QMap<QString,QString> levelMapping;
+    levelMapping["log"] = "Debug";
+    levelMapping["debug"] = "Debug";
+    levelMapping["info"] = "Debug";
+    levelMapping["warn"] = "Warning";
+    levelMapping["error"] = "Critical";
+
+    QStringList consoleMethods = levelMapping.keys();
+    JsonDbObject testObject;
+    testObject.insert(JsonDbString::kTypeStr, QLatin1String("com.test.Test"));
+    foreach (const QString &method, consoleMethods)
+        testObject.insert(method, QString("%1 message").arg(method));
+    JsonDbWriteResult result = create(mOwner, testObject);
+    verifyGoodResult(result);
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"com.test.TestView\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 0);
+
+    // revert to original settings
+    jsondbSettings->setVerbose(wasVerbose);
+    jsondbSettings->setDebug(wasDebug);
+    qInstallMessageHandler(oldMessageHandler);
+
+    // verify each method was invoked
+    foreach (const QString &method, consoleMethods) {
+        QVERIFY(sDebugMessages.contains(levelMapping[method]));
+        QVERIFY(sDebugMessages[levelMapping[method]].contains(QString("\"%1 message\" ").arg(method)));
+    }
+
+    verifyGoodResult(remove(mOwner, mapDefinition));
+    for (int ii = 0; ii < toDelete.size(); ii++)
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
 }
 
 void TestJsonDb::reduce()

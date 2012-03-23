@@ -42,6 +42,7 @@
 #include "jsondbproxy.h"
 #include "jsondb-strings.h"
 #include "jsondbobject.h"
+#include "jsondbsettings.h"
 
 #include <QDebug>
 #include <QJSEngine>
@@ -118,13 +119,25 @@ Console::Console()
 
 void Console::log(const QString &s)
 {
-    qDebug() << s;
+    if (jsondbSettings->debug())
+        qDebug() << s;
 }
-
 void Console::debug(const QString &s)
 {
-//    if (gDebug)
+    if (jsondbSettings->debug())
         qDebug() << s;
+}
+void Console::info(const QString &s)
+{
+    qDebug() << s;
+}
+void Console::warn(const QString &s)
+{
+    qWarning() << s;
+}
+void Console::error(const QString &s)
+{
+    qCritical() << s;
 }
 
 QT_END_NAMESPACE_JSONDB
