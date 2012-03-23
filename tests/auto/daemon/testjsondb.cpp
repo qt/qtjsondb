@@ -1424,7 +1424,7 @@ void TestJsonDb::mapDefinitionInvalid()
     JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
-    JsonDbObject mapDefinition;
+    JsonDbObject mapDefinition, map;
     mapDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
     mapDefinition.insert("sourceType", QLatin1String("Contact"));
     mapDefinition.insert("map", QLatin1String("function map (c) { }"));
@@ -1449,8 +1449,8 @@ void TestJsonDb::mapDefinitionInvalid()
     mapDefinition = JsonDbObject();
     mapDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
     mapDefinition.insert("targetType", QLatin1String("MyViewType2"));
-    mapDefinition.insert("sourceType", QLatin1String("Contact"));
-    mapDefinition.insert("map", QLatin1String("function map (c) { }"));
+    map.insert(QLatin1String("Contact"), QLatin1String("function map (c) { }"));
+    mapDefinition.insert("map", map);
     res = create(mOwner, mapDefinition);
     verifyErrorResult(res);
     QVERIFY(res.message.contains("View"));
