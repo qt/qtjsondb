@@ -45,7 +45,6 @@
 #include "jsondbpartition.h"
 #include "jsondbnotification.h"
 #include "jsondbqueryobject.h"
-#include "jsondbchangessinceobject.h"
 #include "jsondblistmodel.h"
 #include "jsondbsortinglistmodel.h"
 #include "jsondbcachinglistmodel.h"
@@ -76,7 +75,6 @@ void JsonDbPlugin::registerTypes(const char *uri)
     qmlRegisterType<JsonDbPartition>(uri, 1, 0, "Partition");
     qmlRegisterType<JsonDbNotify>(uri, 1, 0, "Notification");
     qmlRegisterType<JsonDbQueryObject>(uri, 1, 0, "Query");
-    qmlRegisterType<JsonDbChangesSinceObject>(uri, 1, 0, "ChangesSince");
     qmlRegisterType<JsonDbListModel>(uri, 1, 0, "JsonDbListModel");
     qmlRegisterType<JsonDbSortingListModel>(uri, 1, 0, "JsonDbSortingListModel");
     qmlRegisterType<JsonDbCachingListModel>(uri, 1, 0, "JsonDbCachingListModel");

@@ -43,7 +43,6 @@
 #include "jsondbnotification.h"
 #include "plugin.h"
 #include "jsondbqueryobject.h"
-#include "jsondbchangessinceobject.h"
 #include <QJsonDbCreateRequest>
 #include <private/qjsondbstrings_p.h>
 #include <qdebug.h>
@@ -515,45 +514,6 @@ JsonDbQueryObject* JsonDbPartition::createQuery(const QString &query, int limit,
     queryObject->componentComplete();
     QQmlEngine::setObjectOwnership(queryObject, QQmlEngine::JavaScriptOwnership);
     return queryObject;
-}
-
-/*!
-    \qmlmethod object QtJsonDb::Partition::createChangesSince(stateNumber, types)
-
-    Create the ChangesSince object. It will set the \a stateNumber, filter \a types parameters
-    of the object. Users have to call start() to start the changesSince query in this partition.
-    The script engine decides the life time of the returned object. The returned object can be
-    saved in a 'property var' until it is required.
-
-    \code
-    import QtJsonDb 1.0 as JsonDb
-    property var changesObject;
-    function onFinished()
-    {
-        var results = queryObject.takeResults();
-        console.log("Results: Count + results.length );
-    }
-
-    Component.onCompleted: {
-        changesObject = nokiaPartition.createChangesSince(10, ["Contact"]);
-        changesObject.finished.connect(onFinished);
-        changesObject.start();
-
-    }
-    \endcode
-    \sa QtJsonDb::ChangesSince
-
-*/
-
-JsonDbChangesSinceObject* JsonDbPartition::createChangesSince(int stateNumber, const QStringList &types)
-{
-    JsonDbChangesSinceObject* changesSinceObject = new JsonDbChangesSinceObject();
-    changesSinceObject->setTypes(types);
-    changesSinceObject->setStateNumber(stateNumber);
-    changesSinceObject->setPartition(this);
-    changesSinceObject->componentComplete();
-    QQmlEngine::setObjectOwnership(changesSinceObject, QQmlEngine::JavaScriptOwnership);
-    return changesSinceObject;
 }
 
 QQmlListProperty<QObject> JsonDbPartition::childElements()

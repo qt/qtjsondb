@@ -58,7 +58,6 @@ class JsonDatabase;
 class JsonDbNotify;
 class JsonDbPartitionPrivate;
 class JsonDbQueryObject;
-class JsonDbChangesSinceObject;
 
 class JsonDbPartition: public QObject
 {
@@ -88,8 +87,6 @@ public:
     Q_INVOKABLE JsonDbNotify* createNotification(const QString &query);
 
     Q_INVOKABLE JsonDbQueryObject* createQuery(const QString &query, int limit, QVariantMap bindings);
-
-    Q_INVOKABLE JsonDbChangesSinceObject* createChangesSince(int stateNumber, const QStringList &types);
 
     QString name() const;
     void setName(const QString &partitionName);
@@ -128,7 +125,6 @@ private Q_SLOTS:
     friend class JsonDatabase;
     friend class JsonDbNotify;
     friend class JsonDbQueryObject;
-    friend class JsonDbChangesSinceObject;
 };
 
 QT_END_NAMESPACE_JSONDB

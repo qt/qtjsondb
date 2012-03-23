@@ -36,7 +36,6 @@ HEADERS += \
     plugin.h \
     jsondatabase.h \
     jsondbqueryobject.h \
-    jsondbchangessinceobject.h \
     jsondbmodelutils.h \
     jsondbmodelcache.h \
     jsondblistmodel.h \
@@ -52,7 +51,6 @@ SOURCES += \
     plugin.cpp \
     jsondatabase.cpp \
     jsondbqueryobject.cpp \
-    jsondbchangessinceobject.cpp \
     jsondbmodelutils.cpp \
     jsondbmodelcache.cpp \
     jsondblistmodel.cpp \
