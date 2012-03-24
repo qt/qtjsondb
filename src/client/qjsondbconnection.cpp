@@ -154,6 +154,8 @@ QJsonDbConnectionPrivate::QJsonDbConnectionPrivate(QJsonDbConnection *q)
     : q_ptr(q), status(QJsonDbConnection::Unconnected), autoReconnectEnabled(true),
       explicitDisconnect(false), timeoutTimer(q), stream(0), lastRequestId(0)
 {
+    qRegisterMetaType<QtJsonDb::QJsonDbRequest::ErrorCode>("QtJsonDb::QJsonDbRequest::ErrorCode");
+
     timeoutTimer.setSingleShot(true);
     timeoutTimer.setTimerType(Qt::VeryCoarseTimer);
     QObject::connect(&timeoutTimer, SIGNAL(timeout()), q, SLOT(_q_onTimer()));
@@ -278,6 +280,11 @@ void QJsonDbConnectionPrivate::handleRequestQueue()
         if (!req.isEmpty()) {
             currentRequest = request;
             stream->send(req);
+        } else {
+            drequest->setStatus(QJsonDbRequest::Error);
+            QMetaObject::invokeMethod(request.data(), "error", Qt::QueuedConnection,
+                                      Q_ARG(QtJsonDb::QJsonDbRequest::ErrorCode, QJsonDbRequest::MissingObject),
+                                      Q_ARG(QString, QLatin1String("Empty request")));
         }
     }
 }

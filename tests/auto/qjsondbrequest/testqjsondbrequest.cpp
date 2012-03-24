@@ -46,6 +46,7 @@
 #include "testhelper.h"
 
 #include <QDebug>
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QProcess>
@@ -60,9 +61,22 @@ QT_USE_NAMESPACE_JSONDB
 
 static const char dbfileprefix[] = "test-jsondb-request";
 
+inline static const QString typeStr() { return QStringLiteral("_type"); }
+inline static const QString uuidStr() { return QStringLiteral("_uuid"); }
+inline static const QString versionStr() { return QStringLiteral("_version"); }
+
+/*!
+    The TestQJsonDbRequest class tests the different QJsonDbRequest objects.
+    Currently QJsonDbReadRequest, QJsonDbCreateRequest, QJsonDbUpdateRequest,
+    QJsonDbRemoveRequest.
+*/
 class TestQJsonDbRequest: public TestHelper
 {
     Q_OBJECT
+
+public slots:
+    void writeAndRemove();
+    void severalWrites();
 
 private slots:
     void initTestCase();
@@ -71,6 +85,13 @@ private slots:
     void cleanup();
 
     void modifyPartitions();
+    void readRequest();
+    void writeRequest();
+    void createRequest();
+    void updateRequest();
+
+private:
+    bool writeTestObject(QObject* parent, const QString &type, int value = 0);
 };
 
 void TestQJsonDbRequest::initTestCase()
@@ -195,6 +216,331 @@ void TestQJsonDbRequest::modifyPartitions()
     QCOMPARE(mRequestErrors[&failingRequest], QJsonDbRequest::InvalidPartition);
 
     mConnection->removeWatcher(&watcher);
+}
+
+/*!
+    Write one object with the _type "test" and the value \a value into the database.
+*/
+bool TestQJsonDbRequest::writeTestObject(QObject* parent, const QString &type, int value)
+{
+    // -- write one object
+    QJsonDbObject obj;
+    obj.insert(typeStr(), QJsonValue(type));
+    obj.insert(QStringLiteral("val"), QJsonValue(value));
+
+    QJsonDbCreateRequest *req1 = new QJsonDbCreateRequest(obj, parent);
+    mConnection->send(req1);
+    return waitForResponse(req1);
+}
+
+/*!
+    Simple test, just writing and reading from the database.
+    This is the most basic test.
+*/
+void TestQJsonDbRequest::writeAndRemove()
+{
+    QVERIFY(mConnection);
+
+    // -- write one object
+    QObject parent;
+    QVERIFY(writeTestObject(&parent, QStringLiteral("writeRemoveTest"), 0));
+
+    // -- read one object
+    QJsonDbReadRequest req2(QString("[?_type=\"writeRemoveTest\"]"));
+    mConnection->send(&req2);
+    QVERIFY(waitForResponse(&req2));
+    QVERIFY(!mRequestErrors.contains(&req2));
+
+    QList<QJsonObject> results = req2.takeResults();
+    QCOMPARE(results.count(), 1);
+    QJsonObject obj = results.takeFirst();
+    QCOMPARE(obj.value(typeStr()).toString(), QStringLiteral("writeRemoveTest"));
+    QCOMPARE(obj.value(QStringLiteral("val")), QJsonValue(0));
+}
+
+/*!
+    Checking that queue handling with several writes at the same time works.
+*/
+void TestQJsonDbRequest::severalWrites()
+{
+    QVERIFY(mConnection);
+
+    QObject parent;
+    const int numRequests = 300;
+    QList<QJsonDbRequest *> pendingRequests;
+
+    // -- Create and send the write requests
+    for (int i = 0; i < numRequests; i++) {
+        QJsonObject obj;
+        obj.insert(typeStr(), QJsonValue(QStringLiteral("test")));
+        obj.insert(QStringLiteral("_uuid"), QJsonDbObject::createUuid().toString());
+        obj.insert(QStringLiteral("val"), QJsonValue(QString::number(i)));
+
+        QJsonDbCreateRequest *req1 = new QJsonDbCreateRequest(obj, &parent);
+        mConnection->send(req1);
+        pendingRequests << req1;
+    }
+
+    QVERIFY(waitForResponse(pendingRequests));
+    QVERIFY(mRequestErrors.isEmpty());
+
+    // -- read one object
+    QJsonDbReadRequest req2(QString("[?_type=\"test\"]"));
+    mConnection->send(&req2);
+    QVERIFY(waitForResponse(&req2));
+    QVERIFY(!mRequestErrors.contains(&req2));
+
+    QList<QJsonObject> results = req2.takeResults();
+    QCOMPARE(results.count(), numRequests);
+    QJsonObject obj = results.takeFirst();
+    QCOMPARE(obj.value(typeStr()).toString(), QStringLiteral("test"));
+}
+
+/*!
+    In depth checking of read request.
+*/
+void TestQJsonDbRequest::readRequest()
+{
+    QVERIFY(mConnection);
+
+    QJsonDbReadRequest req2(QString("[?_type=\"hallo\"]"));
+
+    // -- check query property
+    QCOMPARE(req2.query(), QString("[?_type=\"hallo\"]"));
+    req2.setQuery(QString("[?_type=\"%1\"]"));
+    QCOMPARE(req2.query(), QString("[?_type=\"%1\"]"));
+
+    // -- try to send a query with no query field
+    req2.setQuery(QString());
+    mConnection->send(&req2);
+    QVERIFY(waitForResponse(&req2));
+
+    QCOMPARE(req2.status(), QJsonDbRequest::Error);
+    QVERIFY(mRequestErrors.contains(&req2));
+    QCOMPARE(mRequestErrors[&req2], QJsonDbRequest::MissingQuery);
+
+    // -- check bind values
+    QJsonDbReadRequest req3;
+    req3.setQuery(QStringLiteral("[?_type=%1]"));
+
+    QJsonValue value = req3.boundValue("1");
+    QVERIFY(value.isUndefined());
+
+    req3.bindValue("1", QJsonValue(QStringLiteral("readTest")));
+    value = req3.boundValue("1");
+    QVERIFY(value.isString());
+    QCOMPARE(value.toString(), QStringLiteral("readTest"));
+
+    req3.clearBoundValues();
+    value = req3.boundValue("1");
+    QVERIFY(value.isUndefined());
+
+    // - rebind
+    req3.bindValue("1", QJsonValue(QStringLiteral("readTest2")));
+    value = req3.boundValue("1");
+    QVERIFY(value.isString());
+    QCOMPARE(value.toString(), QString("readTest2"));
+
+    // -- check queryLimit
+    QCOMPARE(req3.queryLimit(), -1);
+    req3.setQueryLimit(42);
+    QCOMPARE(req3.queryLimit(), 42);
+    req3.setQueryLimit(2);
+    QCOMPARE(req3.queryLimit(), 2);
+
+    // -- check status
+    QCOMPARE(req3.status(), QJsonDbRequest::Inactive);
+    mConnection->send(&req3);
+    QVERIFY(req3.status() != QJsonDbRequest::Inactive);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(!mRequestErrors.contains(&req3));
+
+    // -- no object returned
+    QList<QJsonObject> results = req3.takeResults();
+    QCOMPARE(results.count(), 0);
+
+    // -- write one object and re-read
+    QObject parent;
+    QVERIFY(writeTestObject(&parent, QStringLiteral("readTest2"), 0));
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(!mRequestErrors.contains(&req3));
+
+    results = req3.takeResults();
+    QCOMPARE(results.count(), 1);
+    QJsonObject obj = results.takeFirst();
+    QCOMPARE(obj.value(typeStr()).toString(), QStringLiteral("readTest2"));
+    QCOMPARE(obj.value(QStringLiteral("val")), QJsonValue(0));
+
+    // -- write another object and re-read
+    QVERIFY(writeTestObject(&parent, QStringLiteral("readTest2"), 1));
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(!mRequestErrors.contains(&req3));
+
+    results = req3.takeResults();
+    QCOMPARE(results.count(), 2);
+
+    // -- check sortKey
+    QCOMPARE(req3.sortKey(), typeStr());
+
+    req3.setQuery(QStringLiteral("[?_type=%1][/_uuid]"));
+    req3.bindValue(QStringLiteral("1"), QStringLiteral("readTest2"));
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(!mRequestErrors.contains(&req3));
+    QCOMPARE(req3.sortKey(), uuidStr());
+}
+
+/*!
+    In depth checking of write request.
+*/
+void TestQJsonDbRequest::writeRequest()
+{
+    QVERIFY(mConnection);
+
+    QJsonObject obj;
+    obj.insert(typeStr(), QJsonValue(QStringLiteral("writeTest")));
+    obj.insert(QStringLiteral("val"), QJsonValue(0));
+    obj.insert(QStringLiteral("_deleted"), true);
+
+    QJsonDbWriteRequest req1;
+    QCOMPARE(req1.status(), QJsonDbRequest::Inactive);
+
+    // try to send an object without uuid and since it's a remove
+    // it'll fail
+    req1.setObjects(QList<QJsonObject>() << obj);
+    mConnection->send(&req1);
+    QVERIFY(waitForResponse(&req1));
+
+    QCOMPARE(req1.status(), QJsonDbRequest::Error);
+    QVERIFY(mRequestErrors.contains(&req1));
+    QCOMPARE(mRequestErrors[&req1], QJsonDbRequest::MissingUUID);
+    mRequestErrors.clear();
+
+    // try to send no objects
+    req1.setObjects(QList<QJsonObject>());
+    mConnection->send(&req1);
+    QVERIFY(waitForResponse(&req1));
+
+    QCOMPARE(req1.status(), QJsonDbRequest::Error);
+    QVERIFY(mRequestErrors.contains(&req1));
+    QCOMPARE(mRequestErrors[&req1], QJsonDbRequest::MissingObject);
+    mRequestErrors.clear();
+
+    // try to send an object without type
+    obj.remove(typeStr());
+    obj.remove(QStringLiteral("_deleted"));
+    req1.setObjects(QList<QJsonObject>() << obj);
+    mConnection->send(&req1);
+    QVERIFY(waitForResponse(&req1));
+
+    QCOMPARE(req1.status(), QJsonDbRequest::Error);
+    QVERIFY(mRequestErrors.contains(&req1));
+    QCOMPARE(mRequestErrors[&req1], QJsonDbRequest::MissingType);
+    mRequestErrors.clear();
+}
+
+void TestQJsonDbRequest::createRequest()
+{
+    QVERIFY(mConnection);
+
+    // -- write one object
+    QJsonObject obj;
+    obj.insert(typeStr(), QJsonValue(QStringLiteral("createTest")));
+    obj.insert(QStringLiteral("val"), QJsonValue(QStringLiteral("test2")));
+
+    QJsonDbCreateRequest req1(obj);
+    mConnection->send(&req1);
+    QVERIFY(waitForResponse(&req1));
+    QVERIFY(!mRequestErrors.contains(&req1));
+
+    // - check that we have results of the create. The results just have a uuid and a version.
+    QList<QJsonObject> results = req1.takeResults();
+    QCOMPARE(results.count(), 1);
+    obj = results.takeFirst();
+    QVERIFY(!obj.value(uuidStr()).toString().isEmpty());
+    QVERIFY(!obj.value(versionStr()).toString().isEmpty());
+
+    // -- reuse the old request to write a couple more objects
+    const int numObjects = 300;
+
+    QList<QJsonObject> list;
+    for (int i = 0; i < numObjects; i++) {
+        QJsonObject obj;
+        obj.insert(typeStr(), QJsonValue(QStringLiteral("createTest")));
+        obj.insert(QStringLiteral("val"), QJsonValue(i));
+
+        list << obj;
+    }
+    req1.setObjects(list);
+    mConnection->send(&req1);
+    QVERIFY(waitForResponse(&req1));
+    QVERIFY(!mRequestErrors.contains(&req1));
+
+    // -- read the objects
+    QJsonDbReadRequest req2(QString("[?_type=\"createTest\"]"));
+    mConnection->send(&req2);
+    QVERIFY(waitForResponse(&req2));
+    QVERIFY(!mRequestErrors.contains(&req2));
+
+    results = req2.takeResults();
+    QCOMPARE(results.count(), numObjects + 1);
+    obj = results.takeFirst();
+    QCOMPARE(obj.value(typeStr()).toString(), QStringLiteral("createTest"));
+}
+
+void TestQJsonDbRequest::updateRequest()
+{
+    QVERIFY(mConnection);
+
+    // -- write one object
+    QObject parent;
+    QVERIFY(writeTestObject(&parent, QStringLiteral("updateTest"), 0));
+
+    // -- read one object
+    QJsonDbReadRequest req2(QString("[?_type=\"updateTest\"]"));
+    mConnection->send(&req2);
+    QVERIFY(waitForResponse(&req2));
+    QVERIFY(!mRequestErrors.contains(&req2));
+
+    QList<QJsonObject> results = req2.takeResults();
+    QCOMPARE(results.count(), 1);
+
+    // -- update the object
+    QJsonObject obj1(results.takeFirst());
+    obj1.insert(QStringLiteral("val"), QJsonValue(1));
+    results.append(obj1);
+
+    QJsonDbUpdateRequest req3(results);
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(!mRequestErrors.contains(&req3));
+
+    // - check that we have results of the update. The results just have a uuid and a version.
+    results = req3.takeResults();
+    QCOMPARE(results.count(), 1);
+    QJsonObject obj = results.takeFirst();
+    QVERIFY(!obj.value(uuidStr()).toString().isEmpty());
+    QVERIFY(!obj.value(versionStr()).toString().isEmpty());
+
+    // - re-read and check if really updated also in the database
+    mConnection->send(&req2);
+    QVERIFY(waitForResponse(&req2));
+    QVERIFY(!mRequestErrors.contains(&req2));
+
+    results = req2.takeResults();
+    QCOMPARE(results.count(), 1);
+    obj = results.takeFirst();
+    QCOMPARE(obj.value(QStringLiteral("val")), QJsonValue(1)); // this is the updated value
+
+    // -- update from null
+    obj.insert(typeStr(), QJsonValue(QStringLiteral("new")));
+    obj.insert(QStringLiteral("_uuid"), QJsonDbObject::createUuid().toString());
+    req3.setObjects(QList<QJsonObject>() << obj);
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(!mRequestErrors.contains(&req3));
 }
 
 QTEST_MAIN(TestQJsonDbRequest)
