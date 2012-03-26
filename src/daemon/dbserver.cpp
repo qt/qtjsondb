@@ -798,7 +798,12 @@ void DBServer::createNotification(const JsonDbObject &object, JsonStream *stream
     QString       query = object.value(JsonDbString::kQueryStr).toString();
     QJsonObject bindings = object.value("bindings").toObject();
     QString partition = object.value(JsonDbString::kPartitionStr).toString();
-    quint32 stateNumber = object.value("initialStateNumber").toDouble();
+
+    bool ok;
+    quint32 stateNumber = object.value("initialStateNumber").toVariant().toInt(&ok);
+    if (!ok)
+        stateNumber = 0;
+
     if (partition.isEmpty())
         partition = mDefaultPartition->name();
 
@@ -889,6 +894,11 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
         }
         foreach (const QString matchedType, matchedTypes) {
             JsonDbObjectTable *objectTable = partition->findObjectTable(matchedType);
+
+            // views dont have a _type index
+            if (partition->findView(matchedType))
+                indexName = JsonDbString::kUuidStr;
+
             lastStateNumber = objectTable->stateNumber();
             JsonDbIndexQuery *indexQuery = JsonDbIndexQuery::indexQuery(partition, objectTable,
                                                                         indexName, QString("string"),
