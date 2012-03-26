@@ -1073,6 +1073,8 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
     else
         delete residualQuery;
     indexQuery->setAggregateOperation(query->mAggregateOperation);
+    indexQuery->setResultExpressionList(query->mapExpressionList);
+    indexQuery->setResultKeyList(query->mapKeyList);
     return indexQuery;
 }
 
@@ -1093,7 +1095,8 @@ void JsonDbPartition::doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &r
             if (!countOnly) {
                 if (jsondbSettings->debugQuery())
                     qDebug() << "appending result" << object << endl;
-                results.append(object);
+                JsonDbObject result = indexQuery->resultObject(object);
+                results.append(result);
             }
             limit--;
             count++;
@@ -1162,65 +1165,7 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     QStringList mapExpressions = query->mapExpressionList;
     QStringList mapKeys = query->mapKeyList;
 
-    if (mapExpressions.length() && query->mAggregateOperation.compare("count")) {
-        QMap<QString, JsonDbObject> objectCache;
-        int nExpressions = mapExpressions.length();
-        QVector<QVector<QStringList> > joinPaths(nExpressions);
-        for (int i = 0; i < nExpressions; i++) {
-            QString propertyName = mapExpressions[i];
-            QStringList joinPath = propertyName.split("->");
-            int joinPathSize = joinPath.size();
-            QVector<QStringList> fieldPaths(joinPathSize);
-            for (int j = 0; j < joinPathSize; j++) {
-                QString joinField = joinPath[j];
-                fieldPaths[j] = joinField.split('.');
-            }
-            joinPaths[i] = fieldPaths;
-        }
-
-        QList<JsonDbObject> mappedResult;
-        for (int r = 0; r < results.size(); r++) {
-            const JsonDbObject obj = results.at(r);
-            QJsonObject map;
-            for (int i = 0; i < nExpressions; i++) {
-                QJsonValue v;
-
-                QVector<QStringList> &joinPath = joinPaths[i];
-                int joinPathSize = joinPath.size();
-                if (joinPathSize == 1) {
-                    v = obj.propertyLookup(joinPath[0]);
-                    QJsonObject vObj;
-                    vObj.insert("v", v);
-                } else {
-                    JsonDbObject baseObject(obj);
-                    for (int j = 0; j < joinPathSize-1; j++) {
-                        QJsonValue uuidQJsonValue = baseObject.propertyLookup(joinPath[j]).toString();
-                        QString uuid = uuidQJsonValue.toString();
-                        if (uuid.isEmpty()) {
-                            baseObject = JsonDbObject();
-                        } else if (objectCache.contains(uuid)) {
-                            baseObject = objectCache.value(uuid);
-                        } else {
-                            ObjectKey objectKey(uuid);
-                            bool gotBaseObject = getObject(objectKey, baseObject);
-                            if (gotBaseObject)
-                                objectCache.insert(uuid, baseObject);
-                        }
-                    }
-                    v = baseObject.propertyLookup(joinPath[joinPathSize-1]);
-                }
-
-                map.insert(mapKeys[i], v);
-            }
-
-            mappedResult.append(map);
-        }
-
-        result.data = mappedResult;
-    } else {
-        result.data = results;
-    }
-
+    result.data = results;
     result.length = length;
     result.offset = offset;
     result.state = (qint32)stateNumber;

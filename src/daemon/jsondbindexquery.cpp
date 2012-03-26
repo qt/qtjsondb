@@ -272,6 +272,24 @@ JsonDbObject JsonDbUuidQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
     return object;
 }
 
+void JsonDbIndexQuery::setResultExpressionList(const QStringList &resultExpressionList)
+{
+    mResultExpressionList = resultExpressionList;
+    int numExpressions = resultExpressionList.size();
+    mJoinPaths.resize(numExpressions);
+    for (int i = 0; i < numExpressions; i++) {
+        const QString &propertyName = resultExpressionList.at(i);
+        QStringList joinPath = propertyName.split("->");
+        int joinPathSize = joinPath.size();
+        QVector<QStringList> fieldPaths(joinPathSize);
+        for (int j = 0; j < joinPathSize; j++) {
+            QString joinField = joinPath[j];
+            fieldPaths[j] = joinField.split('.');
+        }
+        mJoinPaths[i] = fieldPaths;
+    }
+}
+
 JsonDbObject JsonDbIndexQuery::first()
 {
     mSparseMatchPossible = false;
@@ -325,6 +343,7 @@ JsonDbObject JsonDbIndexQuery::next()
 {
     QJsonValue fieldValue;
     while (seekToNext(fieldValue)) {
+        mFieldValue = fieldValue;
         if (jsondbSettings->debugQuery()) {
             qDebug() << "IndexQuery::next()" << "mPropertyName" << mPropertyName
                      << "fieldValue" << fieldValue
@@ -356,6 +375,44 @@ JsonDbObject JsonDbIndexQuery::next()
     }
     mUuid.clear();
     return QJsonObject();
+}
+
+JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
+{
+    int numExpressions = mResultExpressionList.length();
+    QJsonObject result(object);
+
+    // insert the computed index value
+    result.insert(QLatin1String("_indexValue"), mFieldValue);
+
+    if (!numExpressions)
+        return result;
+
+    for (int i = 0; i < numExpressions; i++) {
+        QJsonValue v;
+
+        QVector<QStringList> &joinPath = mJoinPaths[i];
+        int joinPathSize = joinPath.size();
+        JsonDbObject baseObject(result);
+        for (int j = 0; j < joinPathSize-1; j++) {
+            QJsonValue uuidQJsonValue = baseObject.propertyLookup(joinPath[j]).toString();
+            QString uuid = uuidQJsonValue.toString();
+            if (uuid.isEmpty()) {
+                baseObject = JsonDbObject();
+            } else if (mObjectCache.contains(uuid)) {
+                baseObject = mObjectCache.value(uuid);
+            } else {
+                ObjectKey objectKey(uuid);
+                bool gotBaseObject = mPartition->getObject(objectKey, baseObject);
+                if (gotBaseObject)
+                    mObjectCache.insert(uuid, baseObject);
+            }
+        }
+        v = baseObject.propertyLookup(joinPath[joinPathSize-1]);
+        result.insert(mResultKeyList[i], v);
+    }
+
+    return result;
 }
 
 bool JsonDbIndexQuery::lessThan(const QJsonValue &a, const QJsonValue &b)

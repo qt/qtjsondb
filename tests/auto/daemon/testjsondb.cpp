@@ -4019,6 +4019,24 @@ void TestJsonDb::indexPropertyFunction()
     queryResult = find(mOwner, QLatin1String("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex < 0]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("to").toDouble(), (double)-64);
+
+    // verify we can fetch the index values
+    queryResult = find(mOwner, QLatin1String("[?_type=\"IndexPropertyFunction\"][/propertyFunctionIndex]"));
+    QCOMPARE(queryResult.data.size(), 4);
+    JsonDbObjectList data = queryResult.data;
+    for (int i = 0; i < data.size(); i++) {
+        JsonDbObject o = queryResult.data.at(i);
+        QVERIFY(o.contains("_indexValue"));
+        QCOMPARE(o.value("_indexValue").toDouble(), (o.contains("to") ? o.value("to").toDouble() : o.value("from").toDouble()));
+    }
+
+    // verify we can fetch the index values
+    queryResult = find(mOwner, QLatin1String("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex > 10][/propertyFunctionIndex][= { _uuid: _uuid, indexValue: propertyFunctionIndex }]"));
+    QCOMPARE(queryResult.data.size(), 1);
+    QCOMPARE(queryResult.data.at(0).value("to").toDouble(), (double)42);
+    QVERIFY(queryResult.data.at(0).contains("_indexValue"));
+    QCOMPARE(queryResult.data.at(0).value("_indexValue").toDouble(), (double)42);
+
 }
 
 void TestJsonDb::indexCollation()

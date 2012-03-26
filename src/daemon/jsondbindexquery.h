@@ -46,6 +46,7 @@
 #include <QRegExp>
 #include <QSet>
 #include <QVector>
+#include <QStringList>
 
 #include "jsondbobject.h"
 #include "jsondbobjectkey.h"
@@ -91,6 +92,8 @@ public:
     void setMax(const QJsonValue &maxv);
     QString aggregateOperation() const { return mAggregateOperation; }
     void setAggregateOperation(QString op) { mAggregateOperation = op; }
+    void setResultExpressionList(const QStringList &resultExpressionList);
+    void setResultKeyList(QStringList resultKeyList) { mResultKeyList = resultKeyList; }
 
     JsonDbObject first(); // returns first matching object
     JsonDbObject next(); // returns next matching object
@@ -99,6 +102,8 @@ public:
     JsonDbQuery *residualQuery() const { return mResidualQuery; }
     void setResidualQuery(JsonDbQuery *residualQuery) { mResidualQuery = residualQuery; }
     virtual quint32 stateNumber() const;
+
+    JsonDbObject resultObject(const JsonDbObject &object);
 
     static bool lessThan(const QJsonValue &a, const QJsonValue &b);
     static bool greaterThan(const QJsonValue &a, const QJsonValue &b);
@@ -126,6 +131,9 @@ protected:
     QJsonValue     mFieldValue; // value of field for the object the cursor is pointing at
     bool          mSparseMatchPossible;
     QHash<QString, JsonDbObject> mObjectCache;
+    QStringList  mResultExpressionList;
+    QStringList  mResultKeyList;
+    QVector<QVector<QStringList> > mJoinPaths;
     JsonDbQuery  *mResidualQuery;
 };
 
