@@ -87,7 +87,7 @@ A join is defined by creating a \l Map object in the database with a "join" prop
 \li A dictionary whose keys are source type names and whose values are the functions to run on those source type.
 \endtable
 
-\section2 JsonDb Join Proxy
+\section2 JSON DB Join Proxy
 
 When the \l Join functions run, they have access to a jsondb proxy object with two methods:
 

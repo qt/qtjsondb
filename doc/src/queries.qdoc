@@ -26,12 +26,27 @@
 ****************************************************************************/
 
 /*!
-\page expression-examples.html
-\title Expression Examples
+\page queries.html
+\title Queries
 
-\previouspage {index.html}
+\section1 Basics
+
+Central to the use of a large object store is the ability to query efficiently
+for objects from within the object store. The JsonDB query language was
+originally modeled on of the JSON Query language (see
+\l {http://docs.persvr.org/documentation/jsonquery}). It has subsequently been
+updated for faster performance and features have been added that make it more
+suitable for our application.
+
+A simple query consists of square brackets surrounding an expression
+(e.g., [EXPR]). A complex query is a string of simple queries concatenated
+together (e.g., [EXPR1][EXPR2][EXPR3]). Each expression filters or applies an
+action.
+
+\section1 Valid Expressions
 
 \table
+\row
 \row
 \li \c {[?_type="Person"]}
 \li Return all objects that are Person types.
@@ -41,6 +56,7 @@
 \row
 \li \c {[?name exists][/_type]}
 \li All objects with a "name" field in the database, sorted by _type.
+\row
 \li \c {[?name notExists][/_type]}
 \li All objects not containing a "name" field in the database, sorted by _type.
 
@@ -128,5 +144,21 @@ insensitive.
 \li \c {[?_type="MESSAGE"][= { subject: Subject, sent: DateTimeSent, sender: Sender.Mailbox.EmailAddress } ]}
 \li List of new objects containing of subject, sent time, and sender email
 address from message objects.
+\row
+\li \c {[?_type="MESSAGE"][count]}
+\li Count the number of objects of type "MESSAGE"]
 \endtable
+
+\section1 Query optimization
+
+In general, sorting can only be done on properties for which JSON DB has an
+index. Any query with a sort order given for which there is no index, will
+result in an error. For a query without explicitly provided sort order, a full
+object scan is performed. This should be avoided for all but the smallest data
+sets.
+
+See \l {Object Indexes}
+
 */
+
+

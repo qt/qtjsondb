@@ -108,7 +108,14 @@ and "PreferLowerCase".
 
 \endtable
 
-\section2 JsonDb Proxy
+\section1  Stability of Sort in JSON DB
+
+The database is a set of objects with no natural ordering. Any time that we need
+objects in a particular order, we use an index that orders the objects by a
+particular field and comparison operator. It is unlikely that the sorting in one
+index will be stable with respect to other indexes on that object.
+
+\section1 jsondb Proxy
 
 For indexes that use a JavaScript function, when the propertyFunction
 runs it has access to a client interface to the database. This proxy

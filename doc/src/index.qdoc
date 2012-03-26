@@ -26,10 +26,16 @@
 ****************************************************************************/
 
 /*!
-\title Qt JsonDb Reference
+\title Qt JSON DB Reference
 \page index.html
 
 \section1 Introduction
+
+JSON DB is a no-SQL object store for Qt. It allows JSON objects to be stored,
+modified and queried. It does not require schemas like SQL database,
+which makes it particularly flexible. It has a number of useful features such
+as the ability to mash-up data with database views, push notifications for
+data changes in the database, and easy integration with QML-based UIs.
 
 \section1 Accessing the Database.
 
@@ -43,88 +49,73 @@
 
 \section1 Using the Database
 
-\section2 Schemas
+\section2 Use of JSON
 
-\section2 Query Language
+The database operates on objects in JSON format. Any JSON object can be stored
+in the database, though JSON DB reserves properties beginning with an underscore
+for its own use.
 
-Central to the use of a large object store is the ability to query efficiently
-for objects from within the object store. The JsonDB query language was
-originally modeled off of the JSON Query language, see
-\l {http://docs.persvr.org/documentation/jsonquery}. It has subsequently been
-updated for faster performance and features have been added that make it more
-suitable for our application.
+See \l {Special JSON Properties}
 
-A simple query consists of square brackets surrounding an expression
-(e.g., [EXPR]). A complex query is a string of simple queries concatenated
-together (e.g., [EXPR1][EXPR2][EXPR3]). Each expression filters or applies an
-action.
+\section2 Creating, Updating and Removing Objects
 
-\section3 Valid Expressions
+Objects are manipulated in the database from C++ using the
+\l{QJsonDbWriteRequest} class and its associated convenience subclasses.
 
-\table
-\header
-\li Expression
-\li Description
-\row
-\li \c {[? filter]}
-\li Query for matching objects.
-\row
-\li \c {[= fields]}
-\li Restrict returned objects to particular fields.
-\row
-\li \c {[/ field]}
-\li Sort in ascending order by field.
-\row
-\li \c {[\ field]}
-\li Sort in descending order by field.
-\row
-\li \c {[count]}
-\li Aggregation operation.
-\row
-\li \c {[*]}
-\li Match all objects.
-\endtable
+In QML, objects are manipulated via the \l{Partition} item.
 
-See also \l {Expression Examples}
+\section2 Querying Objects
 
-\section3 Stability of Sort in JsonDb
+Objects are queried from C++ using the \l{QJsonDbReadRequest} class and in QML
+using \l{Query} item.
 
-The database as a set of objects with no natural ordering. Any time that we need
-objects in a particular order, we use an index that orders the objects by a
-particular field and comparison operator. It is unlikely that the sorting in one
-index would be stable with respect to all other indexes on that object.
+See \l {Queries}
+
+\section2 Partitions
+
+The database is sub-divided into a number of smaller partitions, each with its
+own unique name. All operations in JSON DB operate on exactly one partition at
+a time.
+
+See \l {Partitions}
 
 \section2 Indexes
 
+The index facility is provided to make queries perform better and to allow the
+database to sort the returned data. Indexes are created in JSON DB by creating
+objects with the type \c Index.
+
 See \l {Object Indexes}
-
-\section3 Query optimization
-
-In general, sorting should only be done on properties for which JSON DB has an
-index. Any query with a sort order given for which there is no index, will
-result in an error. For a query without explicitly provided sort order, full
-object scan is performed, which should be avoided for all but the smallest data
-sets.
 
 \section2 Views
 
-\list
-\li \l {Map and Join Views}
-\li \l {Reduce Views}
-\endlist
+Views allow objects in JSON DB to be transformed and mashed-up into new objects.
+Views are defined via functions written in JavaScript and are automatically
+kept up to date by the database. When the source object of a view is modified
+in the database, JSON DB ensures the views that depend on that object are updated.
+Views in JSON DB are based heavily on the Map/Reduce concept (see
+\l {http://www.mapreduce.org}).
+
+Map functions are registered by creating an object of type \c Map in the database.
+
+See \l {Map and Join Views}
+
+Reduce functions are registered by creating an object of type \c Reduce in the
+database.
+
+See \l {Reduce Views}
 
 \section2 Notifications
 
-Notifications are created, updated, and removed by using a
-\l{QJsonDbConnection::addWatcher()}{dedicated api} which
-takes a query expression and a list of actions as an argument. There are
-actions available that allow watching for objects being created, updated or
-removed from a database.
+JSON DB clients can register to be informed about changes in the database via
+notifications. Clients create notifications containing a query to monitor.
+When an object matching the query is modified, JSON DB sends a notification
+message to the client.
 
-When a notification matches an action performed on the database, the
-QJsonDbWatcher::notificationsAvailable() signal is emitted.
+Notifications are registered via the \l {QJsonDbWatcher} class in C++ and
+via the \l {Notification} item in QML.
 
-See also \l{QJsonDbWatcher}
+See \l {Notifications}
 
 \section1 Examples
 
