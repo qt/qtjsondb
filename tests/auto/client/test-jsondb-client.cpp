@@ -396,21 +396,24 @@ void TestJsonDbClient::initTestCase()
         gid_t gid = nextFreeGid(1042);
         gid_t gid2 = nextFreeGid(gid+1);
         QString appName = QString("com.test.foo.%1").arg(getpid());
+        QByteArray appNameBA = appName.toLocal8Bit();
         // Tes app name for app without any supplementary groups
         QString app2Name = QString("com.test.bar.%1").arg(getpid());
+        QByteArray app2NameBA = app2Name.toLocal8Bit();
         if (!errno) {
             // Add primary groups
             struct group grp;
-            grp.gr_name = appName.toLocal8Bit().data();
+            grp.gr_name = appNameBA.data();
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
             grp.gr_mem = (char *[]){NULL};
             struct group grp2;
-            grp2.gr_name = app2Name.toLocal8Bit().data();
+            grp2.gr_name = app2NameBA.data();
             grp2.gr_passwd = NULL;
             grp2.gr_gid = gid2;
             grp2.gr_mem = (char *[]){NULL};
-            FILE *grfile = ::fopen (etcigr.toLocal8Bit().data(), "a");
+            QByteArray etcigrBA = etcigr.toLocal8Bit();
+            FILE *grfile = ::fopen (etcigrBA.data(), "a");
             ::putgrent(&grp, grfile);
             ::putgrent(&grp2, grfile);
             ::fclose (grfile);
@@ -419,7 +422,7 @@ void TestJsonDbClient::initTestCase()
 
             // Add the user
             struct passwd pwd;
-            pwd.pw_name = appName.toLocal8Bit().data();
+            pwd.pw_name = appNameBA.data();
             pwd.pw_passwd = NULL;
             pwd.pw_uid = uid;
             pwd.pw_gid = gid;
@@ -427,14 +430,15 @@ void TestJsonDbClient::initTestCase()
             pwd.pw_dir = NULL;
             pwd.pw_shell = NULL;
             struct passwd pwd2;
-            pwd2.pw_name = app2Name.toLocal8Bit().data();
+            pwd2.pw_name = app2NameBA.data();
             pwd2.pw_passwd = NULL;
             pwd2.pw_uid = uid2;
             pwd2.pw_gid = gid2;
             pwd2.pw_gecos = NULL;
             pwd2.pw_dir = NULL;
             pwd2.pw_shell = NULL;
-            FILE *pwdfile = ::fopen (etcipwd.toLocal8Bit().data(), "a");
+            QByteArray etcipwdBA = etcipwd.toLocal8Bit();
+            FILE *pwdfile = ::fopen (etcipwdBA.data(), "a");
             ::putpwent(&pwd, pwdfile);
             ::putpwent(&pwd2, pwdfile);
             ::fclose (pwdfile);
@@ -445,8 +449,8 @@ void TestJsonDbClient::initTestCase()
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
             // Add only the first user to it
-            grp.gr_mem = (char *[]){appName.toLocal8Bit().data(), NULL};
-            grfile = ::fopen (etcigr.toLocal8Bit(), "a");
+            grp.gr_mem = (char *[]){appNameBA.data(), NULL};
+            grfile = ::fopen (etcigrBA.data(), "a");
             ::putgrent(&grp, grfile);
             ::fclose (grfile);
             gidsAdded.append(gid);
