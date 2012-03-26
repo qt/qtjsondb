@@ -50,6 +50,7 @@
 #include <QJsonDocument>
 #include <QJsonValue>
 #include <QObject>
+#include <QProcess>
 #include <QStringList>
 
 QT_BEGIN_HEADER
@@ -79,7 +80,8 @@ public:
     void waitForResponse(QList<QtJsonDb::QJsonDbRequest*> requests);
     void waitForResponseAndNotifications(QtJsonDb::QJsonDbRequest *request,
                                          QtJsonDb::QJsonDbWatcher *watcher,
-                                         int notificationsExpected);
+                                         int notificationsExpected,
+                                         int lastStateChangedExpected = 0);
     void waitForStatus(QtJsonDb::QJsonDbWatcher *watcher,
                        QtJsonDb::QJsonDbWatcher::Status status);
 
@@ -89,9 +91,13 @@ protected:
     QEventLoop mEventLoop;
     int mNotificationsReceived;
     int mNotificationsExpected;
+    int mLastStateChangedExpected;
+    int mLastStateChangedReceived;
 
 protected Q_SLOTS:
     void connectionError(QtJsonDb::QJsonDbConnection::ErrorCode code, QString msg);
+
+    void processFinished(int,QProcess::ExitStatus);
 
     void requestFinished();
     void requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, QString msg);
@@ -100,6 +106,7 @@ protected Q_SLOTS:
     void watcherNotificationsAvailable(int count);
     void watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status status);
     void watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode code, QString msg);
+    void watcherLastStateNumberChanged(int stateNumber);
     void timeout();
 
 private:

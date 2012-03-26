@@ -359,6 +359,8 @@ void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const QVa
             type = JsonDbClient::NotifyUpdate;
         } else if (action == JsonDbString::kRemoveStr) {
             type = JsonDbClient::NotifyRemove;
+        } else if (action == QLatin1String("stateChange")) {
+            return;
         } else {
             Q_ASSERT(false);
             return;

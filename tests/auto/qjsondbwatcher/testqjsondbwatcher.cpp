@@ -145,6 +145,7 @@ void TestQJsonDbWatcher::createAndRemove()
     watcher.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
     watcher.setPartition(partition);
     mConnection->addWatcher(&watcher);
+    waitForStatus(&watcher, QJsonDbWatcher::Active);
 
     QJsonObject item;
     item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
@@ -210,7 +211,6 @@ void TestQJsonDbWatcher::history()
     for (int i = 0; i < qMin(100, array.size()); i++) {
         QJsonObject item = array.at(i).toObject();
 
-        // why does QJsonDbCreate request require me to set the Uuid? /me thinks it's a bug
         item.insert(JsonDbStrings::Property::uuid(), QUuid::createUuid().toString());
         item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
         objects.append(item);
@@ -234,17 +234,17 @@ void TestQJsonDbWatcher::history()
     watcher.setInitialStateNumber(firstStateNumber-1);
     mConnection->addWatcher(&watcher);
 
-    // expecting one notification per create and one state change
-    waitForResponseAndNotifications(0, &watcher, objects.size()+1);
+    // expecting one notification per create
+    waitForResponseAndNotifications(0, &watcher, objects.size());
     waitForStatus(&watcher, QJsonDbWatcher::Active);
 
     QList<QJsonDbNotification> notifications = watcher.takeNotifications();
-    QCOMPARE(notifications.size(), objects.size()+1);
+    QCOMPARE(notifications.size(), objects.size());
     // we received one Create notification per object
-    foreach (const QJsonDbNotification n, notifications.mid(0, objects.size()))
+    foreach (const QJsonDbNotification n, notifications.mid(0, objects.size())) {
         QCOMPARE(n.action(), QJsonDbWatcher::Created);
-    // we received one StateChanged notification
-    QCOMPARE(notifications.at(objects.size()).action(), QJsonDbWatcher::StateChanged);
+        QVERIFY(n.stateNumber() >= firstStateNumber);
+    }
 
     mConnection->removeWatcher(&watcher);
 
@@ -252,20 +252,28 @@ void TestQJsonDbWatcher::history()
     QJsonDbWatcher watcher2;
     watcher2.setWatchedActions(QJsonDbWatcher::All);
     watcher2.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
-    watcher2.setInitialStateNumber(-1);
+    watcher2.setInitialStateNumber(0);
 
     mConnection->addWatcher(&watcher2);
-    waitForResponseAndNotifications(0, &watcher2, objects.size() + 1);
-    waitForStatus(&watcher2, QJsonDbWatcher::Active);
+    waitForResponseAndNotifications(0, &watcher2, objects.size());
 
     QList<QJsonDbNotification> notifications2 = watcher2.takeNotifications();
-    QCOMPARE(notifications2.size(), objects.size()+1);
+    QCOMPARE(notifications2.size(), objects.size());
     // we received one Create notification per object
     foreach (const QJsonDbNotification n, notifications2.mid(0, objects.size()))
         QCOMPARE(n.action(), QJsonDbWatcher::Created);
-    // we received one StateChanged notification
-    QCOMPARE(notifications2.at(objects.size()).action(), QJsonDbWatcher::StateChanged);
 
+    // create another one
+    {
+        QJsonObject item;
+        item.insert(JsonDbStrings::Property::uuid(), QUuid::createUuid().toString());
+        item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
+        item.insert("another one", true);
+        QJsonDbCreateRequest request(item);
+        mConnection->send(&request);
+        // wait for response from request, one create notification
+        waitForResponseAndNotifications(&request, &watcher2, 1);
+    }
     mConnection->removeWatcher(&watcher2);
 
     QJsonDbRemoveRequest remove(objects);
@@ -273,26 +281,20 @@ void TestQJsonDbWatcher::history()
     waitForResponse(&remove);
 }
 
+
 void TestQJsonDbWatcher::currentState()
 {
     QJsonDbWatcher watcher;
     watcher.setWatchedActions(QJsonDbWatcher::All);
     watcher.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
 
-    // set the starting state to -1 to get the current state
-    watcher.setInitialStateNumber(static_cast<quint32>(-1));
+    // set the starting state to 0 to get the current state
+    watcher.setInitialStateNumber(0);
     mConnection->addWatcher(&watcher);
 
-    // expecting one notification per create and one state change
-    bool stateChanged = false;
-    while (!stateChanged) {
-      // wait for a notification
-      waitForResponseAndNotifications(0, &watcher, 1);
-      QList<QJsonDbNotification> notifications = watcher.takeNotifications();
-      foreach (const QJsonDbNotification n, notifications)
-        if (n.action() == QJsonDbWatcher::StateChanged)
-          stateChanged = true;
-    }
+    // expecting one notification per create
+    waitForResponseAndNotifications(0, &watcher, 1, 1);
+    watcher.takeNotifications();
 
     // now create another object
     QJsonObject item;
@@ -318,6 +320,7 @@ void TestQJsonDbWatcher::notificationTriggersView()
 {
     QVERIFY(mConnection);
 
+    QLatin1String query("[?_type=\"com.test.TestView\"]");
     QJsonArray array(readJsonFile(":/daemon/json/map-array-conversion.json").array());
     QList<QJsonObject> objects;
     foreach (const QJsonValue v, array)
@@ -331,21 +334,36 @@ void TestQJsonDbWatcher::notificationTriggersView()
     mConnection->send(&request);
     waitForResponse(&request);
 
+    {
+        QJsonDbReadRequest read(query);
+        mConnection->send(&read);
+        waitForResponse(&read);
+        QList<QJsonObject> objects = read.takeResults();
+        int numObjects = objects.size();
+        QCOMPARE(numObjects, 1);
+    }
+
     // create a watcher
     QJsonDbWatcher watcher;
     watcher.setWatchedActions(QJsonDbWatcher::All);
-    watcher.setQuery(QLatin1String("[?_type=\"com.test.TestView\"]"));
+    watcher.setQuery(QLatin1String(query));
     mConnection->addWatcher(&watcher);
-    waitForResponseAndNotifications(0, &watcher, 1);
     waitForStatus(&watcher, QJsonDbWatcher::Active);
 
-    QList<QJsonDbNotification> notifications = watcher.takeNotifications();
-    QCOMPARE(notifications.size(), 1);
-    QJsonDbNotification n = notifications[0];
-    QJsonObject o = n.object();
-    // make sure we got notified on the right object
-    //QCOMPARE(o.value(JsonDbStrings::Property::uuid()), info.value(JsonDbStrings::Property::uuid()));
+    {
+        QJsonObject item;
+        item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.Test"));
+        QJsonDbCreateRequest request(item);
+        mConnection->send(&request);
+        waitForResponseAndNotifications(&request, &watcher, 1);
 
+        QList<QJsonDbNotification> notifications = watcher.takeNotifications();
+        QCOMPARE(notifications.size(), 1);
+        QJsonDbNotification n = notifications[0];
+        QJsonObject o = n.object();
+        // make sure we got notified on the right object
+        //QCOMPARE(o.value(JsonDbStrings::Property::uuid()), info.value(JsonDbStrings::Property::uuid()));
+    }
     mConnection->removeWatcher(&watcher);
 
     QList<QJsonObject> toDelete;

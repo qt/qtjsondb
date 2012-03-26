@@ -70,6 +70,8 @@ public:
     const QString & partition() const { return mPartition; }
     quint32 initialStateNumber() const { return mInitialStateNumber; }
     void setInitialStateNumber(quint32 stateNumber) { mInitialStateNumber = stateNumber; }
+    quint32 lastStateNumber() const { return mLastStateNumber; }
+    void setLastStateNumber(quint32 stateNumber) { mLastStateNumber = stateNumber; }
 private:
     const JsonDbOwner *mOwner;
     QString       mUuid;
@@ -78,6 +80,7 @@ private:
     Actions       mActions;
     QString       mPartition;
     quint32       mInitialStateNumber;
+    quint32       mLastStateNumber;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(JsonDbNotification::Actions)

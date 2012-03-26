@@ -59,6 +59,8 @@ TestHelper::TestHelper(QObject *parent) :
   , mConnection(0)
   , mNotificationsReceived(0)
   , mNotificationsExpected(0)
+  , mLastStateChangedExpected(0)
+  , mLastStateChangedReceived(0)
   , mRequestsPending(0)
 {
 }
@@ -91,6 +93,8 @@ void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &
 
     mProcess = new QProcess;
     mProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+    connect(mProcess, SIGNAL(finished(int,QProcess::ExitStatus)),
+            this, SLOT(processFinished(int,QProcess::ExitStatus)));
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
 
@@ -222,6 +226,8 @@ void TestHelper::removeDbFiles(const QStringList &additionalFiles)
 void TestHelper::waitForResponse(QJsonDbRequest *request)
 {
     mRequestsPending = 1;
+    mNotificationsExpected = 0;
+    mLastStateChangedExpected = 0;
 
     connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
     connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
@@ -232,11 +238,14 @@ void TestHelper::waitForResponse(QJsonDbRequest *request)
     disconnect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
     disconnect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    QVERIFY(!mRequestsPending);
 }
 
 void TestHelper::waitForResponse(QList<QJsonDbRequest *> requests)
 {
     mRequestsPending = requests.count();
+    mNotificationsExpected = 0;
+    mLastStateChangedExpected = 0;
 
     foreach (QJsonDbRequest *request, requests) {
         connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
@@ -251,14 +260,18 @@ void TestHelper::waitForResponse(QList<QJsonDbRequest *> requests)
         disconnect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                    this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
     }
+    QVERIFY(!mRequestsPending);
 }
 
 void TestHelper::waitForResponseAndNotifications(QJsonDbRequest *request,
                                                  QJsonDbWatcher *watcher,
-                                                 int notificationsExpected)
+                                                 int notificationsExpected,
+                                                 int lastStateChangedExpected)
 {
     mNotificationsExpected = notificationsExpected;
     mNotificationsReceived = 0;
+    mLastStateChangedExpected = lastStateChangedExpected;
+    mLastStateChangedReceived = 0;
 
     if (request) {
         mRequestsPending = 1;
@@ -272,6 +285,8 @@ void TestHelper::waitForResponseAndNotifications(QJsonDbRequest *request,
             this, SLOT(watcherNotificationsAvailable(int)));
     connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
             this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+    connect(watcher, SIGNAL(lastStateNumberChanged(int)),
+            this, SLOT(watcherLastStateNumberChanged(int)));
 
     blockWithTimeout();
 
@@ -285,6 +300,11 @@ void TestHelper::waitForResponseAndNotifications(QJsonDbRequest *request,
                this, SLOT(watcherNotificationsAvailable(int)));
     disconnect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
                this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+    disconnect(watcher, SIGNAL(lastStateNumberChanged(int)),
+            this, SLOT(watcherLastStateNumberChanged(int)));
+
+    QVERIFY(!mRequestsPending && mNotificationsReceived >= mNotificationsExpected
+            && mLastStateChangedReceived >= mLastStateChangedExpected);
 
     mNotificationsExpected = 0;
 }
@@ -297,6 +317,7 @@ void TestHelper::waitForStatus(QJsonDbWatcher *watcher, QJsonDbWatcher::Status s
     blockWithTimeout();
     disconnect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
                this, SLOT(watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+    QVERIFY(mExpectedStatus == status);
 }
 
 bool TestHelper::dontLaunch()
@@ -327,10 +348,16 @@ void TestHelper::connectionError(QtJsonDb::QJsonDbConnection::ErrorCode code, QS
     qCritical() << "Error from connection" << code << msg;
 }
 
+void TestHelper::processFinished(int code, QProcess::ExitStatus status)
+{
+    qDebug() << "jsondb process finished" << code << status;
+}
+
 void TestHelper::requestFinished()
 {
     --mRequestsPending;
-    if (!mRequestsPending && mNotificationsReceived >= mNotificationsExpected)
+    if (!mRequestsPending && mNotificationsReceived >= mNotificationsExpected
+        && mLastStateChangedReceived >= mLastStateChangedExpected)
         mEventLoop.quit();
 }
 
@@ -349,13 +376,23 @@ void TestHelper::watcherNotificationsAvailable(int count)
 {
     mNotificationsReceived = count;
 
-    if (!mRequestsPending && mNotificationsReceived >= mNotificationsExpected)
+    if (!mRequestsPending && mNotificationsReceived >= mNotificationsExpected
+        && mLastStateChangedReceived >= mLastStateChangedExpected)
         mEventLoop.quit();
 }
 
 void TestHelper::watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status status)
 {
     if (status == mExpectedStatus)
+        mEventLoop.quit();
+}
+
+void TestHelper::watcherLastStateNumberChanged(int stateNumber)
+{
+    Q_UNUSED(stateNumber);
+    mLastStateChangedReceived++;
+    if (!mRequestsPending && mNotificationsReceived >= mNotificationsExpected
+        && mLastStateChangedReceived >= mLastStateChangedExpected)
         mEventLoop.quit();
 }
 

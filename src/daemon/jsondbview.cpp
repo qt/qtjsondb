@@ -325,6 +325,8 @@ void JsonDbView::updateView(quint32 desiredStateNumber)
             // up-to-date with respect this source table
             continue;
 
+        // TODO: fix changesSince to return JsonDbUpdateList
+        // and then call JsonDbView::updateViewOnChanges() here
         QJsonObject changesSince(sourceTable->changesSince(viewStateNumber, sourceTypes));
         QJsonObject changes(changesSince.value("result").toObject());
         QJsonArray changeList(changes.value("changes").toArray());
@@ -374,6 +376,81 @@ void JsonDbView::updateView(quint32 desiredStateNumber)
     mUpdating = false;
 
     emit updated(mViewType);
+}
+
+void JsonDbView::updateEagerView(const JsonDbUpdateList &objectsUpdated)
+{
+    quint32 partitionStateNumber = mMainObjectTable->stateNumber();
+    quint32 viewStateNumber = mViewObjectTable->stateNumber();
+
+    // make sure we can run this set of updates
+    if (viewStateNumber != (partitionStateNumber-1)
+        || viewDefinitionUpdated(objectsUpdated))
+        // otherwise do a full update
+        updateView(partitionStateNumber);
+
+    // begin transaction
+    mViewObjectTable->begin();
+
+    // then do the update
+    QSet<QString> processedDefinitionUuids;
+    updateViewOnChanges(objectsUpdated, processedDefinitionUuids);
+
+    // end transaction
+    JsonDbScriptEngine::scriptEngine()->collectGarbage();
+    mViewObjectTable->commit(partitionStateNumber);
+}
+
+bool JsonDbView::viewDefinitionUpdated(const JsonDbUpdateList &objectsUpdated) const
+{
+    foreach (const JsonDbUpdate &update, objectsUpdated) {
+        QJsonObject beforeObject = update.oldObject;
+        QJsonObject afterObject = update.newObject;
+        QString beforeUuid = beforeObject.value(JsonDbString::kUuidStr).toString();
+        QString afterUuid = afterObject.value(JsonDbString::kUuidStr).toString();
+
+        if ((!beforeObject.isEmpty()
+             && (mMapDefinitions.contains(beforeUuid) || mReduceDefinitions.contains(beforeUuid)))
+            || (!afterObject.isEmpty()
+                && (mMapDefinitions.contains(afterUuid) || mReduceDefinitions.contains(afterUuid))))
+            return false;
+    }
+    return true;
+}
+
+void JsonDbView::updateViewOnChanges(const JsonDbUpdateList &objectsUpdated,
+                                     QSet<QString> &processedDefinitionUuids)
+{
+    foreach (const JsonDbUpdate &update, objectsUpdated) {
+        QJsonObject beforeObject = update.oldObject;
+        QJsonObject afterObject = update.newObject;
+        QString beforeType = beforeObject.value(JsonDbString::kTypeStr).toString();
+        QString afterType = afterObject.value(JsonDbString::kTypeStr).toString();
+
+        if (mMapDefinitionsBySource.contains(beforeType)) {
+            JsonDbMapDefinition *def = mMapDefinitionsBySource.value(beforeType);
+            if (processedDefinitionUuids.contains(def->uuid()))
+                continue;
+            def->updateObject(beforeObject, afterObject);
+        } else if (mMapDefinitionsBySource.contains(afterType)) {
+            JsonDbMapDefinition *def = mMapDefinitionsBySource.value(afterType);
+            if (processedDefinitionUuids.contains(def->uuid()))
+                continue;
+            def->updateObject(beforeObject, afterObject);
+        }
+
+        if (mReduceDefinitionsBySource.contains(beforeType)) {
+            JsonDbReduceDefinition *def = mReduceDefinitionsBySource.value(beforeType);
+            if (processedDefinitionUuids.contains(def->uuid()))
+                continue;
+            def->updateObject(beforeObject, afterObject);
+        } else if (mReduceDefinitionsBySource.contains(afterType)) {
+            JsonDbReduceDefinition *def = mReduceDefinitionsBySource.value(afterType);
+            if (processedDefinitionUuids.contains(def->uuid()))
+                continue;
+            def->updateObject(beforeObject, afterObject);
+        }
+    }
 }
 
 bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targetStateNumber,

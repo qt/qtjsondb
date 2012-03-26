@@ -95,7 +95,8 @@ protected slots:
     void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
     void objectsUpdated(const JsonDbUpdateList &objects);
     void viewUpdated(const QString &type);
-    void updateEagerViews(JsonDbPartition *partition, const QSet<QString> &viewTypes);
+    void updateEagerViews(JsonDbPartition *partition);
+    void emitStateChanged(JsonDbPartition *partition);
 
 private:
     void objectUpdated(const QString &partitionName, quint32 stateNumber, JsonDbNotification *n, JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object);
@@ -127,7 +128,9 @@ private:
     JsonDbEphemeralPartition *mEphemeralPartition;
     QMap<QString, JsonDbNotification *> mNotificationMap;
     QMultiMap<QString, JsonDbNotification *> mKeyedNotifications;
-    QMap<QString,QSet<QString> > mEagerViewSourceTypes; // set of eager view types dependent on this source type
+    QMap<QString,QSet<QString> >     mEagerViewSourceTypes; // set of eager view types dependent on this source type
+    QMap<QString,QSet<QString> >     mEagerViewsToUpdate;   // by partitionName, used by updateEagerViews();
+    QMap<QString, JsonDbUpdateList>  mPartitionChanges;     // by partitionName
     quint16                          mTcpServerPort;
     QLocalServer                    *mServer;
     QTcpServer                      *mTcpServer;

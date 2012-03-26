@@ -70,7 +70,6 @@ public:
         Created = 0x01, // ### TODO: rename me to StartsMatching ?
         Updated = 0x02,
         Removed = 0x04,
-        StateChanged = 0x08,
 
         All = 0xFF
     };

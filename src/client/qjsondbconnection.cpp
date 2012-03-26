@@ -300,6 +300,7 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
             }
             // initialize actionType to silence compiler warnings.
             QJsonDbWatcher::Action actionType = QJsonDbWatcher::All;
+            bool stateChanged = false;
             if (action == JsonDbStrings::Notification::actionCreate())
                 actionType = QJsonDbWatcher::Created;
             else if (action == JsonDbStrings::Notification::actionUpdate())
@@ -307,10 +308,13 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
             else if (action == JsonDbStrings::Notification::actionRemove())
                 actionType = QJsonDbWatcher::Removed;
             else if (action == JsonDbStrings::Notification::actionStateChange())
-                actionType = QJsonDbWatcher::StateChanged;
+                stateChanged = true;
             else
                 qWarning() << "Unknown action" << action << "received for notification" << notifyUuid;
-            if (actionType != QJsonDbWatcher::All)
+
+            if (stateChanged)
+                watcher->d_func()->handleStateChange(stateNumber);
+            else if (actionType != QJsonDbWatcher::All)
                 watcher->d_func()->handleNotification(stateNumber, actionType, object);
         } else {
             // received notification for unknown watcher, just ignore it.
@@ -581,9 +585,15 @@ void QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
     QJsonDbObject object;
     object.insert(JsonDbStrings::Property::type(), QJsonValue(JsonDbStrings::Types::notification()));
     object.insert(JsonDbStrings::Property::query(), QJsonValue(dwatcher->query));
-    // ### TODO: in the future pass initialStateNumber to the server
-    object.insert(JsonDbStrings::Property::initialStateNumber(),
-                  static_cast<int>(qMax(dwatcher->lastStateNumber, dwatcher->initialStateNumber)));
+    bool initialStateNumberSpecified = (dwatcher->initialStateNumber != static_cast<quint32>(QJsonDbWatcherPrivate::UnspecifiedInitialStateNumber));
+    if (dwatcher->lastStateNumber != 0 || initialStateNumberSpecified) {
+        quint32 initialStateNumber;
+        if (initialStateNumberSpecified)
+            initialStateNumber = qMax(dwatcher->lastStateNumber, dwatcher->initialStateNumber);
+        else
+            initialStateNumber = dwatcher->lastStateNumber;
+        object.insert(JsonDbStrings::Property::initialStateNumber(), static_cast<int>(initialStateNumber));
+    }
     QJsonArray actions;
     if (dwatcher->actions & QJsonDbWatcher::Created)
         actions.append(JsonDbStrings::Notification::actionCreate());
@@ -591,8 +601,6 @@ void QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
         actions.append(JsonDbStrings::Notification::actionUpdate());
     if (dwatcher->actions & QJsonDbWatcher::Removed)
         actions.append(JsonDbStrings::Notification::actionRemove());
-    if (dwatcher->actions & QJsonDbWatcher::StateChanged)
-        actions.append(JsonDbStrings::Notification::actionStateChange());
     object.insert(JsonDbStrings::Property::actions(), actions);
     object.insert(JsonDbStrings::Protocol::partition(), QJsonValue(dwatcher->partition));
     object.insert(JsonDbStrings::Property::uuid(), QJsonValue(dwatcher->uuid));
