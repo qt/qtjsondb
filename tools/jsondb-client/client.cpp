@@ -350,6 +350,9 @@ void Client::onRequestFinished()
 
 void Client::aboutToRemove(void)
 {
+    // remove the query from the request list
+    mRequests.takeFirst()->deleteLater();
+
     QtJsonDb::QJsonDbRequest *queryRequest = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
     Q_ASSERT(queryRequest != 0);
     if (!queryRequest)
