@@ -44,6 +44,7 @@
 #include <QByteArray>
 #include <QFile>
 #include <QMap>
+#include <QString>
 
 #include "hbtree.h"
 #include "hbtree_p.h"
@@ -51,6 +52,9 @@
 #include "hbtreetransaction.h"
 #include "qbtreetxn.h"
 #include "qbtreecursor.h"
+#include "qkeyvaluestore.h"
+#include "qkeyvaluestoretxn.h"
+#include "qkeyvaluestorecursor.h"
 
 class TestBtrees: public QObject
 {
@@ -60,7 +64,8 @@ public:
 
     enum BtreeType {
         Hybrid,
-        AppendOnly
+        AppendOnly,
+        KeyValue
     };
 
 private slots:
@@ -87,18 +92,23 @@ private slots:
     void searchRange_data();
     void searchRange();
 
+    void compact_data();
+    void compact();
+
 private:
 
     HBtree *hybridDb;
     QBtree *appendOnlyDb;
+    QKeyValueStore *keyValueDb;
     const HBtreePrivate *hybridPrivate;
 
     struct SizeStat {
         SizeStat()
-            : hybridSize(0), appendOnlySize(0), numCollectible(0)
+            : hybridSize(0), appendOnlySize(0), keyValueSize(0), numCollectible(0)
         {}
         qint64 hybridSize;
         qint64 appendOnlySize;
+        qint64 keyValueSize;
         int numCollectible;
     };
 
@@ -106,14 +116,17 @@ private:
 };
 
 TestBtrees::TestBtrees()
-    : hybridDb(0), appendOnlyDb(0)
+    : hybridDb(0), appendOnlyDb(0), keyValueDb(0)
 {
 }
 
 static const char hybridDbFileName[] = "tst_hbtree.db";
 static const char appendOnlyDbFileName[] = "tst_aobtree.db";
+static const char keyValueDbFileName[] = "tst_kvs";
 static const char hybridDataTag[] = "Hybrid";
 static const char appendOnlyDataTag[] = "Append-Only";
+static const char keyValueDataTag[] = "KeyValue";
+
 
 const char * sizeStr(size_t sz)
 {
@@ -142,6 +155,7 @@ void TestBtrees::cleanupTestCase()
         qDebug() << it.key();
         qDebug() << "\tAppend-Only:" << sizeStr(it.value().appendOnlySize);
         qDebug() << "\tHybrid:" << sizeStr(it.value().hybridSize) << "with" << it.value().numCollectible << "reusable pages";
+        qDebug() << "\tKeyValue:" << sizeStr(it.value().keyValueSize);
         ++it;
     }
 }
@@ -150,9 +164,19 @@ void TestBtrees::init()
 {
     QFile::remove(hybridDbFileName);
     QFile::remove(appendOnlyDbFileName);
+    QString kvsTree = keyValueDbFileName;
+    kvsTree.append(".btr");
+    QString kvsJournal = keyValueDbFileName;
+    kvsJournal.append(".dat");
+    QString kvsOldJournal = keyValueDbFileName;
+    kvsOldJournal.append(".old");
+    QFile::remove(kvsTree);
+    QFile::remove(kvsJournal);
+    QFile::remove(kvsOldJournal);
 
     hybridDb = new HBtree(hybridDbFileName);
     appendOnlyDb = new QBtree(appendOnlyDbFileName);
+    keyValueDb = new QKeyValueStore(QString(keyValueDbFileName));
 
     if (!hybridDb->open(HBtree::ReadWrite))
         Q_ASSERT(false);
@@ -160,13 +184,22 @@ void TestBtrees::init()
     if (!appendOnlyDb->open(QBtree::NoSync | QBtree::UseSyncMarker))
         Q_ASSERT(false);
 
+    if (!keyValueDb->open())
+        Q_ASSERT(false);
+
     appendOnlyDb->setAutoCompactRate(1000);
+    // Manual sync only
+    keyValueDb->setSyncThreshold(0);
 
     hybridPrivate = hybridDb->d_func();
 }
 
 void TestBtrees::cleanup()
 {
+    QString keyValueJournal(keyValueDbFileName);
+    QString keyValueTree(keyValueDbFileName);
+    keyValueJournal.append(".dat");
+    keyValueTree.append(".btr");
 
     QString tag = QTest::currentDataTag();
 
@@ -181,15 +214,29 @@ void TestBtrees::cleanup()
         file.open(QFile::ReadOnly);
         SizeStat &ss = sizeStats_[QTest::currentTestFunction()];
         ss.appendOnlySize = qMax(file.size(), ss.appendOnlySize);
+    } else if (tag == keyValueDataTag) {
+        QFile journal(keyValueJournal);
+        QFile tree(keyValueTree);
+        journal.open(QFile::ReadOnly);
+        tree.open(QFile::ReadOnly);
+        qint64 journalSize = 0, treeSize = 0, totalSize = 0;
+        journalSize = journal.size();
+        treeSize = tree.size();
+        totalSize = journalSize + treeSize;
+        SizeStat &ss = sizeStats_[QTest::currentTestFunction()];
+        ss.keyValueSize = qMax(totalSize, ss.keyValueSize);
     }
 
     delete hybridDb;
     delete appendOnlyDb;
+    delete keyValueDb;
     appendOnlyDb = 0;
     hybridDb = 0;
+    keyValueDb = 0;
     QFile::remove(hybridDbFileName);
     QFile::remove(appendOnlyDbFileName);
-
+    QFile::remove(keyValueJournal);
+    QFile::remove(keyValueTree);
 }
 
 void TestBtrees::openClose_data()
@@ -197,6 +244,7 @@ void TestBtrees::openClose_data()
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
     QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+    QTest::newRow(keyValueDataTag) << (int)KeyValue;
 }
 
 void TestBtrees::openClose()
@@ -208,10 +256,15 @@ void TestBtrees::openClose()
             hybridDb->close();
             QVERIFY(hybridDb->open());
         }
-    } else {
+    } else if (btreeType == AppendOnly){
         QBENCHMARK {
             appendOnlyDb->close();
             QVERIFY(appendOnlyDb->open());
+        }
+    } else if (btreeType == KeyValue){
+        QBENCHMARK {
+            keyValueDb->close();
+            QVERIFY(keyValueDb->open());
         }
     }
 }
@@ -221,6 +274,7 @@ void TestBtrees::insertItem_data()
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
     QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+    QTest::newRow(keyValueDataTag) << (int)KeyValue;
 }
 
 void TestBtrees::insertItem()
@@ -237,12 +291,22 @@ void TestBtrees::insertItem()
             QVERIFY(txn->put(key, value));
             QVERIFY(txn->commit(i));
         }
-    } else {
+    } else if (btreeType == AppendOnly){
         QBENCHMARK {
             ++i;
             QByteArray key = QByteArray::number(i);
             QByteArray value = QByteArray::number(i);
             QBtreeTxn *txn = appendOnlyDb->beginWrite();
+            QVERIFY(txn);
+            QVERIFY(txn->put(key, value));
+            QVERIFY(txn->commit(i));
+        }
+    } else if (btreeType == KeyValue){
+        QBENCHMARK {
+            ++i;
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
             QVERIFY(txn);
             QVERIFY(txn->put(key, value));
             QVERIFY(txn->commit(i));
@@ -255,6 +319,7 @@ void TestBtrees::insert1000Items_data()
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
     QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+    QTest::newRow(keyValueDataTag) << (int)KeyValue;
 }
 
 void TestBtrees::insert1000Items()
@@ -273,12 +338,23 @@ void TestBtrees::insert1000Items()
                 QVERIFY(txn->commit(i));
             }
         }
-    } else {
+    } else if (btreeType == AppendOnly){
         QBENCHMARK {
             for (int i = 0; i < numItems; ++i) {
                 QByteArray key = QByteArray::number(i);
                 QByteArray value = QByteArray::number(i);
                 QBtreeTxn *txn = appendOnlyDb->beginWrite();
+                QVERIFY(txn);
+                QVERIFY(txn->put(key, value));
+                QVERIFY(txn->commit(i));
+            }
+        }
+    } else if (btreeType == KeyValue){
+        QBENCHMARK {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QByteArray value = QByteArray::number(i);
+                QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
                 QVERIFY(txn);
                 QVERIFY(txn->put(key, value));
                 QVERIFY(txn->commit(i));
@@ -292,6 +368,7 @@ void TestBtrees::delete1000Items_data()
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
     QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+    QTest::newRow(keyValueDataTag) << (int)KeyValue;
 }
 
 void TestBtrees::delete1000Items()
@@ -317,6 +394,15 @@ void TestBtrees::delete1000Items()
             QVERIFY(txn->put(key, value));
         }
         QVERIFY(txn->commit(0));
+    } else if (btreeType == KeyValue) {
+        QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
+        QVERIFY(txn);
+        for (int i = 0; i < numItems; ++i) {
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+        }
+        QVERIFY(txn->commit(0));
     }
 
     if (btreeType == Hybrid) {
@@ -339,6 +425,16 @@ void TestBtrees::delete1000Items()
                 QVERIFY(txn->commit(i));
             }
         }
+    } else if (btreeType == KeyValue) {
+        QBENCHMARK_ONCE {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
+                QVERIFY(txn);
+                QVERIFY(txn->remove(key));
+                QVERIFY(txn->commit(i));
+            }
+        }
     }
 }
 
@@ -347,6 +443,7 @@ void TestBtrees::find1000Items_data()
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
     QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+    QTest::newRow(keyValueDataTag) << (int)KeyValue;
 }
 
 void TestBtrees::find1000Items()
@@ -365,6 +462,15 @@ void TestBtrees::find1000Items()
         QVERIFY(txn->commit(0));
     } else if (btreeType == AppendOnly) {
         QBtreeTxn *txn = appendOnlyDb->beginWrite();
+        QVERIFY(txn);
+        for (int i = 0; i < numItems; ++i) {
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+        }
+        QVERIFY(txn->commit(0));
+    } else if (btreeType == KeyValue) {
+        QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
         QVERIFY(txn);
         for (int i = 0; i < numItems; ++i) {
             QByteArray key = QByteArray::number(i);
@@ -398,6 +504,19 @@ void TestBtrees::find1000Items()
                 txn->abort();
             }
         }
+    } else if (btreeType == KeyValue) {
+        QBENCHMARK {
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QByteArray value = QByteArray::number(i);
+                QByteArray baOut;
+                QKeyValueStoreTxn *txn = keyValueDb->beginRead();
+                QVERIFY(txn);
+                QVERIFY(txn->get(key, &baOut));
+                QCOMPARE(baOut, value);
+                txn->abort();
+            }
+        }
     }
 }
 
@@ -406,6 +525,7 @@ void TestBtrees::searchRange_data()
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
     QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+    QTest::newRow(keyValueDataTag) << (int)KeyValue;
 }
 
 void TestBtrees::searchRange()
@@ -425,6 +545,15 @@ void TestBtrees::searchRange()
         QVERIFY(txn->commit(0));
     } else if (btreeType == AppendOnly) {
         QBtreeTxn *txn = appendOnlyDb->beginWrite();
+        QVERIFY(txn);
+        for (int i = 0; i < numItems * gapLength; i += gapLength) {
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+        }
+        QVERIFY(txn->commit(0));
+    } else if (btreeType == KeyValue) {
+        QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
         QVERIFY(txn);
         for (int i = 0; i < numItems * gapLength; i += gapLength) {
             QByteArray key = QByteArray::number(i);
@@ -456,6 +585,95 @@ void TestBtrees::searchRange()
                 QVERIFY(cursor.seekRange(key));
                 txn->abort();
             }
+        }
+    } else if (btreeType == KeyValue) {
+        QBENCHMARK {
+            for (int i = 0; i < (numItems * gapLength) - (gapLength); i += (gapLength / 10)) {
+                QByteArray key = QByteArray::number(i);
+                QKeyValueStoreTxn *txn = keyValueDb->beginRead();
+                QKeyValueStoreCursor cursor(txn);
+                QVERIFY(cursor.seekRange(key));
+                txn->abort();
+            }
+        }
+    }
+}
+
+void TestBtrees::compact_data()
+{
+    QTest::addColumn<int>("btreeType");
+    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+    QTest::newRow(keyValueDataTag) << (int)KeyValue;
+}
+
+void TestBtrees::compact()
+{
+    QFETCH(int, btreeType);
+    int numItems = 1000;
+
+    if (btreeType == AppendOnly) {
+        for (int i = 0; i < numItems; ++i) {
+            QBtreeTxn *txn = appendOnlyDb->beginWrite();
+            QVERIFY(txn);
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+            QVERIFY(txn->commit(i));
+        }
+        appendOnlyDb->sync();
+        for (int i = 0; i < numItems; ++i) {
+            QBtreeTxn *txn = appendOnlyDb->beginWrite();
+            QVERIFY(txn);
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+            QVERIFY(txn->commit(i));
+        }
+        appendOnlyDb->sync();
+        for (int i = 0; i < numItems/2; ++i) {
+            QBtreeTxn *txn = appendOnlyDb->beginWrite();
+            QVERIFY(txn);
+            QByteArray key = QByteArray::number(i);
+            QVERIFY(txn->remove(key));
+            QVERIFY(txn->commit(i));
+        }
+        appendOnlyDb->sync();
+    } else if (btreeType == KeyValue) {
+        keyValueDb->setSyncThreshold(0);
+        for (int i = 0; i < numItems; ++i) {
+            QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
+            QVERIFY(txn);
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+            QVERIFY(txn->commit(i));
+        }
+        keyValueDb->sync();
+        for (int i = 0; i < numItems; ++i) {
+            QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
+            QVERIFY(txn);
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+            QVERIFY(txn->commit(i));
+        }
+        keyValueDb->sync();
+        for (int i = 0; i < numItems/2; ++i) {
+            QKeyValueStoreTxn *txn = keyValueDb->beginWrite();
+            QVERIFY(txn);
+            QByteArray key = QByteArray::number(i);
+            QVERIFY(txn->remove(key));
+            QVERIFY(txn->commit(i));
+        }
+        keyValueDb->sync();
+    }
+    if (btreeType == AppendOnly) {
+        QBENCHMARK_ONCE {
+            QVERIFY(appendOnlyDb->compact());
+        }
+    } else if (btreeType == KeyValue) {
+        QBENCHMARK_ONCE {
+            QVERIFY(keyValueDb->compact());
         }
     }
 }

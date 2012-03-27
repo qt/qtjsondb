@@ -15,4 +15,5 @@ SUBDIRS = \
     queries \
     qjsondbwatcher \
     jsonstream \
-    hbtree
+    hbtree \
+    qkeyvaluestore

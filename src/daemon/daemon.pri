@@ -1,5 +1,6 @@
 include($$PWD/../3rdparty/btree/btree.pri)
 include($$PWD/../hbtree/hbtree.pri)
+include($$PWD/../qkeyvaluestore/qkeyvaluestore.pri)
 include($$PWD/../common/common.pri)
 
 DEFINES += $$quote(QT_BEGIN_MOC_NAMESPACE=\"QT_USE_NAMESPACE QT_USE_NAMESPACE_JSONDB\")

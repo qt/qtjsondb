@@ -51,7 +51,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 JsonDbBtree::JsonDbBtree()
     : mBtree(new Btree())
 {
-#ifndef JSONDB_USE_HBTREE
+#if !defined(JSONDB_USE_HBTREE) && !defined(JSONDB_USE_KVS)
     mBtree->setAutoCompactRate(jsondbSettings->compactRate());
 #endif
 }
@@ -70,6 +70,10 @@ bool JsonDbBtree::open(const QString &filename, OpenFlags flags)
     if (flags & ReadOnly)
         mode = HBtree::ReadOnly;
     mBtree->setOpenMode(mode);
+    return mBtree->open();
+#elif defined(JSONDB_USE_KVS)
+    Q_UNUSED(flags);
+    mBtree->setSyncThreshold(0);
     return mBtree->open();
 #else
     QBtree::DbFlags dbFlags = QBtree::UseSyncMarker | QBtree::NoSync;
@@ -146,7 +150,7 @@ bool JsonDbBtree::rollback()
 void JsonDbBtree::setAutoCompactRate(int rate) const
 {
     Q_ASSERT(mBtree);
-#ifdef JSONDB_USE_HBTREE
+#if defined(JSONDB_USE_HBTREE) || defined(JSONDB_USE_KVS)
     Q_UNUSED(rate);
 #else
     mBtree->setAutoCompactRate(rate);

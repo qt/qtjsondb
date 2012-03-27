@@ -42,18 +42,28 @@
 #ifndef JSONDB_MANAGED_BTREE_H
 #define JSONDB_MANAGED_BTREE_H
 
-#define JSONDB_USE_HBTREE
+/*
+ * There are three BTree implementations:
+ * - JSONDB_USE_AOB: Original Append Only BTree.
+ * - JSONDB_USE_HBTREE: Ali's hybrid BTree.
+ * - JSONDB_USE_KVS: Carlos' Key-Value Store.
+ */
 
 #include "jsondb-global.h"
-
-#ifndef JSONDB_USE_HBTREE
-#include "qbtree.h"
-#include "qbtreecursor.h"
-#include "qbtreetxn.h"
-#else
+#define JSONDB_USE_KVS
+#if defined(JSONDB_USE_HBTREE)
 #include "hbtree.h"
 #include "hbtreecursor.h"
 #include "hbtreetransaction.h"
+#elif defined(JSONDB_USE_KVS)
+#include "qkeyvaluestore.h"
+#include "qkeyvaluestorecursor.h"
+#include "qkeyvaluestoretxn.h"
+#else
+// We assume JSONDB_USE_AOB
+#include "qbtree.h"
+#include "qbtreecursor.h"
+#include "qbtreetxn.h"
 #endif
 
 QT_BEGIN_HEADER
@@ -72,7 +82,9 @@ public:
 
 #ifdef JSONDB_USE_HBTREE
     typedef HBtree Btree;
-#else
+#elif defined(JSONDB_USE_KVS)
+    typedef QKeyValueStore Btree;
+#else // JSONDB_USE_AOB
     typedef QBtree Btree;
 #endif
 

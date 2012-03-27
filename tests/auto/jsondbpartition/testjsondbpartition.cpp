@@ -78,7 +78,7 @@ void TestJsonDbPartition::deleteDbFiles()
     // remove all the test files.
     QDir currentDir;
     QStringList nameFilter;
-    nameFilter << QString("*.db");
+    nameFilter << QString("*.db*");
     nameFilter << "objectFile.bin" << "objectFile2.bin";
     QFileInfoList databaseFiles = currentDir.entryInfoList(nameFilter, QDir::Files);
     foreach (QFileInfo fileInfo, databaseFiles) {

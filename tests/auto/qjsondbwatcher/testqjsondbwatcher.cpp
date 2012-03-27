@@ -198,7 +198,7 @@ void TestQJsonDbWatcher::onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode code
 void TestQJsonDbWatcher::removeDbFiles()
 {
 #ifndef DONT_START_SERVER
-    QStringList lst = QDir().entryList(QStringList() << QLatin1String("*.db"));
+    QStringList lst = QDir().entryList(QStringList() << QLatin1String("*.db*"));
     lst << "objectFile.bin" << "objectFile2.bin";
     foreach (const QString &fileName, lst)
         QFile::remove(fileName);

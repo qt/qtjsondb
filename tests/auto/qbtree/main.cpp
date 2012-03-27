@@ -126,7 +126,9 @@ void TestQBtree::cleanup()
 {
     delete db;
     db = 0;
-    QFile::remove(dbname);
+    QString dbFileName(dbname);
+    dbFileName.append("*");
+    QFile::remove(dbFileName);
 }
 
 void TestQBtree::create()

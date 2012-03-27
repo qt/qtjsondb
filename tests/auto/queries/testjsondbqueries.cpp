@@ -191,7 +191,7 @@ TestJsonDbQueries::TestJsonDbQueries() :
 void TestJsonDbQueries::removeDbFiles()
 {
     QStringList filters;
-    filters << QLatin1String("*.db");
+    filters << QLatin1String("*.db*");
     QStringList lst = QDir().entryList(filters);
     foreach (const QString &fileName, lst)
         QFile::remove(fileName);
