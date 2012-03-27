@@ -273,8 +273,11 @@ void Client::onNotificationsAvailable(int)
         case QtJsonDb::QJsonDbWatcher::All: break;
         }
 
-        QString message =  "Received notification: type " % actionString
-                % " for " % watcher->query() % " object:\n" % QJsonDocument(n.object()).toJson();
+        QString message = QString("Received %1 notification for %2 [state %3]\n%4\n")
+                .arg(actionString)
+                .arg(watcher->query())
+                .arg(n.stateNumber())
+                .arg(QString::fromUtf8(QJsonDocument(n.object()).toJson()));
         InputThread::print(message);
     }
     if (!mInputThread)
@@ -332,14 +335,22 @@ void Client::error(QtJsonDb::QJsonDbConnection::ErrorCode error, const QString &
 
 void Client::onRequestFinished()
 {
-    QtJsonDb::QJsonDbRequest *request = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
-    Q_ASSERT(request != 0);
-    if (!request)
-        return;
+    quint32 stateNumber;
+    QtJsonDb::QJsonDbRequest *request = qobject_cast<QtJsonDb::QJsonDbReadRequest*>(sender());
+
+    if (request) {
+        stateNumber = qobject_cast<QtJsonDb::QJsonDbReadRequest*>(request)->stateNumber();
+    } else {
+        request = qobject_cast<QtJsonDb::QJsonDbWriteRequest*>(sender());
+        if (!request)
+            return;
+        stateNumber = qobject_cast<QtJsonDb::QJsonDbWriteRequest*>(request)->stateNumber();
+    }
 
     QList<QJsonObject> objects = request->takeResults();
 
-    QString message = QLatin1String("Received ") + QString::number(objects.size()) + QLatin1String(" object(s):\n");
+    QString message = QString("Received %1 object(s) [state %2]\n").arg(objects.size()).arg(stateNumber);
+
     if (!objects.isEmpty()) {
         message += QJsonDocument(objects.front()).toJson().trimmed();
         for (int i = 1; i < objects.size(); ++i)
