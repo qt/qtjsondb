@@ -140,8 +140,8 @@ public:
     JsonDbObjectTable *findObjectTable(const QString &objectType) const;
     JsonDbView *findView(const QString &objectType) const;
 
-    bool getObject(const QString &uuid, JsonDbObject &object, const QString &objectType = QString()) const;
-    bool getObject(const ObjectKey & objectKey, JsonDbObject &object, const QString &objectType = QString()) const;
+    bool getObject(const QString &uuid, JsonDbObject &object, const QString &objectType = QString(), bool includeDeleted = false) const;
+    bool getObject(const ObjectKey & objectKey, JsonDbObject &object, const QString &objectType = QString(), bool includeDeleted = false) const;
 
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(),
                                 bool updateViews = true);

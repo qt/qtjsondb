@@ -144,6 +144,7 @@ private slots:
     void remove3();
     void remove4();
     void remove5();
+    void tombstoneResurrection();
 
     void schemaValidation_data();
     void schemaValidation();
@@ -1003,6 +1004,41 @@ void TestPartition::remove5()
     verifyGoodResult(result);
 
     jsondbSettings->setRejectStaleUpdates(false);
+}
+
+void TestPartition::tombstoneResurrection()
+{
+    jsondbSettings->setRejectStaleUpdates(true);
+
+    JsonDbObject item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("zombie"));
+
+    // first we create an object;
+    JsonDbWriteResult result = create(mOwner, item);
+    verifyGoodResult(result);
+    QVERIFY(item.version().startsWith(QLatin1String("1-")));
+
+    // remove it again
+    result = remove(mOwner, item);
+    verifyGoodResult(result);
+    QVERIFY(item.version().startsWith(QLatin1String("2-")));
+    QVERIFY(item.isDeleted());
+
+    // resurrect it
+    JsonDbObject newItem;
+    newItem.insert(JsonDbString::kTypeStr, QLatin1String("reborn"));
+    newItem.insert(JsonDbString::kUuidStr, item.value(JsonDbString::kUuidStr));
+
+    result = update(mOwner, newItem);
+    verifyGoodResult(result);
+    QVERIFY(newItem.version().startsWith(QLatin1String("3-")));
+
+    JsonDbQueryResult queryResult = find(mOwner, QString("[?_uuid=\"%1\"]").arg(newItem.uuid().toString()));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 1);
+
+    JsonDbObject reread = queryResult.data.at(0);
+    QVERIFY(item.isAncestorOf(reread));
 }
 
 void TestPartition::schemaValidation_data()

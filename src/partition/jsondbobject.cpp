@@ -89,12 +89,7 @@ QString JsonDbObject::type() const
 
 bool JsonDbObject::isDeleted() const
 {
-    QJsonValue deleted = value(JsonDbString::kDeletedStr);
-
-    if (deleted.isUndefined() || (deleted.isBool() && deleted.toBool() == false))
-        return false;
-
-    return true;
+    return value(JsonDbString::kDeletedStr).toBool();
 }
 
 void JsonDbObject::markDeleted()
@@ -212,7 +207,7 @@ bool JsonDbObject::updateVersionOptimistic(const JsonDbObject &other, QString *v
     }
 
     // now we check if this version can progress the head
-    if (version() == replacedVersion) {
+    if (version().isEmpty() || version() == replacedVersion) {
         if (!isReplay)
             *this = other;
         if (!isValidWrite)
@@ -227,7 +222,6 @@ bool JsonDbObject::updateVersionOptimistic(const JsonDbObject &other, QString *v
     if (!isValidWrite && isDeleted()) {
         if (!isReplay) {
             addAncestor(&history, replacedCount, replacedHash);
-            isReplay = false;
         }
 
         replacedHash = tokenizeVersion(version(), &replacedCount);

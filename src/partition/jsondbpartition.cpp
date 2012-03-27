@@ -619,17 +619,17 @@ void JsonDbPartition::timerEvent(QTimerEvent *event)
     }
 }
 
-bool JsonDbPartition::getObject(const QString &uuid, JsonDbObject &object, const QString &objectType) const
+bool JsonDbPartition::getObject(const QString &uuid, JsonDbObject &object, const QString &objectType, bool includeDeleted) const
 {
     ObjectKey objectKey(uuid);
-    return getObject(objectKey, object, objectType);
+    return getObject(objectKey, object, objectType, includeDeleted);
 }
 
-bool JsonDbPartition::getObject(const ObjectKey &objectKey, JsonDbObject &object, const QString &objectType) const
+bool JsonDbPartition::getObject(const ObjectKey &objectKey, JsonDbObject &object, const QString &objectType, bool includeDeleted) const
 {
     JsonDbObjectTable *table = findObjectTable(objectType);
 
-    bool ok = table->get(objectKey, &object);
+    bool ok = table->get(objectKey, &object, includeDeleted);
     if (ok)
         return ok;
     QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
@@ -1244,9 +1244,8 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         }
 
         JsonDbObject master;
-        bool forCreation = !getObject(object.uuid(), master, object.type());
-
-        // FIXME: explicity disallow changing _type
+        bool knownObject = getObject(object.uuid(), master, object.type(), true);
+        bool forCreation = !knownObject || master.isDeleted();
 
         if (mode != ReplicatedWrite && forCreation && forRemoval) {
             result.code =  JsonDbError::MissingObject;
@@ -1260,7 +1259,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
             return result;
         }
 
-        if (!master.value(JsonDbString::kOwnerStr).toString().isEmpty())
+        if (knownObject && !master.isDeleted() && !master.value(JsonDbString::kOwnerStr).toString().isEmpty())
             object.insert(JsonDbString::kOwnerStr, master.value(JsonDbString::kOwnerStr));
         else if (object.value(JsonDbString::kOwnerStr).toString().isEmpty())
             object.insert(JsonDbString::kOwnerStr, owner->ownerId());
@@ -1273,7 +1272,9 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
         bool validWrite;
         QString versionWritten;
-        JsonDbObject oldMaster = master;
+        JsonDbObject oldMaster;
+        if (!forCreation)
+            oldMaster = master;
 
         switch (mode) {
         case RejectStale:

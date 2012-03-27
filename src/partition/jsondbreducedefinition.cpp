@@ -159,7 +159,11 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
     QJsonValue beforeKeyValue = sourceKeyValue(before);
     QJsonValue afterKeyValue = sourceKeyValue(after);
 
-    if (!after.isEmpty() && !before.isEmpty() && (beforeKeyValue != afterKeyValue)) {
+    if (jsondbSettings->debug())
+        qDebug() << "JsonDbReduceDefinition::updateObject"
+                 << "beforeKeyValue" << beforeKeyValue
+                 << "afterKeyValue" << afterKeyValue;
+    if (!after.isEmpty() && !after.isDeleted() && !before.isEmpty() && (beforeKeyValue != afterKeyValue)) {
         // do a subtract only on the before key
         if (!beforeKeyValue.isUndefined())
           updateObject(before, QJsonObject(), changeList);
@@ -168,7 +172,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
         before = QJsonObject();
     }
 
-    const QJsonValue keyValue(after.isDeleted() ? beforeKeyValue : afterKeyValue);
+    const QJsonValue keyValue((after.isEmpty() || after.isDeleted()) ? beforeKeyValue : afterKeyValue);
     if (keyValue.isUndefined())
         return;
 
@@ -192,7 +196,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
     QJsonValue value = previousValue;
     if (!before.isEmpty())
         value = addObject(JsonDbReduceDefinition::Subtract, keyValue, value, before);
-    if (!after.isDeleted())
+    if (!after.isEmpty() && !after.isDeleted())
         value = addObject(JsonDbReduceDefinition::Add, keyValue, value, after);
 
     JsonDbObjectList objectsToUpdate;
