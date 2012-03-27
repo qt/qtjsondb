@@ -86,10 +86,7 @@ public:
         quint16 upperOffset;    // offset to end of actual data
         quint16 lowerOffset;    // offset to index with offsets in to individual data
 
-        bool isValid()          const { return number != PageInfo::INVALID_PAGE; }
-        bool isTypeValid()      const { return type > 0 && type < PageInfo::Unknown; }
         bool hasPayload()       const { return upperOffset > 0 || lowerOffset > 0; }
-        quint16 headerSize()    const;
 
         static const size_t OFFSETOF_CHECKSUM = 0;
         static const size_t OFFSETOF_TYPE = sizeof(quint32);
@@ -198,7 +195,8 @@ public:
 
     struct MarkerPage : Page {
         enum Flags {
-            DataOnOverflow = (1 << 0)
+            DataOnOverflow = (1 << 0),
+            Corrupted = (1 << 1)
         };
 
         MarkerPage()
@@ -277,7 +275,7 @@ public:
     bool readSpec(const QByteArray &binaryData);
     bool writeSpec();
 
-    QByteArray readPage(quint32 pageNumber) const;
+    QByteArray readPage(quint32 pageNumber);
     bool writePage(QByteArray *buffer) const;
 
     QByteArray serializePage(const Page &page) const;
@@ -291,7 +289,6 @@ public:
     void serializeChecksum(quint32 checksum, QByteArray *buffer) const;
     quint32 deserializePageNumber(const QByteArray &buffer) const;
     quint32 deserializePageType(const QByteArray &buffer) const;
-    quint32 deserializePageChecksum(const QByteArray &buffer) const;
 
     bool writeMarker(MarkerPage *page);
     bool readMarker(quint32 pgno, MarkerPage *markerOut);
@@ -303,8 +300,8 @@ public:
     OverflowPage deserializeOverflowPage(const QByteArray &buffer) const;
     QByteArray serializeOverflowPage(const OverflowPage &page) const;
 
-    quint32 calculateChecksum(const char *begin, const char *end) const;
     quint32 calculateChecksum(const QByteArray &buffer) const;
+    quint32 calculateChecksum(quint32 crc, const char *begin, const char *end) const;
 
     HBtreeTransaction *beginTransaction(HBtreeTransaction::Type type);
     bool put(HBtreeTransaction *transaction, const QByteArray &keyData, const QByteArray &valueData);
@@ -352,7 +349,7 @@ public:
     quint16 spaceLeft(const Page *page) const;
     quint16 spaceUsed(const Page *page) const;
     quint16 capacity(const Page *page) const;
-    bool pageFullEnough(NodePage *page) const;
+    double pageFill(NodePage *page) const;
     bool hasSpaceFor(NodePage *page, const NodeKey &key, const NodeValue &value) const;
 
     bool insertNode(NodePage *page, const NodeKey &key, const NodeValue &value);
@@ -397,24 +394,24 @@ public:
     QSet<quint32> residueHistory_;
     QList<Page *> lru_;
 
-    QByteArray qInitializedByteArray() const;
-    QByteArray qUninitializedByteArray() const;
-    bool verifyIntegrity(const Page *page) const;
+    bool verifyIntegrity(const Page *pPage) const;
 };
 
 QT_BEGIN_NAMESPACE
 Q_DECLARE_TYPEINFO(HBtreePrivate::NodeKey, Q_MOVABLE_TYPE);
 QT_END_NAMESPACE
 
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::PageInfo &pi);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::MarkerPage &p);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::NodeKey &k);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::NodeValue &value);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::NodePage::Meta &m);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::NodePage &p);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::OverflowPage &p);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::NodeHeader &n);
-extern QDebug operator << (QDebug dbg, const HBtreePrivate::HistoryNode &hn);
+QDebug operator << (QDebug dbg, const HBtreePrivate::Spec &p);
+QDebug operator << (QDebug dbg, const HBtreePrivate::PageInfo &pi);
+QDebug operator << (QDebug dbg, const HBtreePrivate::Page &page);
+QDebug operator << (QDebug dbg, const HBtreePrivate::MarkerPage &p);
+QDebug operator << (QDebug dbg, const HBtreePrivate::NodeKey &k);
+QDebug operator << (QDebug dbg, const HBtreePrivate::NodeValue &value);
+QDebug operator << (QDebug dbg, const HBtreePrivate::NodePage::Meta &m);
+QDebug operator << (QDebug dbg, const HBtreePrivate::NodePage &p);
+QDebug operator << (QDebug dbg, const HBtreePrivate::OverflowPage &p);
+QDebug operator << (QDebug dbg, const HBtreePrivate::NodeHeader &n);
+QDebug operator << (QDebug dbg, const HBtreePrivate::HistoryNode &hn);
 
 
 

@@ -8,12 +8,14 @@ HEADERS += \
     $$PWD/hbtreetransaction.h \
     $$PWD/hbtreecursor.h \
     $$PWD/hbtree_p.h \
+    $$PWD/hbtreeassert_p.h
 
 SOURCES += \
     $$PWD/orderedlist.cpp \
     $$PWD/hbtree.cpp \
     $$PWD/hbtreetransaction.cpp \
-    $$PWD/hbtreecursor.cpp
+    $$PWD/hbtreecursor.cpp \
+    $$PWD/hbtreeassert.cpp
 
 
 

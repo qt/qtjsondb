@@ -58,14 +58,16 @@
 #define HBTREE_VERSION 0xdeadc0de
 #define HBTREE_DEFAULT_PAGE_SIZE 4096
 
+#include "hbtreeassert_p.h"
+
 #if HBTREE_VERBOSE_OUTPUT && !HBTREE_DEBUG_OUTPUT
 #   undef HBTREE_VERBOSE_OUTPUT
 #   define HBTREE_VERBOSE_OUTPUT 0
 #endif
 
-#define HBTREE_DEBUG(qDebugStatement) if (HBTREE_DEBUG_OUTPUT) qDebug() << "HBtree::" << __FUNCTION__ << ":" << qDebugStatement
+#define HBTREE_DEBUG(qDebugStatement) if (HBTREE_DEBUG_OUTPUT) (qDebug().nospace() << "[HBtree:" << fileName_ << "] " << __FUNCTION__ << " =>").space() << qDebugStatement
 #define HBTREE_VERBOSE(qDebugStatement) if (HBTREE_VERBOSE_OUTPUT) HBTREE_DEBUG(qDebugStatement)
-#define HBTREE_ERROR(qDebugStatement) qCritical() << "HBtree Error::" << __FUNCTION__ << ":" << qDebugStatement
+#define HBTREE_ERROR(qDebugStatement) (qCritical().nospace() << "ERROR! HBtree(" << fileName_ << ") " << __FUNCTION__ << " =>").space() << qDebugStatement
 
 
 // NOTES:
@@ -153,7 +155,7 @@ bool HBtreePrivate::open(int fd)
             lastSyncedId_ = 0;
             size_ = initSize;
         } else {
-            HBTREE_ERROR("failed to read spec page: rc" << rc);
+            HBTREE_ERROR("failed to read spec page - rc:" << rc);
             return false;
         }
     } else {
@@ -191,7 +193,16 @@ bool HBtreePrivate::open(int fd)
     }
 
     lastPage_ = size_ / spec_.pageSize;
-    Q_ASSERT(verifyIntegrity(&marker_));
+    HBTREE_ASSERT(verifyIntegrity(&marker_))(marker_);
+
+    HBTREE_DEBUG("opened btree with"
+                 << "[spec:" << spec_
+                 << ", marker:" << marker_
+                 << ", lastSyncedId:" << lastSyncedId_
+                 << ", collectiblePages_:" << collectiblePages_
+                 << ", residueHistory_:" << residueHistory_
+                 << ", size_:" << size_
+                 << "]");
 
     return true;
 }
@@ -227,24 +238,25 @@ bool HBtreePrivate::readSpec(const QByteArray &binaryData)
     memcpy(&spec, binaryData.constData() + sizeof(PageInfo), sizeof(Spec));
 
     if (info.type != PageInfo::Spec) {
-        HBTREE_ERROR("failed to read spec:" << info);
+        HBTREE_DEBUG("spec type mismatch. Expected" << PageInfo::Spec << "got" << info);
         return false;
     }
 
     if (info.number != 0) {
-        HBTREE_ERROR("failed to read spec:" << info);
+        HBTREE_DEBUG("spec number mismatch. Expected 0 got" << info);
         return false;
     }
 
     if (spec.version != HBTREE_VERSION) {
-        HBTREE_ERROR("failed to read spec version:" << spec.version);
+        HBTREE_DEBUG("spec version mismatch. Expected" << HBTREE_VERSION << "got" << spec.version);
         return false;
     }
 
     memcpy(&spec_, &spec, sizeof(Spec));
 
-    if (calculateChecksum(binaryData) != info.checksum) {
-        HBTREE_ERROR("failed to verify spec checksum");
+    quint32 crc = calculateChecksum(binaryData);
+    if (crc != info.checksum) {
+        HBTREE_DEBUG("spec checksum mismatch. Expected" << info.checksum << "got" << crc);
         spec_ = Spec();
         return false;
     }
@@ -255,8 +267,11 @@ bool HBtreePrivate::readSpec(const QByteArray &binaryData)
 bool HBtreePrivate::writeSpec()
 {
     struct stat sb;
-    if (fstat(fd_, &sb) != 0)
+    int rc = 0;
+    if ((rc = fstat(fd_, &sb)) != 0) {
+        HBTREE_DEBUG("fstat fail - rc:" << rc);
         return false;
+    }
 
     Spec spec;
     spec.version = HBTREE_VERSION;
@@ -272,7 +287,6 @@ bool HBtreePrivate::writeSpec()
     memcpy(&spec_, &spec, sizeof(Spec));
 
     if (!writePage(&ba)) {
-        HBTREE_ERROR("failed to write spec page");
         spec_ = Spec();
         return false;
     }
@@ -285,7 +299,7 @@ bool HBtreePrivate::writeSpec()
 
 QByteArray HBtreePrivate::serializePage(const HBtreePrivate::Page &page) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
 
     switch (page.info.type) {
     case PageInfo::Branch:
@@ -294,16 +308,16 @@ QByteArray HBtreePrivate::serializePage(const HBtreePrivate::Page &page) const
     case PageInfo::Overflow:
         return serializeOverflowPage(static_cast<const OverflowPage &>(page));
     default:
-        Q_ASSERT(0);
+        HBTREE_ASSERT(0);
     }
     return QByteArray();
 }
 
 HBtreePrivate::Page *HBtreePrivate::deserializePage(const QByteArray &buffer, Page *page) const
 {
-    Q_ASSERT(page);
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(page);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(buffer.size())(spec_);
 
     quint32 pageType = deserializePageType(buffer);
     switch (pageType) {
@@ -315,7 +329,7 @@ HBtreePrivate::Page *HBtreePrivate::deserializePage(const QByteArray &buffer, Pa
         static_cast<OverflowPage &>(*page) = deserializeOverflowPage(buffer);
         break;
     default:
-        Q_ASSERT(0);
+        HBTREE_ASSERT(0)(pageType).message("unknown page type");
         return 0;
     }
     return page;
@@ -323,8 +337,8 @@ HBtreePrivate::Page *HBtreePrivate::deserializePage(const QByteArray &buffer, Pa
 
 HBtreePrivate::PageInfo HBtreePrivate::deserializePageInfo(const QByteArray &buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(buffer.size())(spec_);
 
     PageInfo info;
     memcpy(&info, buffer.constData(), sizeof(PageInfo));
@@ -333,16 +347,16 @@ HBtreePrivate::PageInfo HBtreePrivate::deserializePageInfo(const QByteArray &buf
 
 void HBtreePrivate::serializePageInfo(const HBtreePrivate::PageInfo &info, QByteArray *buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer->isDetached());
-    Q_ASSERT(buffer->size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer->size() == (int)spec_.pageSize)(buffer->size())(spec_);
+    HBTREE_ASSERT(buffer->isDetached());
     memcpy(buffer->data(), &info, sizeof(PageInfo));
 }
 
 HBtreePrivate::Page *HBtreePrivate::newDeserializePage(const QByteArray &buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(buffer.size())(spec_);
 
     PageInfo pi = deserializePageInfo(buffer);
     Page *page = 0;
@@ -356,7 +370,7 @@ HBtreePrivate::Page *HBtreePrivate::newDeserializePage(const QByteArray &buffer)
             break;
         case PageInfo::Marker:
         case PageInfo::Spec:
-            Q_ASSERT(0);
+            HBTREE_ASSERT(0)(pi).message("unknown type");
             return 0;
     }
     if (!deserializePage(buffer, page)) {
@@ -369,9 +383,9 @@ HBtreePrivate::Page *HBtreePrivate::newDeserializePage(const QByteArray &buffer)
 
 bool HBtreePrivate::serializeAndWrite(const HBtreePrivate::Page &page) const
 {
-    Q_ASSERT(page.info.type == PageInfo::Branch ||
-             page.info.type == PageInfo::Leaf ||
-             page.info.type == PageInfo::Overflow);
+    HBTREE_ASSERT(page.info.type == PageInfo::Branch ||
+                  page.info.type == PageInfo::Leaf ||
+                  page.info.type == PageInfo::Overflow)(page);
     QByteArray ba = serializePage(page);
     if (ba.isEmpty()) {
         HBTREE_DEBUG("failed to serialize" << page.info);
@@ -388,17 +402,17 @@ bool HBtreePrivate::serializeAndWrite(const HBtreePrivate::Page &page) const
 
 void HBtreePrivate::serializeChecksum(quint32 checksum, QByteArray *buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(checksum != 0);
-    Q_ASSERT(buffer->isDetached());
-    Q_ASSERT(buffer->size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer->size() == (int)spec_.pageSize)(buffer->size())(spec_);
+    HBTREE_ASSERT(checksum != 0)(checksum);
+    HBTREE_ASSERT(buffer->isDetached());
     memcpy(buffer->data() + PageInfo::OFFSETOF_CHECKSUM, &checksum, sizeof(quint32));
 }
 
 quint32 HBtreePrivate::deserializePageNumber(const QByteArray &buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(buffer.size())(spec_);
     quint32 pageNumber;
     memcpy(&pageNumber, buffer.constData() + PageInfo::OFFSETOF_NUMBER, sizeof(quint32));
     return pageNumber;
@@ -406,30 +420,19 @@ quint32 HBtreePrivate::deserializePageNumber(const QByteArray &buffer) const
 
 quint32 HBtreePrivate::deserializePageType(const QByteArray &buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(buffer.size())(spec_);
     quint32 pageType;
     memcpy(&pageType, buffer.constData() + PageInfo::OFFSETOF_TYPE, sizeof(quint32));
     return pageType;
 }
 
-quint32 HBtreePrivate::deserializePageChecksum(const QByteArray &buffer) const
-{
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
-    quint32 checksum;
-    memcpy(&checksum, buffer.constData() + PageInfo::OFFSETOF_CHECKSUM, sizeof(quint32));
-    return checksum;
-}
-
 bool HBtreePrivate::writeMarker(HBtreePrivate::MarkerPage *page)
 {
-    Q_ASSERT(page);
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(page);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
 
     MarkerPage &mp = *page;
-
-    HBTREE_DEBUG("writing" << mp.info);
 
     mp.info.lowerOffset = 0;
     mp.info.upperOffset = mp.residueHistory.size() * sizeof(quint32);
@@ -441,7 +444,7 @@ bool HBtreePrivate::writeMarker(HBtreePrivate::MarkerPage *page)
     if (useOverflow)
         mp.meta.flags |= MarkerPage::DataOnOverflow;
 
-    QByteArray buffer = qInitializedByteArray();
+    QByteArray buffer = QByteArray(spec_.pageSize, (char)0);
 
     if (mp.info.hasPayload()) {
         QByteArray extra;
@@ -458,21 +461,21 @@ bool HBtreePrivate::writeMarker(HBtreePrivate::MarkerPage *page)
         }
 
         if (useOverflow) {
-            Q_ASSERT(dirtyPages_.isEmpty());
+            HBTREE_ASSERT(dirtyPages_.isEmpty())(dirtyPages_)(mp);
             NodeHeader node;
             // Sync marker 2 does not need to rewrite overflow pages if sync 1 did it.
             node.context.overflowPage = mp.info.number == 1 ? putDataOnOverflow(extra) : mp.overflowPage;
             memcpy(buffer.data() + sizeof(PageInfo) + sizeof(MarkerPage::Meta), &node, sizeof(NodeHeader));
             PageMap::const_iterator it = dirtyPages_.constBegin();
             while (it != dirtyPages_.constEnd()) {
-                Q_ASSERT(it.value()->info.type == PageInfo::Overflow);
+                HBTREE_ASSERT(it.value()->info.type == PageInfo::Overflow)(*it.value())(mp);
                 QByteArray ba = serializePage(*it.value());
                 if (ba.isEmpty()) {
-                    HBTREE_DEBUG("failed to serialize" << it.value()->info << "for" << mp.info);
+                    HBTREE_DEBUG("failed to serialize" << mp.info);
                     return false;
                 }
                 if (!writePage(&ba)) {
-                    HBTREE_DEBUG("failed to write" << it.value()->info << "for" << mp.info);
+                    HBTREE_DEBUG("failed to write" << mp.info);
                     return false;
                 }
                 ++it;
@@ -489,20 +492,19 @@ bool HBtreePrivate::writeMarker(HBtreePrivate::MarkerPage *page)
     memcpy(buffer.data(), &mp.info, sizeof(PageInfo));
     memcpy(buffer.data() + sizeof(PageInfo), &mp.meta, sizeof(MarkerPage::Meta));
 
-    if (!writePage(&buffer)) {
-        HBTREE_DEBUG("failed to write" << mp.info);
-        return false;
-    }
+    HBTREE_DEBUG("writing" << mp);
 
-    HBTREE_VERBOSE("wrote" << mp);
+    if (!writePage(&buffer))
+        return false;
+
     return true;
 }
 
 bool HBtreePrivate::readMarker(quint32 pgno, HBtreePrivate::MarkerPage *markerOut)
 {
-    Q_ASSERT(markerOut);
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(pgno == 1 || pgno == 2);
+    HBTREE_ASSERT(markerOut)(pgno);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE)(pgno);
+    HBTREE_ASSERT(pgno == 1 || pgno == 2)(pgno);
 
     QByteArray buffer = readPage(pgno);
 
@@ -518,7 +520,7 @@ bool HBtreePrivate::readMarker(quint32 pgno, HBtreePrivate::MarkerPage *markerOu
     const char *ptr = buffer.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta);
     QByteArray overflowData;
     if (mp.meta.flags & MarkerPage::DataOnOverflow) {
-        Q_ASSERT(mp.info.hasPayload());
+        HBTREE_ASSERT(mp.info.hasPayload())(mp);
         NodeHeader node;
         memcpy(&node, buffer.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta), sizeof(NodeHeader));
         mp.overflowPage = node.context.overflowPage;
@@ -535,15 +537,15 @@ bool HBtreePrivate::readMarker(quint32 pgno, HBtreePrivate::MarkerPage *markerOu
         }
     }
 
-    HBTREE_DEBUG("deserialized" << mp);
+    HBTREE_DEBUG("read" << mp);
     return true;
 }
 
 
 HBtreePrivate::NodePage HBtreePrivate::deserializeNodePage(const QByteArray &buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(buffer.size())(spec_);
 
     NodePage page;
     page.info = deserializePageInfo(buffer);
@@ -594,12 +596,12 @@ HBtreePrivate::NodePage HBtreePrivate::deserializeNodePage(const QByteArray &buf
 
 QByteArray HBtreePrivate::serializeNodePage(const HBtreePrivate::NodePage &page) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(page.history.size() == page.meta.historySize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(page.history.size() == page.meta.historySize)(page);
 
     HBTREE_DEBUG("serializing" << page.info);
 
-    QByteArray buffer = qInitializedByteArray();
+    QByteArray buffer = QByteArray(spec_.pageSize, (char)0);
 
     serializePageInfo(page.info, &buffer);
     memcpy(buffer.data() + sizeof(PageInfo), &page.meta, sizeof(NodePage::Meta));
@@ -626,10 +628,10 @@ QByteArray HBtreePrivate::serializeNodePage(const HBtreePrivate::NodePage &page)
             node.flags = value.flags;
             node.keySize = key.data.size();
             if (value.flags & NodeHeader::Overflow || page.info.type == PageInfo::Branch) {
-                Q_ASSERT(value.data.size() == 0);
+                HBTREE_ASSERT(value.data.size() == 0)(value)(page);
                 node.context.overflowPage = value.overflowPage;
             } else {
-                Q_ASSERT(page.info.type == PageInfo::Leaf);
+                HBTREE_ASSERT(page.info.type == PageInfo::Leaf)(page);
                 node.context.valueSize = value.data.size();
             }
             memcpy(upperPtr, &node, sizeof(NodeHeader));
@@ -648,8 +650,8 @@ QByteArray HBtreePrivate::serializeNodePage(const HBtreePrivate::NodePage &page)
 
 HBtreePrivate::NodePage::Meta HBtreePrivate::deserializeNodePageMeta(const QByteArray &buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(buffer.size())(spec_);
     NodePage::Meta meta;
     memcpy(&meta, buffer.constData() + sizeof(PageInfo), sizeof(NodePage::Meta));
     return meta;
@@ -657,8 +659,8 @@ HBtreePrivate::NodePage::Meta HBtreePrivate::deserializeNodePageMeta(const QByte
 
 HBtreePrivate::OverflowPage HBtreePrivate::deserializeOverflowPage(const QByteArray &buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(buffer.size())(spec_);
 
     OverflowPage page;
     page.info = deserializePageInfo(buffer);
@@ -677,12 +679,12 @@ HBtreePrivate::OverflowPage HBtreePrivate::deserializeOverflowPage(const QByteAr
 
 QByteArray HBtreePrivate::serializeOverflowPage(const HBtreePrivate::OverflowPage &page) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT((size_t)page.data.size() <= capacity(&page));
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE);
+    HBTREE_ASSERT((size_t)page.data.size() <= capacity(&page))(capacity(&page))(page)(page.data.size());
 
     HBTREE_DEBUG("serializing" << page.info);
 
-    QByteArray buffer = qInitializedByteArray();
+    QByteArray buffer = QByteArray(spec_.pageSize, (char)0);
     serializePageInfo(page.info, &buffer);
     NodeHeader node;
     node.flags = 0;
@@ -700,25 +702,36 @@ QByteArray HBtreePrivate::serializeOverflowPage(const HBtreePrivate::OverflowPag
 // ### Page reading/writing/commiting/syncing
 // ######################################################################
 
-QByteArray HBtreePrivate::readPage(quint32 pageNumber) const
+QByteArray HBtreePrivate::readPage(quint32 pageNumber)
 {
-    QByteArray buffer = qUninitializedByteArray();
+    QByteArray buffer = QByteArray(spec_.pageSize, Qt::Uninitialized);
 
     const off_t offset = pageNumber * spec_.pageSize;
-    if (lseek(fd_, offset, SEEK_SET) != offset)
+    if (lseek(fd_, offset, SEEK_SET) != offset) {
+        HBTREE_DEBUG("failed to see to offset" << offset << "for page" << pageNumber);
         return QByteArray();
+    }
 
     ssize_t rc = read(fd_, (void *)buffer.data(), spec_.pageSize);
-    if (rc != spec_.pageSize)
+    if (rc != spec_.pageSize) {
+        HBTREE_DEBUG("failed to read @" << offset << "for page" << pageNumber << "- rc:" << rc);
         return QByteArray();
+    }
 
     PageInfo pageInfo = deserializePageInfo(buffer);
 
-    if (pageInfo.number != pageNumber)
+    if (pageInfo.number != pageNumber) {
+        HBTREE_DEBUG("page number does not match. expected" << pageNumber << "got" << pageInfo.number);
+        marker_.meta.flags |= MarkerPage::Corrupted;
         return QByteArray();
+    }
 
-    if (pageInfo.checksum != calculateChecksum(buffer))
+    quint32 crc = calculateChecksum(buffer);
+    if (pageInfo.checksum != crc) {
+        HBTREE_DEBUG("checksum does not match. expected" << pageInfo.checksum << "got" << crc);
+        marker_.meta.flags |= MarkerPage::Corrupted;
         return QByteArray();
+    }
 
     HBTREE_DEBUG("read page:" << pageInfo);
 
@@ -730,22 +743,31 @@ QByteArray HBtreePrivate::readPage(quint32 pageNumber) const
 
 bool HBtreePrivate::writePage(QByteArray *buffer) const
 {
-    Q_ASSERT(buffer);
-    Q_ASSERT(buffer->isDetached());
-    Q_ASSERT(spec_.pageSize > 0);
-    Q_ASSERT(buffer->size() == spec_.pageSize);
+    HBTREE_ASSERT(buffer);
+    HBTREE_ASSERT(buffer->isDetached());
+    HBTREE_ASSERT(spec_.pageSize > 0)(spec_);
+
+    if (buffer->size() != spec_.pageSize) {
+        HBTREE_DEBUG("can't write buffer with size" << buffer->size());
+        return false;
+    }
 
     quint32 checksum = calculateChecksum(*buffer);
     serializeChecksum(checksum, buffer);
 
     quint32 pageNumber = deserializePageNumber(*buffer);
 
-    Q_ASSERT(pageNumber != PageInfo::INVALID_PAGE);
+    if (pageNumber == PageInfo::INVALID_PAGE) {
+        HBTREE_DEBUG("can't write. Innvalid page number detcted in buffer");
+        return false;
+    }
 
     const off_t offset = pageNumber * spec_.pageSize;
     ssize_t rc = pwrite(fd_, (const void *)buffer->constData(), spec_.pageSize, offset);
-    if (rc != spec_.pageSize)
+    if (rc != spec_.pageSize) {
+        HBTREE_DEBUG("failed pwrite. Expected page size" << spec_.pageSize << "- rc:" << rc);
         return false;
+    }
 
     HBTREE_DEBUG("wrote page" << deserializePageInfo(*buffer));
 
@@ -757,14 +779,16 @@ bool HBtreePrivate::writePage(QByteArray *buffer) const
 
 bool HBtreePrivate::sync()
 {
-    Q_ASSERT(verifyIntegrity(&marker_));
+    HBTREE_ASSERT(verifyIntegrity(&marker_))(marker_);
     HBTREE_DEBUG("syncing" << marker_);
 
     if (openMode_ == HBtree::ReadOnly)
         return true;
 
-    if (marker_.meta.syncId == lastSyncedId_)
+    if (marker_.meta.syncId == lastSyncedId_) {
+        HBTREE_DEBUG("already sunced at" << lastSyncedId_);
         return true;
+    }
 
     MarkerPage synced0(1);
     MarkerPage synced1(2);
@@ -785,7 +809,7 @@ bool HBtreePrivate::sync()
     if (synced_.meta.flags & MarkerPage::DataOnOverflow) {
         QList<quint32> pages;
         if (!getOverflowPageNumbers(synced_.overflowPage, &pages)) {
-            HBTREE_DEBUG("failed to get overflow pages for" << synced0);
+            HBTREE_DEBUG("failed to get overflow pages for" << synced_);
             return false;
         }
         foreach (quint32 pgno, pages)
@@ -802,7 +826,7 @@ bool HBtreePrivate::sync()
     marker_.info.upperOffset = 0;
     residueHistory_.clear();
 
-    HBTREE_DEBUG("synced marker and upped revision to" << lastSyncedId_);
+    HBTREE_DEBUG("synced marker and upped sync id to" << lastSyncedId_);
 
     if (fsync(fd_) != 0)
         return false;
@@ -824,7 +848,7 @@ bool HBtreePrivate::sync()
 
 bool HBtreePrivate::readSyncedMarker(HBtreePrivate::MarkerPage *markerOut)
 {
-    Q_ASSERT(markerOut);
+    HBTREE_ASSERT(markerOut);
     if (!readMarker(1, markerOut)) {
         HBTREE_DEBUG("synced marker 1 invalid. Checking synced marker 2.");
         if (!readMarker(2, markerOut)) {
@@ -856,12 +880,12 @@ bool HBtreePrivate::rollback()
 
 bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
 {
-    Q_ASSERT(transaction);
+    HBTREE_ASSERT(transaction)(tag);
     HBTREE_DEBUG("commiting" << dirtyPages_.size() << "pages");
 
     PageMap::iterator it = dirtyPages_.begin();
     while (it != dirtyPages_.constEnd()) {
-        Q_ASSERT(verifyIntegrity(it.value()));
+        HBTREE_ASSERT(verifyIntegrity(it.value()))(*it.value());
         QByteArray ba = serializePage(*it.value());
         if (!writePage(&ba))
             return false;
@@ -886,7 +910,7 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
     mp.info.upperOffset = residueHistory_.size() * sizeof(quint32);
 
     copy(mp, &marker_);
-    Q_ASSERT(verifyIntegrity(&marker_));
+    HBTREE_ASSERT(verifyIntegrity(&marker_))(marker_);
 
     abort(transaction);
 
@@ -898,10 +922,10 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
 
 void HBtreePrivate::abort(HBtreeTransaction *transaction)
 {
-    Q_ASSERT(transaction);
+    HBTREE_ASSERT(transaction);
     HBTREE_DEBUG("aborting transaction with" << dirtyPages_.size() << "dirty pages");
     foreach (Page *page, dirtyPages_) {
-        Q_ASSERT(cacheFind(page->info.number));
+        HBTREE_ASSERT(cacheFind(page->info.number))(page->info);
         cacheDelete(page->info.number);
     }
     dirtyPages_.clear();
@@ -914,18 +938,18 @@ void HBtreePrivate::abort(HBtreeTransaction *transaction)
     cachePrune();
 }
 
-quint32 HBtreePrivate::calculateChecksum(const char *begin, const char *end) const
+quint32 HBtreePrivate::calculateChecksum(quint32 crc, const char *begin, const char *end) const
 {
     Q_ASSERT(begin <= end);
-    return crc32_little(0xFFFFFFFF, (const unsigned char *)begin, end-begin);
+    return crc32_little(crc, (const unsigned char *)begin, end-begin);
 }
 
 quint32 HBtreePrivate::calculateChecksum(const QByteArray &buffer) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    Q_ASSERT(buffer.size() == (int)spec_.pageSize);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(HBTREE_DEFAULT_PAGE_SIZE)(spec_);
+    HBTREE_ASSERT(buffer.size() == (int)spec_.pageSize)(spec_)(buffer.size());
 
-    const size_t crcOffset = sizeof(quint32);
+    quint32 crcOffset = sizeof(quint32);
     const char *begin = buffer.constData();
     const char *end = buffer.constData() + spec_.pageSize;
     PageInfo info = deserializePageInfo(buffer);
@@ -933,22 +957,32 @@ quint32 HBtreePrivate::calculateChecksum(const QByteArray &buffer) const
     HBTREE_VERBOSE("calculating checksum for" << info);
 
     if (info.type == PageInfo::Spec) {
-        crc = calculateChecksum(begin + crcOffset, begin + sizeof(PageInfo) + sizeof(Spec));
+        crc = calculateChecksum(crc, begin + crcOffset, begin + (sizeof(PageInfo) + sizeof(Spec)));
     } else if (info.type == PageInfo::Branch || info.type == PageInfo::Leaf) {
         NodePage::Meta meta = deserializeNodePageMeta(buffer);
-        size_t lower = info.headerSize() + meta.historySize * sizeof(HistoryNode) + info.lowerOffset;
-        quint32 c1 = calculateChecksum(begin + crcOffset, begin + lower);
-        quint32 c2 = calculateChecksum(end - info.upperOffset, end);
-        crc = c1 ^ c2;
+        crc = calculateChecksum(crc, begin + crcOffset, begin
+                    + (sizeof(HBtreePrivate::PageInfo)
+                       + sizeof(HBtreePrivate::NodePage::Meta)
+                       + meta.historySize * sizeof(HistoryNode)
+                       + info.lowerOffset));
+        crc = calculateChecksum(crc, end - info.upperOffset, end);
     } else if (info.type == PageInfo::Marker) {
-        crc = calculateChecksum(begin + crcOffset, begin + info.headerSize());
+        crc = calculateChecksum(crc, begin + crcOffset, begin
+                    + (sizeof(HBtreePrivate::PageInfo)
+                       + sizeof(HBtreePrivate::MarkerPage::Meta)));
     } else if (info.type == PageInfo::Overflow) {
-        Q_ASSERT(info.hasPayload()); // lower offset represents size of overflow
-        crc = calculateChecksum(begin + crcOffset, begin + info.headerSize() + info.lowerOffset);
-    } else
-        Q_ASSERT(0);
+        HBTREE_ASSERT(info.hasPayload())(info); // lower offset represents size of overflow
+        crc = calculateChecksum(crc, begin + crcOffset, begin
+                    + (sizeof(HBtreePrivate::PageInfo)
+                       + sizeof(HBtreePrivate::NodeHeader)
+                       + info.lowerOffset));
+    } else {
+        HBTREE_ASSERT(0).message("unknown page type");
+        HBTREE_ERROR("unknown page type");
+        return 0;
+    }
 
-    HBTREE_VERBOSE("checksum:" << ~crc);
+    HBTREE_VERBOSE("checksum:" <<  crc);
 
     return crc;
 }
@@ -978,7 +1012,7 @@ HBtreeTransaction *HBtreePrivate::beginTransaction(HBtreeTransaction::Type type)
 //    }
 
     if (type == HBtreeTransaction::ReadWrite) {
-        Q_ASSERT(dirtyPages_.isEmpty());
+        HBTREE_ASSERT(dirtyPages_.isEmpty())(dirtyPages_);
         if (::flock(fd_, LOCK_EX | LOCK_NB) != 0) {
             HBTREE_ERROR("failed to take write lock");
             return 0;
@@ -1039,7 +1073,7 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
         HBTREE_DEBUG("btree empty. Creating new root");
         page = static_cast<NodePage *>(newPage(PageInfo::Leaf));
         transaction->rootPage_ = page->info.number;
-        Q_ASSERT(verifyIntegrity(page));
+        HBTREE_ASSERT(verifyIntegrity(page))(*page);
     }
 
     Q_Q(HBtree);
@@ -1060,7 +1094,7 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
     else
         ok = split(page, nkey, nval);
 
-    Q_ASSERT(verifyIntegrity(page));
+    HBTREE_ASSERT(verifyIntegrity(page))(*page);
 
     if (closeTransaction) {
         ok = transaction->commit(0);
@@ -1171,7 +1205,7 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
         case PageInfo::Spec:
         case PageInfo::Unknown:
         default:
-            Q_ASSERT(0);
+            HBTREE_ASSERT(0).message("unknown type");
             return 0;
     }
 
@@ -1193,35 +1227,36 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
 
 HBtreePrivate::NodePage *HBtreePrivate::touchNodePage(HBtreePrivate::NodePage *page)
 {
-    Q_ASSERT(page);
-    Q_ASSERT(page->info.type == PageInfo::Branch || page->info.type == PageInfo::Leaf);
+    HBTREE_ASSERT(page);
+    HBTREE_ASSERT(page->info.type == PageInfo::Branch || page->info.type == PageInfo::Leaf)(page->info);
 
     if (page->dirty) {
         HBTREE_DEBUG(page->info << "is dirty, no need to touch");
         return page;
     }
 
-    Q_ASSERT(cacheFind(page->info.number));
-    Q_ASSERT(!dirtyPages_.contains(page->info.number));
+    HBTREE_ASSERT(cacheFind(page->info.number))(page->info);
+    HBTREE_ASSERT(!dirtyPages_.contains(page->info.number))(page->info);
     collectHistory(page);
 
     if (page->meta.syncId > lastSyncedId_) {
-        HBTREE_DEBUG(page->info << "not synced, reusing");
+        HBTREE_DEBUG(page->info << "is not synced, reusing");
         page->dirty = true;
         dirtyPages_.insert(page->info.number, page);
         return page;
     }
 
+    HBTREE_DEBUG("touching page" << page->info);
     NodePage *touched = static_cast<NodePage *>(newPage(PageInfo::Type(page->info.type)));
     copy(*page, touched);
     touched->meta.syncId = lastSyncedId_ + 1;
 
-    HBTREE_DEBUG("touching page" << page->info.number << "to" << touched->info.number);
+    HBTREE_DEBUG("touched page" << page->info.number << "to" << touched->info.number);
 
     // Set parent's child page number to new one
     if (touched->parent) {
-        Q_ASSERT(touched->parent->info.type == PageInfo::Branch);
-        Q_ASSERT(touched->parent->nodes.contains(touched->parentKey));
+        HBTREE_ASSERT(touched->parent->info.type == PageInfo::Branch)(touched->parent->info);
+        HBTREE_ASSERT(touched->parent->nodes.contains(touched->parentKey))(touched->parentKey)(*touched->parent);
 
         NodeValue &val = touched->parent->nodes[touched->parentKey];
         val.overflowPage = touched->info.number;
@@ -1243,7 +1278,7 @@ HBtreePrivate::NodePage *HBtreePrivate::touchNodePage(HBtreePrivate::NodePage *p
 
     addHistoryNode(touched, HistoryNode(page));
 
-    Q_ASSERT(verifyIntegrity(touched));
+    HBTREE_ASSERT(verifyIntegrity(touched))(*touched);
 
     return touched;
 }
@@ -1268,7 +1303,7 @@ quint32 HBtreePrivate::putDataOnOverflow(const QByteArray &value)
         sizePut += sizeToPut;
         prevPage = overflowPage;
 
-        Q_ASSERT(verifyIntegrity(overflowPage));
+        HBTREE_ASSERT(verifyIntegrity(overflowPage))(*overflowPage);
     }
     return overflowPageNumber;
 }
@@ -1286,7 +1321,7 @@ QByteArray HBtreePrivate::getDataFromNode(const HBtreePrivate::NodeValue &nval)
 
 bool HBtreePrivate::walkOverflowPages(quint32 startPage, QByteArray *data, QList<quint32> *pages)
 {
-    Q_ASSERT(data || pages);
+    HBTREE_ASSERT(data || pages);
 
     if (data)
         data->clear();
@@ -1332,14 +1367,14 @@ quint16 HBtreePrivate::collectHistory(NodePage *page)
         // collect pages before last sync
         if (marker_.meta.syncId && it->syncId != lastSyncedId_) {
             if (canCollect || it->syncId > lastSyncedId_) {
+                HBTREE_DEBUG("marking" << *it << "as collectible. Last sync =" << lastSyncedId_);
                 collectiblePages_.insert(it->pageNumber);
                 Page *cached = cacheFind(it->pageNumber);
                 if (cached) {
-                    Q_ASSERT(!cached->dirty);
+                    HBTREE_ASSERT(!cached->dirty)(*cached);
                     cacheDelete(it->pageNumber);
                 }
                 numRemoved++;
-                HBTREE_DEBUG("marking" << *it << "as collectible. Last sync =" << lastSyncedId_);
                 it = page->history.erase(it);
                 continue;
             }
@@ -1388,9 +1423,9 @@ void HBtreePrivate::cacheClear()
 
 void HBtreePrivate::cacheInsert(quint32 pgno, HBtreePrivate::Page *page)
 {
-    Q_ASSERT(pgno > 2);
-    Q_ASSERT(pgno != PageInfo::INVALID_PAGE);
-    Q_ASSERT(pgno < lastPage_);
+    HBTREE_ASSERT(pgno > 2)(pgno);
+    HBTREE_ASSERT(pgno != PageInfo::INVALID_PAGE);
+    HBTREE_ASSERT(pgno < lastPage_)(pgno)(lastPage_);
     cache_.insert(pgno, page);
     lru_.removeOne(page);
     lru_.append(page);
@@ -1405,8 +1440,8 @@ void HBtreePrivate::cachePrune()
                 break;
             Page *page = *it;
             if (!page->dirty) {
+                HBTREE_ASSERT(page);
                 cache_.remove(page->info.number);
-                Q_ASSERT(page);
                 it = lru_.erase(it);
                 deletePage(page);
             } else {
@@ -1418,6 +1453,8 @@ void HBtreePrivate::cachePrune()
 
 void HBtreePrivate::removeFromTree(HBtreePrivate::NodePage *page)
 {
+    HBTREE_ASSERT(writeTransaction_);
+    HBTREE_DEBUG("removing" << page->info << "from tree with root" << writeTransaction_->rootPage_);
     // Can be reused immediately if not synced
     if (page->meta.syncId > lastSyncedId_)
         collectiblePages_.insert(page->info.number);
@@ -1476,7 +1513,7 @@ bool HBtreePrivate::searchPageRoot(HBtreeCursor *cursor, HBtreePrivate::NodePage
     Node parentIter;
 
     while (child->info.type == PageInfo::Branch) {
-        Q_ASSERT(child->nodes.size() > 1);
+        HBTREE_ASSERT(child->nodes.size() > 1)(*child);
 
         if (searchType == SearchLast) {
             parentIter = (child->nodes.constEnd() - 1);
@@ -1503,7 +1540,7 @@ bool HBtreePrivate::searchPageRoot(HBtreeCursor *cursor, HBtreePrivate::NodePage
         parent = child;
         child = static_cast<NodePage *>(getPage(parentIter.value().overflowPage));
 
-        Q_ASSERT(child);
+        HBTREE_ASSERT(child)(parentIter)(*parent);
 
         if (child->info.type == PageInfo::Branch) {
             child->leftPageNumber = PageInfo::INVALID_PAGE;
@@ -1518,11 +1555,11 @@ bool HBtreePrivate::searchPageRoot(HBtreeCursor *cursor, HBtreePrivate::NodePage
             return false;
         }
 
-        Q_ASSERT(verifyIntegrity(parent));
+        HBTREE_ASSERT(verifyIntegrity(parent))(*parent);
     }
 
-    Q_ASSERT(verifyIntegrity(child));
-    Q_ASSERT(child->info.type == PageInfo::Leaf);
+    HBTREE_ASSERT(verifyIntegrity(child))(*child);
+    HBTREE_ASSERT(child->info.type == PageInfo::Leaf)(child->info.type);
 
     if (cursor) {
         child->rightPageNumber = getRightSibling(rightQ);
@@ -1548,7 +1585,7 @@ quint32 HBtreePrivate::getRightSibling(QStack<quint32> rightQ)
         rightQ.pop();
     }
 
-    HBTREE_DEBUG("must go up" << idx << "levels");
+    HBTREE_VERBOSE("must go up" << idx << "levels");
 
     if (!rightQ.size())
         return PageInfo::INVALID_PAGE;
@@ -1576,7 +1613,7 @@ quint32 HBtreePrivate::getLeftSibling(QStack<quint32> leftQ)
         leftQ.pop();
     }
 
-    HBTREE_DEBUG("must go up" << idx << "levels");
+    HBTREE_VERBOSE("must go up" << idx << "levels");
 
     if (!leftQ.size())
         return PageInfo::INVALID_PAGE;
@@ -1595,8 +1632,7 @@ quint32 HBtreePrivate::getLeftSibling(QStack<quint32> leftQ)
 
 HBtreePrivate::Page *HBtreePrivate::getPage(quint32 pageNumber)
 {
-    HBTREE_DEBUG("getting page #" << pageNumber);
-
+    HBTREE_ASSERT(pageNumber > 2 && pageNumber != PageInfo::INVALID_PAGE)(pageNumber);
     Page *page = cacheFind(pageNumber);
     if (page) {
         Q_Q(HBtree);
@@ -1607,17 +1643,19 @@ HBtreePrivate::Page *HBtreePrivate::getPage(quint32 pageNumber)
         return page;
     }
 
+    HBTREE_DEBUG("reading page #" << pageNumber);
+
     QByteArray buffer;
     buffer = readPage(pageNumber);
 
     if (buffer.isEmpty()) {
-        HBTREE_ERROR("failed to read page" << pageNumber);
+        HBTREE_DEBUG("failed to read page" << pageNumber);
         return 0;
     }
 
     page = newDeserializePage(buffer);
     if (!page) {
-        HBTREE_ERROR("failed to deserialize page" << pageNumber);
+        HBTREE_DEBUG("failed to deserialize page" << pageNumber);
         return 0;
     }
 
@@ -1629,6 +1667,7 @@ HBtreePrivate::Page *HBtreePrivate::getPage(quint32 pageNumber)
 
 void HBtreePrivate::deletePage(HBtreePrivate::Page *page) const
 {
+    HBTREE_ASSERT(page);
     HBTREE_DEBUG("deleting page" << page->info);
     switch (page->info.type) {
     case PageInfo::Overflow:
@@ -1639,12 +1678,13 @@ void HBtreePrivate::deletePage(HBtreePrivate::Page *page) const
         delete static_cast<NodePage *>(page);
         break;
     default:
-        Q_ASSERT(0);
+        HBTREE_ASSERT(0)(*page).message("unknown page type");
     }
 }
 
 void HBtreePrivate::destructPage(HBtreePrivate::Page *page) const
 {
+    HBTREE_ASSERT(page);
     HBTREE_DEBUG("destructing page" << page->info);
     switch (page->info.type) {
     case PageInfo::Overflow:
@@ -1655,7 +1695,7 @@ void HBtreePrivate::destructPage(HBtreePrivate::Page *page) const
         static_cast<NodePage *>(page)->~NodePage();
         break;
     default:
-        Q_ASSERT(0);
+        HBTREE_ASSERT(0)(*page).message("unknown page type");
     }
 }
 
@@ -1687,21 +1727,21 @@ quint16 HBtreePrivate::headerSize(const Page *page) const
                 + sizeof(HBtreePrivate::MarkerPage::Meta);
     case HBtreePrivate::PageInfo::Leaf:
     case HBtreePrivate::PageInfo::Branch:
-        Q_ASSERT(static_cast<const NodePage *>(page)->meta.historySize == static_cast<const NodePage *>(page)->history.size());
+        HBTREE_ASSERT(static_cast<const NodePage *>(page)->meta.historySize == static_cast<const NodePage *>(page)->history.size())(*static_cast<const NodePage *>(page));
         return sizeof(HBtreePrivate::PageInfo)
                 + sizeof(HBtreePrivate::NodePage::Meta)
                 + static_cast<const NodePage *>(page)->meta.historySize * sizeof(HistoryNode);
     case HBtreePrivate::PageInfo::Overflow:
         return sizeof(HBtreePrivate::PageInfo) + sizeof(HBtreePrivate::NodeHeader);
     default:
-        Q_ASSERT(0);
+        HBTREE_ASSERT(0)(*page).message("unhandled page type");
     }
     return 0;
 }
 
 quint16 HBtreePrivate::spaceLeft(const Page *page) const
 {
-    Q_ASSERT(spaceUsed(page) <= capacity(page));
+    HBTREE_ASSERT(spaceUsed(page) <= capacity(page))(capacity(page))(spaceUsed(page))(*page);
     return capacity(page) - spaceUsed(page);
 }
 
@@ -1715,12 +1755,11 @@ quint16 HBtreePrivate::capacity(const Page *page) const
     return spec_.pageSize - headerSize(page);
 }
 
-bool HBtreePrivate::pageFullEnough(HBtreePrivate::NodePage *page) const
+double HBtreePrivate::pageFill(HBtreePrivate::NodePage *page) const
 {
     double pageFill = 1.0 - (float)spaceLeft(page) / (float)capacity(page);
     pageFill *= 100.0f;
-    HBTREE_DEBUG("page fill" << pageFill << "is" << (pageFill > spec_.pageFillThreshold ? "" : "not") << "grater than fill threshold" << spec_.pageFillThreshold);
-    return pageFill > spec_.pageFillThreshold;
+    return pageFill;
 }
 
 bool HBtreePrivate::hasSpaceFor(HBtreePrivate::NodePage *page, const HBtreePrivate::NodeKey &key, const HBtreePrivate::NodeValue &value) const
@@ -1732,10 +1771,11 @@ bool HBtreePrivate::hasSpaceFor(HBtreePrivate::NodePage *page, const HBtreePriva
 
 bool HBtreePrivate::insertNode(NodePage *page, const NodeKey &key, const NodeValue &value)
 {
-    HBTREE_DEBUG("inserting" << key << "in" << page->info);
-    Q_ASSERT(page);
+    HBTREE_ASSERT(page)(key)(value);
+    HBTREE_ASSERT(page->dirty)(*page)(key)(value);
+
+    HBTREE_DEBUG("inserting" << key << "," << value << "in" << page->info);
     NodeValue valueCopy;
-    Q_ASSERT(page->dirty);
 
     // Careful here. value could be coming in from put (in which case it won't have the overflow flag
     // set but it will have overflow data in value.data
@@ -1782,7 +1822,8 @@ bool HBtreePrivate::insertNode(NodePage *page, const NodeKey &key, const NodeVal
 
 bool HBtreePrivate::removeNode(HBtreePrivate::NodePage *page, const HBtreePrivate::NodeKey &key, bool isTransfer)
 {
-    Q_ASSERT(page->dirty);
+    HBTREE_ASSERT(page)(key);
+    HBTREE_ASSERT(page->dirty)(*page)(key);
     HBTREE_DEBUG("removing" << key << "from" << page->info);
 
     if (!page->nodes.contains(key)) {
@@ -1793,10 +1834,10 @@ bool HBtreePrivate::removeNode(HBtreePrivate::NodePage *page, const HBtreePrivat
     NodeValue value = page->nodes.value(key);
 
     if (value.flags & NodeHeader::Overflow && !isTransfer) {
-        Q_ASSERT(page->info.type == PageInfo::Leaf);
+        HBTREE_ASSERT(page->info.type == PageInfo::Leaf)(*page)(key);
         QList<quint32> overflowPages;
         if (!getOverflowPageNumbers(value.overflowPage, &overflowPages)) {
-            HBTREE_ERROR("falsed to get overflow page numbers");
+            HBTREE_ERROR("failed to get overflow page numbers");
             return false;
         }
 
@@ -1846,7 +1887,6 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
         writeTransaction_->rootPage_ = left->parent->info.number;
         HBTREE_DEBUG("root changed to" << writeTransaction_->rootPage_);
         insertNode(left->parent, nkey, nval);
-        HBTREE_DEBUG("inserted" << nkey << nval << "in" << left->parent->info);
         Q_Q(HBtree);
         q->stats_.depth++;
     }
@@ -1861,8 +1901,8 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
     left->info.upperOffset = 0;
     // keep node history in left.
 
+    HBTREE_DEBUG("inserting key/value in copy");
     insertNode(&copy, key, value); // no need to insert full value here??
-    HBTREE_DEBUG("inserted key/value" << key << "in copy");
     int splitIndex = 0;
     if (copy.info.type == PageInfo::Branch) {
         // Branch page should be fine to split in the middle since there's
@@ -1884,8 +1924,8 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
             splitIndex++;
         }
     } else {
-        Q_ASSERT(0);
-        HBTREE_ERROR("Splitting unknown page type");
+        HBTREE_ASSERT(0)(copy).message("what are you splitting??");
+        HBTREE_DEBUG("splitting unknown page type" << copy);
         return false;
     }
     HBTREE_DEBUG("splitIndex =" << splitIndex << "from" << copy.nodes.size() << "nodes in copy");
@@ -1894,17 +1934,17 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
     NodeValue splitValue(right->info.number);
 
     right->parent = left->parent;
-    HBTREE_DEBUG("set right parent to left parent");
 
     // split branch if no space
     if (spaceNeededForNode(splitKey.data, splitValue.data) >= spaceLeft(right->parent)) {
         HBTREE_DEBUG("not enough space in right parent - splitting:");
         if (!split(right->parent, splitKey, splitValue)) {
-            HBTREE_ERROR("failed to split parent" << *right->parent);
+            HBTREE_DEBUG("failed to split parent" << *right->parent);
             return false;
         } else {
             if (right->parent != left->parent) {
-                Q_ASSERT(0);
+                HBTREE_ASSERT(0).message("parents not the same. What happened?");
+                return false;
                 // TODO: Original btree does something here...
                 // WHAAAAAT ISSSSS IIIITTTTTTT?????
                 // Never seem to hit this assert though...
@@ -1912,26 +1952,24 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
         }
     } else {
         right->parentKey = splitKey;
-        HBTREE_DEBUG("set right parentKey" << splitKey);
+        HBTREE_DEBUG("set right parentKey" << splitKey << "and inserting split node in parent");
         if (!insertNode(right->parent, splitKey, splitValue)) {
-            HBTREE_ERROR("failed to split keys in right parent");
+            HBTREE_DEBUG("failed to insert split keys in right parent");
             return false;
         }
-        HBTREE_DEBUG("inserted" << splitKey << splitValue << "in" << right->parent->info);
     }
 
     int index = 0;
     Node node = copy.nodes.constBegin();
     while (node != copy.nodes.constEnd()) {
         if (index++ < splitIndex) {
-
 //            // There's a corner case where a 3-way split becomes necessary, when the new node
 //            // is too big for the left page. If this is true then key should be <= than node.key
 //            // (since it may have been already inserted) and value should not be an overflow.
 //            if (spaceNeededForNode(node.key().data, node.value().data) > spaceLeft(left)) {
-//                Q_ASSERT(left->info.type != PageInfo::Branch); // This should never happen with a branch page
-//                Q_ASSERT(key <= node.key());
-//                Q_ASSERT(willCauseOverflow(key.data, value.data) == false);
+//                HBTREE_ASSERT(left->info.type != PageInfo::Branch); // This should never happen with a branch page
+//                HBTREE_ASSERT(key <= node.key());
+//                HBTREE_ASSERT(willCauseOverflow(key.data, value.data) == false);
 //                if (!split(left, node.key(), node.value(), &left)) {
 //                    HBTREE_ERROR("3-way split fail");
 //                    return false;
@@ -1939,19 +1977,19 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
 //                ++node;
 //                continue;
 //            }
-
-            Q_ASSERT(spaceNeededForNode(node.key().data, node.value().data) <= spaceLeft(left));
+            HBTREE_ASSERT(spaceNeededForNode(node.key().data, node.value().data) <= spaceLeft(left))(node)(spaceLeft(left));
 
             if (!insertNode(left, node.key(), node.value())) {
-                HBTREE_ERROR("failed to insert key in to left");
+                HBTREE_DEBUG("failed to insert key in to left");
                 return false;
             }
             HBTREE_VERBOSE("inserted" << node.key() << "in left");
         }
         else {
-            Q_ASSERT(spaceNeededForNode(node.key().data, node.value().data) <= spaceLeft(right));
+            HBTREE_ASSERT(spaceNeededForNode(node.key().data, node.value().data) <= spaceLeft(right))(node)(spaceLeft(right));
+
             if (!insertNode(right, node.key(), node.value())) {
-                HBTREE_ERROR("failed to insert key in to right");
+                HBTREE_DEBUG("failed to insert key in to right");
                 return false;
             }
             HBTREE_VERBOSE("inserted" << node.key() << "in right");
@@ -1959,13 +1997,8 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
         ++node;
     }
 
-    HBTREE_DEBUG("left:" << *left);
-    HBTREE_DEBUG("right:" << *right);
-
-    HBTREE_DEBUG("parent:" << *left->parent);
-
     // adjust right/left siblings
-    Q_ASSERT(left->info.type == right->info.type);
+    HBTREE_ASSERT(left->info.type == right->info.type)(*left)(*right);
     if (left->info.type == PageInfo::Leaf) {
         // since we have a new right, the left's right sibling has a new left.
         if (left->rightPageNumber != PageInfo::INVALID_PAGE) {
@@ -1978,7 +2011,9 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
         right->leftPageNumber = left->info.number;
     }
 
-    Q_ASSERT(verifyIntegrity(right));
+    HBTREE_ASSERT(verifyIntegrity(right))(*right);
+    HBTREE_ASSERT(verifyIntegrity(left))(*left);
+
     if (rightOut)
         *rightOut = right;
 
@@ -1989,35 +2024,34 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
 {
     NodePage *parent = page->parent;
 
-    if (pageFullEnough(page))
+    if (pageFill(page) > spec_.pageFillThreshold)
         return true;
 
-    HBTREE_DEBUG("rebalancing" << *page);
+    HBTREE_DEBUG("rebalancing" << *page << "with page fill" << pageFill(page) << "and fill threshold" << spec_.pageFillThreshold);
 
     if (parent == NULL) { // root
-        Q_ASSERT(writeTransaction_->rootPage_ != PageInfo::INVALID_PAGE);
-        Q_ASSERT(page->info.number == writeTransaction_->rootPage_);
+        HBTREE_ASSERT(writeTransaction_->rootPage_ != PageInfo::INVALID_PAGE)(*page);
+        HBTREE_ASSERT(page->info.number == writeTransaction_->rootPage_)(*page)(writeTransaction_->rootPage_);
         Q_Q(HBtree);
         if (page->nodes.size() == 0) {
-            HBTREE_DEBUG("making root invalid, btree empty");
+            HBTREE_DEBUG("making root invalid, btree empty.");
             writeTransaction_->rootPage_ = PageInfo::INVALID_PAGE;
             removeFromTree(page);
         } else if (page->info.type == PageInfo::Branch && page->nodes.size() == 1) {
             NodePage *root = static_cast<NodePage *>(getPage(page->nodes.constBegin().value().overflowPage));
             root->parent = NULL;
             writeTransaction_->rootPage_ = page->nodes.constBegin().value().overflowPage;
-            HBTREE_DEBUG("One node in root branch" << page->info << "setting root to page" << writeTransaction_->rootPage_);
+            HBTREE_DEBUG("collapsing one node in root branch" << page->info << "setting root to page" << writeTransaction_->rootPage_);
             q->stats_.depth--;
             removeFromTree(page);
         } else {
-            HBTREE_DEBUG("No need to rebalance root page");
+            HBTREE_DEBUG("no need to rebalance root page");
         }
         return true;
     }
 
-    HBTREE_DEBUG(*parent);
-    Q_ASSERT(parent->nodes.size() >= 2);
-    Q_ASSERT(parent->info.type == PageInfo::Branch);
+    HBTREE_ASSERT(parent->nodes.size() >= 2)(*parent);
+    HBTREE_ASSERT(parent->info.type == PageInfo::Branch)(*parent);
 
     NodePage *neighbour = 0;
     Node pageBranchNode = page->parent->nodes.find(page->parentKey);
@@ -2042,10 +2076,11 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
 
     neighbour->parent = page->parent;
     neighbour->parentKey = neighbourBranchNode.key();
-    //HBTREE_DEBUG("neighbour:" << neighbour->info);
 
-    if (pageFullEnough(neighbour) && neighbour->nodes.size() > 2
+    if (pageFill(neighbour) > spec_.pageFillThreshold && neighbour->nodes.size() > 2
             && hasSpaceFor(page, sourceNode.key(), sourceNode.value())) {
+
+        HBTREE_DEBUG("moving" << sourceNode << "from" << neighbour->info << "with page fill" << pageFill(neighbour) << "and fill threshold" << spec_.pageFillThreshold);
 
         bool canUpdate = true;
         if (neighbourBranchNode != neighbour->parent->nodes.constBegin()
@@ -2055,8 +2090,10 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
             if (sourceNode.key().data.size() >
                     neighbour->parentKey.data.size()) {
                 quint16 diff = sourceNode.key().data.size() - neighbour->parentKey.data.size();
-                if (diff > spaceLeft(neighbour->parent))
+                if (diff > spaceLeft(neighbour->parent)) {
+                    HBTREE_DEBUG("not enough space in neighbour parent for new key - diff:" << diff << ", space:" << spaceLeft(neighbour->parent));
                     canUpdate = false;
+                }
             }
         }
 
@@ -2068,8 +2105,10 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
             if (sourceNode.key().data.size() >
                     page->parentKey.data.size()) {
                 quint16 diff = sourceNode.key().data.size() - page->parentKey.data.size();
-                if (diff > spaceLeft(page->parent))
+                if (diff > spaceLeft(page->parent)) {
+                    HBTREE_DEBUG("not enough space in page parent for new key - diff:" << diff << ", space:" << spaceLeft(page->parent));
                     canUpdate = false;
+                }
             }
         }
 
@@ -2079,12 +2118,19 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
     } else {
         // Account for transfer of history
         // Account for extra history node in dst page in the case of touch page.
+        HBTREE_DEBUG("merging" << neighbour->info << "and" << page->info);
         if (pageBranchNode == parent->nodes.constBegin() && spaceLeft(page) >= (spaceUsed(neighbour) + sizeof(HistoryNode) * (neighbour->history.size() + 1))) {
-            if (!mergePages(neighbour, page))
+            if (!mergePages(neighbour, page)) {
+                HBTREE_DEBUG("failed to merge");
                 return false;
+            }
         } else if (spaceLeft(neighbour) >= (spaceUsed(page) + sizeof(HistoryNode) * (page->history.size() + 1))) {
-            if (!mergePages(page, neighbour))
+            if (!mergePages(page, neighbour)) {
+                HBTREE_DEBUG("failed to merge");
                 return false;
+            }
+        } else {
+            HBTREE_DEBUG("can't merge - page space:" << spaceLeft(page) << ", neighbour space:" << spaceUsed(neighbour));
         }
     }
 
@@ -2094,15 +2140,13 @@ bool HBtreePrivate::rebalance(HBtreePrivate::NodePage *page)
 // TODO: turn in to transferNode(src, dst) // only with same parents.
 bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePage *dst, HBtreePrivate::Node node)
 {
-    Q_ASSERT(src->parent);
-    Q_ASSERT(dst->parent);
-    Q_ASSERT(dst->parent == src->parent);
-    Q_ASSERT(src->info.type == dst->info.type);
-    Q_ASSERT(src->parentKey <= node.key());
+    HBTREE_ASSERT(src->parent)(node);
+    HBTREE_ASSERT(dst->parent)(node);
+    HBTREE_ASSERT(dst->parent == src->parent)(*dst->parent)(*src->parent)(node);
+    HBTREE_ASSERT(src->info.type == dst->info.type)(*dst->parent)(*src->parent)(node);
+    HBTREE_ASSERT(src->parentKey <= node.key())(*dst->parent)(*src->parent)(node)(src->parentKey);
 
     HBTREE_DEBUG("moving" << node << "from" << src->info << "to" << dst->info);
-    HBTREE_VERBOSE("src parent ->" << src->parent->nodes);
-    HBTREE_VERBOSE("dst parent ->" << dst->parent->nodes);
 
     src = touchNodePage(src);
     dst = touchNodePage(dst);
@@ -2111,6 +2155,7 @@ bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePa
         return false;
 
     bool decending = src->parentKey > dst->parentKey;
+    HBTREE_DEBUG("moving from" << (decending ? "higher to lower" : "lower to higher"));
 
     NodeKey nkey = node.key();
 
@@ -2119,77 +2164,34 @@ bool HBtreePrivate::moveNode(HBtreePrivate::NodePage *src, HBtreePrivate::NodePa
 
     if (dst->parentKey > nkey) {
         // must change destination parent key
+        HBTREE_DEBUG("changing dst->parent key in" << dst->parent->info << "to" << nkey);
         removeNode(dst->parent, dst->parentKey);
         insertNode(dst->parent, nkey, NodeValue(dst->info.number));
         dst->parentKey = nkey;
     }
 
     if (src->parentKey <= nkey && decending) {
-        Q_ASSERT(!src->parentKey.data.isEmpty());
+        HBTREE_ASSERT(!src->parentKey.data.isEmpty());
+        HBTREE_DEBUG("changing src->parent key in" << src->parent->info << "to" << nkey);
         // must change source parent key
         removeNode(src->parent, src->parentKey);
         insertNode(src->parent, src->nodes.constBegin().key(), NodeValue(src->info.number));
         src->parentKey = src->nodes.constBegin().key();
     }
-//    // If we move
-//    if (rightToLeft) {
-//        // Source parent key can change.
-//        // Find lowest key from source and set as source parent key
-//        HBTREE_DEBUG("took first node from source, must adjust source parent key");
-//        Node branchNode = src->parent->nodes.find(src->parentKey);
-//        if (branchNode.key() < src->nodes.constBegin().key()) {
-//            // Should set branchNode to lowest key reachable from src
-//            NodePage *lowest = src;
-//            searchPageRoot(NULL, src, NodeKey(), SearchFirst, false, &lowest);
-//            HBTREE_DEBUG("setting" << branchNode << "to" << lowest->nodes.constBegin().key());
-//            removeNode(src->parent, src->parentKey);
-//            insertNode(src->parent, lowest->nodes.constBegin().key(), branchNode.value());
-//            src->parentKey = lowest->nodes.constBegin().key();
-//        }
-//    }
-
-//    // If we move
-//    if (leftToRight) {
-//        // Destination parent key can chance.
-//        // FInd lowest key from destination and set as source parent key
-//        HBTREE_DEBUG("took first node of source, must adjust dest parent key");
-//        Node branchNode = dst->parent->nodes.find(dst->parentKey);
-//        if (branchNode.key() > dst->nodes.constBegin().key()) {
-//            // Should set branchNode to lowest key reachable from dst
-//            NodePage *lowest = dst;
-//            searchPageRoot(NULL, dst, NodeKey(), SearchFirst, false, &lowest);
-//            HBTREE_DEBUG("setting" << branchNode << "to" << lowest->nodes.constBegin().key());
-//            dst->parent->nodes.remove(dst->parentKey);
-//            dst->parent->nodes.insert(lowest->nodes.constBegin().key(), branchNode.value());
-//            removeNode(dst, dst->parentKey);
-//            insertNode(dst, lowest->nodes.constBegin().key(), branchNode.value());
-//            dst->parentKey = lowest->nodes.constBegin().key();
-//        }
-//    }
-
-    HBTREE_DEBUG("src" << *src);
-    HBTREE_DEBUG("dst" << *dst);
-    HBTREE_DEBUG("parent" << *src->parent);
 
     return true;
 }
 
 bool HBtreePrivate::mergePages(HBtreePrivate::NodePage *page, HBtreePrivate::NodePage *dst)
 {
-    Q_ASSERT(dst->parent);
-    Q_ASSERT(page->parent);
-    Q_ASSERT(page->parent == dst->parent);
+    HBTREE_ASSERT(dst->parent);
+    HBTREE_ASSERT(page->parent);
+    HBTREE_ASSERT(page->parent == dst->parent)(*dst->parent)(*page->parent);
 
     HBTREE_DEBUG("merging" << page->info << "in to" << dst->info);
-    HBTREE_DEBUG(*page);
-    HBTREE_DEBUG(*dst);
-    HBTREE_DEBUG(*dst->parent);
 
     // No need to touch page since only dst is changing.
     dst = touchNodePage(dst);
-
-    if (!dst || !page)
-        return false;
 
     Node it = page->nodes.constBegin();
     while (it != page->nodes.constEnd()) {
@@ -2201,6 +2203,7 @@ bool HBtreePrivate::mergePages(HBtreePrivate::NodePage *page, HBtreePrivate::Nod
         // Merging a page with larger key values in to a page
         // with smaller key values. Just delete the key to
         // greater page form parent
+        HBTREE_DEBUG("merging from higher to lower. Parent key unchanged");
         removeNode(dst->parent, page->parentKey);
 
         // right page becomes insignificant, change left/right siblings
@@ -2214,6 +2217,7 @@ bool HBtreePrivate::mergePages(HBtreePrivate::NodePage *page, HBtreePrivate::Nod
     } else {
         // Merging page with smaller keys in to page
         // with bigger keys. Change dst parent key.
+        HBTREE_DEBUG("merging from lower to higher. Changing parent key in" << dst->parent->info << "to" << page->parentKey << "->" << dst->info.number);
         removeNode(dst->parent, dst->parentKey, true);
         removeNode(page->parent, page->parentKey);
         NodeKey nkey = page->parentKey;
@@ -2306,7 +2310,7 @@ void HBtreePrivate::dumpPage(HBtreePrivate::NodePage *page, int depth)
         qDebug() << tabs << page->nodes;
         break;
     default:
-        Q_ASSERT(0);
+        HBTREE_ASSERT(0)(page->info).message("unknown type");
     }
 }
 
@@ -2316,6 +2320,8 @@ void HBtreePrivate::dumpPage(HBtreePrivate::NodePage *page, int depth)
 
 bool HBtreePrivate::cursorLast(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut)
 {
+    HBTREE_ASSERT(cursor);
+    HBTREE_DEBUG("getting last node with cursor @" << cursor);
     NodePage *page = 0;
     searchPage(cursor, cursor->transaction_, NodeKey(), SearchLast, false, &page);
     if (page) {
@@ -2332,6 +2338,8 @@ bool HBtreePrivate::cursorLast(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
 
 bool HBtreePrivate::cursorFirst(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut)
 {
+    HBTREE_ASSERT(cursor);
+    HBTREE_DEBUG("getting first node with cursor @" << cursor);
     NodePage *page = 0;
     searchPage(cursor, cursor->transaction_, NodeKey(), SearchFirst, false, &page);
     if (page) {
@@ -2347,20 +2355,28 @@ bool HBtreePrivate::cursorFirst(HBtreeCursor *cursor, QByteArray *keyOut, QByteA
 
 bool HBtreePrivate::cursorNext(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut)
 {
+    HBTREE_ASSERT(cursor);
+    HBTREE_DEBUG("getting next node with cursor @" << cursor);
+
     if (!cursor->valid_)
         return cursorFirst(cursor, keyOut, valueOut);
 
+    HBTREE_DEBUG("last key/value - " << NodeKey(compareFunction_, cursor->key_) << NodeValue(cursor->value_) << ". last leaf -" << cursor->lastLeaf_);
     NodeKey nkey(compareFunction_, cursor->key_);
 
     NodePage *page = 0;
+    Node node;
+
     if (!searchPage(cursor, cursor->transaction_, nkey, SearchKey, false, &page))
         return false;
+    node = page->nodes.lowerBound(nkey);
+    bool checkRight = (node == page->nodes.constEnd() || node.key() == nkey) &&
+            (node == page->nodes.constEnd() || ++node == page->nodes.constEnd());
 
-    Node node = page->nodes.lowerBound(nkey);
-
-    bool checkRight = node == page->nodes.constEnd() || node.key() == nkey;
     // Could've been deleted so check if node == end.
-    if (checkRight && (node == page->nodes.constEnd() || ++node == page->nodes.constEnd())) {
+    if (checkRight) {
+        cursor->lastLeaf_ = PageInfo::INVALID_PAGE;
+        HBTREE_DEBUG("moving right from" << page->info << "to" << page->rightPageNumber);
         if (page->rightPageNumber != PageInfo::INVALID_PAGE) {
             NodePage *right = static_cast<NodePage *>(getPage(page->rightPageNumber));
             node = right->nodes.constBegin();
@@ -2372,7 +2388,7 @@ bool HBtreePrivate::cursorNext(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
                 return true;
             } else {
                 // This should never happen if rebalancing is working properly
-                Q_ASSERT(0);
+                HBTREE_ASSERT(0)(*right)(node)(*page).message("what up?");
             }
         }
     } else {
@@ -2388,8 +2404,13 @@ bool HBtreePrivate::cursorNext(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
 
 bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut)
 {
+    HBTREE_ASSERT(cursor);
+    HBTREE_DEBUG("getting previous node with cursor @" << cursor);
+
     if (!cursor->valid_)
         return cursorLast(cursor, keyOut, valueOut);
+
+    HBTREE_DEBUG("last key/value was - " << cursor->key_ << cursor->value_);
 
     NodeKey nkey(compareFunction_, cursor->key_);
 
@@ -2399,6 +2420,7 @@ bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
 
     Node node = page->nodes.find(nkey);
     if (node == page->nodes.constBegin()) {
+        HBTREE_DEBUG("moving left from" << page->info << "to" << page->leftPageNumber);
         if (page->leftPageNumber != PageInfo::INVALID_PAGE) {
             NodePage *left = static_cast<NodePage *>(getPage(page->leftPageNumber));
             if (left->nodes.size() > 1)
@@ -2413,7 +2435,7 @@ bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
                 return true;
             } else {
                 // This should never happen if rebalancing is working properly
-                Q_ASSERT(0);
+                HBTREE_ASSERT(0)(*left)(node)(*page).message("what up?");
             }
         }
     } else {
@@ -2430,7 +2452,8 @@ bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
 
 bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut, const QByteArray &matchKey, bool exact)
 {
-    HBTREE_DEBUG("searching for" << (exact? "exactly" : "") << matchKey);
+    HBTREE_ASSERT(cursor)(matchKey)(exact);
+    HBTREE_DEBUG("searching for" << (exact ? "exactly" : "") << matchKey);
 
     QByteArray keyData, valueData;
     NodeKey nkey(compareFunction_, matchKey);
@@ -2451,7 +2474,7 @@ bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArr
             valueData = getDataFromNode(node.value());
             ok = true;
         } else { // check sibling
-            HBTREE_DEBUG("Checking sibling of" << page->info);
+            HBTREE_DEBUG("reached end. Moving right from" << page->info << "to" << page->rightPageNumber);
             if (page->rightPageNumber != PageInfo::INVALID_PAGE) {
                 NodePage *right = static_cast<NodePage *>(getPage(page->rightPageNumber));
                 node = right->nodes.lowerBound(nkey);
@@ -2476,6 +2499,10 @@ bool HBtreePrivate::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const 
 {
     bool ok = false;
     QByteArray keyOut, valueOut;
+
+    if (cursor->valid_ == false)
+        cursor->lastLeaf_ = PageInfo::INVALID_PAGE;
+
     switch (op) {
     case HBtreeCursor::ExactMatch:
         ok = cursorSet(cursor, &keyOut, &valueOut, key, true);
@@ -2496,7 +2523,7 @@ bool HBtreePrivate::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const 
         ok = cursorLast(cursor, &keyOut, &valueOut);
         break;
     default:
-        Q_ASSERT(!"Not a valid cursor op");
+        HBTREE_ASSERT(0)(op)(key).message("Not a valid cursor op");
         ok = false;
     }
 
@@ -2516,7 +2543,8 @@ bool HBtreePrivate::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const 
 
 void HBtreePrivate::copy(const Page &src, Page *dst)
 {
-    Q_ASSERT(src.info.type == dst->info.type);
+    HBTREE_ASSERT(dst);
+    HBTREE_ASSERT(src.info.type == dst->info.type)(dst->info)(src.info);
     quint32 pgno = dst->info.number;
     switch (src.info.type) {
     case PageInfo::Branch:
@@ -2527,95 +2555,85 @@ void HBtreePrivate::copy(const Page &src, Page *dst)
         *static_cast<MarkerPage *>(dst) = static_cast<const MarkerPage &>(src);
         break;
     default:
-        Q_ASSERT(!"what are you doing bub?");
+        HBTREE_ASSERT(0).message("what are you doing bub?");
         return;
     }
     dst->info.number = pgno;
 }
 
-QByteArray HBtreePrivate::qInitializedByteArray() const
+#define CHECK_TRUE_X(expr, vars) do {if (!(expr)) {HBTREE_ASSERT((expr)) vars.ignore(); return false;}} while (0)
+bool HBtreePrivate::verifyIntegrity(const HBtreePrivate::Page *pPage) const
 {
-    Q_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE);
-    return QByteArray(spec_.pageSize, (char)0);
-}
-
-QByteArray HBtreePrivate::qUninitializedByteArray() const
-{
-    return QByteArray(spec_.pageSize, Qt::Uninitialized);
-}
-
-#define CHECK_TRUE(x) do {if (!(x)) {qDebug() << "INTEGRITY: condition false:" << #x; return false;}} while (0)
-bool HBtreePrivate::verifyIntegrity(const HBtreePrivate::Page *page) const
-{
-    CHECK_TRUE(page);
-    HBTREE_DEBUG("verifying" << page->info);
-    CHECK_TRUE(page->info.isTypeValid());
-    CHECK_TRUE(page->info.isValid());
-    if (page->info.type != PageInfo::Marker || marker_.meta.syncId == lastSyncedId_) {
+    CHECK_TRUE_X(pPage, (pPage));
+    const HBtreePrivate::Page &page = *pPage;
+    HBTREE_VERBOSE("verifying" << page);
+    CHECK_TRUE_X(page.info.type > 0 && page.info.type < PageInfo::Unknown, (page.info.type));
+    CHECK_TRUE_X(page.info.number != PageInfo::INVALID_PAGE, (page.info.number));
+    if (page.info.type != PageInfo::Marker || marker_.meta.syncId == lastSyncedId_) {
         // These checks are only valid for a marker on sync.
-        CHECK_TRUE(capacity(page) >= (page->info.upperOffset + page->info.lowerOffset));
-        CHECK_TRUE(spaceLeft(page) <= capacity(page));
-        CHECK_TRUE(spaceUsed(page) <= capacity(page));
-        CHECK_TRUE((spaceUsed(page) + spaceLeft(page)) == capacity(page));
+        CHECK_TRUE_X(capacity(&page) >= (page.info.upperOffset + page.info.lowerOffset), (capacity(&page)));
+        CHECK_TRUE_X(spaceLeft(&page) <= capacity(&page), (spaceLeft(&page))(capacity(&page)));
+        CHECK_TRUE_X(spaceUsed(&page) <= capacity(&page), (spaceUsed(&page))(capacity(&page)));
+        CHECK_TRUE_X(((spaceUsed(&page) + spaceLeft(&page)) == capacity(&page)), (spaceUsed(&page))(spaceLeft(&page))(capacity(&page)));
     }
-    if (page->info.type == PageInfo::Marker) {
-        const MarkerPage *mp = static_cast<const MarkerPage *>(page);
-        CHECK_TRUE(mp->info.number == marker_.info.number); // only verify current marker
-        CHECK_TRUE(mp->info.upperOffset == mp->residueHistory.size() * sizeof(quint32));
-        CHECK_TRUE(mp->meta.size <= size_);
-        CHECK_TRUE(mp->meta.syncId == lastSyncedId_ || mp->meta.syncId == (lastSyncedId_ + 1));
+    if (page.info.type == PageInfo::Marker) {
+        const MarkerPage &mp = static_cast<const MarkerPage &>(page);
+        CHECK_TRUE_X(mp.info.number == marker_.info.number, (marker_.info.number)(mp.info.number));
+        CHECK_TRUE_X(mp.info.upperOffset == mp.residueHistory.size() * sizeof(quint32), (mp.residueHistory.size()));
+        CHECK_TRUE_X(mp.meta.size <= size_, (size_));
+        CHECK_TRUE_X(mp.meta.syncId == lastSyncedId_ || mp.meta.syncId == (lastSyncedId_ + 1), (lastSyncedId_));
         //if (mp->meta.syncedRevision == lastSyncedRevision_) // we just synced
         //    ;
         //else // we've had a number of revisions since last sync
         //    ;
-        CHECK_TRUE(mp->meta.revision >= lastSyncedId_);
-        if (mp->meta.root != PageInfo::INVALID_PAGE)
-            CHECK_TRUE(mp->meta.root <= (size_ / spec_.pageSize));
-    } else if (page->info.type == PageInfo::Leaf || page->info.type == PageInfo::Branch) {
-        const NodePage *np = static_cast<const NodePage *>(page);
-        CHECK_TRUE(np->history.size() == np->meta.historySize);
-        CHECK_TRUE((np->info.lowerOffset / 2) == np->nodes.size());
-        if (np->dirty) {
-            CHECK_TRUE(np->meta.syncId == (lastSyncedId_ + 1));
+        CHECK_TRUE_X(mp.meta.revision >= lastSyncedId_, (lastSyncedId_));
+        if (mp.meta.root != PageInfo::INVALID_PAGE)
+            CHECK_TRUE_X(mp.meta.root <= (size_ / spec_.pageSize), (spec_)(size_));
+    } else if (page.info.type == PageInfo::Leaf || page.info.type == PageInfo::Branch) {
+        const NodePage &np = static_cast<const NodePage &>(page);
+        CHECK_TRUE_X(np.history.size() == np.meta.historySize, (np.meta.historySize)(np.history.size()));
+        CHECK_TRUE_X((np.info.lowerOffset / 2) == np.nodes.size(), (np.info.lowerOffset)(np.nodes.size()));
+        if (np.dirty) {
+            CHECK_TRUE_X(np.meta.syncId == (lastSyncedId_ + 1), (lastSyncedId_)(np.meta.syncId));
         } else {
-            CHECK_TRUE(np->meta.syncId <= marker_.meta.syncId);
+            CHECK_TRUE_X(np.meta.syncId <= marker_.meta.syncId, (marker_)(np.meta.syncId));
         }
 
-        Node it = np->nodes.constBegin();
+        Node it = np.nodes.constBegin();
 
-        if (np->parent) {
+        if (np.parent) {
 //            Node node = np->parent->nodes.find(np->parentKey);
 //            CHECK_TRUE(node != np->parent->nodes.constEnd());
 //            CHECK_TRUE(np->nodes.constBegin().key() >= node.key());
         }
-        while (it != np->nodes.constEnd()) {
-            CHECK_TRUE(it.key().compareFunction == compareFunction_);
-            if (np->parent)
-                CHECK_TRUE(it.key() >= np->parentKey);
-            if (page->info.type == PageInfo::Leaf) {
-                CHECK_TRUE(it.key().data.size() > 0);
+        while (it != np.nodes.constEnd()) {
+            CHECK_TRUE_X(it.key().compareFunction == compareFunction_, (it.key().compareFunction)(compareFunction_));
+            if (np.parent)
+                CHECK_TRUE_X(it.key() >= np.parentKey, (it)(*np.parent));
+            if (page.info.type == PageInfo::Leaf) {
+                CHECK_TRUE_X(it.key().data.size() > 0, (it));
                 if (it.value().flags & NodeHeader::Overflow) {
-                    CHECK_TRUE(it.value().data.size() == 0);
-                    CHECK_TRUE(it.value().overflowPage != PageInfo::INVALID_PAGE);
+                    CHECK_TRUE_X(it.value().data.size() == 0, (it)(np));
+                    CHECK_TRUE_X(it.value().overflowPage != PageInfo::INVALID_PAGE, (it));
                 } else {
-                    CHECK_TRUE(it.value().overflowPage == PageInfo::INVALID_PAGE);
+                    CHECK_TRUE_X(it.value().overflowPage == PageInfo::INVALID_PAGE, (it));
                 }
             } else {
                 // branch page key data size may be 0 (empty key)
-                CHECK_TRUE(!(it.value().flags & NodeHeader::Overflow));
-                CHECK_TRUE(it.value().overflowPage != PageInfo::INVALID_PAGE);
-                CHECK_TRUE(it.value().data.size() == 0);
+                CHECK_TRUE_X(!(it.value().flags & NodeHeader::Overflow), (it));
+                CHECK_TRUE_X(it.value().overflowPage != PageInfo::INVALID_PAGE, (it));
+                CHECK_TRUE_X(it.value().data.size() == 0, (it));
             }
             ++it;
         }
-    } else if (page->info.type == PageInfo::Overflow) {
-        const OverflowPage *op = static_cast<const OverflowPage *>(page);
-        if (op->nextPage != PageInfo::INVALID_PAGE)
-            CHECK_TRUE(op->data.size() == capacity(page));
+    } else if (page.info.type == PageInfo::Overflow) {
+        const OverflowPage &op = static_cast<const OverflowPage &>(page);
+        if (op.nextPage != PageInfo::INVALID_PAGE)
+            CHECK_TRUE_X(op.data.size() == capacity(&page), (op.data.size())(capacity(&page)));
         else
-            CHECK_TRUE(op->data.size() <= capacity(page));
+            CHECK_TRUE_X(op.data.size() <= capacity(&page), (op.data.size())(capacity(&page)));
     } else
-        CHECK_TRUE(false);
+        CHECK_TRUE_X(false, (false));
     return true;
 }
 
@@ -2787,6 +2805,23 @@ bool HBtree::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteAr
 // ### Output streams
 // ######################################################################
 
+
+QDebug operator << (QDebug dbg, const HBtreePrivate::Spec &p)
+{
+    dbg.nospace() << "["
+                  << "keySize:" << p.keySize
+                  << ", "
+                  << "overflowThreshold:" << p.overflowThreshold
+                  << ", "
+                  << "pageFillThreshold:" << p.pageFillThreshold
+                  << ", "
+                  << "pageSize:" << p.pageSize
+                  << ", "
+                  << "version:" << p.version
+                  << "]";
+    return dbg.space();
+}
+
 QDebug operator << (QDebug dbg, const HBtreePrivate::PageInfo &pi)
 {
     QString pageStr;
@@ -2811,20 +2846,26 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::PageInfo &pi)
         break;
     }
 
-    dbg.nospace() << pageStr << " # " << pi.number << " ["
-                  << "checksum:" << pi.checksum
-                  << ","
-                  << "lower:" << pi.lowerOffset
-                  << ","
-                  << "upper:" << pi.upperOffset
-                  << "]";
+    dbg.nospace() << pageStr << " " << pi.number << " ["
+              << "crc:" << pi.checksum
+              << ", "
+              << "offsets:[" << pi.lowerOffset
+              << ", "
+              << pi.upperOffset
+              << "]]";
+    return dbg.space();
+}
+
+QDebug operator << (QDebug dbg, const HBtreePrivate::Page &page)
+{
+    dbg.nospace() << page.info << " - dirty:" << page.dirty;
     return dbg.space();
 }
 
 QDebug operator << (QDebug dbg, const HBtreePrivate::MarkerPage &p)
 {
     dbg.nospace() << p.info;
-    dbg.nospace() << "\n\tmeta => ["
+    dbg.nospace() << " meta => ["
                   << "root:" << (p.meta.root == HBtreePrivate::PageInfo::INVALID_PAGE
                                  ? "Invalid" : QString::number(p.meta.root))
                   << ", "
@@ -2835,25 +2876,45 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::MarkerPage &p)
                   << "tag:" << p.meta.tag
                   << ", "
                   << "size:" << p.meta.size
+                  << ", "
+                  << "flags:" << p.meta.flags
                   << "]";
+    dbg.nospace() << " residue => " << p.residueHistory;
 
     return dbg.space();
 }
 
 QDebug operator << (QDebug dbg, const HBtreePrivate::NodeKey &k)
 {
-    dbg.nospace() << k.data;
+    QByteArray data = k.data;
+#if !HBTREE_VERBOSE_OUTPUT
+    if (data.size() > 10)
+        data = data.left(6).append("...").append(data.right(4));
+#endif
+    if (data.size())
+        dbg.nospace() << data;
+    else
+        dbg.nospace() << "{empty}";
     return dbg.space();
 }
 
 QDebug operator << (QDebug dbg, const HBtreePrivate::NodeValue &value)
 {
     if (value.flags & HBtreePrivate::NodeHeader::Overflow)
-        dbg.nospace() << "Overflow -> " << value.overflowPage;
+        dbg.nospace() << "overflow:" << value.overflowPage;
     else if (value.overflowPage != HBtreePrivate::PageInfo::INVALID_PAGE)
-        dbg.nospace() << "Child page -> " << value.overflowPage;
-    else
-        dbg.nospace() << value.data;
+        dbg.nospace() << "page:" << value.overflowPage;
+    else {
+        QByteArray data = value.data;
+#if !HBTREE_VERBOSE_OUTPUT
+        if (data.size() > 10)
+            data = data.left(6).append("...").append(data.right(4));
+#endif
+        if (data.size())
+            dbg.nospace() << data;
+        else
+            dbg.nospace() << "{empty}";
+    }
     return dbg.space();
 }
 
@@ -2873,12 +2934,10 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::NodePage &p)
 {
     dbg.nospace() << p.info;
     if (p.parent)
-        dbg.nospace() << " parent => " << p.parent->info  << ":" << p.parentKey;
+        dbg.nospace() << " parent => [info:" << p.parent->info  << ", key:" << p.parentKey << "]";
     dbg.nospace() << " meta => " << p.meta;
 #if HBTREE_VERBOSE_OUTPUT
     dbg.nospace() << " history => " << p.history;
-#endif
-#if HBTREE_VERBOSE_OUTPUT
     dbg.nospace() << " nodes => " << p.nodes;
 #else
     if (p.info.type == HBtreePrivate::PageInfo::Branch)
@@ -2892,8 +2951,8 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::NodePage &p)
 QDebug operator << (QDebug dbg, const HBtreePrivate::OverflowPage &p)
 {
     dbg.nospace() << p.info;
-    dbg.nospace() << "\n\tnextPage => " << (p.nextPage == HBtreePrivate::PageInfo::INVALID_PAGE ? "None" : QString::number(p.nextPage).toAscii());
-    dbg.nospace() << "\n\tdata size => " << p.data.size();
+    dbg.nospace() << " with [nextPage:" << (p.nextPage == HBtreePrivate::PageInfo::INVALID_PAGE ? "None" : QByteArray::number(p.nextPage));
+    dbg.nospace() << ", dataSize:" << p.data.size() << "]";
 #if HBTREE_VERBOSE_OUTPUT
     dbg.nospace() << "\n\tdata => " << p.data;
 #endif
@@ -2902,38 +2961,19 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::OverflowPage &p)
 
 QDebug operator << (QDebug dbg, const HBtreePrivate::NodeHeader &n)
 {
-    dbg.nospace() << "(keySize -> " << n.keySize;
+    dbg.nospace() << "(keySize:" << n.keySize;
     if (n.flags & HBtreePrivate::NodeHeader::Overflow)
-        dbg.nospace() << ", overflow -> " << n.context.overflowPage;
+        dbg.nospace() << ", overflow:" << n.context.overflowPage;
     else
-        dbg.nospace() << ", dataSize -> " << n.context.valueSize;
+        dbg.nospace() << ", dataSize:" << n.context.valueSize;
     dbg.nospace() << ")";
     return dbg.space();
 }
 
 QDebug operator << (QDebug dbg, const HBtreePrivate::HistoryNode &hn)
 {
-    dbg.nospace() << "(Page #" << hn.pageNumber << ", Sync #" << hn.syncId << ")";
+    dbg.nospace() << "(page:" << hn.pageNumber << ", syncId:" << hn.syncId << ")";
     return dbg.space();
-}
-
-
-quint16 HBtreePrivate::PageInfo::headerSize() const
-{
-    switch (type) {
-    case HBtreePrivate::PageInfo::Marker:
-        return sizeof(HBtreePrivate::PageInfo)
-                + sizeof(HBtreePrivate::MarkerPage::Meta);
-    case HBtreePrivate::PageInfo::Leaf:
-    case HBtreePrivate::PageInfo::Branch:
-        return sizeof(HBtreePrivate::PageInfo)
-                + sizeof(HBtreePrivate::NodePage::Meta);
-    case HBtreePrivate::PageInfo::Overflow:
-        return sizeof(HBtreePrivate::PageInfo) + sizeof(HBtreePrivate::NodeHeader);
-    default:
-        Q_ASSERT(0);
-    }
-    return 0;
 }
 
 HBtreePrivate::HistoryNode::HistoryNode(HBtreePrivate::NodePage *np)
