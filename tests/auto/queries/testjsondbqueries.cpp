@@ -100,6 +100,7 @@ private slots:
     void querySortedByIndexName();
     void queryContains();
     void queryInvalid();
+    void queryRegExp();
 
 private:
     void removeDbFiles();
@@ -453,6 +454,19 @@ void TestJsonDbQueries::queryInvalid()
 {
     JsonDbQueryResult queryResult = find(mOwner, QLatin1String("foo"));
     QVERIFY(!queryResult.error.isNull());
+}
+
+void TestJsonDbQueries::queryRegExp()
+{
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name =~ \"/*ov*/w\" ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
+
+    QJsonObject bindings;
+    bindings.insert(QLatin1String("regexp"), QLatin1String("/*ov*/w"));
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name =~ %regexp ]"), bindings);
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
 }
 
 QTEST_MAIN(TestJsonDbQueries)

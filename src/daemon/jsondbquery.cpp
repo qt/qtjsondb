@@ -313,7 +313,14 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                 term.setOp(op);
                 if (op == "=~") {
                     QString tvs = tokenizer.pop();
-                    if (!tvs.startsWith("\"")) {
+                    int sepPos = 1; // assuming it's a literal "/regexp/modifiers"
+                    if (tvs.startsWith(QChar('%'))) {
+                        const QString name = tvs.mid(1);
+                        if (bindings.contains(name)) {
+                            tvs = bindings.value(name).toString();
+                            sepPos = 0;
+                        }
+                    } else if (!tvs.startsWith("\"")) {
                         parsedQuery->queryExplanation.append(QString("Failed to parse query regular expression '%1' in query '%2' %3 op %4")
                                                              .arg(tvs)
                                                              .arg(parsedQuery->query)
@@ -322,27 +329,27 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                         parseError = true;
                         break;
                     }
-                    QChar sep = tvs[1];
-                    int eor = 1;
+                    QChar sep = tvs[sepPos];
+                    int eor = sepPos;
                     do {
                         eor = tvs.indexOf(sep, eor+1); // end of regexp;
                         //qDebug() << "tvs" << tvs << "eor" << eor << "tvs[eor-1]" << ((eor > 0) ? tvs[eor-1] : QChar('*'));
-                        if (eor <= 1) {
+                        if (eor <= sepPos) {
                             parseError = true;
                             break;
                         }
                     } while ((eor > 0) && (tvs[eor-1] == '\\'));
-                    QString modifiers = tvs.mid(eor+1,tvs.size()-eor-2);
+                    QString modifiers = tvs.mid(eor+1,tvs.size()-eor-2*sepPos);
                     if (jsondbSettings->debug()) {
                         qDebug() << "modifiers" << modifiers;
-                        qDebug() << "regexp" << tvs.mid(2, eor-2);
+                        qDebug() << "regexp" << tvs.mid(sepPos + 1, eor-sepPos-1);
                     }
                     if (modifiers.contains('w'))
                         term.regExp().setPatternSyntax(QRegExp::Wildcard);
                     if (modifiers.contains('i'))
                         term.regExp().setCaseSensitivity(Qt::CaseInsensitive);
                     //qDebug() << "pattern" << tvs.mid(2, eor-2);
-                    term.regExp().setPattern(tvs.mid(2, eor-2));
+                    term.regExp().setPattern(tvs.mid(sepPos + 1, eor-sepPos-1));
                 } else if (op == "contains") {
                     bool ok = true;;
 
@@ -512,7 +519,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
         QStringList explanation = parsedQuery->queryExplanation;
         parsedQuery = new JsonDbQuery;
         parsedQuery->queryExplanation = explanation;
-        qCritical() << "Parser error: query" << query;
+        qCritical() << "Parser error: query" << query << explanation;
         return parsedQuery;
     }
 
