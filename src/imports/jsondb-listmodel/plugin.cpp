@@ -45,9 +45,6 @@
 #include "jsondb-component.h"
 #include "jsondb-listmodel.h"
 
-Q_EXPORT_STATIC_PLUGIN(JsonDbListModelPlugin)
-Q_EXPORT_PLUGIN2(jsondblistmodelplugin, JsonDbListModelPlugin)
-
 void JsonDbListModelPlugin::initializeEngine(QQmlEngine *engine, const char *uri)
 {
     Q_UNUSED(engine);

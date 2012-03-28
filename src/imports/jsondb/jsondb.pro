@@ -61,3 +61,5 @@ SOURCES += \
     jsondbmodelutils.cpp
 
 SOURCES += $$QSONCONVERSION_SOURCES
+
+OTHER_FILES += jsondb.json

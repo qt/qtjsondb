@@ -52,7 +52,6 @@
 
 QT_USE_NAMESPACE_JSONDB
 
-Q_EXPORT_PLUGIN2(jsondbplugin, JsonDbPlugin)
 QQmlEngine *g_declEngine = 0;
 
 static QObject *jsondb_new_module_api_provider(QQmlEngine *engine, QJSEngine *scriptEngine)

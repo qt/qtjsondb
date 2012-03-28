@@ -51,6 +51,7 @@ extern QQmlEngine *g_declEngine;
 class JsonDbPlugin : public QQmlExtensionPlugin
 {
     Q_OBJECT
+    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QQmlExtensionInterface" FILE "jsondb.json")
 public:
     void initializeEngine(QQmlEngine *engine, const char *uri);
     void registerTypes(const char *uri);
