@@ -18,8 +18,6 @@
     "num-demon-bunnies":3,
     "num-russian-bunnies":2
   },
-
-
   {
     "_type" : "dragon",
     "name": "marcia d'arcy",
@@ -151,5 +149,20 @@
     "name": "thomas reim",
     "type":"russian",
     "age": 8
+  },
+  {
+    "_type" : "dog",
+    "name" : "rover",
+    "friends" : ["spike", "reggie"]
+  },
+  {
+    "_type" : "dog",
+    "name" : "spike",
+    "friends" : [ { "name" : "rover", "dog" : true }, { "name" : "puffy", "dog" : false } ]
+  },
+  {
+    "_type" : "dog",
+    "name" : "reggie",
+    "friends" : [ ["larrry", "curly", "moe"], ["spike", "rover"] ]
   }
 ]

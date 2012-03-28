@@ -76,6 +76,7 @@ private slots:
     void singleObject();
     void multipleObjects();
     void createQuery();
+    void queryWithoutPartition();
     void queryBinding();
     void queryError();
     void queryLimit();
@@ -88,7 +89,7 @@ protected slots:
     void timeout();
 
 private:
-    ComponentData *createComponent();
+    ComponentData *createComponent(const QString &qml = QString());
     ComponentData *createPartitionComponent();
     void deleteComponent(ComponentData *componentData);
 

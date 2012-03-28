@@ -100,10 +100,12 @@ JsonDbCollator::CasePreference _q_correctCasePreferenceString(const QString &s)
 #else
 int _q_correctCollationString(const QString &s)
 {
+    Q_UNUSED(s);
     return 0;
 }
 int _q_correctCasePreferenceString(const QString &s)
 {
+    Q_UNUSED(s);
     return 0;
 }
 #endif //NO_COLLATION_SUPPORT
@@ -130,13 +132,15 @@ QString _q_bytesToHexString(const QByteArray &ba)
 }
 
 JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
-                         const QString &propertyType, const QString &locale, const QString &collation,
+                         const QString &propertyType, const QStringList &objectType, const QString &locale, const QString &collation,
                          const QString &casePreference, Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable)
     : QObject(objectTable)
     , mObjectTable(objectTable)
+    , mIndexName(indexName)
     , mPropertyName(propertyName)
     , mPath(propertyName.split('.'))
     , mPropertyType(propertyType)
+    , mObjectType(objectType)
     , mLocale(locale)
     , mCollation(collation)
     , mCasePreference(casePreference)
@@ -239,7 +243,7 @@ bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject
             message = QString("Changing old index propertyType from '%1' to '%2' not supported")
                              .arg(oldIndex.value(JsonDbString::kPropertyTypeStr).toString())
                              .arg(newIndex.value(JsonDbString::kPropertyTypeStr).toString());
-        else if (oldIndex.value(JsonDbString::kObjectTypeStr).toString() != newIndex.value(JsonDbString::kObjectTypeStr).toString())
+        else if (oldIndex.value(JsonDbString::kObjectTypeStr) != newIndex.value(JsonDbString::kObjectTypeStr))
             message = QString("Changing old index objectType from '%1' to '%2' not supported")
                              .arg(oldIndex.value(JsonDbString::kObjectTypeStr).toString())
                              .arg(newIndex.value(JsonDbString::kObjectTypeStr).toString());
@@ -330,6 +334,9 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
     if (mPropertyName == JsonDbString::kUuidStr)
         return;
 
+    if (!mObjectType.isEmpty() && !mObjectType.contains(object.value(JsonDbString::kTypeStr).toString()))
+        return;
+
     Q_ASSERT(!object.contains(JsonDbString::kDeletedStr)
              && !object.value(JsonDbString::kDeletedStr).toBool());
     QList<QJsonValue> fieldValues = indexValues(object);
@@ -369,6 +376,8 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
 void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber)
 {
     if (mPropertyName == JsonDbString::kUuidStr)
+        return;
+    if (!mObjectType.isEmpty() && !mObjectType.contains(object.value(JsonDbString::kTypeStr).toString()))
         return;
     if (!mBdb)
         open();

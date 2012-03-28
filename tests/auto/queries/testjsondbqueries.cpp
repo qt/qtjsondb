@@ -98,6 +98,8 @@ private slots:
     void queryNotEqual();
     void queryQuotedProperties();
     void querySortedByIndexName();
+    void queryContains();
+    void queryInvalid();
 
 private:
     void removeDbFiles();
@@ -311,6 +313,34 @@ void TestJsonDbQueries::queryFieldNotExists()
     QCOMPARE(queryResult.data.size(),
              mDataStats["num-bunnies"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
+
+    // verify can use notExists on an indexed field
+    JsonDbObject index;
+    index.insert("_type", QString("Index"));
+    index.insert("propertyName", QString("color"));
+    index.insert("propertyType", QString("string"));
+    verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
+
+    // notExists on an indexed field will choose a different sortKey
+    queryResult = find(mOwner, QLatin1String("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"]"));
+    QVERIFY(!queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QCOMPARE(queryResult.data.size(),
+             mDataStats["num-bunnies"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
+
+    // notExists on an indexed field will choose a different sortKey, even if we try to force it
+    queryResult = find(mOwner, QLatin1String("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"][/color]"));
+    QVERIFY(!queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QCOMPARE(queryResult.data.size(),
+             mDataStats["num-bunnies"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
+
+    // exists on an indexed field will choose the field as sortKey
+    queryResult = find(mOwner, QLatin1String("[?color exists][? _type = \"bunny\" | _type=\"dragon\"]"));
+    QVERIFY(queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QCOMPARE(queryResult.data.size(),
+             mDataStats["num-dragons"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
 }
 
 void TestJsonDbQueries::queryLessThan()
@@ -396,6 +426,33 @@ void TestJsonDbQueries::querySortedByIndexName()
     queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][\\dragonSort]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 8 << 8 << 6 << 6 << 4 << 4 << 2 << 2 << 0 << 0)));
+}
+
+void TestJsonDbQueries::queryContains()
+{
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains \"spike\" ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  { \"name\" : \"puffy\", \"dog\" : false } ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  [\"spike\", \"rover\"] ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
+
+    // invalid queries
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  { \"name\" : \"puffy\" \"dog\" : false } ]"));
+    QVERIFY(!queryResult.error.isNull());
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  [\"spike\", \"rover\" ]"));
+    QVERIFY(!queryResult.error.isNull());
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  \"spike\", \"rover\" ] ]"));
+    QVERIFY(!queryResult.error.isNull());
+}
+
+void TestJsonDbQueries::queryInvalid()
+{
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("foo"));
+    QVERIFY(!queryResult.error.isNull());
 }
 
 QTEST_MAIN(TestJsonDbQueries)

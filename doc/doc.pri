@@ -1,6 +1,7 @@
 OTHER_FILES += \
                $$PWD/jsondb.qdocconf \
-               $$PWD/jsondb-dita.qdocconf
+               $$PWD/jsondb-dita.qdocconf \
+               $$PWD/src/*.qdoc
 
 docs_target.target = docs
 docs_target.commands = qdoc $$PWD/jsondb.qdocconf

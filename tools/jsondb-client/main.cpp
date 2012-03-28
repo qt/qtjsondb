@@ -94,17 +94,17 @@ int main(int argc, char * argv[])
             continue;
         }
 
-        if (arg == QLatin1Literal("-help")) {
+        if (arg == QLatin1String("-help")) {
             usage(progname);
-        } else if (arg == QLatin1Literal("-debug")) {
+        } else if (arg == QLatin1String("-debug")) {
             debug = true;
-        } else if (arg == QLatin1Literal("-load")) {
+        } else if (arg == QLatin1String("-load")) {
             if (args.isEmpty()) {
                 cout << "Must specify a file to load" << endl;
                 usage(progname, 1);
             }
             filesToLoad << args.takeFirst();
-        } else if (arg == QLatin1Literal("-terminate")) {
+        } else if (arg == QLatin1String("-terminate")) {
             terminate = true;
         } else {
             cout << "Unknown argument " << qPrintable(arg) << endl;

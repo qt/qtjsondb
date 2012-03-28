@@ -98,6 +98,7 @@ private slots:
     void update();
     void find();
     void index();
+    void multiTypeIndex();
 
     void registerNotification();
     void notify_data();
@@ -267,7 +268,7 @@ void TestJsonDbClient::initTestCase()
                            QLatin1String("[?_type = \"_schemaType\"]") <<
                            QLatin1String("[?_type = \"Index\"]") <<
                            QLatin1String("[?_type = \"Partition\"]") <<
-                           QLatin1String("[?_type = \"Phone\"]") <<
+                           QLatin1String("[?_type startsWith \"Phone\"]") <<
                            QLatin1String("[?_type = \"Contact\"]") <<
                            QLatin1String("[?_type = \"Reduce\"]") <<
                            QLatin1String("[?_type = \"Map\"]")));
@@ -395,21 +396,24 @@ void TestJsonDbClient::initTestCase()
         gid_t gid = nextFreeGid(1042);
         gid_t gid2 = nextFreeGid(gid+1);
         QString appName = QString("com.test.foo.%1").arg(getpid());
+        QByteArray appNameBA = appName.toLocal8Bit();
         // Tes app name for app without any supplementary groups
         QString app2Name = QString("com.test.bar.%1").arg(getpid());
+        QByteArray app2NameBA = app2Name.toLocal8Bit();
         if (!errno) {
             // Add primary groups
             struct group grp;
-            grp.gr_name = appName.toLocal8Bit().data();
+            grp.gr_name = appNameBA.data();
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
             grp.gr_mem = (char *[]){NULL};
             struct group grp2;
-            grp2.gr_name = app2Name.toLocal8Bit().data();
+            grp2.gr_name = app2NameBA.data();
             grp2.gr_passwd = NULL;
             grp2.gr_gid = gid2;
             grp2.gr_mem = (char *[]){NULL};
-            FILE *grfile = ::fopen (etcigr.toLocal8Bit().data(), "a");
+            QByteArray etcigrBA = etcigr.toLocal8Bit();
+            FILE *grfile = ::fopen (etcigrBA.data(), "a");
             ::putgrent(&grp, grfile);
             ::putgrent(&grp2, grfile);
             ::fclose (grfile);
@@ -418,7 +422,7 @@ void TestJsonDbClient::initTestCase()
 
             // Add the user
             struct passwd pwd;
-            pwd.pw_name = appName.toLocal8Bit().data();
+            pwd.pw_name = appNameBA.data();
             pwd.pw_passwd = NULL;
             pwd.pw_uid = uid;
             pwd.pw_gid = gid;
@@ -426,14 +430,15 @@ void TestJsonDbClient::initTestCase()
             pwd.pw_dir = NULL;
             pwd.pw_shell = NULL;
             struct passwd pwd2;
-            pwd2.pw_name = app2Name.toLocal8Bit().data();
+            pwd2.pw_name = app2NameBA.data();
             pwd2.pw_passwd = NULL;
             pwd2.pw_uid = uid2;
             pwd2.pw_gid = gid2;
             pwd2.pw_gecos = NULL;
             pwd2.pw_dir = NULL;
             pwd2.pw_shell = NULL;
-            FILE *pwdfile = ::fopen (etcipwd.toLocal8Bit().data(), "a");
+            QByteArray etcipwdBA = etcipwd.toLocal8Bit();
+            FILE *pwdfile = ::fopen (etcipwdBA.data(), "a");
             ::putpwent(&pwd, pwdfile);
             ::putpwent(&pwd2, pwdfile);
             ::fclose (pwdfile);
@@ -444,8 +449,8 @@ void TestJsonDbClient::initTestCase()
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
             // Add only the first user to it
-            grp.gr_mem = (char *[]){appName.toLocal8Bit().data(), NULL};
-            grfile = ::fopen (etcigr.toLocal8Bit(), "a");
+            grp.gr_mem = (char *[]){appNameBA.data(), NULL};
+            grfile = ::fopen (etcigrBA.data(), "a");
             ::putgrent(&grp, grfile);
             ::fclose (grfile);
             gidsAdded.append(gid);
@@ -692,6 +697,15 @@ void TestJsonDbClient::find()
     int id = 0;
     int count;
 
+    // create an index on the name property of com.test.NameIndex objects
+    QVariantMap index;
+    index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    index.insert(JsonDbString::kNameStr, QLatin1String("com.test.NameIndex"));
+    index.insert(JsonDbString::kPropertyNameStr, QLatin1String("name"));
+    index.insert(JsonDbString::kObjectTypeStr, QLatin1String("com.test.find-test"));
+    id = mClient->create(index);
+    waitForResponse1(id);
+
     QStringList nameList;
     // Create a few items
     for (count = 0 ; names[count] ; count++ ) {
@@ -724,7 +738,7 @@ void TestJsonDbClient::find()
 
     // Find one, sorted in reverse alphabetical order
     query = QVariantMap();
-    query.insert("query", "[?_type=\"com.test.find-test\"][\\name]");
+    query.insert("query", "[?_type=\"com.test.find-test\"][\\com.test.NameIndex]");
     id = mClient->find(query);
     waitForResponse1(id);
     answer = mData.toMap().value("data").toList();
@@ -752,7 +766,7 @@ void TestJsonDbClient::find()
 
         // Read should fail
         query = QVariantMap();
-        query.insert("query", "[?_type=\"com.test.find-test\"][\\name]");
+        query.insert("query", "[?_type=\"com.test.find-test\"][\\com.test.NameIndex]");
         id = mClient->find(query);
         waitForResponse1(id);
         answer = mData.toMap().value("data").toList();
@@ -821,6 +835,55 @@ void TestJsonDbClient::index()
     waitForResponse1(id);
     id = mClient->remove(schemasToDelete);
     waitForResponse1(id);
+}
+
+void TestJsonDbClient::multiTypeIndex()
+{
+    QVERIFY(mClient);
+
+    QVariantMap query;
+    int id = 0;
+    int count;
+
+    QStringList indexedTypes = (QStringList()
+                                << QLatin1String("com.test.find-test1")
+                                << QLatin1String("com.test.find-test2"));
+    // create an index on the name property of com.test.NameIndex objects
+    QVariantMap index;
+    index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    index.insert(JsonDbString::kNameStr, QLatin1String("com.test.MultiTypeIndex"));
+    index.insert(JsonDbString::kPropertyNameStr, QLatin1String("name"));
+    index.insert(JsonDbString::kObjectTypeStr, indexedTypes);
+    id = mClient->create(index);
+    waitForResponse1(id);
+
+    QStringList objectTypes = (QStringList()
+                               << QLatin1String("com.test.find-test1")
+                               << QLatin1String("com.test.find-test2")
+                               << QLatin1String("com.test.find-test3"));
+    QStringList nameList;
+    // Create a few items
+    for (count = 0 ; names[count] ; count++ ) {
+        nameList << names[count];
+        foreach (const QString objectType, objectTypes) {
+            QVariantMap item;
+            item.insert("_type", objectType);
+            item.insert("name", names[count]);
+            id = mClient->create(item);
+            waitForResponse1(id);
+        }
+    }
+
+    // Find all in the index
+    query = QVariantMap();
+    query.insert("query", "[?name exists][/com.test.MultiTypeIndex]");
+    id = mClient->find(query);
+    waitForResponse1(id);
+    QVariantList answer = mData.toMap().value("data").toList();
+    //qDebug() << "answer" << mData.toMap();
+    QCOMPARE(answer.size(), nameList.size() * 2);
+    foreach (QVariant v, answer)
+        QVERIFY(indexedTypes.contains(v.toMap().value(JsonDbString::kTypeStr).toString()));
 }
 
 void TestJsonDbClient::notify_data()
@@ -908,6 +971,7 @@ void TestJsonDbClient::notifyUpdate()
 
     // Update the notify-test object
     // query no longer matches, so we should receive a "remove" notification even though it is an update
+    // this means it should not contain the _deleted property
     object.insert("_uuid",uuid);
     object.insert("_version", version);
     object.insert("filter","nomatch");
@@ -918,6 +982,7 @@ void TestJsonDbClient::notifyUpdate()
     n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
     QCOMPARE(n.mAction, QLatin1String("remove"));
+    QVERIFY(!n.mObject.toMap().contains(JsonDbString::kDeletedStr));
 
     // Remove the notify-test object
     id = mClient->remove(object);

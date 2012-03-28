@@ -80,6 +80,9 @@ public:
 
     bool isActive() const;
 
+Q_SIGNALS:
+    void updated(const QString &type);
+
 private:
     void createMapDefinition(QJsonObject mapDefinition);
     void removeMapDefinition(QJsonObject mapDefinition);

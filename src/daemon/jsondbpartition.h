@@ -116,16 +116,12 @@ public:
     bool addIndex(const QString &indexName,
                   const QString &propertyName,
                   const QString &propertyType = QString("string"),
-                  const QString &objectType = QString(),
+                  const QStringList &objectTypes = QStringList(),
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
                   const QString &collation = QString(),
                   const QString &casePreference = QString(),
                   Qt::CaseSensitivity caseSensitive = Qt::CaseSensitive);
-    bool addIndexOnProperty(const QString &propertyName,
-                            const QString &propertyType = QString("string"),
-                            const QString &objectType = QString())
-    { return addIndex(propertyName, propertyName, propertyType, objectType); }
     bool removeIndex(const QString &indexName, const QString &objectType = QString());
 
     bool checkQuota(const JsonDbOwner *owner, int size) const;
@@ -173,6 +169,7 @@ public Q_SLOTS:
     void updateView(const QString &objectType, quint32 stateNumber=0);
 
 Q_SIGNALS:
+    void viewUpdated(const QString &objectType);
     void objectsUpdated(const JsonDbUpdateList &objects);
 
 protected:
@@ -197,13 +194,14 @@ protected:
     bool checkNaturalObjectType(const JsonDbObject &object, QString &errorMsg);
 
     JsonDbError::ErrorCode checkBuiltInTypeValidity(const JsonDbObject &object, const JsonDbObject &oldObject, QString &errorMsg);
+    JsonDbError::ErrorCode checkBuiltInTypeAccessControl(bool forCreation, const JsonDbOwner *owner, const JsonDbObject &object,
+                                                         const JsonDbObject &oldObject, QString &errorMsg);
     void updateBuiltInTypes(const JsonDbObject &object, const JsonDbObject &oldObject);
     void setSchema(const QString &schemaName, const QJsonObject &schema);
     void removeSchema(const QString &schemaName);
     void updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path=QStringList());
 
 private:
-
     JsonDbObjectTable     *mObjectTable;
     QVector<JsonDbObjectTable *> mTableTransactions;
 

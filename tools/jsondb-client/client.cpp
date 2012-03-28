@@ -53,8 +53,7 @@
 
 QT_USE_NAMESPACE
 
-const char* InputThread::commands[] = { "changesSince",
-                                        "create {\"",
+const char* InputThread::commands[] = { "create {\"",
                                         "help",
                                         "load",
                                         "notify create [?",
@@ -274,8 +273,11 @@ void Client::onNotificationsAvailable(int)
         case QtJsonDb::QJsonDbWatcher::All: break;
         }
 
-        QString message =  "Received notification: type " % actionString
-                % " for " % watcher->query() % " object:\n" % QJsonDocument(n.object()).toJson();
+        QString message = QString("Received %1 notification for %2 [state %3]\n%4\n")
+                .arg(actionString)
+                .arg(watcher->query())
+                .arg(n.stateNumber())
+                .arg(QString::fromUtf8(QJsonDocument(n.object()).toJson()));
         InputThread::print(message);
     }
     if (!mInputThread)
@@ -333,14 +335,22 @@ void Client::error(QtJsonDb::QJsonDbConnection::ErrorCode error, const QString &
 
 void Client::onRequestFinished()
 {
-    QtJsonDb::QJsonDbRequest *request = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
-    Q_ASSERT(request != 0);
-    if (!request)
-        return;
+    quint32 stateNumber;
+    QtJsonDb::QJsonDbRequest *request = qobject_cast<QtJsonDb::QJsonDbReadRequest*>(sender());
+
+    if (request) {
+        stateNumber = qobject_cast<QtJsonDb::QJsonDbReadRequest*>(request)->stateNumber();
+    } else {
+        request = qobject_cast<QtJsonDb::QJsonDbWriteRequest*>(sender());
+        if (!request)
+            return;
+        stateNumber = qobject_cast<QtJsonDb::QJsonDbWriteRequest*>(request)->stateNumber();
+    }
 
     QList<QJsonObject> objects = request->takeResults();
 
-    QString message = QLatin1String("Received ") + QString::number(objects.size()) + QLatin1String(" object(s):\n");
+    QString message = QString("Received %1 object(s) [state %2]\n").arg(objects.size()).arg(stateNumber);
+
     if (!objects.isEmpty()) {
         message += QJsonDocument(objects.front()).toJson().trimmed();
         for (int i = 1; i < objects.size(); ++i)
@@ -351,6 +361,9 @@ void Client::onRequestFinished()
 
 void Client::aboutToRemove(void)
 {
+    // remove the query from the request list
+    mRequests.takeFirst()->deleteLater();
+
     QtJsonDb::QJsonDbRequest *queryRequest = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
     Q_ASSERT(queryRequest != 0);
     if (!queryRequest)
@@ -404,8 +417,7 @@ void Client::usage()
               << "   remove [partition:<name>] OBJECT" << std::endl
               << "   remove [partition:<name>] STRING [limit]" << std::endl
               << "   query [partition:<name>] STRING [limit]" << std::endl
-              << "   notify [partition:<name>] ACTIONS QUERY" << std::endl
-              << "   changesSince [partition:<name>] STATENUMBER [type1 type2 ...]" << std::endl
+              << "   notify [partition:<name>] ACTIONS QUERY [starting-state]" << std::endl
               << "   load FILE1 FILE2 ..." << std::endl
               << "   help" << std::endl
               << "   quit" << std::endl
@@ -419,7 +431,9 @@ void Client::usage()
               << "   query [?_type=\"duck\"]" << std::endl
               << "   remove {\"_uuid\": \"{18c9d905-5860-464e-a6dd-951464e366de}\", \"_version\": \"1-134f23dbb2\"}" << std::endl
               << "   remove [?_type=\"duck\"]" << std::endl
-              << "   notify create,remove [?_type=\"duck\"]" << std::endl;
+              << "   notify create,remove [?_type=\"duck\"]" << std::endl
+              << "   notify create,remove [?_type=\"duck\"] 53" << std::endl;
+
 
     QString usageInfo = QString::fromStdString(out.str());
     InputThread::print(usageInfo);
@@ -495,18 +509,33 @@ bool Client::processCommand(const QString &command)
             else if (s == QLatin1String("update"))
                 action = QtJsonDb::QJsonDbWatcher::Updated;
             if (action == QtJsonDb::QJsonDbWatcher::Action(0)) {
-                InputThread::print("uknown notification type" % s);
+                InputThread::print("unknown notification type" % s);
                 return false;
             }
             actions |= action;
         }
+
+        int startingState = 0;
         QString query = rest.mid(s+1).trimmed();
+        if (!query.endsWith(']')) {
+            bool ok;
+            int index = query.lastIndexOf(' ');
+            int state = query.right(query.length() - index).trimmed().toInt(&ok);
+            if (ok)
+                startingState = state;
+            query = query.left(index);
+        }
+
         if (mDebug)
             qDebug() << "Creating notification:" << alist << ":" << query;
+
         QtJsonDb::QJsonDbWatcher *watcher = new QtJsonDb::QJsonDbWatcher(this);
         watcher->setPartition(partition);
         watcher->setQuery(query);
         watcher->setWatchedActions(actions);
+        if (startingState != 0)
+            watcher->setInitialStateNumber(startingState);
+
         connect(watcher, SIGNAL(notificationsAvailable(int)), this, SLOT(onNotificationsAvailable(int)));
         connect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
                 this, SLOT(onNotificationStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
@@ -558,8 +587,6 @@ bool Client::processCommand(const QString &command)
                 filenames[i] = filename.mid(1, filename.size()-2);
         }
         loadFiles(filenames);
-    } else if (cmd == "changesSince") {
-        qWarning() << "Not yet supported";
     } else if (cmd == "connect") {
         mConnection->connectToServer();
     } else if (cmd == "disconnect") {
@@ -613,12 +640,12 @@ void Client::loadNextFile()
     }
 
     QFileInfo info(mFilesToLoad.first());
-    if (info.suffix() == QLatin1Literal("json")) {
+    if (info.suffix() == QLatin1String("json")) {
         loadJsonFile(info.filePath());
-    } else if (info.suffix() == QLatin1Literal("qml")) {
+    } else if (info.suffix() == QLatin1String("qml")) {
         loadQmlFile(info.filePath());
 #ifndef QTJSONDB_NO_DEPRECATED
-    } else if (info.suffix() == QLatin1Literal("js")) {
+    } else if (info.suffix() == QLatin1String("js")) {
         loadJavaScriptFile(info.filePath());
 #endif
     } else {

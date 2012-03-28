@@ -173,8 +173,11 @@ private slots:
     void mapSelfJoinSourceUuids();
     void mapMapFunctionError();
     void mapSchemaViolation();
+    void mapMultipleEmitNoTargetKeyName();
     void mapArrayConversion();
     void reduce();
+    void reduceFlattened();
+    void reduceSourceKeyFunction();
     void reduceRemoval();
     void reduceUpdate();
     void reduceDuplicate();
@@ -1423,7 +1426,7 @@ void TestJsonDb::mapDefinitionInvalid()
     JsonDbWriteResult schemaRes = create(mOwner, schema);
     verifyGoodResult(schemaRes);
 
-    JsonDbObject mapDefinition;
+    JsonDbObject mapDefinition, map;
     mapDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
     mapDefinition.insert("sourceType", QLatin1String("Contact"));
     mapDefinition.insert("map", QLatin1String("function map (c) { }"));
@@ -1448,8 +1451,8 @@ void TestJsonDb::mapDefinitionInvalid()
     mapDefinition = JsonDbObject();
     mapDefinition.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
     mapDefinition.insert("targetType", QLatin1String("MyViewType2"));
-    mapDefinition.insert("sourceType", QLatin1String("Contact"));
-    mapDefinition.insert("map", QLatin1String("function map (c) { }"));
+    map.insert(QLatin1String("Contact"), QLatin1String("function map (c) { }"));
+    mapDefinition.insert("map", map);
     res = create(mOwner, mapDefinition);
     verifyErrorResult(res);
     QVERIFY(res.message.contains("View"));
@@ -1555,6 +1558,17 @@ void TestJsonDb::reduceDefinitionInvalid()
     verifyErrorResult(res);
     QVERIFY(res.message.contains("View"));
 
+    // fail because targetValue name is not a string or null
+    reduceDefinition = JsonDbObject();
+    reduceDefinition.insert(JsonDbString::kTypeStr, QLatin1String("Reduce"));
+    reduceDefinition.insert("targetType", QLatin1String("MyViewType"));
+    reduceDefinition.insert("sourceType", QLatin1String("Contact"));
+    reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { }"));
+    reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
+    reduceDefinition.insert("targetValueName", true);
+    res = create(mOwner, reduceDefinition);
+    verifyErrorResult(res);
+
     //schemaRes.value("result").toObject()
     verifyGoodResult(remove(mOwner, schema));
 }
@@ -1579,20 +1593,9 @@ void TestJsonDb::mapInvalidMapFunc()
     mapDefinition.insert("map", sourceToMapFunctions);
 
     JsonDbWriteResult defRes = create(mOwner, mapDefinition);
-    verifyGoodResult(defRes);
-    QString uuid = defRes.objectsWritten[0].uuid().toString();
+    verifyErrorResult(defRes);
+    QCOMPARE(defRes.objectsWritten.size(), 0);
 
-    // force the view to be updated
-    mJsonDbPartition->updateView("InvalidMapViewType");
-
-    // now check for an error
-    GetObjectsResult res = mJsonDbPartition->getObjects("_uuid", uuid, JsonDbString::kMapTypeStr);
-    QVERIFY(res.data.size() > 0);
-    mapDefinition = res.data.at(0);
-    QVERIFY(mapDefinition.contains(JsonDbString::kActiveStr) && !mapDefinition.value(JsonDbString::kActiveStr).toBool());
-    QVERIFY(!mapDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
-
-    verifyGoodResult(remove(mOwner, mapDefinition));
     verifyGoodResult(remove(mOwner, schema));
 }
 
@@ -1616,16 +1619,8 @@ void TestJsonDb::reduceInvalidAddSubtractFuncs()
     reduceDefinition.insert("add", QLatin1String("function add (k, z, c) { ;")); // non-parsable add function
     reduceDefinition.insert("subtract", QLatin1String("function subtract (k, z, c) { }"));
     JsonDbWriteResult res = create(mOwner, reduceDefinition);
-    verifyGoodResult(res);
+    verifyErrorResult(res);
 
-    mJsonDbPartition->updateView("MyViewType");
-
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", res.objectsWritten[0].uuid().toString());
-    reduceDefinition = getObjects.data.at(0);
-    QVERIFY(reduceDefinition.contains(JsonDbString::kActiveStr) && !reduceDefinition.value(JsonDbString::kActiveStr).toBool());
-    QVERIFY(!reduceDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
-
-    verifyGoodResult(remove(mOwner, reduceDefinition));
     verifyGoodResult(remove(mOwner, schema));
 }
 
@@ -2134,6 +2129,55 @@ void TestJsonDb::mapSchemaViolation()
     jsondbSettings->setValidateSchemas(false);
 }
 
+// verify that only one target object per source object is allowed without targetKeyName
+void TestJsonDb::mapMultipleEmitNoTargetKeyName()
+{
+    jsondbSettings->setValidateSchemas(true);
+
+    GetObjectsResult contactsRes = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
+    if (contactsRes.data.size() > 0) {
+        foreach (const JsonDbObject &toRemove, contactsRes.data)
+            remove(mOwner, toRemove);
+    }
+
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
+    JsonDbObjectList toDelete;
+    JsonDbObject map;
+
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        if (object.value(JsonDbString::kTypeStr).toString() != JsonDbString::kReduceTypeStr) {
+
+            if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr)
+                object.remove("targetKeyName");
+
+            JsonDbWriteResult result = create(mOwner, object);
+            if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr)
+                map = object;
+
+            verifyGoodResult(result);
+            if (object.value(JsonDbString::kTypeStr).toString() != JsonDbString::kMapTypeStr)
+                toDelete.append(object);
+        }
+    }
+
+    mJsonDbPartition->updateView(map.value("targetType").toString());
+
+    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
+    QJsonObject mapDefinition = getObjects.data.at(0);
+    QVERIFY(!mapDefinition.contains(JsonDbString::kActiveStr)|| mapDefinition.value(JsonDbString::kActiveStr).toBool());
+    QVERIFY(!mapDefinition.contains(JsonDbString::kErrorStr) || mapDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
+
+    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    QCOMPARE(getObjects.data.size(), 2);
+
+    verifyGoodResult(remove(mOwner, map));
+    for (int ii = 0; ii < toDelete.size(); ii++)
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+
+    jsondbSettings->setValidateSchemas(false);
+}
+
 void TestJsonDb::mapArrayConversion()
 {
     QJsonArray objects(readJsonFile(":/daemon/json/map-array-conversion.json").toArray());
@@ -2176,6 +2220,104 @@ void TestJsonDb::reduce()
     objects = readJsonFile(":/daemon/json/reduce.json").toArray();
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
+            reduces.append(object);
+        else
+            toDelete.append(object);
+    }
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
+
+    JsonDbObjectList data = queryResult.data;
+    for (int ii = 0; ii < data.size(); ii++) {
+        QCOMPARE((int)data.at(ii).value("count").toDouble(),
+                 firstNameCount[data.at(ii).value("firstName").toString()]);
+    }
+    for (int ii = 0; ii < reduces.size(); ii++)
+        verifyGoodResult(remove(mOwner, reduces.at(ii)));
+    for (int ii = 0; ii < toDelete.size(); ii++)
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+    mJsonDbPartition->removeIndex("MyContactCount");
+}
+
+void TestJsonDb::reduceFlattened()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+
+    JsonDbObjectList toDelete;
+    JsonDbObjectList reduces;
+
+    QHash<QString, int> firstNameCount;
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        firstNameCount[object.value("firstName").toString()]++;
+        toDelete.append(object);
+    }
+
+    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr) {
+            object.insert(QLatin1String("add"), object.value(QLatin1String("addFlattened")));
+            object.insert(QLatin1String("subtract"), object.value(QLatin1String("subtractFlattened")));
+            // transitional behavior: null targetValueName indicates whole object is value of the Reduce
+            object.insert(QLatin1String("targetValueName"), QJsonValue(QJsonValue::Null));
+        }
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
+            reduces.append(object);
+        else
+            toDelete.append(object);
+    }
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), firstNameCount.keys().count());
+
+    JsonDbObjectList data = queryResult.data;
+    for (int ii = 0; ii < data.size(); ii++) {
+        QCOMPARE((int)data.at(ii).value("count").toDouble(),
+                 firstNameCount[data.at(ii).value("firstName").toString()]);
+    }
+    for (int ii = 0; ii < reduces.size(); ii++)
+        verifyGoodResult(remove(mOwner, reduces.at(ii)));
+    for (int ii = 0; ii < toDelete.size(); ii++)
+        verifyGoodResult(remove(mOwner, toDelete.at(ii)));
+    mJsonDbPartition->removeIndex("MyContactCount");
+}
+
+void TestJsonDb::reduceSourceKeyFunction()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+
+    JsonDbObjectList toDelete;
+    JsonDbObjectList reduces;
+
+    QHash<QString, int> firstNameCount;
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+        firstNameCount[object.value("firstName").toString()]++;
+        toDelete.append(object);
+    }
+
+    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    for (int ii = 0; ii < objects.size(); ii++) {
+        JsonDbObject object(objects.at(ii).toObject());
+        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr) {
+            QString sourceKeyName = object.value(QLatin1String("sourceKeyName")).toString();
+            object.remove(QLatin1String("sourceKeyName"));
+            object.insert(QLatin1String("sourceKeyFunction"),
+                          QString("function (o) { return o.%1; }").arg(sourceKeyName));
+        }
         JsonDbWriteResult result = create(mOwner, object);
         verifyGoodResult(result);
         if (object.value(JsonDbString::kTypeStr).toString() == "Reduce")
@@ -2776,7 +2918,7 @@ void TestJsonDb::find1()
     item.insert("find1", QString("Foobar!"));
     create(mOwner, item);
 
-    JsonDbQueryResult queryResult= find(mOwner, QLatin1String(".*"));
+    JsonDbQueryResult queryResult= find(mOwner, QLatin1String("[*]"));
 
     verifyGoodQueryResult(queryResult);
     QVERIFY(queryResult.data.size() >= 1);

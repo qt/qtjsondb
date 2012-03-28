@@ -77,8 +77,6 @@ public:
     QStringList sourceKeyNameList() const { return mSourceKeyNameList; }
     bool isActive() const;
     QJsonObject definition() const { return mDefinition; }
-    const QJSValue &addFunction() const { return mAddFunction; }
-    const QJSValue &subtractFunction() const { return mSubtractFunction; }
     const JsonDbOwner *owner() const { return mOwner; }
 
     static void definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
@@ -86,21 +84,30 @@ public:
 
     void initScriptEngine();
     void releaseScriptEngine();
+    void initIndexes();
+
     void updateObject(JsonDbObject before, JsonDbObject after);
-    QJsonValue addObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);
-    QJsonValue subtractObject(const QJsonValue &keyValue, const QJsonValue &previousResult, JsonDbObject object);
 
     void setError(const QString &errorMsg);
 
     static bool validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message);
 
 private:
+    enum FunctionNumber {
+        Add = 0,
+        Subtract = 1,
+        SourceKeyValue = 2
+    };
+    static bool compileFunctions(QJSEngine *scriptEngine, QJsonObject definition, QVector<QJSValue> &mFunctions, QString &message);
+    QJsonValue sourceKeyValue(const QJsonObject &object);
+    QJsonValue addObject(FunctionNumber fn, const QJsonValue &keyValue, QJsonValue previousResult, JsonDbObject object);
+
+private:
     const JsonDbOwner *mOwner;
     JsonDbPartition *mPartition;
     QJsonObject    mDefinition;
     QJSEngine *mScriptEngine;
-    QJSValue   mAddFunction;
-    QJSValue   mSubtractFunction;
+    QVector<QJSValue> mFunctions;
     QString        mUuid;
     QString        mTargetType;
     JsonDbObjectTable   *mTargetTable;

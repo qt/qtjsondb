@@ -73,22 +73,27 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(const JsonDbOwner *owner, JsonDbP
     , mTargetType(mDefinition.value("targetType").toString())
     , mTargetTable(mPartition->findObjectTable(mTargetType))
     , mSourceType(mDefinition.value("sourceType").toString())
-    , mTargetKeyName(mDefinition.contains("targetKeyName") ? mDefinition.value("targetKeyName").toString() : QString("key"))
-    , mTargetValueName(mDefinition.contains("targetValueName") ? mDefinition.value("targetValueName").toString() : QString("value"))
-    , mSourceKeyName(mDefinition.contains("sourceKeyName") ? mDefinition.value("sourceKeyName").toString() : QString("key"))
-    , mSourceKeyNameList(mSourceKeyName.split("."))
 {
+    if (mDefinition.contains("targetKeyName"))
+        mTargetKeyName = mDefinition.value("targetKeyName").toString();
+    else
+        mTargetKeyName = QLatin1String("key");
+    if (mDefinition.contains("sourceKeyName"))
+        mSourceKeyName = mDefinition.value("sourceKeyName").toString();
+    mSourceKeyNameList = mSourceKeyName.split(".");
+    if (mDefinition.contains("targetValueName")) {
+        if (mDefinition.value("targetValueName").isString())
+            mTargetValueName = mDefinition.value("targetValueName").toString();
+    } else
+        mTargetValueName = QLatin1String("value");
+
 }
 
 void JsonDbReduceDefinition::definitionCreated()
 {
-    // TODO: this index should not be automatic
-    mTargetTable->addIndexOnProperty(mSourceKeyName, QLatin1String("string"), mSourceType);
-    // TODO: this index should not be automatic
-    mTargetTable->addIndexOnProperty(mTargetKeyName, QLatin1String("string"), mTargetType);
-    mTargetTable->addIndexOnProperty(QLatin1String("_reduceUuid"), QLatin1String("string"), mTargetType);
-
     initScriptEngine();
+    initIndexes();
+
     GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, mSourceType);
     if (!getObjectResponse.error.isNull()) {
         if (jsondbSettings->verbose())
@@ -118,46 +123,43 @@ void JsonDbReduceDefinition::initScriptEngine()
         return;
 
     mScriptEngine = new QJSEngine(this);
+    QString message;
+    bool status = compileFunctions(mScriptEngine, mDefinition, mFunctions, message);
+    if (!status)
+        setError(message);
+
     Q_ASSERT(!mDefinition.value("add").toString().isEmpty());
     Q_ASSERT(!mDefinition.value("subtract").toString().isEmpty());
 
     QJSValue globalObject = mScriptEngine->globalObject();
     globalObject.setProperty("console", mScriptEngine->newQObject(new Console()));
-
-    QString script = mDefinition.value("add").toString();
-    mAddFunction = mScriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("add").arg(script));
-
-    if (mAddFunction.isError() || !mAddFunction.isCallable()) {
-        setError("Unable to parse add function: " + mAddFunction.toString());
-        return;
-    }
-
-    script = mDefinition.value("subtract").toString();
-    mSubtractFunction = mScriptEngine->evaluate(QString("var %1 = (%2); %1;").arg("subtract").arg(script));
-
-    if (mSubtractFunction.isError() || !mSubtractFunction.isCallable())
-        setError("Unable to parse subtract function: " + mSubtractFunction.toString());
 }
 
 void JsonDbReduceDefinition::releaseScriptEngine()
 {
-    mAddFunction = QJSValue();
-    mSubtractFunction = QJSValue();
+    mFunctions.clear();
     delete mScriptEngine;
     mScriptEngine = 0;
+}
+
+void JsonDbReduceDefinition::initIndexes()
+{
+    // TODO: this index should not be automatic
+    if (!mSourceKeyName.isEmpty()) {
+        JsonDbObjectTable *sourceTable = mPartition->findObjectTable(mSourceType);
+        sourceTable->addIndexOnProperty(mSourceKeyName, QLatin1String("string"));
+    }
+    // TODO: this index should not be automatic
+    mTargetTable->addIndexOnProperty(mTargetKeyName, QLatin1String("string"), mTargetType);
+    mTargetTable->addIndexOnProperty(QLatin1String("_reduceUuid"), QLatin1String("string"), mTargetType);
 }
 
 void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject after)
 {
     initScriptEngine();
-    Q_ASSERT(mAddFunction.isCallable());
 
-    QJsonValue beforeKeyValue = mSourceKeyName.contains(".")
-        ? before.propertyLookup(mSourceKeyNameList)
-        : before.value(mSourceKeyName);
-    QJsonValue afterKeyValue = mSourceKeyName.contains(".")
-        ? after.propertyLookup(mSourceKeyNameList)
-        : after.value(mSourceKeyName);
+    QJsonValue beforeKeyValue = sourceKeyValue(before);
+    QJsonValue afterKeyValue = sourceKeyValue(after);
 
     if (!after.isEmpty() && !before.isEmpty() && (beforeKeyValue != afterKeyValue)) {
         // do a subtract only on the before key
@@ -191,9 +193,9 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
 
     QJsonValue value = previousValue;
     if (!before.isEmpty())
-        value = subtractObject(keyValue, value, before);
+        value = addObject(JsonDbReduceDefinition::Subtract, keyValue, value, before);
     if (!after.isEmpty())
-        value = addObject(keyValue, value, after);
+        value = addObject(JsonDbReduceDefinition::Add, keyValue, value, after);
 
     JsonDbWriteResult res;
     // if we had a previous object to reduce
@@ -229,51 +231,33 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
         setError(QString("Error executing add function: %1").arg(res.message));
 }
 
-QJsonValue JsonDbReduceDefinition::addObject(const QJsonValue &keyValue, const QJsonValue &previousValue, JsonDbObject object)
+QJsonValue JsonDbReduceDefinition::addObject(JsonDbReduceDefinition::FunctionNumber functionNumber,
+                                             const QJsonValue &keyValue, QJsonValue previousValue, JsonDbObject object)
 {
     initScriptEngine();
     QJSValue svKeyValue = JsonDbObject::toJSValue(keyValue, mScriptEngine);
-    QJSValue svPreviousValue = JsonDbObject::toJSValue(previousValue.toObject().value(mTargetValueName), mScriptEngine);
+    if (!mTargetValueName.isEmpty())
+        previousValue = previousValue.toObject().value(mTargetValueName);
+    QJSValue svPreviousValue = JsonDbObject::toJSValue(previousValue, mScriptEngine);
     QJSValue svObject = JsonDbObject::toJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << svObject;
-    QJSValue reduced = mAddFunction.call(reduceArgs);
+    QJSValue reduced = mFunctions[functionNumber].call(reduceArgs);
 
     if (!reduced.isUndefined() && !reduced.isError()) {
-        QJsonObject jsonReduced;
-        jsonReduced.insert(mTargetValueName, JsonDbObject::fromJSValue(reduced));
-        return jsonReduced;
+        QJsonValue jsonReduced = JsonDbObject::fromJSValue(reduced);
+        QJsonObject jsonReducedObject;
+        if (!mTargetValueName.isEmpty())
+            jsonReducedObject.insert(mTargetValueName, jsonReduced);
+        else
+            jsonReducedObject = jsonReduced.toObject();
+        return jsonReducedObject;
     } else {
 
         if (reduced.isError())
             setError("Error executing add function: " + reduced.toString());
 
-        return QJsonValue(QJsonValue::Undefined);
-    }
-}
-
-QJsonValue JsonDbReduceDefinition::subtractObject(const QJsonValue &keyValue, const QJsonValue &previousValue, JsonDbObject object)
-{
-    initScriptEngine();
-    Q_ASSERT(mSubtractFunction.isCallable());
-
-    QJSValue svKeyValue = JsonDbObject::toJSValue(keyValue, mScriptEngine);
-    QJSValue svPreviousValue = JsonDbObject::toJSValue(previousValue.toObject().value(mTargetValueName),
-                                                       mScriptEngine);
-    QJSValue sv = JsonDbObject::toJSValue(object, mScriptEngine);
-
-    QJSValueList reduceArgs;
-    reduceArgs << svKeyValue << svPreviousValue << sv;
-    QJSValue reduced = mSubtractFunction.call(reduceArgs);
-
-    if (!reduced.isUndefined() && !reduced.isError()) {
-        QJsonObject jsonReduced;
-        jsonReduced.insert(mTargetValueName, JsonDbObject::fromJSValue(reduced));
-        return jsonReduced;
-    } else {
-        if (reduced.isError())
-            setError("Error executing subtract function: " + reduced.toString());
         return QJsonValue(QJsonValue::Undefined);
     }
 }
@@ -309,14 +293,67 @@ bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, Json
              && view->mReduceDefinitionsBySource.value(sourceType)->uuid() != uuid)
         message = QString("duplicate Reduce definition on source %1 and target %2")
             .arg(sourceType).arg(targetType);
-    else if (reduce.value("sourceKeyName").toString().isEmpty())
-        message = QLatin1Literal("sourceKeyName property for Reduce not specified");
+    else if (reduce.value("sourceKeyName").toString().isEmpty() && reduce.value("sourceKeyFunction").toString().isEmpty())
+        message = QLatin1Literal("sourceKeyName or sourceKeyFunction must be provided for Reduce");
+    else if (!reduce.value("sourceKeyName").toString().isEmpty() && !reduce.value("sourceKeyFunction").toString().isEmpty())
+        message = QLatin1Literal("Only one of sourceKeyName and sourceKeyFunction may be provided for Reduce");
     else if (reduce.value("add").toString().isEmpty())
         message = QLatin1Literal("add function for Reduce not specified");
     else if (reduce.value("subtract").toString().isEmpty())
         message = QLatin1Literal("subtract function for Reduce not specified");
-
+    else if (reduce.contains("targetValueName")
+             && !(reduce.value("targetValueName").isString() || reduce.value("targetValueName").isNull()))
+        message = QLatin1Literal("targetValueName for Reduce must be a string or null");
+    else {
+        // FIXME: This is static because otherwise we leak memory per QJSEngine instance
+        static QJSEngine *scriptEngine = new QJSEngine;
+        QVector<QJSValue> functions;
+        // check for script errors
+        compileFunctions(scriptEngine, reduce, functions, message);
+        scriptEngine->collectGarbage();
+    }
     return message.isEmpty();
+}
+
+bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObject definition,
+                                              QVector<QJSValue> &functions, QString &message)
+{
+    bool status = true;
+    QStringList functionNames = (QStringList()
+                                 << QLatin1String("add")
+                                 << QLatin1String("subtract")
+                                 << QLatin1String("sourceKeyFunction"));
+    int i = 0;
+    functions.resize(3);
+    foreach (const QString &functionName, functionNames) {
+        int functionNumber = i++;
+        if (!definition.contains(functionName))
+            continue;
+        QString script = definition.value(functionName).toString();
+        QJSValue result = scriptEngine->evaluate(QString("(%1)").arg(script));
+
+        if (result.isError() || !result.isCallable()) {
+            message = QString("Unable to parse add function: %1").arg(result.toString());
+            status = false;
+            continue;
+        }
+        functions[functionNumber] = result;
+    }
+    return status;
+}
+
+QJsonValue JsonDbReduceDefinition::sourceKeyValue(const QJsonObject &object)
+{
+    if (object.isEmpty()) {
+        return QJsonValue(QJsonValue::Undefined);
+    } else if (mFunctions[JsonDbReduceDefinition::SourceKeyValue].isCallable()) {
+        QJSValueList args;
+        args << JsonDbObject::toJSValue(object, mScriptEngine);
+        QJsonValue keyValue = JsonDbObject::fromJSValue(mFunctions[JsonDbReduceDefinition::SourceKeyValue].call(args));
+        return keyValue;
+    } else
+        return mSourceKeyName.contains(".") ? JsonDbObject(object).propertyLookup(mSourceKeyNameList) : object.value(mSourceKeyName);
+
 }
 
 QT_END_NAMESPACE_JSONDB

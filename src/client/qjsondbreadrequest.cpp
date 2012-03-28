@@ -54,7 +54,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 
     \brief The QJsonDbReadRequest class allows to query database.
 
-    See \l{Expression Examples} for documentation on the query string format.
+    See \l{Queries} for documentation on the query string format.
 
     \code
         QJsonDbReadRequest *request = new QJsonDbReadRequest;
@@ -130,7 +130,7 @@ QJsonDbReadRequest::~QJsonDbReadRequest()
     \brief the query string
 
     Specifies the query string for the request in the format described in
-    \l{Expression Examples}.
+    \l{Queries}.
 
     \sa queryLimit, bindValue()
 */

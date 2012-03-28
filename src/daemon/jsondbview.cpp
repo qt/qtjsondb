@@ -159,18 +159,13 @@ void JsonDbView::createMapDefinition(QJsonObject mapDefinition)
         qDebug() << "createMapDefinition" << uuid << targetType << "{";
 
     JsonDbOwner *owner = new JsonDbOwner(this);
-    owner->setOwnerCapabilities(mapDefinition.value(JsonDbString::kOwnerStr).toString(), mPartition);
+    owner->setAllowAll(true);
     JsonDbMapDefinition *def = new JsonDbMapDefinition(owner, mPartition, mapDefinition, this);
+    def->initIndexes();
+
     QStringList sourceTypes = def->sourceTypes();
     for (int i = 0; i < sourceTypes.size(); i++) {
         const QString sourceType = sourceTypes[i];
-        if (mMapDefinitionsBySource.contains(sourceType)) {
-            qWarning() << QString("Duplicate Map definition on source %1 and target %2")
-                .arg(sourceType).arg(targetType);
-            def->setError(QString("Duplicate Map definition on source %1 and target %2")
-                          .arg(sourceType).arg(targetType));
-            return;
-        }
         mMapDefinitionsBySource.insert(sourceType, def);
     }
     mMapDefinitions.insert(def->uuid(), def);
@@ -192,7 +187,6 @@ void JsonDbView::removeMapDefinition(QJsonObject mapDefinition)
             const QStringList &sourceTypes = def->sourceTypes();
             for (int i = 0; i < sourceTypes.size(); i++)
                 mMapDefinitionsBySource.remove(sourceTypes[i]);
-
             break;
         }
     }
@@ -210,14 +204,9 @@ void JsonDbView::createReduceDefinition(QJsonObject reduceDefinition)
         qDebug() << "createReduceDefinition" << sourceType << targetType << sourceType << "{";
 
     JsonDbOwner *owner = new JsonDbOwner(this);
-    owner->setOwnerCapabilities(reduceDefinition.value(JsonDbString::kOwnerStr).toString(), mPartition);
+    owner->setAllowAll(true);
     JsonDbReduceDefinition *def = new JsonDbReduceDefinition(owner, mPartition, reduceDefinition, this);
-    if (mReduceDefinitionsBySource.contains(sourceType)) {
-        def->setError(QString("Duplicate Reduce definition on source %1 and target %2")
-                      .arg(sourceType).arg(targetType));
-        return;
-    }
-
+    def->initIndexes();
     mReduceDefinitionsBySource.insert(sourceType, def);
     mReduceDefinitions.insert(def->uuid(), def);
 
@@ -381,6 +370,8 @@ void JsonDbView::updateView(quint32 desiredStateNumber)
     if (jsondbSettings->performanceLog())
         qDebug() << "updateView" << mViewType << timer.elapsed() << "ms";
     mUpdating = false;
+
+    emit updated(mViewType);
 }
 
 bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targetStateNumber,
@@ -431,10 +422,12 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
                 }
                 definitionUuid = after.value(JsonDbString::kUuidStr).toString();
                 QString definitionType = after.value(JsonDbString::kTypeStr).toString();
-                if (definitionType == JsonDbString::kMapTypeStr)
-                    mMapDefinitions.value(definitionUuid)->definitionCreated();
-                else
-                    mReduceDefinitions.value(definitionUuid)->definitionCreated();
+                if (!after.contains(JsonDbString::kActiveStr) || after.value(JsonDbString::kActiveStr).toBool()) {
+                    if (definitionType == JsonDbString::kMapTypeStr)
+                        mMapDefinitions.value(definitionUuid)->definitionCreated();
+                    else
+                        mReduceDefinitions.value(definitionUuid)->definitionCreated();
+                }
             }
         }
         if (!definitionUuid.isEmpty())

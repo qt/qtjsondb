@@ -102,6 +102,7 @@ private slots:
 
     void testAccessControl();
     void testFindAccessControl();
+    void testViewAccessControl();
 
 private:
     JsonDbQueryResult find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings = QJsonObject());
@@ -434,6 +435,50 @@ void TestJsonDb::testFindAccessControl()
     jsondbSettings->setEnforceAccessControl(false);
 }
 
+/*
+ * Create Map and Reduce objects and check access control
+ */
+
+void TestJsonDb::testViewAccessControl()
+{
+    jsondbSettings->setEnforceAccessControl(false);
+    QJsonArray defs(readJsonFile(":/security/json/capabilities-view.json").toArray());
+    for (int i = 0; i < defs.size(); ++i) {
+        JsonDbObject object(defs.at(i).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+    }
+
+    jsondbSettings->setEnforceAccessControl(true);
+    QJsonObject viewCapabilities;
+    QJsonArray value;
+    value.append (QLatin1String("rw"));
+    viewCapabilities.insert (QLatin1String("views"), value);
+    mOwner->setAllowAll(false);
+    mOwner->setCapabilities(viewCapabilities, mJsonDbPartition);
+
+    defs = readJsonFile(":/security/json/view-test.json").toArray();
+    for (int i = 0; i < defs.size(); ++i) {
+        JsonDbObject object(defs.at(i).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyGoodResult(result);
+    }
+
+    QJsonObject novwCapabilities;
+    QJsonArray novwValue;
+    novwValue.append (QLatin1String("rw"));
+    novwCapabilities.insert (QLatin1String("noviews"), novwValue);
+    mOwner->setAllowAll(false);
+    mOwner->setCapabilities(novwCapabilities, mJsonDbPartition);
+
+    defs = readJsonFile(":/security/json/view-test2.json").toArray();
+    for (int i = 0; i < defs.size(); ++i) {
+        JsonDbObject object(defs.at(i).toObject());
+        JsonDbWriteResult result = create(mOwner, object);
+        verifyErrorResult(result);
+    }
+}
+
 QStringList strings = (QStringList()
                        << "abc"
                        << "def"
@@ -456,7 +501,7 @@ QJsonValue TestJsonDb::readJsonFile(const QString& filename)
     JsonReader parser;
     bool ok = parser.parse(json);
     if (!ok) {
-      qDebug() << filepath << parser.errorString();
+      qDebug() << filepath << parser.errorString() << json;
     }
     QVariant v = parser.result();
     return QJsonValue::fromVariant(v);

@@ -95,7 +95,7 @@ public slots:
     // from a watcher
     void onWatcherNotificationsAvailable(int);
     void onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status);
-    void onWatcherError(int,QString);
+    void onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString);
 private:
     void removeDbFiles();
 
@@ -123,6 +123,12 @@ static const char dbfileprefix[] = "test-jsondb-watcher";
         mNotificationCount = _count;                            \
         mNotificationsReceived = 0;                             \
         mEventLoop.exec(QEventLoop::AllEvents);                 \
+    }
+
+#define waitForWatcherStatus(_watcher, _status)                 \
+    {                                                           \
+        while (_watcher.status() != _status)                   \
+            mEventLoop.processEvents(QEventLoop::AllEvents);    \
     }
 
 TestQJsonDbWatcher::TestQJsonDbWatcher()
@@ -183,7 +189,7 @@ void TestQJsonDbWatcher::onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status
 }
 
 // this should go into a new version of clientwrapper.h
-void TestQJsonDbWatcher::onWatcherError(int code, QString message)
+void TestQJsonDbWatcher::onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode code, QString message)
 {
     qCritical() << "onWatcherError" << code << message;
     mEventLoop.quit();
@@ -256,7 +262,7 @@ void TestQJsonDbWatcher::createAndRemove()
             this, SLOT(onWatcherNotificationsAvailable(int)));
     connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
             this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
-    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+    connect(&watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)), this, SLOT(onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
     mConnection->addWatcher(&watcher);
 
     QJsonObject item;
@@ -354,7 +360,7 @@ void TestQJsonDbWatcher::history()
             this, SLOT(onWatcherNotificationsAvailable(int)));
     connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
             this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
-    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+    connect(&watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)), this, SLOT(onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
 
     // set the starting state
     watcher.setInitialStateNumber(firstStateNumber-1);
@@ -362,6 +368,7 @@ void TestQJsonDbWatcher::history()
 
     // expecting one notification per create and one state change
     waitForResponseAndNotification(0, objects.size()+1);
+    waitForWatcherStatus(watcher, QJsonDbWatcher::Active);
 
     QList<QJsonDbNotification> notifications = watcher.takeNotifications();
     QCOMPARE(notifications.size(), objects.size()+1);
@@ -372,6 +379,31 @@ void TestQJsonDbWatcher::history()
     QCOMPARE(notifications.at(objects.size()).action(), QJsonDbWatcher::StateChanged);
 
     mConnection->removeWatcher(&watcher);
+
+    // create a new historical watcher that should retrieve all the changes
+    QJsonDbWatcher watcher2;
+    watcher2.setWatchedActions(QJsonDbWatcher::All);
+    watcher2.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
+    connect(&watcher2, SIGNAL(notificationsAvailable(int)),
+            this, SLOT(onWatcherNotificationsAvailable(int)));
+    connect(&watcher2, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
+            this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+    connect(&watcher2, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)), this, SLOT(onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+    watcher2.setInitialStateNumber(-1);
+
+    mConnection->addWatcher(&watcher2);
+    waitForResponseAndNotification(0, objects.size() + 1);
+    waitForWatcherStatus(watcher2, QJsonDbWatcher::Active);
+
+    QList<QJsonDbNotification> notifications2 = watcher2.takeNotifications();
+    QCOMPARE(notifications2.size(), objects.size()+1);
+    // we received one Create notification per object
+    foreach (const QJsonDbNotification n, notifications2.mid(0, objects.size()))
+        QCOMPARE(n.action(), QJsonDbWatcher::Created);
+    // we received one StateChanged notification
+    QCOMPARE(notifications2.at(objects.size()).action(), QJsonDbWatcher::StateChanged);
+
+    mConnection->removeWatcher(&watcher2);
 }
 
 void TestQJsonDbWatcher::currentState()
@@ -383,7 +415,7 @@ void TestQJsonDbWatcher::currentState()
             this, SLOT(onWatcherNotificationsAvailable(int)));
     connect(&watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
             this, SLOT(onWatcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
-    connect(&watcher, SIGNAL(error(int,QString)), this, SLOT(onWatcherError(int,QString)));
+    connect(&watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)), this, SLOT(onWatcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
 
     // set the starting state to -1 to get the current state
     watcher.setInitialStateNumber(static_cast<quint32>(-1));

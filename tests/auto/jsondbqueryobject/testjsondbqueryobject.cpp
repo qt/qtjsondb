@@ -67,6 +67,12 @@ const QString qmlProgramForPartition = QLatin1String(
                 "name: \"com.nokia.shared\";"
             "}");
 
+const QString qmlProgramForQueryWithoutPartition = QLatin1String(
+            "import QtQuick 2.0 \n"
+            "import QtJsonDb 1.0 as JsonDb \n"
+            "JsonDb.Query { "
+                "id:queryObject;"
+            "}");
 
 TestJsonDbQueryObject::TestJsonDbQueryObject()
     : mTimedOut(false)
@@ -125,8 +131,11 @@ void TestJsonDbQueryObject::initTestCase()
 
 }
 
-ComponentData *TestJsonDbQueryObject::createComponent()
+ComponentData *TestJsonDbQueryObject::createComponent(const QString &qml)
 {
+    QString tmp = qml;
+    if (tmp.isEmpty())
+        tmp = qmlProgram;
     ComponentData *componentData = new ComponentData();
     componentData->engine = new QQmlEngine();
     QString error;
@@ -136,7 +145,7 @@ ComponentData *TestJsonDbQueryObject::createComponent()
         return 0;
     }
     componentData->component = new QQmlComponent(componentData->engine);
-    componentData->component->setData(qmlProgram.toLocal8Bit(), QUrl());
+    componentData->component->setData(tmp.toLocal8Bit(), QUrl());
     componentData->qmlElement = componentData->component->create();
     if (componentData->component->isError())
         qDebug() << componentData->component->errors();
@@ -298,6 +307,43 @@ void TestJsonDbQueryObject::createQuery()
     QCOMPARE(callbackError, false);
     delete expr;
     deleteComponent(partition);
+}
+
+void TestJsonDbQueryObject::queryWithoutPartition()
+{
+    ComponentData *queryObject = createComponent(qmlProgramForQueryWithoutPartition);
+    if (!queryObject || !queryObject->qmlElement) return;
+
+    // define index on pos property
+    QVariantMap index;
+    index.insert("_type", "Index");
+    index.insert("propertyName", "pos");
+    index.insert("propertyType", "number");
+    mClient->create(index);
+
+    const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
+    queryObject->qmlElement->setProperty("query", queryString);
+    currentQmlElement = queryObject->qmlElement;
+
+    //Create objects
+    QVariantList items = createObjectList(__FUNCTION__, 10).toList();
+    mClient->create(QVariant(items));
+    qSort(items.begin(), items.end(), posLessThan);
+    const QString expression("start();");
+    QQmlExpression *expr;
+    expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
+    expr->evaluate();
+    waitForCallback2();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(cbData.size(), 10);
+    for (int i = 0; i<10; i++) {
+        QVariantMap item = items[i].toMap();
+        QVariantMap obj = cbData[i].toMap();
+        QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
+    }
+
+    delete expr;
+    deleteComponent(queryObject);
 }
 
 void TestJsonDbQueryObject::queryBinding()

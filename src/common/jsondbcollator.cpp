@@ -52,6 +52,12 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+JsonDbCollatorPrivate::~JsonDbCollatorPrivate()
+{
+    if (collator)
+        ucol_close(collator);
+}
+
 static const int collationStringsCount = 13;
 static const char * const collationStrings[collationStringsCount] = {
     "default",
@@ -87,19 +93,15 @@ JsonDbCollator::JsonDbCollator(const JsonDbCollator &other)
 
 JsonDbCollator::~JsonDbCollator()
 {
-    if (!d->ref.deref()) {
-        if (d->collator)
-            ucol_close(d->collator);
-    }
+    if (!d->ref.deref())
+        delete d;
 }
 
 JsonDbCollator &JsonDbCollator::operator=(const JsonDbCollator &other)
 {
     if (this != &other) {
-        if (!d->ref.deref()) {
-            if (d->collator)
-                ucol_close(d->collator);
-        }
+        if (!d->ref.deref())
+            delete d;
         *d = *other.d;
         d->ref.ref();
     }
@@ -146,7 +148,7 @@ void JsonDbCollator::init()
     Q_ASSERT((int)d->collation < collationStringsCount);
     const char *collationString = collationStrings[(int)d->collation];
     UErrorCode status = U_ZERO_ERROR;
-    QByteArray name = (d->locale.bcp47Name().replace(QLatin1Char('-'), QLatin1Char('_')) + QString("@collation=") + QLatin1String(collationString)).toLatin1();
+    QByteArray name = (d->locale.bcp47Name().replace(QLatin1Char('-'), QLatin1Char('_')) + QLatin1String("@collation=") + QLatin1String(collationString)).toLatin1();
     d->collator = ucol_open(name.constData(), &status);
     if (U_FAILURE(status))
         qWarning("Could not create collator: %d", status);
@@ -211,10 +213,8 @@ void JsonDbCollator::detach()
         x->options = d->options;
         x->modified = true;
         x->collator = 0;
-        if (!d->ref.deref()) {
-            if (d->collator)
-                ucol_close(d->collator);
-        }
+        if (!d->ref.deref())
+            delete d;
         d = x;
     }
 }

@@ -67,9 +67,9 @@ QVariantMap _waitForResponse(QtJsonDb::QJsonDbRequest *request) {
         res.insert(QLatin1Literal("result"), data);
     } else {
         QVariantMap error;
-        error.insert(QLatin1Literal("code"), 1);
-        error.insert(QLatin1Literal("message"), "Error processing request");
-        res.insert(QLatin1Literal("error"), error);
+        error.insert(QLatin1String("code"), 1);
+        error.insert(QLatin1String("message"), "Error processing request");
+        res.insert(QLatin1String("error"), error);
     }
     return res;
 }
@@ -84,9 +84,9 @@ JsonDbProxy::JsonDbProxy(QtJsonDb::QJsonDbConnection *conn, QObject *parent) :
 QVariantMap JsonDbProxy::find(QVariantMap object)
 {
     QtJsonDb::QJsonDbReadRequest *request = new QtJsonDb::QJsonDbReadRequest(this);
-    request->setQuery(object.value(QLatin1Literal("query")).toString());
-    if (object.contains(QLatin1Literal("limit")))
-        request->setQueryLimit(object.value(QLatin1Literal("limit")).toInt());
+    request->setQuery(object.value(QLatin1String("query")).toString());
+    if (object.contains(QLatin1String("limit")))
+        request->setQueryLimit(object.value(QLatin1String("limit")).toInt());
     mConnection->send(request);
     return _waitForResponse(request);
 }
@@ -95,8 +95,8 @@ QVariantMap JsonDbProxy::create(QVariantMap object)
 {
     // handle the to-be-deprecated _id property
     QtJsonDb::QJsonDbObject obj = QJsonObject::fromVariantMap(object);
-    if (obj.uuid().isNull() && obj.contains(QLatin1Literal("_id"))) {
-        obj.setUuid(QtJsonDb::QJsonDbObject::createUuidFromString(obj.value(QLatin1Literal("_id")).toString()));
+    if (obj.uuid().isNull() && obj.contains(QLatin1String("_id"))) {
+        obj.setUuid(QtJsonDb::QJsonDbObject::createUuidFromString(obj.value(QLatin1String("_id")).toString()));
         obj.remove(QLatin1String("_id"));
     }
     QtJsonDb::QJsonDbCreateRequest *request = new QtJsonDb::QJsonDbCreateRequest(QList<QJsonObject>() << obj,
@@ -126,8 +126,8 @@ QVariantMap JsonDbProxy::createList(QVariantList list)
     QList<QJsonObject> objects;
     foreach (const QVariant &object, list) {
         QtJsonDb::QJsonDbObject obj = QJsonObject::fromVariantMap(object.toMap());
-        if (!obj.uuid().isNull() && obj.contains(QLatin1Literal("_id"))) {
-            obj.setUuid(QtJsonDb::QJsonDbObject::createUuidFromString(obj.value(QLatin1Literal("_id")).toString()));
+        if (!obj.uuid().isNull() && obj.contains(QLatin1String("_id"))) {
+            obj.setUuid(QtJsonDb::QJsonDbObject::createUuidFromString(obj.value(QLatin1String("_id")).toString()));
             obj.remove(QLatin1String("_id"));
         }
         objects << obj;

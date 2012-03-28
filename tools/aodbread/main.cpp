@@ -41,26 +41,21 @@
 
 #include <QtCore>
 
-#include "aodb.h"
 #include "btree.h"
 
-#include <QtJsonDbQson/private/qson_p.h>
-#include <QtJsonDbQson/private/qsonparser_p.h>
+#include "qbtree.h"
+#include "qbtreetxn.h"
+#include "qbtreecursor.h"
 
-#include "json.h"
-
-QT_ADDON_JSONDB_USE_NAMESPACE
+#include <stdint.h>
 
 QString printable(const QByteArray &ba)
 {
     QByteArray array = ba;
 
-    if (ba.startsWith("QSN")) {
-        QVariant obj = qsonToVariant(QsonParser::fromRawData(ba));
-        JsonWriter writer;
-//        writer.setAutoFormatting(true);
-        return QString("QSN:") +writer.toString(obj);
-    }
+    QJsonDocument doc = QJsonDocument::fromBinaryData(ba);
+    if (!doc.isNull())
+        return QString("QSN:") + doc.toJson();
 
     // check if it is a number
     bool isNumber = true;
@@ -71,9 +66,8 @@ QString printable(const QByteArray &ba)
         }
     }
     if (isNumber) {
-        for (int i = 0; i < array.size(); ++i) {
+        for (int i = 0; i < array.size(); ++i)
             array[i] = array.at(i)+'0';
-        }
         return QString("N:") +QString::fromLatin1(array);
     }
 
@@ -92,9 +86,8 @@ QString printable(const QByteArray &ba)
             }
         }
     }
-    if (utf16) {
+    if (utf16)
         return QString("U:") + QString::fromUtf16((const ushort *)array.constData(), array.size()/2);
-    }
 
     for (int i = 0; i < array.size(); ++i) {
         if (array.at(i) == 0)
@@ -108,9 +101,8 @@ QString printable(const QByteArray &ba)
             break;
         }
     }
-    if (isprintable) {
+    if (isprintable)
         return QString("S:") + QString::fromLatin1(array);
-    }
 
     if (ba.size() == 5 && ba.at(4) == 'S') {
         // state change
@@ -150,13 +142,12 @@ bool gDump = false;
 bool gWantCompact = false;
 bool gShowAll = false;
 bool gShowAllReversed = false;
-quint32 gShowState = 0;
 qint64 gDumpPage = 0;
 
 void usage()
 {
     qDebug() << QCoreApplication::arguments().at(0)
-             << "[--dump-page num] [--stat] [--dump] [--compact] [--all|--all-reversed] [--state num] database_file";
+             << "[--dump-page num] [--stat] [--dump] [--compact] [--all|--all-reversed] database_file";
 }
 
 int main(int argc, char **argv)
@@ -183,13 +174,6 @@ int main(int argc, char **argv)
             gShowAll = true;
         } else if (arg == QLatin1String("--all-reversed")) {
             gShowAllReversed = true;
-        } else if (arg == QLatin1String("--state")) {
-            bool ok = false;
-            gShowState = args.takeFirst().toInt(&ok);
-            if (!ok) {
-                usage();
-                return 0;
-            }
         } else if (arg == QLatin1String("--dump-page")) {
             bool ok = false;
             gDumpPage = args.takeFirst().toInt(&ok);
@@ -217,15 +201,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    AoDb db;
-    if (!db.open(filename, AoDb::ReadOnly)) {
+    QBtree db;
+    db.setFileName(filename);
+    db.setFlags(QBtree::ReadOnly);
+    if (!db.open()) {
         qDebug() << "cannot open" << filename;
         usage();
         return 0;
     }
 
     if (gStat) {
-        const struct btree_stat *bs = db.stat();
+        const struct btree_stat *bs = btree_stat(db.handle());
         qDebug() << "stat:";
         qDebug() << "\thits:" << bs->hits;
         qDebug() << "\treads:" << bs->reads;
@@ -241,48 +227,25 @@ int main(int argc, char **argv)
         qDebug() << "\ttag:" << bs->tag;
         qDebug() << "";
     }
+
     if (gDump) {
         db.dump();
     }
 
-    if (gShowState != 0) {
-#if 0
-        AoDb statedb;
-        QFileInfo fi(filename);
-        if (!statedb.open(QString("%1/%2-States.db").arg(fi.dir().path()).arg(fi.baseName()), AoDb::ReadOnly)) {
-            qDebug() << "cannot open" << filename;
-            usage();
-            return 0;
-        }
-        ObjectCursor cursor(&statedb, &db);
-        bool ok = cursor.first(gShowState);
-        if (!ok) {
-            qDebug() << "Could not seek to" << gShowState;
-            return 0;
-        }
-        QByteArray key, value;
-        for (int i = 0; ok && cursor.current(key, value); ok = cursor.next(), ++i) {
-            QString keyString, valueString;
-            makePrintable(key, keyString, value, valueString);
-            qDebug() << i << ":" << keyString << ":" << valueString;
-        }
-#endif
-    }
-
     if (gShowAllReversed) {
-        AoDbCursor cursor(&db);
+        QBtreeCursor cursor(&db);
         QByteArray key, value;
         int i = 0;
-        for (bool ok = cursor.last(); ok && cursor.current(key, value); ok = cursor.prev(), ++i) {
+        for (bool ok = cursor.last(); ok && cursor.current(&key, &value); ok = cursor.prev(), ++i) {
             QString keyString, valueString;
             makePrintable(key, keyString, value, valueString);
             qDebug() << i << ":" << keyString << ":" << valueString;
         }
     } else if (gShowAll) {
-        AoDbCursor cursor(&db);
+        QBtreeCursor cursor(&db);
         QByteArray key, value;
         int i = 0;
-        for (bool ok = cursor.first(); ok && cursor.current(key, value); ok = cursor.next(), ++i) {
+        for (bool ok = cursor.first(); ok && cursor.current(&key, &value); ok = cursor.next(), ++i) {
             QString keyString, valueString;
             makePrintable(key, keyString, value, valueString);
             qDebug() << i << ":" << keyString << ":" << valueString;
@@ -291,7 +254,9 @@ int main(int argc, char **argv)
 
     if (gWantCompact) {
         db.close();
-        db.open(filename);
+        db.setFileName(filename);
+        db.setFlags(QBtree::Default);
+        db.open();
         if (db.compact()) {
             qDebug() << "compacted.";
         } else {

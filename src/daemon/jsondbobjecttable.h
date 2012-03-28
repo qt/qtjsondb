@@ -140,7 +140,7 @@ public:
     bool addIndex(const QString &indexName,
                   const QString &propertyName = QString(),
                   const QString &propertyType = QString("string"),
-                  const QString &objectType = QString(),
+                  const QStringList &objectTypes = QStringList(),
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
                   const QString &collation = QString(),
@@ -149,7 +149,8 @@ public:
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QString("string"),
                             const QString &objectType = QString())
-    { return addIndex(propertyName, propertyName, propertyType, objectType); }
+    { return addIndex(propertyName, propertyName, propertyType,
+                      objectType.isEmpty() ? QStringList() : (QStringList() << objectType)); }
     bool removeIndex(const QString &indexName);
     void reindexObjects(const QString &indexName, const QStringList &path, quint32 stateNumber);
     void indexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
