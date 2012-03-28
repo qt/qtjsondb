@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef JSONDB_UTIL_H
+#define JSONDB_UTIL_H
 
 #include <QFile>
 #include <QDir>
@@ -169,4 +169,4 @@ inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &sock
     return pid;
 }
 
-#endif // UTIL_H
+#endif // JSONDB_UTIL_H
