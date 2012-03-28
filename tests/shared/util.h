@@ -77,9 +77,11 @@ QJsonDocument readJsonFile(const QString &filename, QJsonParseError *error = 0)
 {
     QString filepath = filename;
     QFile jsonFile(filepath);
-    if (!jsonFile.exists() && error) {
-        error->error = QJsonParseError::EndOfString;
-        error->offset = 0;
+    if (!jsonFile.exists()) {
+        if (error) {
+            error->error = QJsonParseError::MissingObject;
+            error->offset = 0;
+        }
         return QJsonDocument();
     }
     jsonFile.open(QIODevice::ReadOnly);
