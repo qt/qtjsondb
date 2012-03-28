@@ -106,14 +106,18 @@ bool SortingKey::operator <(const SortingKey &rhs) const
         // The index spec is only applied to the first item
         if (!i && (dLhs->indexSpec.type == SortIndexSpec::String || dLhs->indexSpec.type == SortIndexSpec::UUID)) {
             if ((cmp = equalWithSpec(lhsValue, rhsValue, dLhs->indexSpec))) {
-                return (dLhs->directions[i] ? (cmp < 0) : !(cmp < 0));
+                return (dLhs->directions[i] ? (cmp < 0) : (cmp > 0));
             }
         } else if (lhsValue != rhsValue) {
             bool result = lhsValue < rhsValue;
             return (dLhs->directions[i] ? result :!result);
         }
     }
-    return (memcmp(dLhs->uuid.constData(), dRhs->uuid.constData(), qMin(dLhs->uuid.size(), dRhs->uuid.size())) < 0);
+    int cmp = memcmp(dLhs->uuid.constData(), dRhs->uuid.constData(), qMin(dLhs->uuid.size(), dRhs->uuid.size()));
+    // In case of even score jsondb sorts according to _uuid in the same direction as the last sort item
+    if (nKeys)
+        return (dLhs->directions[nKeys-1] ? (cmp < 0) : (cmp > 0));
+    return cmp;
 }
 
 bool SortingKey::operator ==(const SortingKey &rhs) const
