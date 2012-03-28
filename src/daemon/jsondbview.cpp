@@ -54,6 +54,7 @@
 #include "jsondbobjecttable.h"
 #include "jsondbreducedefinition.h"
 #include "jsondbsettings.h"
+#include "jsondbscriptengine.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -363,6 +364,7 @@ void JsonDbView::updateView(quint32 desiredStateNumber)
             }
         }
     }
+    JsonDbScriptEngine::scriptEngine()->collectGarbage();
     if (inTransaction)
         mViewObjectTable->commit(partitionStateNumber);
     if (jsondbSettings->verbose())

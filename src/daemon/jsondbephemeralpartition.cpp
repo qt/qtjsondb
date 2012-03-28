@@ -97,6 +97,7 @@ JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owne
 
 JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode)
 {
+    Q_UNUSED(mode);
     JsonDbWriteResult result;
     QList<JsonDbUpdate> updated;
 

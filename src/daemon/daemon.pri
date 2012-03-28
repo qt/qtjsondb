@@ -27,6 +27,7 @@ HEADERS += \
     $$PWD/schema-validation/object.h \
     $$PWD/jsondbschemamanager_impl_p.h \
     $$PWD/jsondbschemamanager_p.h \
+    $$PWD/jsondbscriptengine.h \
     $$PWD/jsondbsignals.h \
     $$PWD/jsondbsettings.h \
     $$PWD/jsondbindexquery.h
@@ -48,6 +49,7 @@ SOURCES += \
     $$PWD/jsondbmanagedbtree.cpp \
     $$PWD/jsondbmanagedbtreetxn.cpp \
     $$PWD/jsondbreducedefinition.cpp \
+    $$PWD/jsondbscriptengine.cpp \
     $$PWD/jsondbsignals.cpp \
     $$PWD/jsondbsettings.cpp \
     $$PWD/jsondbindexquery.cpp

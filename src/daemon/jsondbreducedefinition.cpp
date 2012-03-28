@@ -58,6 +58,7 @@
 #include "jsondbsettings.h"
 #include "jsondbobjecttable.h"
 #include "jsondbreducedefinition.h"
+#include "jsondbscriptengine.h"
 #include "jsondbview.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -122,7 +123,7 @@ void JsonDbReduceDefinition::initScriptEngine()
     if (mScriptEngine)
         return;
 
-    mScriptEngine = new QJSEngine(this);
+    mScriptEngine = JsonDbScriptEngine::scriptEngine();
     QString message;
     bool status = compileFunctions(mScriptEngine, mDefinition, mFunctions, message);
     if (!status)
@@ -130,15 +131,11 @@ void JsonDbReduceDefinition::initScriptEngine()
 
     Q_ASSERT(!mDefinition.value("add").toString().isEmpty());
     Q_ASSERT(!mDefinition.value("subtract").toString().isEmpty());
-
-    QJSValue globalObject = mScriptEngine->globalObject();
-    globalObject.setProperty("console", mScriptEngine->newQObject(new Console()));
 }
 
 void JsonDbReduceDefinition::releaseScriptEngine()
 {
     mFunctions.clear();
-    delete mScriptEngine;
     mScriptEngine = 0;
 }
 
@@ -235,18 +232,18 @@ QJsonValue JsonDbReduceDefinition::addObject(JsonDbReduceDefinition::FunctionNum
                                              const QJsonValue &keyValue, QJsonValue previousValue, JsonDbObject object)
 {
     initScriptEngine();
-    QJSValue svKeyValue = JsonDbObject::toJSValue(keyValue, mScriptEngine);
+    QJSValue svKeyValue = JsonDbScriptEngine::toJSValue(keyValue, mScriptEngine);
     if (!mTargetValueName.isEmpty())
         previousValue = previousValue.toObject().value(mTargetValueName);
-    QJSValue svPreviousValue = JsonDbObject::toJSValue(previousValue, mScriptEngine);
-    QJSValue svObject = JsonDbObject::toJSValue(object, mScriptEngine);
+    QJSValue svPreviousValue = JsonDbScriptEngine::toJSValue(previousValue, mScriptEngine);
+    QJSValue svObject = JsonDbScriptEngine::toJSValue(object, mScriptEngine);
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << svObject;
     QJSValue reduced = mFunctions[functionNumber].call(reduceArgs);
 
     if (!reduced.isUndefined() && !reduced.isError()) {
-        QJsonValue jsonReduced = JsonDbObject::fromJSValue(reduced);
+        QJsonValue jsonReduced = JsonDbScriptEngine::fromJSValue(reduced);
         QJsonObject jsonReducedObject;
         if (!mTargetValueName.isEmpty())
             jsonReducedObject.insert(mTargetValueName, jsonReduced);
@@ -305,8 +302,7 @@ bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, Json
              && !(reduce.value("targetValueName").isString() || reduce.value("targetValueName").isNull()))
         message = QLatin1Literal("targetValueName for Reduce must be a string or null");
     else {
-        // FIXME: This is static because otherwise we leak memory per QJSEngine instance
-        static QJSEngine *scriptEngine = new QJSEngine;
+        QJSEngine *scriptEngine = JsonDbScriptEngine::scriptEngine();
         QVector<QJSValue> functions;
         // check for script errors
         compileFunctions(scriptEngine, reduce, functions, message);
@@ -348,8 +344,8 @@ QJsonValue JsonDbReduceDefinition::sourceKeyValue(const QJsonObject &object)
         return QJsonValue(QJsonValue::Undefined);
     } else if (mFunctions[JsonDbReduceDefinition::SourceKeyValue].isCallable()) {
         QJSValueList args;
-        args << JsonDbObject::toJSValue(object, mScriptEngine);
-        QJsonValue keyValue = JsonDbObject::fromJSValue(mFunctions[JsonDbReduceDefinition::SourceKeyValue].call(args));
+        args << JsonDbScriptEngine::toJSValue(object, mScriptEngine);
+        QJsonValue keyValue = JsonDbScriptEngine::fromJSValue(mFunctions[JsonDbReduceDefinition::SourceKeyValue].call(args));
         return keyValue;
     } else
         return mSourceKeyName.contains(".") ? JsonDbObject(object).propertyLookup(mSourceKeyNameList) : object.value(mSourceKeyName);

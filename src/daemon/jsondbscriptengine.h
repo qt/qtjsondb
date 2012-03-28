@@ -39,13 +39,11 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_OBJECT_H
-#define JSONDB_OBJECT_H
+#ifndef JSONDB_SCRIPT_ENGINE_H
+#define JSONDB_SCRIPT_ENGINE_H
 
 #include <QJSEngine>
 #include <QUuid>
-#include <QDebug>
-#include <QVariant>
 
 #include <qjsonarray.h>
 #include <qjsonobject.h>
@@ -57,54 +55,17 @@ QT_BEGIN_HEADER
 
 QT_ADDON_JSONDB_BEGIN_NAMESPACE
 
-class JsonDbObject : public QJsonObject
+class JsonDbScriptEngine : public QObject
 {
 public:
-    JsonDbObject();
-    JsonDbObject(const QJsonObject &object);
-    ~JsonDbObject();
+    JsonDbScriptEngine();
+    JsonDbScriptEngine(const QJsonObject &object);
+    ~JsonDbScriptEngine();
 
-    QByteArray toBinaryData() const;
-
-    QUuid uuid() const;
-    QString version() const;
-    QString type() const;
-    bool isDeleted() const;
-    void markDeleted();
-
-    void generateUuid();
-    static QUuid createUuidFromString(const QString &id);
-    QString computeVersion();
-
-    bool updateVersionOptimistic(const JsonDbObject &other, QString *versionWritten);
-    bool updateVersionReplicating(const JsonDbObject & other);
-
-    bool operator <(const JsonDbObject &other) const;
-    bool isAncestorOf(const JsonDbObject &other) const;
-
-    QJsonValue propertyLookup(const QString &path) const;
-    QJsonValue propertyLookup(const QStringList &path) const;
-
-private:
-    bool populateMerge(QMap<JsonDbObject, bool> *documents, const QUuid &id, const JsonDbObject &source, bool validateSource = false, bool recurse = true) const;
-    void populateHistory(QJsonArray *history, const JsonDbObject &doc, bool includeCurrent) const;
-    QString tokenizeVersion(const QString &version, int *updateCount) const;
-    QString versionAsString(const int updateCount, const QString &hash) const;
-
-    bool computeVersion(const int oldUpdateCount, const QString& oldHash, int *newUpdateCount, QString *newHash) const;
-
-    bool isAncestorOf(const QJsonArray &history, const int updateCount, const QString &hash) const;
-    void addAncestor(QJsonArray *history, const int updateCount, const QString &hash) const;
-};
-
-
-typedef QList<JsonDbObject> JsonDbObjectList;
-
-struct GetObjectsResult
-{
-    JsonDbObjectList data;
-    QJsonValue error;
-
+    static QJsonValue fromJSValue(const QJSValue &v);
+    static QJSValue toJSValue(const QJsonValue &v, QJSEngine *scriptEngine);
+    static QJSValue toJSValue(const QJsonObject &object, QJSEngine *mScriptEngine);
+    static QJSEngine *scriptEngine();
 };
 
 QT_ADDON_JSONDB_END_NAMESPACE

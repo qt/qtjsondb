@@ -53,6 +53,7 @@
 #include "jsondbmanagedbtree.h"
 #include "jsondbsettings.h"
 #include "jsondbobjecttable.h"
+#include "jsondbscriptengine.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -175,19 +176,22 @@ JsonDbIndex::~JsonDbIndex()
 bool JsonDbIndex::setPropertyFunction(const QString &propertyFunction)
 {
     if (!mScriptEngine)
-        mScriptEngine = new QJSEngine(this);
-    mPropertyFunction = mScriptEngine->evaluate(QString("var %1 = %2; %1;").arg("index").arg(propertyFunction));
+        mScriptEngine = JsonDbScriptEngine::scriptEngine();
+
+    // for "emit"
+    JsonDbJoinProxy *mapProxy = new JsonDbJoinProxy(0, 0, this);
+    connect(mapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
+            this, SLOT(propertyValueEmitted(QJSValue)));
+    QString proxyName(QString("_jsondbIndexProxy%1").arg(mIndexName));
+    proxyName.replace(".", "$");
+    mScriptEngine->globalObject().setProperty(proxyName, mScriptEngine->newQObject(mapProxy));
+
+    QString script(QString("(function() { var jsondb={emit: %2.create, lookup: %2.lookup }; var fcn = (%1); return fcn})()").arg(propertyFunction).arg(proxyName));
+    mPropertyFunction = mScriptEngine->evaluate(script);
     if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
         qDebug() << "Unable to parse index value function: " << mPropertyFunction.toString();
         return false;
     }
-
-    // for "create"
-    JsonDbJoinProxy *mapProxy = new JsonDbJoinProxy(0, 0, this);
-    connect(mapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
-            this, SLOT(propertyValueEmitted(QJSValue)));
-    mScriptEngine->globalObject().setProperty("_jsondb", mScriptEngine->newQObject(mapProxy));
-    mScriptEngine->evaluate("var jsondb = {emit: _jsondb.create, lookup: _jsondb.lookup };");
 
    return true;
 }
@@ -326,7 +330,7 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 void JsonDbIndex::propertyValueEmitted(QJSValue value)
 {
     if (!value.isUndefined())
-        mFieldValues.append(JsonDbObject::fromJSValue(value));
+        mFieldValues.append(JsonDbScriptEngine::fromJSValue(value));
 }
 
 void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber)
