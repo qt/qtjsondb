@@ -44,7 +44,6 @@
 #include <QJsonDocument>
 #include <QStack>
 #include <QString>
-#include <QStringList>
 
 #include "jsondb-strings.h"
 #include "jsondbindexquery.h"
@@ -54,35 +53,16 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-struct TokenClassInitializer { QChar c; JsonDbQueryTokenizer::TokenClass tokenClass;};
-static TokenClassInitializer sTokenClasses[] = {
-    { '[', JsonDbQueryTokenizer::Singleton },
-    { ']', JsonDbQueryTokenizer::Singleton },
-    { '{', JsonDbQueryTokenizer::Singleton },
-    { '}', JsonDbQueryTokenizer::Singleton },
-    { '/', JsonDbQueryTokenizer::Singleton },
-    { '\\', JsonDbQueryTokenizer::Singleton },
-    { '?', JsonDbQueryTokenizer::Singleton },
-    { ',', JsonDbQueryTokenizer::Singleton },
-    { ':', JsonDbQueryTokenizer::Singleton },
-    { '=', JsonDbQueryTokenizer::Operator },
-    { '>', JsonDbQueryTokenizer::Operator },
-    { '<', JsonDbQueryTokenizer::Operator },
-    { '!', JsonDbQueryTokenizer::Operator },
-    { '-', JsonDbQueryTokenizer::Operator },
-    { '~', JsonDbQueryTokenizer::Operator },
-    { '|', JsonDbQueryTokenizer::Singleton }
+const char* JsonDbQueryTokenizer::sTokens[] = {
+"[", "]", "{", "}", "/", "?", ",", ":", "|", "\\"
+//operators are ordered by precedence
+, "!=", "<=", ">=", "=~", "->", "=", ">", "<"
+, ""//end of the token list
 };
 
-JsonDbQueryTokenizer::TokenClass JsonDbQueryTokenizer::sTokenClass[128];
 JsonDbQueryTokenizer::JsonDbQueryTokenizer(QString input)
     : mInput(input), mPos(0)
 {
-    if (sTokenClass[sTokenClasses[0].c.unicode()] != sTokenClasses[0].tokenClass) {
-        memset(sTokenClass, 0, sizeof(sTokenClass));
-        for (unsigned int i = 0; i < sizeof(sTokenClasses)/sizeof(TokenClassInitializer); i++)
-            sTokenClass[sTokenClasses[i].c.unicode()] = sTokenClasses[i].tokenClass;
-    }
 }
 
 QString JsonDbQueryTokenizer::pop()
@@ -117,19 +97,10 @@ QString JsonDbQueryTokenizer::peek()
 QString JsonDbQueryTokenizer::getNextToken()
 {
     QString result;
-    bool indexExpression = false;
+
     while (mPos < mInput.size()) {
         QChar c = mInput[mPos++];
-        JsonDbQueryTokenizer::TokenClass tokenClass = getTokenClass(c);
-        if (tokenClass == JsonDbQueryTokenizer::Singleton) {
-            result.append(c);
-            return result;
-        } else if (tokenClass == JsonDbQueryTokenizer::Operator) {
-            result.append(c);
-            if (getTokenClass(mInput[mPos]) == JsonDbQueryTokenizer::Operator)
-                result.append(mInput[mPos++]);
-            return result;
-        } else if (c == '"') {
+        if (c == '"') {
             // match string
             result.append(c);
             bool escaped = false;
@@ -160,25 +131,30 @@ QString JsonDbQueryTokenizer::getNextToken()
                 return result;
             else
                 continue;
-        } else {
-            result.append(c);
-            if (mPos < mInput.size()) {
-                QChar next = mInput[mPos];
-                JsonDbQueryTokenizer::TokenClass nextTokenClass = getTokenClass(next);
-                //qDebug() << mInput[mPos] << mInput[mPos].unicode() << "nextTokenTokenClass" << nextTokenClass << indexExpression;
-                if (nextTokenClass == JsonDbQueryTokenizer::Other)
-                    continue;
-                else if ((next == '[')
-                         || (indexExpression && (next == ']'))) {
-                    // handle [*] as a special case
-                    result.append(mInput[mPos++]);
-                    indexExpression = (next == '[');
-                    continue;
-                } else
-                    return result;
+        } else if (result.size() && mPos+1 < mInput.size()) {
+            //index expression?[n],[*]
+            if (c == '[' && mInput[mPos+1] == ']') {
+                result.append(mInput.mid(mPos-1,3));
+                mPos += 2;
+                continue;
             }
         }
-    }
+        //operators
+        int i = 0;
+        while (sTokens[i][0] != 0) {
+            if (mInput.midRef(mPos - 1,2).startsWith(sTokens[i])) {
+                if (!result.isEmpty()) {
+                    mPos --;
+                    return result;
+                }
+                result.append(sTokens[i]);
+                mPos += strlen(sTokens[i]) - 1;
+                return result;
+            }
+            i++;
+        }
+        result.append(mInput[mPos-1]);
+    }//while
     return QString();
 }
 

@@ -63,12 +63,6 @@ class JsonDbPartition;
 
 class JsonDbQueryTokenizer {
 public:
-    enum TokenClass {
-        Other = 0,
-        Singleton,
-        Operator
-    };
-
     JsonDbQueryTokenizer(QString input);
     QString pop();
     QString popIdentifier();
@@ -80,16 +74,11 @@ public:
     }
 protected:
     QString getNextToken();
-    TokenClass getTokenClass(QChar c) {
-      int u = c.unicode();
-      TokenClass tc = (u < 128) ? sTokenClass[u] : Other;
-      return tc;
-    }
+    static const char* sTokens[];
 private:
     QString mInput;
     int mPos;
     QString mNextToken;
-    static TokenClass sTokenClass[128];
 };
 
 class JsonDbQuery;
