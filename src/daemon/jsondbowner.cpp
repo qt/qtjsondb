@@ -58,15 +58,27 @@ JsonDbOwner::JsonDbOwner( QObject *parent )
 {
 }
 
+void cleanQueryList(QList<JsonDbQuery *> &queryList)
+{
+    foreach (JsonDbQuery *q, queryList)
+        delete q;
+    queryList.clear();
+}
+
 JsonDbOwner::~JsonDbOwner()
 {
+    QMap<QString, QList<JsonDbQuery *> > list;
+    foreach (list, mAllowedObjectQueries) {
+        foreach (QList<JsonDbQuery *> queryList, list)
+            cleanQueryList(queryList);
+    }
 }
 
 void JsonDbOwner::setAllowedObjects(const QString &partition, const QString &op,
                                     const QList<QString> &queries)
 {
     mAllowedObjects[partition][op] = queries;
-    mAllowedObjectQueries[partition][op].clear();
+    cleanQueryList(mAllowedObjectQueries[partition][op]);
     QJsonObject bindings;
     bindings.insert(QLatin1String("domain"), domain());
     bindings.insert(QLatin1String("owner"), ownerId());

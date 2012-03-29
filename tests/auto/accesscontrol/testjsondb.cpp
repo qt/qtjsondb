@@ -118,7 +118,7 @@ private:
     JsonDbPartition *mJsonDbPartition;
     QStringList mNotificationsReceived;
     QList<JsonDbObject> mContactList;
-    JsonDbOwner *mOwner;
+    QScopedPointer<JsonDbOwner> mOwner;
 };
 
 const char *kFilename = "testdatabase";
@@ -151,10 +151,10 @@ void TestJsonDb::initTestCase()
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
-    mOwner = new JsonDbOwner(this);
+    mOwner.reset (new JsonDbOwner(this));
     mOwner->setOwnerId(QStringLiteral("com.example.JsonDbTest"));
 
-    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
+    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner.data(), this);
     mJsonDbPartition->open();
 }
 
@@ -175,7 +175,8 @@ void TestJsonDb::cleanup()
 
 JsonDbQueryResult TestJsonDb::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
 {
-    return mJsonDbPartition->queryObjects(owner, JsonDbQuery::parse(query, bindings));
+    QScopedPointer<JsonDbQuery> q(JsonDbQuery::parse(query, bindings));
+    return mJsonDbPartition->queryObjects(owner, q.data());
 }
 
 JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
@@ -220,7 +221,7 @@ void TestJsonDb::capabilities()
             QJsonObject capabilities(object.value("capabilities").toObject());
             owner->setCapabilities(capabilities, mJsonDbPartition);
         } else {
-            JsonDbWriteResult result = create(mOwner, object);
+            JsonDbWriteResult result = create(mOwner.data(), object);
             verifyGoodResult(result);
         }
     }
@@ -235,7 +236,7 @@ void TestJsonDb::allowAll()
     // can delete me when this goes away
     jsondbSettings->setEnforceAccessControl(true);
 
-    JsonDbOwner *owner = new JsonDbOwner();
+    QScopedPointer<JsonDbOwner> owner(new JsonDbOwner());
     owner->setAllowedObjects(QLatin1String("all"), QLatin1String("read"), QStringList());
     owner->setAllowedObjects(QLatin1String("all"), QLatin1String("write"), QStringList());
     owner->setStorageQuota(-1);
@@ -243,14 +244,14 @@ void TestJsonDb::allowAll()
     JsonDbObject toPut;
     toPut.insert("_type", QLatin1String("TestObject"));
 
-    JsonDbWriteResult result = create(owner, toPut);
+    JsonDbWriteResult result = create(owner.data(), toPut);
     verifyErrorResult(result);
 
     JsonDbObject toPut2;
     toPut2.insert("_type", QLatin1String("TestObject"));
 
-    owner->setAllowAll(true);
-    result =  create(owner, toPut2);
+    owner.data()->setAllowAll(true);
+    result =  create(owner.data(), toPut2);
     verifyGoodResult(result);
 
     mJsonDbPartition->removeIndex("TestObject");
@@ -276,7 +277,7 @@ void TestJsonDb::testAccessControl()
     item.insert(JsonDbString::kTypeStr, QLatin1String("create-test-type"));
     item.insert("access-control-test", 22);
 
-    JsonDbWriteResult result = create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner.data(), item);
 
     verifyErrorResult(result);
 
@@ -284,14 +285,14 @@ void TestJsonDb::testAccessControl()
     item.insert(JsonDbString::kTypeStr, QLatin1String("Contact"));
     item.insert("access-control-test", 23);
 
-    result = create(mOwner, item);
+    result = create(mOwner.data(), item);
     verifyGoodResult(result);
 
     item.insert("access-control-test", 24);
-    result = update(mOwner, item);
+    result = update(mOwner.data(), item);
     verifyGoodResult(result);
 
-    result = remove(mOwner, item);
+    result = remove(mOwner.data(), item);
     verifyGoodResult(result);
 
     // Test some %owner and %typeDomain horror
@@ -304,7 +305,7 @@ void TestJsonDb::testAccessControl()
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.bar.FooType"));
     item.insert("access-control-test", 25);
 
-    result = create(mOwner, item);
+    result = create(mOwner.data(), item);
 
     QJsonValue uuid = item.value(JsonDbString::kUuidStr);
 
@@ -321,7 +322,7 @@ void TestJsonDb::testAccessControl()
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.bar.FooType"));
     item.insert("access-control-test", 26);
 
-    result = create(mOwner, item);
+    result = create(mOwner.data(), item);
 
     verifyErrorResult(result);
 
@@ -329,12 +330,12 @@ void TestJsonDb::testAccessControl()
     item.insert(JsonDbString::kUuidStr, uuid);
     item.insert("access-control-test", 27);
 
-    result = update(mOwner, item);
+    result = update(mOwner.data(), item);
     verifyErrorResult(result);
 
     // .. or remove
     item.insert(JsonDbString::kUuidStr, uuid);
-    result = remove(mOwner, item);
+    result = remove(mOwner.data(), item);
     verifyErrorResult(result);
 
     // Positive tests
@@ -344,10 +345,10 @@ void TestJsonDb::testAccessControl()
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.FooType"));
     item.insert("access-control-test", 28);
 
-    result = create(mOwner, item);
+    result = create(mOwner.data(), item);
     verifyGoodResult(result);
 
-    result = remove(mOwner, item);
+    result = remove(mOwner.data(), item);
     verifyGoodResult(result);
 
     item.remove(JsonDbString::kUuidStr);
@@ -356,14 +357,14 @@ void TestJsonDb::testAccessControl()
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.FooType"));
     item.insert("access-control-test", 29);
 
-    result = create(mOwner, item);
+    result = create(mOwner.data(), item);
     verifyGoodResult(result);
 
     item.insert("access-control-test", 30);
-    result = update(mOwner, item);
+    result = update(mOwner.data(), item);
     verifyGoodResult(result);
 
-    result = remove(mOwner, item);
+    result = remove(mOwner.data(), item);
     verifyGoodResult(result);
     jsondbSettings->setEnforceAccessControl(false);
 }
@@ -375,12 +376,12 @@ void TestJsonDb::testFindAccessControl()
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("find-access-control-test-type"));
     item.insert("find-access-control-test", 50);
-    JsonDbWriteResult result = create(mOwner, item);
+    JsonDbWriteResult result = create(mOwner.data(), item);
     verifyGoodResult(result);
     item.remove(JsonDbString::kUuidStr);
     item.insert(JsonDbString::kTypeStr, QLatin1String("Contact"));
     item.insert("find-access-control-test", 51);
-    result = create(mOwner, item);
+    result = create(mOwner.data(), item);
     verifyGoodResult(result);
 
     QJsonObject contactsCapabilities;
@@ -390,12 +391,12 @@ void TestJsonDb::testFindAccessControl()
     mOwner->setAllowAll(false);
     mOwner->setCapabilities(contactsCapabilities, mJsonDbPartition);
 
-    JsonDbQueryResult queryResult = find(mOwner, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("find-access-control-test-type"));
+    JsonDbQueryResult queryResult = find(mOwner.data(), QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("find-access-control-test-type"));
     verifyGoodQueryResult(queryResult);
 
     QVERIFY(queryResult.length.toDouble() < 1);
 
-    queryResult= find(mOwner, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("Contact"));
+    queryResult= find(mOwner.data(), QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("Contact"));
     verifyGoodQueryResult(queryResult);
 
     QVERIFY(queryResult.length.toDouble() > 0);
@@ -405,13 +406,13 @@ void TestJsonDb::testFindAccessControl()
     item.remove(JsonDbString::kUuidStr);
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.bar.FooType"));
     item.insert("find-access-control-test", 55);
-    result = create(mOwner, item);
+    result = create(mOwner.data(), item);
     verifyGoodResult(result);
 
     item.remove(JsonDbString::kUuidStr);
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.FooType"));
     item.insert("find-access-control-test", 56);
-    result = create(mOwner, item);
+    result = create(mOwner.data(), item);
     verifyGoodResult(result);
 
     mOwner->setOwnerId(QStringLiteral("com.example.foo.App"));
@@ -423,12 +424,12 @@ void TestJsonDb::testFindAccessControl()
     mOwner->setAllowAll(false);
     mOwner->setCapabilities(ownDomainCapabilities, mJsonDbPartition);
 
-    queryResult = find(mOwner, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("com.example.foo.bar.FooType"));
+    queryResult = find(mOwner.data(), QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("com.example.foo.bar.FooType"));
     verifyGoodQueryResult(queryResult);
 
     QVERIFY(queryResult.length.toDouble() < 1);
 
-    queryResult= find(mOwner, QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("com.example.foo.FooType"));
+    queryResult= find(mOwner.data(), QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("com.example.foo.FooType"));
     verifyGoodQueryResult(queryResult);
 
     QVERIFY(queryResult.length.toDouble() > 0);
@@ -445,7 +446,7 @@ void TestJsonDb::testViewAccessControl()
     QJsonArray defs(readJsonFile(":/security/json/capabilities-view.json").toArray());
     for (int i = 0; i < defs.size(); ++i) {
         JsonDbObject object(defs.at(i).toObject());
-        JsonDbWriteResult result = create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner.data(), object);
         verifyGoodResult(result);
     }
 
@@ -460,7 +461,7 @@ void TestJsonDb::testViewAccessControl()
     defs = readJsonFile(":/security/json/view-test.json").toArray();
     for (int i = 0; i < defs.size(); ++i) {
         JsonDbObject object(defs.at(i).toObject());
-        JsonDbWriteResult result = create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner.data(), object);
         verifyGoodResult(result);
     }
 
@@ -474,7 +475,7 @@ void TestJsonDb::testViewAccessControl()
     defs = readJsonFile(":/security/json/view-test2.json").toArray();
     for (int i = 0; i < defs.size(); ++i) {
         JsonDbObject object(defs.at(i).toObject());
-        JsonDbWriteResult result = create(mOwner, object);
+        JsonDbWriteResult result = create(mOwner.data(), object);
         verifyErrorResult(result);
     }
 }
