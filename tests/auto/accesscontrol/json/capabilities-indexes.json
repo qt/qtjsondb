@@ -1,0 +1,24 @@
+[
+  {
+    "_type": "Capability",
+    "name": "indexes",
+    "partition": "all",
+    "accessRules": {
+      "rw": {
+            "read": ["[?_type startsWith \"Phone\"]", "[?_type = \"Contact\"]", "[?_type = \"Index\"]"],
+            "write": ["[?_type = \"Index\"]"]
+      }
+    }
+  },
+{
+  "_type": "Capability",
+  "name": "noindexes",
+  "partition": "all",
+  "accessRules": {
+    "rw": {
+          "read": ["[?_type startsWith \"Phone\"]", "[?_type = \"Index\"]"],
+          "write": ["[?_type = \"Index\"]"]
+    }
+  }
+}
+]

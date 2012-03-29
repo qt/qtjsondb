@@ -1564,6 +1564,9 @@ bool JsonDbPartition::checkNaturalObjectType(const JsonDbObject &object, QString
 
 JsonDbError::ErrorCode JsonDbPartition::checkBuiltInTypeAccessControl(bool forCreation, const JsonDbOwner *owner, const JsonDbObject &object, const JsonDbObject &oldObject, QString &errorMsg)
 {
+    if (!jsondbSettings->enforceAccessControl())
+        return JsonDbError::NoError;
+
     QString objectType = object.value(JsonDbString::kTypeStr).toString();
     errorMsg.clear();
 
@@ -1614,13 +1617,57 @@ JsonDbError::ErrorCode JsonDbPartition::checkBuiltInTypeAccessControl(bool forCr
         }
     } else if (objectType == JsonDbString::kSchemaTypeStr) {
         // Check that owner can write name
-        QJsonValue name = object.value(QLatin1String("name"));
+        QJsonValue name = object.value(JsonDbString::kNameStr);
         JsonDbObject fake; // Just for access control
         fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
         fake.insert (JsonDbString::kTypeStr, name);
         if (!owner->isAllowed(fake, mPartitionName, "write")) {
             errorMsg = QString::fromLatin1("Access denied %1").arg(name.toString());
             return JsonDbError::OperationNotPermitted;
+        }
+    } else if (objectType == JsonDbString::kIndexTypeStr) {
+
+        // Only the owner or admin can update Index
+        if (!forCreation) {
+            QJsonValue oldOwner = oldObject.value(JsonDbString::kOwnerStr);
+            if (owner->ownerId() != oldOwner.toString() && !owner->allowAll()) {
+                // Only admin (allowAll = true) can update Index:s owned by somebody else
+                errorMsg = QString::fromLatin1("Only admin can update Index:s not owned by itself");
+                return JsonDbError::OperationNotPermitted;
+            }
+        }
+
+        // Check that owner can read all objectTypes
+        QJsonValue objectTypeProperty = object.value(QLatin1String("objectType"));
+        JsonDbObject fake; // Just for access control
+        if (objectTypeProperty.isUndefined() || objectTypeProperty.isNull()) {
+            if (!owner->allowAll()) {
+                // Only admin (allowAll = true) can do Index:s without objectType
+                errorMsg = QString::fromLatin1("Only admin can do Index:s without objectType");
+                return JsonDbError::OperationNotPermitted;
+            }
+        } else if (objectTypeProperty.isArray()) {
+            QJsonArray arr = objectTypeProperty.toArray();
+            foreach (QJsonValue val, arr) {
+                fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
+                fake.insert (JsonDbString::kTypeStr, val.toString());
+                if (!owner->isAllowed(fake, mPartitionName, "read")) {
+                    errorMsg = QString::fromLatin1("Access denied %1 in Index %2").arg(val.toString()).
+                            arg(JsonDbIndex::determineName(object));
+                    return JsonDbError::OperationNotPermitted;
+                }
+            }
+        } else if (objectTypeProperty.isString()) {
+            fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
+            fake.insert (JsonDbString::kTypeStr, objectTypeProperty.toString());
+            if (!owner->isAllowed(fake, mPartitionName, "read")) {
+                errorMsg = QString::fromLatin1("Access denied %1 in Index %2").arg(objectTypeProperty.toString()).
+                        arg(JsonDbIndex::determineName(object));
+                return JsonDbError::OperationNotPermitted;
+            }
+        } else {
+            errorMsg = QString::fromLatin1("Invalid objectType in Index %1").arg(JsonDbIndex::determineName(object));
+            return JsonDbError::InvalidIndexOperation;
         }
     }
     return JsonDbError::NoError;

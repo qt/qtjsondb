@@ -103,6 +103,7 @@ private slots:
     void testAccessControl();
     void testFindAccessControl();
     void testViewAccessControl();
+    void testIndexAccessControl();
 
 private:
     JsonDbQueryResult find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings = QJsonObject());
@@ -477,6 +478,70 @@ void TestJsonDb::testViewAccessControl()
         JsonDbObject object(defs.at(i).toObject());
         JsonDbWriteResult result = create(mOwner.data(), object);
         verifyErrorResult(result);
+    }
+}
+
+/*
+ * Create Index objects and check access control
+ */
+
+void TestJsonDb::testIndexAccessControl()
+{
+    jsondbSettings->setEnforceAccessControl(false);
+    QJsonArray defs(readJsonFile(":/security/json/capabilities-indexes.json").toArray());
+    for (int i = 0; i < defs.size(); ++i) {
+        JsonDbObject object(defs.at(i).toObject());
+        JsonDbWriteResult result = create(mOwner.data(), object);
+        verifyGoodResult(result);
+    }
+
+    JsonDbWriteResult result;
+
+    defs = readJsonFile(":/security/json/index-test.json").toArray();
+    for (int i = 0; i < defs.size(); ++i) {
+        JsonDbObject object(defs.at(i).toObject());
+        result = create(mOwner.data(), object);
+        verifyGoodResult(result);
+        result = remove(mOwner.data(), object);
+    }
+
+    jsondbSettings->setEnforceAccessControl(true);
+    QJsonObject indexCapabilities;
+    QJsonArray value;
+    value.append (QLatin1String("rw"));
+    indexCapabilities.insert (QLatin1String("indexes"), value);
+    mOwner->setAllowAll(false);
+    mOwner->setCapabilities(indexCapabilities, mJsonDbPartition);
+
+    for (int i = 0; i < defs.size(); ++i) {
+        JsonDbObject object(defs.at(i).toObject());
+        result = create(mOwner.data(), object);
+        if (i<2){
+            verifyGoodResult(result);
+            result = remove(mOwner.data(), object);
+        } else {
+            // Third one should fail as there is no objectType given
+            verifyErrorResult(result);
+        }
+    }
+
+    QJsonObject indexCapabilities2;
+    QJsonArray value2;
+    value2.append (QLatin1String("rw"));
+    indexCapabilities2.insert (QLatin1String("noindexes"), value2);
+    mOwner->setAllowAll(false);
+    mOwner->setCapabilities(indexCapabilities2, mJsonDbPartition);
+
+    for (int i = 0; i < defs.size(); ++i) {
+        JsonDbObject object(defs.at(i).toObject());
+        result = create(mOwner.data(), object);
+        if (i<1){
+            verifyGoodResult(result);
+            result = remove(mOwner.data(), object);
+        } else {
+            // Second & Third should fail as there is no objectType given
+            verifyErrorResult(result);
+        }
     }
 }
 

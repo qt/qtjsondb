@@ -75,6 +75,7 @@ public:
     void setAllowedObjects(const QString &partition, const QString &op,
                            const QList<QString> &queries);
     void setCapabilities(QJsonObject &capabilities, JsonDbPartition *partition);
+    bool allowAll() const { return mAllowAll; }
     void setAllowAll(bool allowAll) { mAllowAll = allowAll; }
 
     bool isAllowed(JsonDbObject &object, const QString &partition, const QString &op) const;
