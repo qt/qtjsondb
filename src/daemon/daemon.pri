@@ -7,7 +7,6 @@ RESOURCES = $$PWD/jsondb.qrc
 HEADERS += \
     $$PWD/jsondbowner.h \
     $$PWD/jsondbproxy.h \
-    $$PWD/jsondbresponse.h \
     $$PWD/jsondbephemeralpartition.h \
     $$PWD/jsondbindex.h \
     $$PWD/jsondbobject.h \
@@ -37,7 +36,6 @@ HEADERS += $$QSONCONVERSION_HEADERS
 SOURCES += \
     $$PWD/jsondbowner.cpp \
     $$PWD/jsondbproxy.cpp \
-    $$PWD/jsondbresponse.cpp \
     $$PWD/jsondbephemeralpartition.cpp \
     $$PWD/jsondbindex.cpp \
     $$PWD/jsondbobject.cpp \
