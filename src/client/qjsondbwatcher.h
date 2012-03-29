@@ -47,6 +47,7 @@
 #include <QtCore/QUuid>
 
 #include <QtJsonDb/qjsondbglobal.h>
+#include <QtJsonDb/qjsondbrequest.h>
 
 QT_BEGIN_HEADER
 
@@ -86,11 +87,13 @@ public:
     inline bool isActive() const { return status() == QJsonDbWatcher::Active; }
 
     enum ErrorCode {
-        NoError = 0,
-        InvalidActions = 1,
-        InvalidQuery = 2,
-        InvalidPartition = 3,
-        InvalidStateNumber = 4
+        NoError = QJsonDbRequest::NoError,
+        InvalidRequest = QJsonDbRequest::InvalidRequest,
+        OperationNotPermitted = QJsonDbRequest::OperationNotPermitted,
+        InvalidPartition = QJsonDbRequest::InvalidPartition,
+        DatabaseConnectionError = QJsonDbRequest::DatabaseConnectionError,
+        MissingQuery = QJsonDbRequest::MissingQuery,
+        InvalidStateNumber = QJsonDbRequest::InvalidStateNumber
     };
 
     QJsonDbWatcher(QObject *parent = 0);

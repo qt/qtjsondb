@@ -69,9 +69,12 @@ public:
 
     enum ErrorCode {
         NoError = QJsonDbRequest::NoError,
+        InvalidRequest = QJsonDbRequest::InvalidRequest,
+        OperationNotPermitted = QJsonDbRequest::OperationNotPermitted,
         InvalidPartition = QJsonDbRequest::InvalidPartition,
+        DatabaseConnectionError = QJsonDbRequest::DatabaseConnectionError,
         MissingQuery = QJsonDbRequest::MissingQuery,
-        MissingType = QJsonDbRequest::MissingType,
+        InvalidMessage= QJsonDbRequest::InvalidMessage,
         InvalidLimit = QJsonDbRequest::InvalidLimit
     };
 

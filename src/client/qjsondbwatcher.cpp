@@ -400,7 +400,7 @@ void QJsonDbWatcherPrivate::_q_onError(QtJsonDb::QJsonDbRequest::ErrorCode code,
 {
     Q_Q(QJsonDbWatcher);
     Q_UNUSED(code);
-    QJsonDbWatcher::ErrorCode error = QJsonDbWatcher::InvalidQuery; // ### TODO:
+    QJsonDbWatcher::ErrorCode error = static_cast<QJsonDbWatcher::ErrorCode>(code);
     emit q->error(error, message);
 }
 

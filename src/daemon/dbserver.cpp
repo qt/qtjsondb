@@ -975,7 +975,7 @@ void DBServer::receiveMessage(const QJsonObject &message)
 
     JsonDbPartition *partition = findPartition(partitionName);
     if (!(partitionName.isEmpty() || partition || partitionName == mEphemeralPartition->name())) {
-        sendError(stream, JsonDbError::InvalidRequest,
+        sendError(stream, JsonDbError::InvalidPartition,
                   QString("Invalid partition '%1'").arg(partitionName), id);
         return;
     }

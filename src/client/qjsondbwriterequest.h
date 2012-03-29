@@ -66,7 +66,22 @@ public:
 
     enum ErrorCode {
         NoError = QJsonDbRequest::NoError,
-        MissingObject = QJsonDbRequest::MissingObject
+        InvalidRequest = QJsonDbRequest::InvalidRequest,
+        OperationNotPermitted = QJsonDbRequest::OperationNotPermitted,
+        InvalidPartition = QJsonDbRequest::InvalidPartition,
+        DatabaseConnectionError = QJsonDbRequest::DatabaseConnectionError,
+        MissingObject = QJsonDbRequest::MissingObject,
+        DatabaseError = QJsonDbRequest::DatabaseError,
+        MissingUUID = QJsonDbRequest::MissingUUID,
+        MissingType = QJsonDbRequest::MissingType,
+        UpdatingStaleVersion = QJsonDbRequest::UpdatingStaleVersion,
+        QuotaExceeded = QJsonDbRequest::QuotaExceeded,
+        FailedSchemaValidation = QJsonDbRequest::FailedSchemaValidation,
+        InvalidMap = QJsonDbRequest::InvalidMap,
+        InvalidReduce = QJsonDbRequest::InvalidReduce,
+        InvalidSchemaOperation = QJsonDbRequest::InvalidSchemaOperation,
+        InvalidIndexOperation = QJsonDbRequest::InvalidIndexOperation,
+        InvalidType = QJsonDbRequest::InvalidType
     };
 
     enum ConflictResolutionMode {

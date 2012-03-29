@@ -63,28 +63,27 @@ public:
 
     enum ErrorCode {
         NoError = 0,
-// ### TODO: clean me up and move me to ReadRequest and WriteRequest
-//        InvalidMessage           = 1,
-//        InvalidRequest           = 2,
-        MissingObject            = 3,
-//        DatabaseError            = 4,
-//        MissingUUID              = 5,
-        MissingType              = 6,
-        MissingQuery             = 7,
-        InvalidLimit             = 8,
-//        InvalidOffset            = 9,
-//        MismatchedNotifyId       = 10,
-//        InvalidActions           = 11,
-//        UpdatingStaleVersion     = 12,
-//        OperationNotPermitted    = 13,
-//        QuotaExceeded            = 14,
-//        FailedSchemaValidation   = 15,
-//        InvalidMap               = 16,
-//        InvalidReduce            = 17,
-//        InvalidSchemaOperation   = 18,
-        InvalidPartition         = 19,
-//        InvalidIndexOperation    = 20
-        DatabaseConnectionError = 21
+        InvalidRequest = 1,
+        OperationNotPermitted = 2,
+        InvalidPartition = 3,
+        DatabaseConnectionError = 4,
+        MissingQuery = 5,
+        InvalidMessage= 6,
+        InvalidLimit = 7,
+        InvalidOffset = 8,
+        InvalidStateNumber = 9,
+        MissingObject = 10,
+        DatabaseError = 11,
+        MissingUUID = 12,
+        MissingType = 13,
+        UpdatingStaleVersion = 14,
+        QuotaExceeded = 15,
+        FailedSchemaValidation = 16,
+        InvalidMap = 17,
+        InvalidReduce = 18,
+        InvalidSchemaOperation = 19,
+        InvalidIndexOperation = 20,
+        InvalidType = 21
     };
 
     enum Status {
