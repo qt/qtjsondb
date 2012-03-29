@@ -292,7 +292,7 @@ void JsonDbCachingListModelPrivate::createObjectRequests(int startIndex, int max
             r.requestCount = 0;
         }
     }
-    delete indexNSizes;
+    delete [] indexNSizes;
 }
 
 void JsonDbCachingListModelPrivate::verifyIndexSpec(const QVariant &v, int partitionIndex)
