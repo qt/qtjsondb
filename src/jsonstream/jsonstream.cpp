@@ -110,6 +110,19 @@ bool JsonStream::send(const QJsonObject &object)
 
 void JsonStream::deviceReadyRead()
 {
+    struct JsonHeader
+    {
+        struct Header
+        {
+            unsigned int tag;
+            unsigned int version;
+        } h;
+        struct Base
+        {
+            unsigned int size;
+        } b;
+    };
+
     while (!mDevice->atEnd()) {
         int bytesAvailable = mDevice->bytesAvailable();
         int offset = mReadBuffer.size();
@@ -119,12 +132,19 @@ void JsonStream::deviceReadyRead()
             qWarning() << "Error reading from socket" << mDevice->errorString();
             continue;
         }
-        while (mReadBuffer.size()) {
+        while (mReadBuffer.size() > sizeof(JsonHeader)) {
+            JsonHeader header;
+            memcpy(&header, mReadBuffer.constData(), sizeof(header));
+            if (header.h.tag != QJsonDocument::BinaryFormatTag || header.h.version != qToLittleEndian(1u)) {
+                mReadBuffer.clear();
+                qWarning() << "Got invalid binary json data";
+                break;
+            }
             QJsonDocument doc(QJsonDocument::fromBinaryData(mReadBuffer, QJsonDocument::Validate));
             if (doc.isEmpty())
                 break;
             receive(doc.object());
-            mReadBuffer = mReadBuffer.mid(doc.toBinaryData().size());
+            mReadBuffer.remove(0, sizeof(header.h) + header.b.size);
         }
     }
 }
