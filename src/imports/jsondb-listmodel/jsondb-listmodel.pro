@@ -18,6 +18,7 @@ INSTALLS += target qmldir
     qtPrepareTool(QMLPLUGINDUMP, qmlplugindump)
     QMLTYPESFILE = $$QT.jsondb.imports/$$TARGETPATH/plugin.qmltypes
     mac: !exists($$QMLPLUGINDUMP): QMLPLUGINDUMP = "$${QMLPLUGINDUMP}.app/Contents/MacOS/qmlplugindump"
+    unix:!mac: QMLPLUGINDUMP = "$${QMLPLUGINDUMP} -platform minimal"
     QMAKE_POST_LINK += LD_LIBRARY_PATH=$$QT.jsondb.libs $$QMLPLUGINDUMP QtAddOn.JsonDb 1.0 $$QT.jsondb.imports > $$QMLTYPESFILE
 
     qmltypes.files = $$QMLTYPESFILE

@@ -17,6 +17,7 @@ INSTALLS += target qmldir
 !cross_compile {
     qtPrepareTool(QMLPLUGINDUMP, qmlplugindump)
     mac: !exists($$QMLPLUGINDUMP): QMLPLUGINDUMP = "$${QMLPLUGINDUMP}.app/Contents/MacOS/qmlplugindump"
+    unix:!mac: QMLPLUGINDUMP = "$${QMLPLUGINDUMP} -platform minimal"
     QMLTYPESFILE = $$QT.jsondbcompat.imports/$$TARGETPATH/plugin.qmltypes
     QMAKE_POST_LINK += LD_LIBRARY_PATH=$$QT.jsondbcompat.libs $$QMLPLUGINDUMP QtJsonDb 1.0 $$QT.jsondbcompat.imports > $$QMLTYPESFILE
 
