@@ -40,6 +40,7 @@
  ****************************************************************************/
 
 #include <QCoreApplication>
+#include <QFile>
 #include <QList>
 #include <QTest>
 #include <QProcess>
