@@ -15,10 +15,8 @@ HEADERS += \
     $$PWD/jsondb-error.h \
     $$PWD/jsondb-strings.h \
     $$PWD/jsondbcollator.h \
-    $$PWD/jsondbcollator_p.h \
-    $$PWD/jsonstream.h
+    $$PWD/jsondbcollator_p.h
 
 SOURCES += \
     $$PWD/jsondb-strings.cpp \
-    $$PWD/jsondbcollator.cpp \
-    $$PWD/jsonstream.cpp
+    $$PWD/jsondbcollator.cpp

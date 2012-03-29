@@ -4,7 +4,7 @@ QT = qml network testlib
 CONFIG -= app_bundle
 CONFIG += testcase
 
-include($$PWD/../../../src/common/common.pri)
+include($$PWD/../../../src/jsonstream/jsonstream.pri)
 
 SOURCES += \
     test-jsonstream.cpp

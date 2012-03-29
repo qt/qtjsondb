@@ -56,7 +56,7 @@
 
 QT_BEGIN_NAMESPACE
 
-namespace JsonStream {
+namespace QtJsonDbJsonStream {
 
 JsonStream::JsonStream(QObject *parent)
     : QObject(parent), mDevice(0)
@@ -158,7 +158,7 @@ void JsonStream::deviceBytesWritten(qint64 bytes)
     }
 }
 
-} // namespace JsonStream
+} // namespace QtJsonDbJsonStream
 
 QT_END_NAMESPACE
 

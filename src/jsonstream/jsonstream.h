@@ -42,6 +42,17 @@
 #ifndef JSON_STREAM_H
 #define JSON_STREAM_H
 
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtJsonDb API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
 #include <QObject>
 #include <QJsonObject>
 
@@ -49,7 +60,7 @@ QT_BEGIN_NAMESPACE
 
 class QIODevice;
 
-namespace JsonStream {
+namespace QtJsonDbJsonStream {
 
 class JsonStream : public QObject
 {
@@ -76,7 +87,7 @@ private:
     QByteArray mReadBuffer;
 };
 
-} // namespace JsonStream
+} // namespace QtJsonDbJsonStream
 
 QT_END_NAMESPACE
 

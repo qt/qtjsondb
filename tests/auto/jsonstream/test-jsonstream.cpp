@@ -40,14 +40,15 @@
 ****************************************************************************/
 #include <QtTest/QtTest>
 
-#include <jsonstream.h>
+#include "jsonstream.h"
+
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QBuffer>
 
 #include <QDebug>
 
-QT_ADDON_JSONDB_USE_NAMESPACE
+using QtJsonDbJsonStream::JsonStream;
 
 class TestJsonStream: public QObject
 {
@@ -81,10 +82,9 @@ void TestJsonStream::testJsonStream()
     QVERIFY(device->waitForConnected());
     QVERIFY(device->state() == QLocalSocket::ConnectedState);
 
-    JsonStream *stream = new JsonStream(device, this);
-
-    connect(stream, SIGNAL(receive(QJsonObject)),
-                this, SLOT(receiveStream(QJsonObject)));
+    JsonStream *stream = new JsonStream(this);
+    stream->setDevice(device);
+    connect(stream, SIGNAL(receive(QJsonObject)), this, SLOT(receiveStream(QJsonObject)));
 
     qApp->processEvents();
     qApp->processEvents();
@@ -99,7 +99,8 @@ void TestJsonStream::handleSocketConnection()
 {
     qDebug() << "handleSocketConnection";
     serverOk = true;
-    JsonStream sender(server->nextPendingConnection());
+    JsonStream sender;
+    sender.setDevice(server->nextPendingConnection());
 
     QJsonObject json1;
     json1.insert("hello", QString("world"));

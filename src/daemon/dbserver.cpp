@@ -305,7 +305,8 @@ void DBServer::handleConnection()
         if (jsondbSettings->debug())
             qDebug() << "client connected to jsondb server" << connection;
         connect(connection, SIGNAL(disconnected()), this, SLOT(removeConnection()));
-        JsonStream *stream = new JsonStream(connection, this);
+        JsonStream *stream = new JsonStream(this);
+        stream->setDevice(connection);
         connect(stream, SIGNAL(receive(QJsonObject)), this,
                 SLOT(receiveMessage(QJsonObject)));
         mConnections.insert(connection, stream);
@@ -318,7 +319,8 @@ void DBServer::handleTcpConnection()
         if (jsondbSettings->debug())
             qDebug() << "remote client connected to jsondb server" << connection;
         connect(connection, SIGNAL(disconnected()), this, SLOT(removeConnection()));
-        JsonStream *stream = new JsonStream(connection, this);
+        JsonStream *stream = new JsonStream(this);
+        stream->setDevice(connection);
         connect(stream, SIGNAL(receive(QJsonObject)), this,
                 SLOT(receiveMessage(QJsonObject)));
         mConnections.insert(connection, stream);

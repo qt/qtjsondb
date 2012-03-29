@@ -103,7 +103,7 @@ public:
     QTimer timeoutTimer;
 
     QLocalSocket *socket;
-    JsonStream::JsonStream *stream;
+    QtJsonDbJsonStream::JsonStream *stream;
 
     int lastRequestId;
     QWeakPointer<QJsonDbRequest> currentRequest;

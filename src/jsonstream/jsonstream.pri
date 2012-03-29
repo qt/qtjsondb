@@ -1,2 +1,3 @@
 INCLUDEPATH += $$PWD
-LIBS_PRIVATE += -L../jsonstream -lqtjsondbjsonstream
+LIBS_PRIVATE += -L$$QT_MODULE_LIB_BASE -lQtJsonDbJsonStream
+POST_TARGETDEPS += $${QT_MODULE_LIB_BASE}$${QMAKE_DIR_SEP}libQtJsonDbJsonStream.a

@@ -162,7 +162,7 @@ QJsonDbConnectionPrivate::QJsonDbConnectionPrivate(QJsonDbConnection *q)
     QObject::connect(socket, SIGNAL(connected()), q_ptr, SLOT(_q_onConnected()));
     QObject::connect(socket, SIGNAL(error(QLocalSocket::LocalSocketError)),
                      q_ptr, SLOT(_q_onError(QLocalSocket::LocalSocketError)));
-    stream = new JsonStream::JsonStream(q);
+    stream = new QtJsonDbJsonStream::JsonStream(q);
     stream->setDevice(socket);
     QObject::connect(stream, SIGNAL(receive(QJsonObject)),
                      q_ptr, SLOT(_q_onReceivedObject(QJsonObject)));

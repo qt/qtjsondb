@@ -60,6 +60,8 @@ QT_END_NAMESPACE
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+using QtJsonDbJsonStream::JsonStream;
+
 class JsonDbEphemeralPartition;
 
 class DBServer : public QObject
