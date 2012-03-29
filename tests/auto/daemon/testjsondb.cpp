@@ -122,7 +122,6 @@ class TestJsonDb: public QObject
 public:
     TestJsonDb();
 
-
 private slots:
     void initTestCase();
     void cleanupTestCase();
@@ -302,6 +301,10 @@ void TestJsonDb::cleanupTestCase()
         delete mJsonDbPartition;
         mJsonDbPartition = 0;
     }
+    if (mOwner) {
+        delete mOwner;
+        mOwner = 0;
+    }
     removeDbFiles();
 }
 
@@ -325,8 +328,9 @@ void TestJsonDb::reopen()
         mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
         mJsonDbPartition->open();
 
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner,
-                                                                       JsonDbQuery::parse(QLatin1String("[?_type=\"reopentest\"]")));
+        JsonDbQuery *parsedQuery = JsonDbQuery::parse(QLatin1String("[?_type=\"reopentest\"]"));
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
+        delete parsedQuery;
         QCOMPARE(queryResult.data.size(), counter);
     }
 }
@@ -370,7 +374,10 @@ void TestJsonDb::createContacts()
 
 JsonDbQueryResult TestJsonDb::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
 {
-    return mJsonDbPartition->queryObjects(owner, JsonDbQuery::parse(query, bindings));
+    JsonDbQuery *parsedQuery = JsonDbQuery::parse(query, bindings);
+    JsonDbQueryResult result = mJsonDbPartition->queryObjects(owner, parsedQuery);
+    delete parsedQuery;
+    return result;
 }
 
 JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
@@ -3503,8 +3510,10 @@ void TestJsonDb::find10()
 
     QString query = QString("[?name.first<=\"%1\"][?_type=\"contact\"]")
             .arg(item.propertyLookup("name.first").toString());
-    JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, JsonDbQuery::parse(query), 10);
-                verifyGoodQueryResult(queryResult);
+    JsonDbQuery *parsedQuery = JsonDbQuery::parse(query);
+    JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 10);
+    delete parsedQuery;
+    verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 10);
     mJsonDbPartition->removeIndex("name.first");
     mJsonDbPartition->removeIndex("contact");
@@ -3899,7 +3908,7 @@ void TestJsonDb::setOwner()
     result = remove(mOwner, item);
     verifyGoodResult(result);
 
-    JsonDbOwner *unauthOwner = new JsonDbOwner(this);
+    QScopedPointer<JsonDbOwner> unauthOwner(new JsonDbOwner(this));
     unauthOwner->setOwnerId("com.example.OtherOwner");
     unauthOwner->setAllowAll(false);
     unauthOwner->setAllowedObjects(QLatin1String("all"), "write", (QStringList() << QLatin1String("[*]")));
@@ -3908,13 +3917,13 @@ void TestJsonDb::setOwner()
     item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));
     item.insert(JsonDbString::kOwnerStr, fooOwnerStr);
-    result = create(unauthOwner, item);
+    result = create(unauthOwner.data(), item);
     verifyGoodResult(result);
 
     getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));
     QVERIFY(getObjects.data.at(0).value(JsonDbString::kOwnerStr).toString()
             != fooOwnerStr);
-    result = remove(unauthOwner, item);
+    result = remove(unauthOwner.data(), item);
     verifyGoodResult(result);
 
     jsondbSettings->setEnforceAccessControl(false);
@@ -4144,7 +4153,7 @@ void TestJsonDb::managedBtree()
     const QByteArray k3("baz");
 
     QFile::remove(mdbname);
-    JsonDbManagedBtree *mdb = new JsonDbManagedBtree;
+    QScopedPointer<JsonDbManagedBtree> mdb(new JsonDbManagedBtree);
     if (!mdb->open(mdbname, QBtree::NoSync))
         Q_ASSERT(false);
 
@@ -4192,8 +4201,6 @@ void TestJsonDb::managedBtree()
     }
 
     mdb->close();
-    delete mdb;
-    mdb = 0;
     QFile::remove(mdbname);
 }
 
