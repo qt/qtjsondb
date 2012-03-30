@@ -44,15 +44,15 @@
       </case>
       <case name="tst_qjsondbrequest" component="qt5jsondb"  timeout="600">
         <description>QJsonDbRequest Class tests</description>
-        <step>cd /usr/lib/qt5jsondb-tests/auto/qjsondbrequest;date &amp;&amp; ./tst_qjsondbrequest -platform minimal&amp;&amp; date</step>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/qjsondbrequest;date &amp;&amp; ./tst_qjsondbrequest &amp;&amp; date</step>
       </case>
       <case name="tst_qjsondbflushrequest" component="qt5jsondb"  timeout="600">
         <description>QJsonDbFlushRequest Class tests</description>
-        <step>cd /usr/lib/qt5jsondb-tests/auto/qjsondbflushrequest;date &amp;&amp; ./tst_qjsondbflushrequest -platform minimal&amp;&amp; date</step>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/qjsondbflushrequest;date &amp;&amp; ./tst_qjsondbflushrequest &amp;&amp; date</step>
       </case>
       <case name="tst_qjsondbwatcher" component="qt5jsondb"  timeout="600">
         <description>QJsonDbWatcher Class tests</description>
-        <step>cd /usr/lib/qt5jsondb-tests/auto/qjsondbwatcher;date &amp;&amp; ./tst_qjsondbwatcher -platform minimal&amp;&amp; date</step>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/qjsondbwatcher;date &amp;&amp; ./tst_qjsondbwatcher &amp;&amp; date</step>
       </case>
     </set>
   </suite>
