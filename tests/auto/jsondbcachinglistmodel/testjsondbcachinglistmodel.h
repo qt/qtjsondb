@@ -94,6 +94,7 @@ private slots:
     void checkRemoveNotification();
     void checkUpdateNotification();
     void totalRowCount();
+    void checkAddNotification();
     void listProperty();
     void changeQuery();
     void indexOfUuid();
@@ -107,6 +108,7 @@ private:
     void waitForItemsRemoved(int items);
     void waitForStateOrTimeout();
     void waitForItemChanged(bool waitForRemove = false);
+    void waitForIndexChanged();
     QStringList getOrderValues(QAbstractListModel *listModel);
     QVariant getIndex(QAbstractListModel *model, int index, int role);
     void createIndex(const QString &property, const QString &propertyType);
@@ -129,6 +131,8 @@ private:
     bool mWaitingForRowsInserted;
     bool mWaitingForReset;
     bool mWaitingForChanged;
+    bool mWaitingForIndexChanged;
+    int mIndexWaited;
     bool mWaitingForRemoved;
 };
 

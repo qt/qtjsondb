@@ -46,13 +46,13 @@
 #include <QHash>
 #include <QObject>
 #include <QList>
-#include <QVariantMap>
+#include <QJsonObject>
 #include "jsondbmodelutils.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
 typedef QMap<SortingKey, QString> JsonDbModelIndexType;
-typedef QHash<QString, QVariantMap> JsonDbModelObjectType;
+typedef QHash<QString, QJsonObject> JsonDbModelObjectType;
 
 class ModelPage
 {
@@ -66,11 +66,11 @@ public:
     ModelPage();
     ~ModelPage();
     bool hasIndex(int pos);
-    QVariantMap value(const QString & key);
+    QJsonObject value(const QString & key);
     bool hasValue(const QString &key);
 
-    bool insert(int pos, const QString &key, const QVariantMap &vlaue);
-    bool update(const QString &key, const QVariantMap &value);
+    bool insert(int pos, const QString &key, const QJsonObject &vlaue);
+    bool update(const QString &key, const QJsonObject &value);
     bool remove(int pos, const QString &key);
     void dumpPageDetails();
 };
@@ -88,12 +88,12 @@ public:
     void clear();
 
     int findPage(int pos);
-    QVariantMap valueAtPage(int page, const QString & key);
+    QJsonObject valueAtPage(int page, const QString & key);
     bool hasValueAtPage(int page, const QString &key);
 
-    bool insert(int pos, const QString &key, const QVariantMap &vlaue,
+    bool insert(int pos, const QString &key, const QJsonObject &vlaue,
                 const JsonDbModelIndexType &objectUuids);
-    bool update(const QString &key, const QVariantMap &value);
+    bool update(const QString &key, const QJsonObject &value);
     bool remove(int pos, const QString &key);
 
     void splitPage(int pageno, const JsonDbModelIndexType &objectUuids);

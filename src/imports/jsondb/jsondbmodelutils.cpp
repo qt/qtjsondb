@@ -115,14 +115,13 @@ bool SortingKey::operator <(const SortingKey &rhs) const
                 return (dLhs->directions[i] ? (cmp < 0) : (cmp > 0));
             }
         } else if (lhsValue != rhsValue) {
-            bool result = lhsValue < rhsValue;
-            return (dLhs->directions[i] ? result :!result);
+            return (dLhs->directions[i] ? lhsValue < rhsValue : rhsValue < lhsValue);
         }
     }
     int cmp = memcmp(dLhs->uuid.constData(), dRhs->uuid.constData(), qMin(dLhs->uuid.size(), dRhs->uuid.size()));
     // In case of even score jsondb sorts according to _uuid in the same direction as the last sort item
     if (nKeys)
-        return (dLhs->directions[nKeys-1] ? (cmp < 0) : (cmp > 0));
+        return (dLhs->directions[0] ? (cmp < 0) : (cmp > 0));
     return (cmp < 0);
 }
 

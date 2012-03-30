@@ -65,7 +65,6 @@ const QString qmlProgram = QLatin1String(
             "import QtQuick 2.0 \n"
             "import QtJsonDb 1.0 as JsonDb \n"
             "JsonDb.JsonDbCachingListModel {"
-                "signal callbackSignal(variant index, variant response);"
                 "id: contactsModel; cacheSize: 200;"
                 "partitions: ["
                     "JsonDb.Partition {name: \"com.nokia.shared.1\"},"
@@ -181,11 +180,12 @@ void TestJsonDbCachingListModel::cleanupTestCase()
 
 QVariant TestJsonDbCachingListModel::getIndex(QAbstractListModel *model, int index, int role)
 {
+    mWaitingForIndexChanged = true;
+    mWaitingForChanged = false;
+    mIndexWaited = index;
     QVariant val =  model->data(model->index(index), role);
-    while (val.isNull()) {
-        //qDebug() << "Cache miss, no worries";
-        mWaitingForStateChanged = true;
-        waitForStateOrTimeout();
+    while (!val.isValid()) {
+        waitForIndexChanged();
         val = model->data(model->index(index), role);
     }
     return val;
@@ -456,19 +456,20 @@ void TestJsonDbCachingListModel::sortedQuery()
     rolenames << "_uuid" << "_type" << "number";
     listModel->setProperty("roleNames", rolenames);
     listModel->setProperty("sortOrder", "[/number]");
-    listModel->setProperty("cacheSize", 20);
+    listModel->setProperty("cacheSize", 100);
     listModel->setProperty("query", "[?_type=\"RandNumber\"]");
 
     mWaitingForReset = true;
     waitForExitOrTimeout();
     QCOMPARE(mWaitingForReset, false);
 
-    QCOMPARE(listModel->property("sortOrder").toString(), QString("[/number]"));
     QCOMPARE(listModel->rowCount(), 1000);
+
     for (int i = 0; i < 1000; i++) {
         QVariant num = getIndex(listModel, i, 2);
         QCOMPARE(num.toInt(), i);
     }
+
     listModel->setProperty("sortOrder", "[\\number]");
 
     mWaitingForReset = true;
@@ -754,6 +755,8 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("_uuid", uuid);
         QVariant _type = getIndex(listModel, 0, 0);
         item.insert("_type", _type);
+        QVariant _version = getIndex(listModel, 0, 2);
+        item.insert("_version", _version);
         QVariant name = getIndex(listModel, 0, 3);
         item.insert("name", name);
         item.insert("order", 1);
@@ -779,6 +782,8 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("_uuid", uuid);
         _type = getIndex(listModel, 9, 0);
         item.insert("_type", _type);
+        _version = getIndex(listModel, 9, 2);
+        item.insert("_version", _version);
         name = getIndex(listModel, 9, 3);
         item.insert("name", name);
         item.insert("order", 19);
@@ -797,6 +802,8 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("_type", _type);
         name = getIndex(listModel, 9, 3);
         item.insert("name", name);
+        _version = getIndex(listModel, 9, 2);
+        item.insert("_version", _version);
         item.insert("order", 19);
         mItemsUpdated = 0;
         id = update(item,"com.nokia.shared.1");
@@ -932,6 +939,61 @@ void TestJsonDbCachingListModel::totalRowCount()
     waitForItemsRemoved(10);
 
     QCOMPARE(listModel->rowCount(), 40);
+
+    deleteModel(listModel);
+}
+
+void TestJsonDbCachingListModel::checkAddNotification()
+{
+    resetWaitFlags();
+    int id = 0;
+    QVariantList insertedItems;
+    for (int i = 0; i < 10; i++) {
+        QVariantMap item;
+        item.insert("_type", __FUNCTION__);
+        item.insert("order", i);
+        id = create(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+    }
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel)
+        return;
+
+    connectListModel(listModel);
+
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "order");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("sortOrder", "[/order]");
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    QCOMPARE(listModel->rowCount(), 10);
+
+    mItemsCreated = 0;
+    QVariantList items;
+    for (int i = 0; i < 50; i++) {
+        QVariantMap item;
+        item.insert("_type", __FUNCTION__);
+        item.insert("order", i);
+        items << item;
+    }
+    id = create(items, "com.nokia.shared.2");
+    items.clear();
+    waitForResponse1(id);
+    for (int i = 0; i < 50; i++) {
+        QVariantMap item;
+        item.insert("_type", __FUNCTION__);
+        item.insert("order", i);
+        items << item;
+    }
+    id = create(items, "com.nokia.shared.1");
+    waitForResponse1(id);
+    waitForItemsCreated(100);
+    QCOMPARE(listModel->rowCount(), 110);
 
     deleteModel(listModel);
 }
@@ -1229,6 +1291,9 @@ void TestJsonDbCachingListModel::dataChanged(const QModelIndex &topLeft, const Q
     if (mWaitingForChanged) {
         mWaitingForChanged = false;
         eventLoop1.exit(0);
+    } else if (mWaitingForIndexChanged && mIndexWaited >= topLeft.row() && mIndexWaited <= bottomRight.row()) {
+        mWaitingForIndexChanged = false;
+        eventLoop1.exit(0);
     }
 }
 
@@ -1289,6 +1354,22 @@ void TestJsonDbCachingListModel::waitForItemsCreated(int items)
     }
     if (mTimedOut)
         qDebug () << "waitForItemsCreated Timed out";
+}
+
+void TestJsonDbCachingListModel::waitForIndexChanged()
+{
+
+    mTimedOut = false;
+    QTimer timer;
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
+    timer.start(clientTimeout);
+    elapsedTimer.start();
+
+    while (!mTimedOut && mWaitingForIndexChanged) {
+        eventLoop1.exec(QEventLoop::AllEvents);
+    }
+    if (mTimedOut)
+        qDebug () << "waitForIndexChanged Timed out";
 }
 
 void TestJsonDbCachingListModel::waitForItemsRemoved(int items)

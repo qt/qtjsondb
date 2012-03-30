@@ -58,6 +58,12 @@ struct CallbackInfo {
     QJSValue errorCallback;
 };
 
+struct NotificationItem {
+    int partitionIndex;
+    QJsonObject item;
+    QJsonDbWatcher::Action action;
+};
+
 struct NotifyItem {
     int partitionIndex;
     QVariantMap item;
@@ -67,7 +73,6 @@ struct NotifyItem {
 struct SortIndexSpec
 {
     QString propertyName;
-    QString propertyType; //### TODO remove
     QString name;
     bool caseSensitive;
     enum Type { None, String, Number, UUID };
@@ -76,7 +81,6 @@ struct SortIndexSpec
     SortIndexSpec() : caseSensitive(false), type(SortIndexSpec::None) {}
     SortIndexSpec(const SortIndexSpec &other)
         : propertyName(other.propertyName),
-          propertyType(other.propertyType),
           name(other.name),
           caseSensitive(other.caseSensitive),
           type(other.type)

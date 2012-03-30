@@ -66,7 +66,7 @@ const QString qmlProgram = QLatin1String(
             "import QtJsonDb 1.0 as JsonDb \n"
             "JsonDb.JsonDbCachingListModel {"
                 "signal callbackSignal(variant index, variant response);"
-                "id: contactsModel; cacheSize: 200;"
+                "id: contactsModel; cacheSize: 75;"
                 "partitions: ["
                     "JsonDb.Partition {name: \"com.nokia.shared.1\"},"
                     "JsonDb.Partition {name: \"com.nokia.shared.2\"}"
@@ -214,6 +214,12 @@ void JsonDbCachingListModelBench::getIndex(int index)
 
     if (!mCallbackReceived)
         waitForCallback1();
+}
+
+QVariant JsonDbCachingListModelBench::getIndexRaw(QAbstractListModel *model, int index, int role)
+{
+    QVariant val =  model->data(model->index(index), role);
+    return val;
 }
 
 void JsonDbCachingListModelBench::createIndex(const QString &property, const QString &propertyType)
@@ -451,6 +457,59 @@ void JsonDbCachingListModelBench::deleteItem()
     deleteModel(listModel);
 }
 
+void JsonDbCachingListModelBench::flicking()
+{
+    resetWaitFlags();
+    QVariantList items;
+    QVariantMap item;
+    for (int i=0; i < 300; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        items.append(item);
+    }
+    int id = create(items, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    items.clear();
+    for (int i=0; i < 300; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Bertta_%1").arg(i));
+        items.append(item);
+    }
+    id = create(items, "com.nokia.shared.2");
+    waitForResponse1(id);
+
+    createIndex("name", "string");
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+    listModel->setProperty("cacheSize", 75);
+    listModel->setProperty("sortOrder", "[/name]");
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    // now start it working
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(listModel->rowCount(), 600);
+
+    int noOfCacheMisses = 0;
+    mItemsUpdated = 0;
+    // simulate flicking through lhe list
+    for (int i = 0; i < 600; i++) {
+        QVariant nameVariant = getIndexRaw (listModel, i, 2);
+        if (nameVariant.isNull())
+            noOfCacheMisses++;
+        waitForMs(10, 6);
+    }
+
+    deleteItems(__FUNCTION__, "com.nokia.shared.1");
+    deleteItems(__FUNCTION__, "com.nokia.shared.2");
+    deleteModel(listModel);
+}
+
 
 void JsonDbCachingListModelBench::modelReset()
 {
@@ -530,6 +589,22 @@ void JsonDbCachingListModelBench::waitForItemsCreated(int items)
         qDebug () << "waitForItemsCreated Timed out";
 }
 
+void JsonDbCachingListModelBench::waitForItemsUpdated(int items)
+{
+    mTimedOut = false;
+    QTimer timer;
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
+    timer.start(clientTimeout);
+    elapsedTimer.start();
+
+    while (!mTimedOut && mItemsUpdated != items) {
+        mWaitingForChanged = true;
+        eventLoop1.exec(QEventLoop::AllEvents);
+    }
+    if (mTimedOut)
+        qDebug () << "waitForItemsUpdated Timed out";
+}
+
 void JsonDbCachingListModelBench::waitForExitOrTimeout()
 {
     QTimer timer;
@@ -537,6 +612,19 @@ void JsonDbCachingListModelBench::waitForExitOrTimeout()
     timer.start(clientTimeout);
     elapsedTimer.start();
     eventLoop1.exec(QEventLoop::AllEvents);
+}
+
+void JsonDbCachingListModelBench::waitForMs(int ms, int warningThreshold)
+{
+    QTimer timer;
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(silentTimeout()));
+    timer.start(ms);
+    qint64 elap;
+    QElapsedTimer elt;
+    elt.start();
+    eventLoop1.exec(QEventLoop::AllEvents);
+    if ((elap = elt.elapsed()) > ms+warningThreshold)
+        qDebug() << "Some event took more than " << warningThreshold << "ms" << "(" << elap-ms << "ms )";
 }
 
 void JsonDbCachingListModelBench::waitForStateOrTimeout()
@@ -559,6 +647,11 @@ void JsonDbCachingListModelBench::timeout()
     qDebug () << "JsonDbCachingListModelBench::timeout()";
     RequestWrapper::timeout();
     mTimedOut = true;
+    eventLoop1.quit();
+}
+
+void JsonDbCachingListModelBench::silentTimeout()
+{
     eventLoop1.quit();
 }
 

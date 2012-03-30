@@ -82,6 +82,7 @@ public slots:
 
 protected slots:
     void timeout();
+    void silentTimeout();
 
 private slots:
     void initTestCase();
@@ -91,14 +92,18 @@ private slots:
     void ModelStartupSorted();
     void getItemNotInCache();
     void deleteItem();
+    void flicking();
 
 private:
     void waitForExitOrTimeout();
     void waitForItemsCreated(int items);
+    void waitForItemsUpdated(int items);
     void waitForStateOrTimeout();
+    void waitForMs(int ms, int warningThreshold);
     void waitForItemChanged(bool waitForRemove = false);
     QStringList getOrderValues(QAbstractListModel *listModel);
     void getIndex(int index);
+    QVariant getIndexRaw(QAbstractListModel *model, int index, int role);
     void createIndex(const QString &property, const QString &propertyType);
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);

@@ -50,6 +50,7 @@
 #include <QStringList>
 #include <QPointer>
 #include <QUuid>
+#include <QJsonObject>
 
 #include "jsondatabase.h"
 #include "jsondbmodelutils.h"
@@ -93,9 +94,8 @@ public:
     QList<RequestInfo> partitionKeyRequestDetails;
     QList<JsonDbModelIndexType> partitionObjectUuids;
 
-    QList<bool> ascendingOrders;
-    QStringList orderProperties;
-    QList<QStringList> orderPaths;
+    bool ascendingOrder;
+    QString indexName;
 
     QString query;
     QVariant queryOptions;
@@ -110,7 +110,7 @@ public:
     QHash<int, QByteArray> roleNames;
 
     QHash<int, QStringList> properties;
-    QList<NotifyItem> pendingNotifications;
+    QList<NotificationItem> pendingNotifications;
     QList<int> cacheMiss;
     QMap<int, QJSValue> getCallbacks;
     QList< QPair<int,int> > requestQueue;
@@ -133,11 +133,11 @@ public:
     void clearCache();
 
     void removeLastItem();
-    void addItem(const QVariantMap &item, int partitionIndex);
-    void deleteItem(const QVariantMap &item, int partitionIndex);
-    void updateItem(const QVariantMap &item, int partitionIndex);
-    void fillKeys(const QVariantList &items, int partitionIndex, const QString &sortKey);
-    void fillData(const QVariantList &items, int partitionIndex);
+    void addItem(const QJsonObject &item, int partitionIndex);
+    void deleteItem(const QJsonObject &item, int partitionIndex);
+    void updateItem(const QJsonObject &item, int partitionIndex);
+    void fillKeys(const QList<QJsonObject> &items, int partitionIndex);
+    void fillData(const QList<QJsonObject> &items, int partitionIndex);
     void reset();
     void emitDataChanged(int from, int to);
 
@@ -158,7 +158,7 @@ public:
     void createOrUpdateNotifications();
     void parseSortOrder();
     void setQueryForSortKeys();
-    void verifyIndexSpec(const QVariantList &items, int partitionIndex);
+    void verifyIndexSpec(const QList<QJsonObject> &items, int partitionIndex);
 
     int indexOfWatcher(QJsonDbWatcher *watcher);
 
@@ -173,7 +173,7 @@ public:
     void set(int index, const QJSValue& valuemap,
              const QJSValue &successCallback,
              const QJSValue &errorCallback);
-    void sendNotifications(int partitionIndex, const QVariantMap &v, QJsonDbWatcher::Action action);
+    void sendNotification(int partitionIndex, const QJsonObject &object, QJsonDbWatcher::Action action);
 
     // private slots
     void _q_verifyDefaultIndexType(int index);
