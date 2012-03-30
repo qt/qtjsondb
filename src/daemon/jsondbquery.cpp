@@ -517,6 +517,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
 
     if (parseError) {
         QStringList explanation = parsedQuery->queryExplanation;
+        delete parsedQuery;
         parsedQuery = new JsonDbQuery;
         parsedQuery->queryExplanation = explanation;
         qCritical() << "Parser error: query" << query << explanation;

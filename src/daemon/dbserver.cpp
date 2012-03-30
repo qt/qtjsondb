@@ -250,7 +250,8 @@ bool DBServer::loadPartitions()
         mPartitions[mBaseName] = mDefaultPartition;
     }
 
-    JsonDbQueryResult partitions = mDefaultPartition->queryObjects(mOwner, JsonDbQuery::parse(QLatin1String("[?_type=\"Partition\"]")));
+    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(QLatin1String("[?_type=\"Partition\"]")));
+    JsonDbQueryResult partitions = mDefaultPartition->queryObjects(mOwner, parsedQuery.data());
 
     foreach (const JsonDbObject &partition, partitions.data) {
         if (partition.contains(JsonDbString::kNameStr)) {
@@ -1019,12 +1020,12 @@ void DBServer::receiveMessage(const QJsonObject &message)
 
         // TODO: remove at the same time that clientcompat is dropped
         if (action == JsonDbString::kRemoveStr && object.toObject().contains(JsonDbString::kQueryStr)) {
-            JsonDbQuery *query = JsonDbQuery::parse(object.toObject().value(JsonDbString::kQueryStr).toString());
+            QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(object.toObject().value(JsonDbString::kQueryStr).toString()));
             JsonDbQueryResult res;
             if (partition)
-                res = partition->queryObjects(owner, query);
+                res = partition->queryObjects(owner, parsedQuery.data());
             else
-                res = mEphemeralPartition->queryObjects(owner, query);
+                res = mEphemeralPartition->queryObjects(owner, parsedQuery.data());
 
             QJsonArray toRemove;
             foreach (const QJsonValue &value, res.data)
