@@ -108,6 +108,7 @@ void TestQJsonDbWatcher::initTestCase()
 void TestQJsonDbWatcher::cleanupTestCase()
 {
     removeDbFiles();
+    stopDaemon();
 }
 
 void TestQJsonDbWatcher::init()

@@ -70,6 +70,7 @@ void TestQJsonDbRequest::initTestCase()
 void TestQJsonDbRequest::cleanupTestCase()
 {
     removeDbFiles();
+    stopDaemon();
 }
 
 void TestQJsonDbRequest::init()

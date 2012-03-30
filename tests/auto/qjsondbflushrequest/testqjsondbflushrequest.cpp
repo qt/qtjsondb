@@ -70,6 +70,7 @@ void TestQJsonDbFlushRequest::initTestCase()
 void TestQJsonDbFlushRequest::cleanupTestCase()
 {
     removeDbFiles();
+    stopDaemon();
 }
 
 void TestQJsonDbFlushRequest::init()
