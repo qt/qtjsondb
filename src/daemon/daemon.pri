@@ -33,8 +33,6 @@ HEADERS += \
     $$PWD/jsondbsettings.h \
     $$PWD/jsondbindexquery.h
 
-HEADERS += $$QSONCONVERSION_HEADERS
-
 SOURCES += \
     $$PWD/jsondbowner.cpp \
     $$PWD/jsondbproxy.cpp \
@@ -55,4 +53,3 @@ SOURCES += \
     $$PWD/jsondbsettings.cpp \
     $$PWD/jsondbindexquery.cpp
 
-SOURCES += $$QSONCONVERSION_SOURCES

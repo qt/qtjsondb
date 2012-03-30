@@ -35,13 +35,9 @@ HEADERS += \
     jsondb-component.h \
     plugin.h
 
-HEADERS += $$QSONCONVERSION_HEADERS
-
 SOURCES += \
     jsondb-listmodel.cpp \
     jsondb-component.cpp \
     plugin.cpp
-
-SOURCES += $$QSONCONVERSION_SOURCES
 
 OTHER_FILES += jsondb.json

@@ -45,8 +45,6 @@ HEADERS += \
     jsondbcachinglistmodel.h \
     jsondbmodelutils.h
 
-HEADERS += $$QSONCONVERSION_HEADERS
-
 SOURCES += \
     jsondbpartition.cpp \
     jsondbnotification.cpp \
@@ -59,7 +57,5 @@ SOURCES += \
     jsondbcachinglistmodel.cpp \
     jsondbmodelcache.cpp \
     jsondbmodelutils.cpp
-
-SOURCES += $$QSONCONVERSION_SOURCES
 
 OTHER_FILES += jsondb.json
