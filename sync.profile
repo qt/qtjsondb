@@ -6,12 +6,7 @@
 %moduleheaders = ( # restrict the module headers to those found in relative path
 );
 %classnames = (
-    "qtjsondbversion.h" => "QtJsonDbVersion",
     "qjsondbglobal.h" => "QtJsonDbGlobal",
-);
-%mastercontent = (
-    "core" => "#include <QtCore/QtCore>\n",
-    "network" => "#include <QtNetwork/QtNetwork>\n",
 );
 $publicclassregexp = "QJsonDb.+";
 # Module dependencies.

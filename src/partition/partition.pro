@@ -1,11 +1,10 @@
-load(qt_module)
+load(qt_build_config)
 
 MODULE = jsondbpartition
 TARGET = QtJsonDbPartition
 VERSION = 1.0.0
 QT = core qml
 
-CONFIG += module create_prl
 load(qt_module_config)
 
 include(../3rdparty/btree/btree.pri)
@@ -70,8 +69,6 @@ SOURCES += \
     jsondbcollator.cpp \
     jsondbquerytokenizer.cpp \
     jsondbqueryparser.cpp
-
-mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondbpartition.name
 
 contains(config_test_icu, yes) {
     LIBS += -licuuc -licui18n

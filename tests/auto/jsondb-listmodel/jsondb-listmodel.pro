@@ -1,7 +1,4 @@
-TEMPLATE = app
 TARGET = tst_jsondb-listmodel
-DEPENDPATH += .
-INCLUDEPATH += .
 
 QT = core network testlib gui qml jsondbcompat-private
 CONFIG -= app_bundle

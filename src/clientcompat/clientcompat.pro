@@ -1,4 +1,4 @@
-load(qt_module)
+load(qt_build_config)
 
 MODULE = jsondbcompat
 TARGET = QtJsonDbCompat
@@ -9,13 +9,9 @@ QT_PRIVATE = network
 
 load(qt_module_config)
 
-CONFIG += module create_prl
-
 include(../jsonstream/jsonstream.pri)
 
 INCLUDEPATH += $$PWD/../common
-
-HEADERS += qtjsondbcompatversion.h
 
 HEADERS += \
     jsondb-error.h \
@@ -38,5 +34,3 @@ SOURCES += \
     jsondb-oneshot.cpp \
     jsondb-notification.cpp \
     jsondb-strings.cpp
-
-mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondbcompat.name

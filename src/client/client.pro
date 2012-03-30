@@ -1,4 +1,4 @@
-load(qt_module)
+load(qt_build_config)
 
 MODULE = jsondb
 TARGET = QtJsonDb
@@ -7,13 +7,10 @@ VERSION = 1.0.0
 QT = core
 QT_PRIVATE = network qml jsondbpartition
 
-CONFIG += module create_prl
 load(qt_module_config)
 
 include(../jsonstream/jsonstream.pri)
 INCLUDEPATH += $$PWD/../common
-
-HEADERS += qtjsondbversion.h
 
 HEADERS += \
     qjsondbglobal.h \
@@ -55,5 +52,3 @@ SOURCES += \
     qjsondbmodelcache_p.cpp \
     qjsondbmodelutils_p.cpp \
     qjsondbquerymodel_p.cpp
-
-mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondb.name
