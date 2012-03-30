@@ -132,7 +132,6 @@ private:
     void createIndex(const QString &property, const QString &propertyType);
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);
-    QVariant readJsonFile(const QString &filename);
 
 private:
     QProcess *mProcess;

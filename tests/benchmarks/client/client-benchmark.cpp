@@ -42,7 +42,6 @@
 #include <QtTest/QtTest>
 #include "client-benchmark.h"
 #include "private/jsondb-connection_p.h"
-#include <json.h>
 
 #include "util.h"
 
@@ -100,13 +99,10 @@ void TestJson::initTestCase()
 
     QByteArray friendJson("{\"type\": \"object\", \"properties\": {\"name\": {\"type\": \"string\", \"indexed\": true}}}");
 
-    JsonReader reader;
-
     // Create schemas for the items
-    reader.parse(friendJson);
     QVariantMap friendSchema;
     friendSchema.insert("name", "Friends");
-    friendSchema.insert("schema", reader.result());
+    friendSchema.insert("schema", QJsonDocument::fromJson(friendJson).object().toVariantMap());
     friendSchema.insert("_type", "_schemaType");
     int id = mClient->create(friendSchema);
     waitForResponse1(id);

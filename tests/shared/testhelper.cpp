@@ -49,6 +49,7 @@
 #include <QProcess>
 #include <QTest>
 #include <QTimer>
+#include <QJsonArray>
 
 QT_USE_NAMESPACE_JSONDB
 

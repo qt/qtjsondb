@@ -41,10 +41,9 @@
 
 #include <QtTest/QtTest>
 #include <QJSEngine>
+#include <QJSValueIterator>
 #include "testjsondbpartition.h"
 #include "../../shared/util.h"
-#include <QJSValueIterator>
-#include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-partition";
 
@@ -85,20 +84,6 @@ void TestJsonDbPartition::deleteDbFiles()
         QFile file(fileInfo.fileName());
         file.remove();
     }
-}
-
-QVariant TestJsonDbPartition::readJsonFile(const QString& filename)
-{
-    QString filepath = findFile(filename);
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << filepath << parser.errorString();
-    }
-    return parser.result();
 }
 
 void TestJsonDbPartition::initTestCase()

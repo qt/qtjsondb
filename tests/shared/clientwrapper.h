@@ -45,6 +45,10 @@
 #include <QEventLoop>
 #include <QElapsedTimer>
 #include <QDebug>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonValue>
+#include <QJsonDocument>
 
 #include "jsondb-client.h"
 
@@ -81,7 +85,8 @@ QT_USE_NAMESPACE_JSONDB
         if ((result)->mNotificationId.isNull()) { \
             QVERIFY2(false, "we expected notification but did not get it :("); \
         } else { \
-            QString data = JsonWriter().toString((result)->mNotifications.last().mObject); \
+            QJsonValue value = QJsonValue::fromVariant((result)->mNotifications.last().mObject); \
+            QString data = QString::fromUtf8(value.isArray() ? QJsonDocument(value.toArray()).toJson() : QJsonDocument(value.toObject()).toJson()); \
             QByteArray ba = QString("we didn't expect notification but got it. %1").arg(data).toLatin1(); \
             QVERIFY2(false, ba.constData()); \
         } \

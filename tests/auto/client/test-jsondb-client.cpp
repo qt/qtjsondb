@@ -67,8 +67,6 @@
 #include "jsondb-object.h"
 #include "jsondb-error.h"
 
-#include "json.h"
-
 #include "util.h"
 #include "clientwrapper.h"
 
@@ -348,14 +346,7 @@ void TestJsonDbClient::initTestCase()
         waitForResponse1(id);
 
         // Add a schemaValidation tests object (must be done as root)
-        QFile schemaFile(findFile("create-test.json"));
-        schemaFile.open(QIODevice::ReadOnly);
-        QByteArray json = schemaFile.readAll();
-        schemaFile.close();
-        JsonReader parser;
-        bool ok = parser.parse(json);
-        QVERIFY2(ok, parser.errorString().toLocal8Bit());
-        QVariantMap schemaBody = parser.result().toMap();
+        QVariantMap schemaBody = readJsonFile(findFile("create-test.json")).toObject().toVariantMap();
         //qDebug() << "schemaBody" << schemaBody;
         QVariantMap schemaObject;
         schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
@@ -785,14 +776,7 @@ void TestJsonDbClient::find()
 
 void TestJsonDbClient::index()
 {
-    QFile dataFile(":/json/client/index-test.json");
-    dataFile.open(QIODevice::ReadOnly);
-    QByteArray json = dataFile.readAll();
-    dataFile.close();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    QVERIFY2(ok, parser.errorString().toLocal8Bit());
-    QVariantList data = parser.result().toList();
+    QVariantList data = readJsonFile(":/json/client/index-test.json").toArray().toVariantList();
 
     int id = mClient->create(data);
     waitForResponse1(id);
@@ -1160,14 +1144,7 @@ void TestJsonDbClient::schemaValidation()
 {
     int id;
     if (!wasRoot) {
-        QFile schemaFile(findFile("create-test.json"));
-        schemaFile.open(QIODevice::ReadOnly);
-        QByteArray json = schemaFile.readAll();
-        schemaFile.close();
-        JsonReader parser;
-        bool ok = parser.parse(json);
-        QVERIFY2(ok, parser.errorString().toLocal8Bit());
-        QVariantMap schemaBody = parser.result().toMap();
+        QVariantMap schemaBody = readJsonFile(findFile("create-test.json")).toObject().toVariantMap();
         //qDebug() << "schemaBody" << schemaBody;
         QVariantMap schemaObject;
         schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
@@ -1307,17 +1284,11 @@ void TestJsonDbClient::notifyMultiple()
 
 void TestJsonDbClient::mapNotification()
 {
-    QFile jsonFile(":/json/auto/daemon/json/map-reduce.json");
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    QVERIFY(ok);
-
+    QVariantList list = readJsonFile(":/json/auto/daemon/json/map-reduce.json").toArray().toVariantList();
     QList<QVariantMap> mapsReduces;
     QList<QVariantMap> schemas;
     QMap<QString, QVariantMap> toDelete;
-    waitForResponse1(mClient->create(parser.result().toList()));
+    waitForResponse1(mClient->create(list));
 
     QVariantList created = mData.toList();
     foreach (const QVariant &c, created) {
@@ -1406,9 +1377,6 @@ void TestJsonDbClient::changesSince()
     QVariantList results(data["changes"].toList());
     QCOMPARE(results.count(), 2);
 
-    JsonWriter writer;
-    //qDebug() << writer.toByteArray(results[0]);
-    //qDebug() << writer.toByteArray(results[1]);
     QVERIFY(results[0].toMap()["before"].toMap().isEmpty());
     QVERIFY(results[1].toMap()["before"].toMap().isEmpty());
 

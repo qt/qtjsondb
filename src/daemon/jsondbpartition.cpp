@@ -59,7 +59,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "json.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
 #include "jsondbpartition.h"
@@ -1554,8 +1553,8 @@ bool JsonDbPartition::checkNaturalObjectType(const JsonDbObject &object, QString
 {
     QString type = object.value(JsonDbString::kTypeStr).toString();
     if (mViewTypes.contains(type)) {
-        QString str = JsonWriter().toString(object.toVariantMap());
-        errorMsg = QString("Cannot create/remove object of view type '%1': '%2'").arg(type).arg(str);
+        QByteArray str = QJsonDocument(object).toJson();
+        errorMsg = QString("Cannot create/remove object of view type '%1': '%2'").arg(type).arg(QString::fromUtf8(str));
         return false;
     }
 
@@ -1898,13 +1897,13 @@ void JsonDbPartition::initSchemas()
         if (!mSchemas.contains(schemaName)) {
             QFile schemaFile(QString(":schema/%1.json").arg(schemaName));
             schemaFile.open(QIODevice::ReadOnly);
-            JsonReader parser;
-            bool ok = parser.parse(schemaFile.readAll());
-            if (!ok) {
-                qWarning() << "Parsing " << schemaName << " schema" << parser.errorString();
+            QJsonParseError error;
+            QJsonDocument doc = QJsonDocument::fromJson(schemaFile.readAll(), &error);
+            if (doc.isNull()) {
+                qWarning() << "Parsing " << schemaName << " schema" << error.errorString();
                 return;
             }
-            QJsonObject schema = QJsonObject::fromVariantMap(parser.result().toMap());
+            QJsonObject schema = doc.object();
             JsonDbObject schemaObject;
             schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
             schemaObject.insert("name", schemaName);
@@ -1924,13 +1923,13 @@ void JsonDbPartition::initSchemas()
         const QString capabilityName("RootCapability");
         QFile capabilityFile(QString(":schema/%1.json").arg(capabilityName));
         capabilityFile.open(QIODevice::ReadOnly);
-        JsonReader parser;
-        bool ok = parser.parse(capabilityFile.readAll());
-        if (!ok) {
-            qWarning() << "Parsing " << capabilityName << " capability" << parser.errorString();
+        QJsonParseError error;
+        QJsonDocument doc = QJsonDocument::fromJson(capabilityFile.readAll(), &error);
+        if (doc.isNull()) {
+            qWarning() << "Parsing " << capabilityName << " capability" << error.errorString();
             return;
         }
-        JsonDbObject capability = QJsonObject::fromVariantMap(parser.result().toMap());
+        JsonDbObject capability = doc.object();
         QString name = capability.value("name").toString();
         GetObjectsResult getObjectResponse = getObjects("capabilityName", name, "Capability");
         int count = getObjectResponse.data.size();

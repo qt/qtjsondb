@@ -124,7 +124,6 @@ private:
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);
     void deleteItems(const QString &type, const QString &partition);
-    QVariant readJsonFile(const QString &filename);
 
 private:
     QProcess *mProcess;

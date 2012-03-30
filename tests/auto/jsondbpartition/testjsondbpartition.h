@@ -86,7 +86,6 @@ protected slots:
 private:
     ComponentData *createComponent();
     void deleteComponent(ComponentData *componentData);
-    QVariant readJsonFile(const QString &filename);
 
 private:
     QProcess *mProcess;

@@ -48,7 +48,6 @@
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QDir>
-#include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-listmodel";
 ModelData::ModelData(): engine(0), component(0), model(0)
@@ -87,20 +86,6 @@ void TestJsonDbListModel::deleteDbFiles()
         QFile file(fileInfo.fileName());
         file.remove();
     }
-}
-
-QVariant TestJsonDbListModel::readJsonFile(const QString& filename)
-{
-    QString filepath = findFile(filename);
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << filepath << parser.errorString();
-    }
-    return parser.result();
 }
 
 void TestJsonDbListModel::connectListModel(JsonDbListModel *model)
@@ -677,7 +662,7 @@ void TestJsonDbListModel::totalRowCount()
 
 void TestJsonDbListModel::listProperty()
 {
-    QVariant jsonData = readJsonFile("list-objects.json");
+    QVariant jsonData = readJsonFile(findFile("list-objects.json")).toVariant();
     QVariantList itemList = jsonData.toList();
     int id = 0;
     for (int i = 0; i < itemList.count(); i++) {

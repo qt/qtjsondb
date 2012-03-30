@@ -53,7 +53,6 @@
 #include "jsondbpartition.h"
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
-#include "json.h"
 
 #include "jsondbproxy.h"
 #include "jsondbobjecttable.h"

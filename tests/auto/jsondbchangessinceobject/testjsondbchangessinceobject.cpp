@@ -44,7 +44,6 @@
 #include "testjsondbchangessinceobject.h"
 #include "../../shared/util.h"
 #include <QJSValueIterator>
-#include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-partition";
 

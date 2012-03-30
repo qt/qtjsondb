@@ -43,8 +43,6 @@
 #include <QtNetwork>
 #include <QElapsedTimer>
 
-#include <json.h>
-
 #include "jsondb-strings.h"
 #include "jsondb-error.h"
 
@@ -711,14 +709,15 @@ void DBServer::debugQuery(JsonDbQuery *query, int limit, int offset, const JsonD
     for (int i = 0; i < orQueryTerms.size(); i++) {
         const OrQueryTerm &orQueryTerm = orQueryTerms[i];
         foreach (const QueryTerm &queryTerm, orQueryTerm.terms()) {
-            if (jsondbSettings->verbose())
+            if (jsondbSettings->verbose()) {
                 qDebug() << __FILE__ << __LINE__
-                         << QString("    %1%2%3 %4 %5    ")
-                             .arg(queryTerm.propertyName())
-                             .arg(queryTerm.joinField().size() ? "->" : "")
-                             .arg(queryTerm.joinField())
-                             .arg(queryTerm.op())
-                             .arg(JsonWriter().toString(queryTerm.value().toVariant()));
+                         << QString("    %1%2%3 %4")
+                            .arg(queryTerm.propertyName())
+                            .arg(queryTerm.joinField().size() ? "->" : "")
+                            .arg(queryTerm.joinField())
+                            .arg(queryTerm.op())
+                         << queryTerm.value();
+            }
         }
     }
 

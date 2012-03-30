@@ -48,8 +48,6 @@
 #include <QTime>
 #include <QUuid>
 
-#include "json.h"
-
 #include "jsondbmanagedbtree.h"
 #include "jsondbobjecttable.h"
 #include "jsondbpartition.h"
@@ -245,8 +243,6 @@ private:
     void addSchema(const QString &schemaName, JsonDbObject &schemaObject);
     void addIndex(const QString &propertyName, const QString &propertyType=QString(), const QString &objectType=QString());
 
-    QJsonValue readJsonFile(const QString &filename);
-    QJsonValue readJson(const QByteArray& json);
     void removeDbFiles();
 
 private:
@@ -340,16 +336,7 @@ void TestJsonDb::createContacts()
     if (!mContactList.isEmpty())
         return;
 
-    QFile contactsFile(":/daemon/json/largeContactsTest.json");
-    QVERIFY2(contactsFile.exists(), "Err: largeContactsTest.json doesn't exist!");
-
-    contactsFile.open(QIODevice::ReadOnly);
-    QByteArray json = contactsFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok)
-        qDebug() << parser.errorString();
-    QVariantList contactList = parser.result().toList();
+    QVariantList contactList = readJsonFile(":/daemon/json/largeContactsTest.json").toArray().toVariantList();
     QList<JsonDbObject> newContactList;
     foreach (QVariant v, contactList) {
         JsonDbObject contact(JsonDbObject::fromVariantMap(v.toMap()));
@@ -1044,7 +1031,7 @@ void TestJsonDb::schemaValidation()
     id++;
     QString schemaName = QLatin1String("schemaValidationSchema") + QString::number(id);
 
-    QJsonObject schemaBody = readJson(schema).toObject();
+    QJsonObject schemaBody = QJsonDocument::fromJson(schema).object();
     JsonDbObject schemaObject;
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject.insert("name", schemaName);
@@ -1053,7 +1040,7 @@ void TestJsonDb::schemaValidation()
     JsonDbWriteResult qResult = create(mOwner, schemaObject);
     verifyGoodResult(qResult);
 
-    JsonDbObject item = readJson(object).toObject();
+    JsonDbObject item = QJsonDocument::fromJson(object).object();
     item.insert(JsonDbString::kTypeStr, schemaName);
 
     // Create an item that matches the schema
@@ -1125,8 +1112,8 @@ void TestJsonDb::schemaValidationExtends()
                 "    \"properties\": {\"age\": {\"minimum\": 18}},"
                 "    \"extends\": {\"$ref\":\"person%1\"}"
                 "}").arg(QString::number(id)).toLatin1();
-        QJsonObject personSchemaBody = readJson(person).toObject();
-        QJsonObject adultSchemaBody = readJson(adult).toObject();
+        QJsonObject personSchemaBody = QJsonDocument::fromJson(person).object();
+        QJsonObject adultSchemaBody = QJsonDocument::fromJson(adult).object();
 
         JsonDbObject personSchemaObject;
         personSchemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
@@ -1145,7 +1132,7 @@ void TestJsonDb::schemaValidationExtends()
     }
 
     {
-        JsonDbObject object = readJson(item).toObject();
+        JsonDbObject object = QJsonDocument::fromJson(item).object();
         object.insert("testingForPerson", isPerson);
         object.insert(JsonDbString::kTypeStr, personSchemaName);
         qResult = create(mOwner, object);
@@ -1157,7 +1144,7 @@ void TestJsonDb::schemaValidationExtends()
     }
 
     {
-        JsonDbObject object = readJson(item).toObject();
+        JsonDbObject object = QJsonDocument::fromJson(item).object();
         object.insert("testingForAdult", isAdult);
         object.insert(JsonDbString::kTypeStr, adultSchemaName);
         qResult = create(mOwner, object);
@@ -1223,9 +1210,9 @@ void TestJsonDb::schemaValidationExtendsArray()
                 "    \"extends\": [{\"$ref\":\"car%1\"}, {\"$ref\":\"boat%1\"}]"
                 "}").arg(QString::number(id)).toLatin1();
 
-        QJsonObject amphibiousSchemaBody = readJson(amphibious).toObject();
-        QJsonObject carSchemaBody = readJson(car).toObject();
-        QJsonObject boatSchemaBody = readJson(boat).toObject();
+        QJsonObject amphibiousSchemaBody = QJsonDocument::fromJson(amphibious).object();
+        QJsonObject carSchemaBody = QJsonDocument::fromJson(car).object();
+        QJsonObject boatSchemaBody = QJsonDocument::fromJson(boat).object();
 
 
         JsonDbObject carSchemaObject;
@@ -1252,7 +1239,7 @@ void TestJsonDb::schemaValidationExtendsArray()
     }
 
     {
-        JsonDbObject object = readJson(item).toObject();
+        JsonDbObject object = QJsonDocument::fromJson(item).object();
         object.insert("testingForAmphibious", isValid);
         object.insert(JsonDbString::kTypeStr, amphibiousSchemaName);
         qResult = create(mOwner, object);
@@ -1289,8 +1276,8 @@ void TestJsonDb::schemaValidationLazyInit()
     const QString personSchemaName = QString::fromLatin1("personLazyInit");
     const QString adultSchemaName = QString::fromLatin1("adultLazyInit");
 
-    QJsonObject personSchemaBody = readJson(person).toObject();
-    QJsonObject adultSchemaBody = readJson(adult).toObject();
+    QJsonObject personSchemaBody = QJsonDocument::fromJson(person).object();
+    QJsonObject adultSchemaBody = QJsonDocument::fromJson(adult).object();
 
     JsonDbObject personSchemaObject;
     personSchemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
@@ -1313,35 +1300,35 @@ void TestJsonDb::schemaValidationLazyInit()
     // Insert some objects to force full schema compilation
     {
         const QByteArray item = "{ \"name\":\"Nierob\", \"age\":99 }";
-        JsonDbObject object = readJson(item).toObject();
+        JsonDbObject object = QJsonDocument::fromJson(item).object();
         object.insert(JsonDbString::kTypeStr, adultSchemaName);
         qResult = create(mOwner, object);
         verifyGoodResult(qResult);
     }
     {
         const QByteArray item = "{ \"name\":\"Nierob\", \"age\":12 }";
-        JsonDbObject object = readJson(item).toObject();
+        JsonDbObject object = QJsonDocument::fromJson(item).object();
         object.insert(JsonDbString::kTypeStr, adultSchemaName);
         qResult = create(mOwner, object);
         verifyErrorResult(qResult);
     }
     {
         const QByteArray item = "{ \"age\":19 }";
-        JsonDbObject object = readJson(item).toObject();
+        JsonDbObject object = QJsonDocument::fromJson(item).object();
         object.insert(JsonDbString::kTypeStr, adultSchemaName);
         qResult = create(mOwner, object);
         verifyErrorResult(qResult);
     }
     {
         const QByteArray item = "{ \"name\":\"Nierob\", \"age\":12 }";
-        JsonDbObject object = readJson(item).toObject();
+        JsonDbObject object = QJsonDocument::fromJson(item).object();
         object.insert(JsonDbString::kTypeStr, personSchemaName);
         qResult = create(mOwner, object);
         verifyGoodResult(qResult);
     }
     {
         const QByteArray item = "{ \"age\":12 }";
-        JsonDbObject object = readJson(item).toObject();
+        JsonDbObject object = QJsonDocument::fromJson(item).object();
         object.insert(JsonDbString::kTypeStr, personSchemaName);
         qResult = create(mOwner, object);
         verifyErrorResult(qResult);
@@ -3498,32 +3485,6 @@ void TestJsonDb::find10()
     QCOMPARE(queryResult.data.size(), 10);
     mJsonDbPartition->removeIndex("name.first");
     mJsonDbPartition->removeIndex("contact");
-}
-
-QJsonValue TestJsonDb::readJsonFile(const QString& filename)
-{
-    QString filepath = filename;
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << filepath << parser.errorString();
-    }
-    QVariant v = parser.result();
-    return QJsonValue::fromVariant(v);
-}
-
-QJsonValue TestJsonDb::readJson(const QByteArray& json)
-{
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << parser.errorString();
-    }
-    QVariant v = parser.result();
-    return QJsonObject::fromVariantMap(v.toMap());
 }
 
 void TestJsonDb::startsWith()

@@ -45,7 +45,6 @@
 
 #include "../../shared/util.h"
 #include <QQmlListReference>
-#include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-cached-listmodel";
 ModelData::ModelData(): engine(0), component(0), model(0)
@@ -95,20 +94,6 @@ void JsonDbSortingListModelBench::deleteDbFiles()
         QFile file(fileInfo.fileName());
         file.remove();
     }
-}
-
-QVariant JsonDbSortingListModelBench::readJsonFile(const QString& filename)
-{
-    QString filepath = findFile(filename);
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-        qDebug() << filepath << parser.errorString();
-    }
-    return parser.result();
 }
 
 void JsonDbSortingListModelBench::connectListModel(QAbstractListModel *model)

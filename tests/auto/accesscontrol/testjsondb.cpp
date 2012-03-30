@@ -47,7 +47,6 @@
 #include <QDir>
 #include <QTime>
 
-#include "json.h"
 #include "jsondbpartition.h"
 #include "jsondbsettings.h"
 
@@ -111,8 +110,6 @@ private:
     JsonDbWriteResult update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
     JsonDbWriteResult remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
 
-    QJsonValue readJsonFile(const QString &filename);
-    QJsonValue readJson(const QByteArray& json);
     void removeDbFiles();
 
 private:
@@ -543,45 +540,6 @@ void TestJsonDb::testIndexAccessControl()
             verifyErrorResult(result);
         }
     }
-}
-
-QStringList strings = (QStringList()
-                       << "abc"
-                       << "def"
-                       << "deaf"
-                       << "leaf"
-                       << "DEAF"
-                       << "LEAF"
-                       << "ghi"
-                       << "foo/bar");
-
-QStringList patterns = (QStringList()
-        );
-
-QJsonValue TestJsonDb::readJsonFile(const QString& filename)
-{
-    QString filepath = filename;
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << filepath << parser.errorString() << json;
-    }
-    QVariant v = parser.result();
-    return QJsonValue::fromVariant(v);
-}
-
-QJsonValue TestJsonDb::readJson(const QByteArray& json)
-{
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << parser.errorString();
-    }
-    QVariant v = parser.result();
-    return QJsonObject::fromVariantMap(v.toMap());
 }
 
 void TestJsonDb::notified(const QString nid, const JsonDbObject &o, const QString action)

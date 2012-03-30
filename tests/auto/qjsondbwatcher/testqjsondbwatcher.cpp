@@ -318,9 +318,7 @@ void TestQJsonDbWatcher::notificationTriggersView()
 {
     QVERIFY(mConnection);
 
-    QJsonParseError error;
-    QJsonArray array(readJsonFile(":/daemon/json/map-array-conversion.json", &error).array());
-    QVERIFY(error.error == QJsonParseError::NoError);
+    QJsonArray array(readJsonFile(":/daemon/json/map-array-conversion.json").array());
     QList<QJsonObject> objects;
     foreach (const QJsonValue v, array)
         objects.append(v.toObject());

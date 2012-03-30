@@ -115,7 +115,6 @@ private:
     QStringList getOrderValues(QAbstractItemModel *listModel);
     QAbstractItemModel *createModel();
     void deleteModel(QAbstractItemModel *model);
-    QVariant readJsonFile(const QString &filename);
 
 private:
     QProcess        *mProcess;

@@ -47,8 +47,6 @@
 #include <QDir>
 #include <QTime>
 
-#include "json.h"
-
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
 #include "jsondbindexquery.h"
@@ -126,8 +124,6 @@ private slots:
     void benchmarkScriptEngineCreation();
 
 private:
-    QJsonValue readJsonFile(const QString &filename);
-    QJsonValue readJson(const QByteArray &json);
     void removeDbFiles();
     void addSchema(const QString &schemaName);
     void addIndex(const QString &propertyName, const QString &propertyType=QString(), const QString &objectType=QString());
@@ -606,7 +602,7 @@ void TestJsonDb::benchmarkSchemaValidation()
     static int schemaId = 0;
     const QString personSchemaName = QString::fromLatin1("personBenchmark") + QString::number(++schemaId);
 
-    QJsonObject personSchemaBody = readJson(person).toObject();
+    QJsonObject personSchemaBody = QJsonDocument::fromJson(person).object();
     JsonDbObject personSchemaObject;
     personSchemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     personSchemaObject.insert("name", personSchemaName);
@@ -619,7 +615,7 @@ void TestJsonDb::benchmarkSchemaValidation()
     QList<QJsonObject> objects;
     objects.reserve(numberOfIterations);
     for (uint i = 0; i < numberOfIterations; ++i) {
-        QJsonObject object = readJson(item).toObject();
+        QJsonObject object = QJsonDocument::fromJson(item).object();
         object.insert("testingForAdult", (int)i);
         object.insert(JsonDbString::kTypeStr, personSchemaName);
         objects.append(object);
@@ -1000,32 +996,6 @@ void TestJsonDb::benchmarkQueryCount()
             JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
         }
     }
-}
-
-QJsonValue TestJsonDb::readJsonFile(const QString& filename)
-{
-    QString filepath = filename;
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << filepath << parser.errorString();
-    }
-    QVariant v = parser.result();
-    return QJsonObject::fromVariantMap(v.toMap());
-}
-
-QJsonValue TestJsonDb::readJson(const QByteArray& json)
-{
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << parser.errorString();
-    }
-    QVariant v = parser.result();
-    return QJsonObject::fromVariantMap(v.toMap());
 }
 
 void TestJsonDb::benchmarkScriptEngineCreation()

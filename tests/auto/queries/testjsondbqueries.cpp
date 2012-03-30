@@ -48,7 +48,6 @@
 #include <QTime>
 #include <QUuid>
 
-#include "json.h"
 #include "jsondbowner.h"
 #include "jsondbpartition.h"
 #include "jsondbquery.h"
@@ -218,15 +217,7 @@ void TestJsonDbQueries::initTestCase()
     mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTestQueries"), mOwner, this);
     mJsonDbPartition->open();
 
-    QFile contactsFile(":/queries/dataset.json");
-    QVERIFY2(contactsFile.exists(), "Err: dataset.json doesn't exist!");
-
-    contactsFile.open(QIODevice::ReadOnly);
-    QByteArray json = contactsFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    QVERIFY2(ok, parser.errorString().toAscii());
-    QVariantList contactList = parser.result().toList();
+    QVariantList contactList = readJsonFile(":/queries/dataset.json").toArray().toVariantList();
     foreach (QVariant v, contactList) {
         JsonDbObject object(QJsonObject::fromVariantMap(v.toMap()));
         QString type = object.value("_type").toString();

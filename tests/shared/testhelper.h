@@ -48,6 +48,7 @@
 
 #include <QEventLoop>
 #include <QJsonDocument>
+#include <QJsonValue>
 #include <QObject>
 #include <QStringList>
 

@@ -1,7 +1,5 @@
 INCLUDEPATH += $$PWD
 
-include(../3rdparty/qjson/qjson.pri)
-
 unix {
     contains(QT_CONFIG,icu) {
         LIBS += -licuuc -licui18n
