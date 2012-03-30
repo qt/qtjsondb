@@ -44,6 +44,7 @@
 #include <QJSEngine>
 #include <QQmlEngine>
 #include <qjsondbobject.h>
+#include <qjsondbconnection.h>
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
@@ -66,9 +67,6 @@ JsonDatabase::JsonDatabase(QObject *parent)
 
 JsonDatabase::~JsonDatabase()
 {
-    if (connection) {
-        delete connection;
-    }
 }
 
 /*!
@@ -201,7 +199,7 @@ void JsonDatabase::onQueryError(QtJsonDb::QJsonDbRequest::ErrorCode code, const 
 QJsonDbConnection& JsonDatabase::sharedConnection()
 {
     if (!connection) {
-        connection = new QJsonDbConnection();
+        connection = QJsonDbConnection::defaultConnection();
         connection->connectToServer();
     }
     return *connection;
