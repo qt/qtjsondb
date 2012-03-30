@@ -672,15 +672,15 @@ void TestJsonDbClient::update()
         item[QLatin1String("name")] = QLatin1String("fail");
 
         id = mClient->update(item1);
-        // Should fail because of access control (error code 13)
-        waitForResponse2(id, 13);
+        // Should fail because of access control
+        waitForResponse2(id, JsonDbError::OperationNotPermitted);
 
         item1.insert(QLatin1String("_type"), QLatin1String("com.test.FooType"));
 
         id = mClient->update(item1);
-        // Should fail because of access control (error code 13)
+        // Should fail because of access control
         // The new _type is ok, but the old _type is not
-        waitForResponse2(id, 13);
+        waitForResponse2(id, JsonDbError::OperationNotPermitted);
     }
 }
 
