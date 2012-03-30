@@ -200,7 +200,8 @@ void TestJsonDbQueries::removeDbFiles()
 
 JsonDbQueryResult TestJsonDbQueries::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
 {
-    return mJsonDbPartition->queryObjects(owner, JsonDbQuery::parse(query, bindings));
+    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
+    return mJsonDbPartition->queryObjects(owner, parsedQuery.data());
 }
 
 void TestJsonDbQueries::initTestCase()
