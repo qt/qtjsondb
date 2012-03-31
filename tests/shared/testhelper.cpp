@@ -346,7 +346,8 @@ void TestHelper::requestStatusChanged(QtJsonDb::QJsonDbRequest::Status status)
 
 void TestHelper::watcherNotificationsAvailable(int count)
 {
-    mNotificationsReceived += count;
+    mNotificationsReceived = count;
+
     if (!mRequestsPending && mNotificationsReceived >= mNotificationsExpected)
         mEventLoop.quit();
 }
