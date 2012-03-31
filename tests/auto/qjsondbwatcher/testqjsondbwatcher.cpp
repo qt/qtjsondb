@@ -79,6 +79,7 @@ private slots:
     void init();
     void cleanup();
 
+    void createAndRemove_data();
     void createAndRemove();
     void history();
     void currentState();
@@ -121,6 +122,14 @@ void TestQJsonDbWatcher::cleanup()
     disconnectFromServer();
 }
 
+void TestQJsonDbWatcher::createAndRemove_data()
+{
+    QTest::addColumn<QString>("partition");
+
+    QTest::newRow("persistent") << "";
+    QTest::newRow("ephemeral") << "Ephemeral";
+}
+
 /*
  * Watch for an item creation
  */
@@ -128,19 +137,22 @@ void TestQJsonDbWatcher::cleanup()
 void TestQJsonDbWatcher::createAndRemove()
 {
     QVERIFY(mConnection);
+    QFETCH(QString, partition);
 
     // create a watcher
     QJsonDbWatcher watcher;
     watcher.setWatchedActions(QJsonDbWatcher::All);
     watcher.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
+    watcher.setPartition(partition);
     mConnection->addWatcher(&watcher);
 
     QJsonObject item;
     item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
-    item.insert("create-test", 22);
+    item.insert(QLatin1String("create-test"), 22);
 
     // Create an item
     QJsonDbCreateRequest request(item);
+    request.setPartition(partition);
     mConnection->send(&request);
     waitForResponseAndNotifications(&request, &watcher, 1);
 
@@ -154,7 +166,9 @@ void TestQJsonDbWatcher::createAndRemove()
     QCOMPARE(notifications.size(), 1);
 
     // remove the object
+    item.remove(QLatin1String("create-test"));
     QJsonDbRemoveRequest remove(item);
+    remove.setPartition(partition);
     mConnection->send(&remove);
     waitForResponseAndNotifications(&remove, &watcher, 1);
 
@@ -162,8 +176,10 @@ void TestQJsonDbWatcher::createAndRemove()
     QCOMPARE(notifications.size(), 1);
     QJsonDbNotification n = notifications[0];
     QJsonObject o = n.object();
+
     // make sure we got notified on the right object
     QCOMPARE(o.value(JsonDbStrings::Property::uuid()), info.value(JsonDbStrings::Property::uuid()));
+    QCOMPARE(o.value(QLatin1String("create-test")).toDouble(), 22.);
 
     // we do now expect a tombstone
     QVERIFY(o.contains(JsonDbStrings::Property::deleted()));
