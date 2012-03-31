@@ -92,8 +92,10 @@ inline QJsonValue readJsonFile(const QString &filename, QJsonParseError *error =
     return doc.isArray() ? QJsonValue(doc.array()) : QJsonValue(doc.object());
 }
 
-inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketName, const QStringList &args)
+inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketName, const QStringList &args, const char *sourceFile)
 {
+    qputenv("JSONDB_CONFIG_SEARCH_PATH", QFileInfo(QString::fromUtf8(sourceFile)).dir().absolutePath().toUtf8());
+
     static bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
     static bool useValgrind = qgetenv("AUTOTEST_VALGRIND_JSONDB").toInt() == 1;
     if (dontlaunch)
@@ -135,8 +137,10 @@ inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketNam
     return process;
 }
 
-inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &socketName, const QStringList &args)
+inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &socketName, const QStringList &args, const char *sourceFile)
 {
+    qputenv("JSONDB_CONFIG_SEARCH_PATH", QFileInfo(QString::fromUtf8(sourceFile)).dir().absolutePath().toUtf8());
+
     static bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
     static bool useValgrind = qgetenv("AUTOTEST_VALGRIND_JSONDB").toInt() == 1;
     if (dontlaunch)

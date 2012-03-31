@@ -45,6 +45,7 @@
 #include "jsondb-global.h"
 
 #include <QObject>
+#include <QStringList>
 
 QT_BEGIN_HEADER
 
@@ -67,6 +68,7 @@ class JsonDbSettings : public QObject
     Q_PROPERTY(int syncInterval READ syncInterval WRITE setSyncInterval)
     Q_PROPERTY(int indexSyncInterval READ indexSyncInterval WRITE setIndexSyncInterval)
     Q_PROPERTY(bool debugQuery READ debugQuery WRITE setDebugQuery)
+    Q_PROPERTY(QStringList configSearchPath READ configSearchPath WRITE setConfigSearchPath)
 
 public:
     static JsonDbSettings *instance();
@@ -109,6 +111,9 @@ public:
     inline bool debugQuery() const { return mDebugQuery; }
     inline void setDebugQuery(bool debug) { mDebugQuery = debug; }
 
+    inline QStringList configSearchPath() const { return mConfigSearchPath; }
+    inline void setConfigSearchPath(const QStringList &searchPath) { mConfigSearchPath = searchPath; }
+
     JsonDbSettings();
 
 private:
@@ -126,6 +131,7 @@ private:
     int mSyncInterval;
     int mIndexSyncInterval;
     bool mDebugQuery;
+    QStringList mConfigSearchPath;
 };
 
 QT_END_NAMESPACE_JSONDB

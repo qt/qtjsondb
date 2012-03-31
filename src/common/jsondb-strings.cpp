@@ -112,5 +112,7 @@ const QString JsonDbString::kCollationStr = QString::fromLatin1("collation");
 const QString JsonDbString::kCaseSensitiveStr = QString::fromLatin1("caseSensitive");
 const QString JsonDbString::kCasePreferenceStr = QString::fromLatin1("casePreference");
 const QString JsonDbString::kDatabaseSchemaVersionStr = QString::fromLatin1("databaseSchemaVersion");
+const QString JsonDbString::kPathStr = QString::fromLatin1("path");
+const QString JsonDbString::kDefaultStr = QString::fromLatin1("default");
 
 QT_END_NAMESPACE_JSONDB

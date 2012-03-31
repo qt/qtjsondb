@@ -41,6 +41,63 @@ The various partitions in a set are accessed via the \l {Partition} element in Q
 C++, the partition is selected by \c setPartition() on a
 \l {QJsonDbReadRequest}, \l {QJsonDbWriteRequest} or \l {QJsonDbWatcher}.
 
+\section1 Defining Partitions
+
+Partitions in JSON DB are defined via .json files. The filenames must be of the
+form \c partitions*.json. JSON DB searches a series of directories looking for
+such files and the search order is defined as follows:
+
+\list
+\li If a directory is passed as the final argument to the JSON DB binary (jsondb)
+then this location is searched first. If no argument is specified, the current
+working directory is searched.
+\li If the JSONDB_CONFIG_SEARCH_PATH environment variable points to a colon-separated
+list of directories, these are searched next.
+\li Finally, /etc/jsondb is searched.
+\endlist
+
+The partition definition files consist of an array of objects which define the
+partitions:
+\code
+[
+  {
+    "name" : "com.qt-project.partition1",
+    "default" : true
+  },
+  {
+    "name" : "com.qt-project.partition2",
+    "path" : "/var/run/jsondb/partition2"
+  }
+]
+\endcode
+
+The allowed properties:
+
+\table
+\row
+
+\row
+\li name
+\li The name of the partition, specified on all requests to the database.
+If more than one partition specifies the same \c name property, JSON DB
+only loads the first one it finds. See \l {Partition::name} and
+\l {QJsonDbRequest::partition}.
+
+\row
+\li path
+\li The path where the partition files should be stored. If not specified, it
+defaults to the current working directory.
+
+\row
+\li default
+\li If this boolean property is \c true, then requests which do not specify
+a partition will default this partition. If more than one partition is marked
+as default, JSON DB chooses one arbitrarily.
+\endtable
+
+If no partitions.json files are created, then the database defaults to a single
+partition with the name "default".
+
 \section1 The Ephemeral Partition
 
 JSON DB offers a partition called \c Ephemeral. Objects written to this

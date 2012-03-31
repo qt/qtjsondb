@@ -90,7 +90,9 @@ void JsonDbSettings::loadEnvironment()
             else if (property.type() == QVariant::Int)
                 property.write(this, qgetenv(envVariable.toLatin1()).toInt());
             else if (property.type() == QVariant::String)
-                property.write(this, envVariable);
+                property.write(this, qgetenv(envVariable.toLatin1()));
+            else if (property.type() == QVariant::StringList)
+                property.write(this, QString::fromLatin1(qgetenv(envVariable.toLatin1())).split(':'));
             else
                 qWarning() << "JsonDbSettings: unknown property type" << property.name() << property.type();
         }

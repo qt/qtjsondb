@@ -93,7 +93,7 @@ void TestJsonDbPartition::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 
     connection = new QJsonDbConnection();
     connection->connectToServer();
@@ -101,13 +101,6 @@ void TestJsonDbPartition::initTestCase()
     mPluginPath = findQMLPluginPath("QtJsonDb");
     if (mPluginPath.isEmpty())
         qDebug() << "Couldn't find the plugin path for the plugin QtJsonDb";
-
-    // Create the shared Partitions
-    QVariantMap item;
-    item.insert("_type", "Partition");
-    item.insert("name", "com.nokia.shared.1");
-    int id = RequestWrapper::create(item);
-    waitForResponse1(id);
 }
 
 ComponentData *TestJsonDbPartition::createComponent()

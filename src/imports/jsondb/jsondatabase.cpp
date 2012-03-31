@@ -119,8 +119,10 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback)
         qWarning() << "Invalid callback specified.";
         return;
     }
+
     QJsonDbReadRequest *request = new QJsonDbReadRequest;
     request->setQuery(QLatin1String("[?_type=\"Partition\"]"));
+    request->setPartition(QLatin1String("Ephemeral"));
     connect(request, SIGNAL(finished()), this, SLOT(onQueryFinished()));
     connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
     connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),

@@ -68,8 +68,9 @@ class DBServer : public QObject
 {
     Q_OBJECT
 public:
-    DBServer(const QString &fileName, const QString &baseName, QObject *parent = 0);
+    DBServer(const QString &searchPath, QObject *parent = 0);
     ~DBServer();
+
     void setTcpServerPort(quint16 port) { mTcpServerPort = port; }
     quint16 tcpServerPort() const { return mTcpServerPort; }
 
@@ -121,6 +122,7 @@ private:
     void updateEagerViewStateNumbers(JsonDbPartition *partition, quint32 partitionStateNumber);
 
     JsonDbPartition* findPartition(const QString &partitionName);
+    QList<QJsonObject> findPartitionDefinitions() const;
 
     JsonDbOwner *getOwner( JsonStream *stream);
     JsonDbOwner *createDummyOwner( JsonStream *stream);
@@ -149,8 +151,6 @@ private:
     JsonDbOwner                     *mOwner;
     QMap<QIODevice*,JsonDbOwner*>    mOwners;
     QMap<QString,JsonStream *>       mNotifications; // maps notification Id to socket
-    QString mFilePath; // Directory where database files shall be stored
-    QString mBaseName; // Prefix to use in database file names
     bool mCompactOnClose;
 };
 

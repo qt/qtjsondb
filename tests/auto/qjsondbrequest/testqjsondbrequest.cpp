@@ -40,9 +40,18 @@
  ****************************************************************************/
 
 #include "qjsondbconnection.h"
+#include "qjsondbobject.h"
+#include "qjsondbreadrequest.h"
+#include "qjsondbwriterequest.h"
 #include "testhelper.h"
 
+#include <QDebug>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QProcess>
 #include <QTest>
+
+#include <signal.h>
 
 QT_USE_NAMESPACE_JSONDB
 
@@ -57,6 +66,8 @@ private slots:
     void cleanupTestCase();
     void init();
     void cleanup();
+
+    void modifyPartitions();
 };
 
 void TestQJsonDbRequest::initTestCase()
@@ -64,7 +75,7 @@ void TestQJsonDbRequest::initTestCase()
     removeDbFiles();
 
     QStringList arg_list = QStringList() << "-validate-schemas";
-    launchJsonDbDaemon(QString::fromLatin1(dbfileprefix), arg_list);
+    launchJsonDbDaemon(QString::fromLatin1(dbfileprefix), arg_list, __FILE__);
 }
 
 void TestQJsonDbRequest::cleanupTestCase()
@@ -81,6 +92,103 @@ void TestQJsonDbRequest::init()
 void TestQJsonDbRequest::cleanup()
 {
     disconnectFromServer();
+}
+
+void TestQJsonDbRequest::modifyPartitions()
+{
+    // create a notification on Partitions
+    QJsonDbWatcher watcher;
+    watcher.setPartition(QLatin1String("Ephemeral"));
+    watcher.setQuery("[?_type=\"Partition\"]");
+    mConnection->addWatcher(&watcher);
+
+    // ensure that there's only one partition defined and that it's the default
+    QLatin1String defaultPartition("com.qt-project.shared");
+
+    QJsonDbReadRequest partitionQuery;
+    partitionQuery.setPartition(QLatin1String("Ephemeral"));
+    partitionQuery.setQuery(QLatin1String("[?_type=%type]"));
+    partitionQuery.bindValue(QLatin1String("type"), QLatin1String("Partition"));
+
+    mConnection->send(&partitionQuery);
+    waitForResponse(&partitionQuery);
+
+    QList<QJsonObject> results = partitionQuery.takeResults();
+    QCOMPARE(results.count(), 1);
+    QCOMPARE(results[0].value(QLatin1String("name")).toString(), defaultPartition);
+    QVERIFY(results[0].value(QLatin1String("default")).toBool());
+
+    // write a new partitions file
+    QJsonObject def1;
+    def1.insert(QLatin1String("name"), QLatin1String("com.qt-project.test1"));
+    QJsonObject def2;
+    def2.insert(QLatin1String("name"), QLatin1String("com.qt-project.test2"));
+    QJsonArray defs;
+    defs.append(def1);
+    defs.append(def2);
+
+    QFile partitionsFile(QLatin1String("partitions-test.json"));
+    partitionsFile.open(QFile::WriteOnly);
+    partitionsFile.write(QJsonDocument(defs).toJson());
+    partitionsFile.close();
+
+    // send the daemon a SIGHUP to get it to reload the partitions
+    kill(mProcess->pid(), SIGHUP);
+    waitForResponseAndNotifications(0, &watcher, 2);
+
+    // query for the new partitions
+    mConnection->send(&partitionQuery);
+    waitForResponse(&partitionQuery);
+
+    results = partitionQuery.takeResults();
+    QCOMPARE(results.count(), 3);
+
+    // operate on the new partition to make sure it works
+    QJsonDbWriteRequest writeRequest;
+    QUuid testUuid = QJsonDbObject::createUuidFromString(QLatin1String("testobject1"));
+    QJsonDbObject toWrite;
+    toWrite.setUuid(testUuid);
+    toWrite.insert(QLatin1String("_type"), QLatin1String("TestObject"));
+    writeRequest.setObjects(QList<QJsonObject>() << toWrite);
+    mConnection->send(&writeRequest);
+    waitForResponse(&writeRequest);
+    QVERIFY(!mRequestErrors.contains(&writeRequest));
+
+    QJsonDbReadObjectRequest readRequest(testUuid);
+    mConnection->send(&readRequest);
+    waitForResponse(&readRequest);
+    QVERIFY(!mRequestErrors.contains(&readRequest));
+    results = readRequest.takeResults();
+    QCOMPARE(results.count(), 1);
+    QCOMPARE(results[0].value(QLatin1String("_type")).toString(), QLatin1String("TestObject"));
+
+    // remove the new partitions file
+    partitionsFile.remove();
+
+    // send the daemon a SIGHUP to get it to unload the partitions
+    kill(mProcess->pid(), SIGHUP);
+    waitForResponseAndNotifications(0, &watcher, 2);
+
+    // verify that we're back to just the origin partition
+    mConnection->send(&partitionQuery);
+    waitForResponse(&partitionQuery);
+
+    results = partitionQuery.takeResults();
+    QCOMPARE(results.count(), 1);
+    QCOMPARE(results[0].value(QLatin1String("name")).toString(), defaultPartition);
+    QVERIFY(results[0].value(QLatin1String("default")).toBool());
+
+    // query one of the test partitions to ensure we get an InvalidPartition error
+    QJsonDbReadRequest failingRequest;
+    failingRequest.setPartition(QLatin1String("com.qt-project.test1"));
+    failingRequest.setQuery(QLatin1String("[*]"));
+    mConnection->send(&failingRequest);
+    waitForResponse(&failingRequest);
+
+    QVERIFY(mRequestErrors.contains(&failingRequest));
+    QCOMPARE(mRequestErrors[&failingRequest], QJsonDbRequest::InvalidPartition);
+
+    mConnection->removeWatcher(&watcher);
 }
 
 QTEST_MAIN(TestQJsonDbRequest)

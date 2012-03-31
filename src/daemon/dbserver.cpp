@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#include <QtCore>
 #include <QtNetwork>
+#include <QDir>
 #include <QElapsedTimer>
 
 #include "jsondb-strings.h"
@@ -90,38 +90,31 @@ static void sendError( JsonStream *stream, JsonDbError::ErrorCode code,
     stream->send(map);
 }
 
-DBServer::DBServer(const QString &filePath, const QString &baseName, QObject *parent)
-    : QObject(parent),
-      mDefaultPartition(0),
-      mEphemeralPartition(0),
-      mTcpServerPort(0),
-      mServer(0),
-      mTcpServer(0),
-      mOwner(new JsonDbOwner(this)),
-      mFilePath(filePath),
-      mBaseName(baseName)
+DBServer::DBServer(const QString &searchPath, QObject *parent) :
+    QObject(parent)
+  , mDefaultPartition(0)
+  , mEphemeralPartition(0)
+  , mTcpServerPort(0)
+  , mServer(0)
+  , mTcpServer(0)
+  , mOwner(new JsonDbOwner(this))
 {
     // for queued connection handling
     qRegisterMetaType<JsonDbPartition*>("JsonDbPartition*");
     qRegisterMetaType<QSet<QString> >("QSet<QString>");
     qRegisterMetaType<JsonDbUpdateList>("JsonDbUpdateList");
 
-    QFileInfo info(filePath);
+    // make the user-specified path (or PWD) the first in the search path, then and
+    // the /etc one the last
+    QStringList searchPaths = jsondbSettings->configSearchPath();
+    if (searchPath.isEmpty())
+        searchPaths.prepend(QDir::currentPath());
+    else if (!searchPaths.contains(searchPath))
+        searchPaths.prepend(searchPath);
 
-    if (QString::compare(info.suffix(), QLatin1String("db"), Qt::CaseInsensitive) == 0) {
-        mFilePath = info.absolutePath();
-        if (mBaseName.isEmpty())
-            mBaseName = info.baseName();
-    }
-
-    if (mFilePath.isEmpty())
-        mFilePath = QDir::currentPath();
-    if (mBaseName.isEmpty())
-        mBaseName = QLatin1String("default.System");
-    if (!mBaseName.endsWith(QLatin1String(".System")))
-        mBaseName += QLatin1String(".System");
-
-    QDir(mFilePath).mkpath(QString("."));
+    if (!searchPaths.contains(QLatin1String("/etc/jsondb")))
+        searchPaths.append(QLatin1String("/etc/jsondb"));
+    jsondbSettings->setConfigSearchPath(searchPaths);
 
     mOwner->setAllowAll(true);
 }
@@ -148,6 +141,7 @@ void DBServer::sigHUP()
 {
     if (jsondbSettings->debug())
         qDebug() << "SIGHUP received";
+    loadPartitions();
     reduceMemoryUsage();
 }
 
@@ -249,49 +243,87 @@ bool DBServer::loadPartitions()
                 this, SLOT(objectsUpdated(JsonDbUpdateList)));
     }
 
-    QHash<QString, JsonDbPartition*> oldPartitions = mPartitions;
-    oldPartitions.remove(mBaseName);
+    QHash<QString, JsonDbPartition*> partitions;
+    QList<QJsonObject> definitions = findPartitionDefinitions();
+    QString defaultPartitionName;
 
-    if (!mDefaultPartition) {
-        mDefaultPartition = new JsonDbPartition(QDir(mFilePath).absoluteFilePath(mBaseName + QLatin1String(".db")),
-                                                mBaseName, mOwner, this);
-        connect(mDefaultPartition, SIGNAL(objectsUpdated(JsonDbUpdateList)),
-                            this, SLOT(objectsUpdated(JsonDbUpdateList)));
+    foreach (const QJsonObject &definition, definitions) {
+        QString name = definition.value(JsonDbString::kNameStr).toString();
 
-        if (!mDefaultPartition->open())
-            return false;
+        if (definition.value(JsonDbString::kDefaultStr).toBool() && defaultPartitionName.isEmpty())
+            defaultPartitionName = name;
 
-        mPartitions[mBaseName] = mDefaultPartition;
-    }
+        if (mPartitions.contains(name)) {
+            partitions[name] = mPartitions.take(name);
+        } else {
 
-    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(QLatin1String("[?_type=\"Partition\"]")));
-    JsonDbQueryResult partitions = mDefaultPartition->queryObjects(mOwner, parsedQuery.data());
-
-    foreach (const JsonDbObject &partition, partitions.data) {
-        if (partition.contains(JsonDbString::kNameStr)) {
-            QString name = partition.value(JsonDbString::kNameStr).toString();
-
-            if (!mPartitions.contains(name)) {
-                QString filename = partition.contains(QLatin1String("file")) ?
-                            partition.value(QLatin1String("file")).toString() :
-                            QDir(mFilePath).absoluteFilePath(name + QLatin1String(".db"));
-                JsonDbPartition *p = new JsonDbPartition(filename, name, mOwner, this);
-                connect(p, SIGNAL(objectsUpdated(JsonDbUpdateList)),
-                        this, SLOT(objectsUpdated(JsonDbUpdateList)));
-
-                if (!p->open())
-                    return false;
-
-                mPartitions[name] = p;
+            if (partitions.contains(name)) {
+                qWarning() << "Duplicate partition name:" << name;
+                continue;
             }
 
-            oldPartitions.remove(name);
+            QString path = definition.value(JsonDbString::kPathStr).toString();
+            QDir pathDir(path);
+            pathDir.mkpath(QLatin1String("."));
+
+            JsonDbPartition *partition = new JsonDbPartition(pathDir.absoluteFilePath(name), name, mOwner, this);
+            partitions[name] = partition;
+            connect(partition, SIGNAL(objectsUpdated(JsonDbUpdateList)), this, SLOT(objectsUpdated(JsonDbUpdateList)));
+
+            // TODO: for removable partitions, this shouldn't cause a total failure
+            if (!partition->open()) {
+                close();
+                return false;
+            }
+
+            // create an object in the Ephemeral partition to reflect this partition
+            JsonDbObject partitionRecord(definition);
+            partitionRecord.insert(JsonDbString::kUuidStr, JsonDbObject::createUuidFromString(name).toString());
+            partitionRecord.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
+            mEphemeralPartition->updateObjects(mOwner, JsonDbObjectList() << partitionRecord, JsonDbPartition::ForcedWrite);
         }
     }
 
     // close any partitions that were declared previously but are no longer present
-    foreach (JsonDbPartition *p, oldPartitions.values())
-        p->close();
+    foreach (JsonDbPartition *partition, mPartitions.values()) {
+
+        if (mDefaultPartition == partition)
+            mDefaultPartition = 0;
+
+        QList<JsonDbObject> toRemove;
+
+        // remove the ephemeral object representing this partition
+        JsonDbObject partitionRecord;
+        partitionRecord.insert(JsonDbString::kUuidStr, JsonDbObject::createUuidFromString(partition->name()).toString());
+        partitionRecord.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
+        partitionRecord.markDeleted();
+        toRemove.append(partitionRecord);
+
+        // remove any notifications for the partition being closed
+        QJsonObject bindings;
+        bindings.insert(QLatin1String("notification"), JsonDbString::kNotificationTypeStr);
+        bindings.insert(QLatin1String("partition"), partition->name());
+
+        QScopedPointer<JsonDbQuery> query(JsonDbQuery::parse(QLatin1String("[?_type=%notification][?partition=%partition]"),
+                                                             bindings));
+        JsonDbQueryResult results = mEphemeralPartition->queryObjects(mOwner, query.data());
+        foreach (const JsonDbObject &result, results.data) {
+            JsonDbObject notification = result;
+            notification.markDeleted();
+            toRemove.append(notification);
+        }
+
+        mEphemeralPartition->updateObjects(mOwner, toRemove, JsonDbPartition::ForcedWrite);
+
+        disconnect(partition, SIGNAL(objectsUpdated(JsonDbUpdateList)), this, SLOT(objectsUpdated(JsonDbUpdateList)));
+        partition->close();
+        delete partition;
+    }
+
+    mPartitions = partitions;
+
+    if (!mDefaultPartition)
+        mDefaultPartition = mPartitions[defaultPartitionName];
 
     return true;
 }
@@ -458,9 +490,12 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
         else
             return;
     }
-    quint32 partitionStateNumber = (partition
-                                    ? partition->mainObjectTable()->stateNumber()
-                                    : mDefaultPartition->mainObjectTable()->stateNumber());
+    quint32 partitionStateNumber = 0;
+    if (partition)
+        partition->mainObjectTable()->stateNumber();
+    else if (mDefaultPartition)
+        partitionStateNumber =  mDefaultPartition->mainObjectTable()->stateNumber();
+
     if (jsondbSettings->debug())
         qDebug() << "objectsUpdated" << partitionName << partitionStateNumber;
 
@@ -481,7 +516,7 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
         if (partition) {
             JsonDbObjectTable *objectTable = partition->findObjectTable(objectType);
             stateNumber = objectTable->stateNumber();
-        } else
+        } else if (partitionName != mEphemeralPartition->name())
             stateNumber = mDefaultPartition->mainObjectTable()->stateNumber();
 
         QStringList notificationKeys;
@@ -737,10 +772,6 @@ void DBServer::processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDb
                     removeNotification(object);
                 if (!object.isDeleted())
                     createNotification(object, stream);
-
-            // handle partitions
-            } else if (object.type() == JsonDbString::kPartitionTypeStr) {
-                loadPartitions();
             }
         }
 
@@ -1148,6 +1179,67 @@ JsonDbPartition *DBServer::findPartition(const QString &partitionName)
     }
 
     return partition;
+}
+
+QList<QJsonObject> DBServer::findPartitionDefinitions() const
+{
+    QList<QJsonObject> partitions;
+
+    bool defaultSpecified = false;
+
+    foreach (const QString &path, jsondbSettings->configSearchPath()) {
+        QDir searchPath(path);
+        if (!searchPath.exists())
+            continue;
+
+        if (jsondbSettings->debug())
+            qDebug() << QString("Searching %1 for partition definition files").arg(path);
+
+        QStringList files = searchPath.entryList(QStringList() << "partitions*.json",
+                                                 QDir::CaseSensitive | QDir::Files | QDir::Readable);
+        foreach (const QString file, files) {
+            if (jsondbSettings->debug())
+                qDebug() << QString("Loading partition definitions from %1").arg(file);
+
+            QFile partitionFile(searchPath.absoluteFilePath(file));
+            partitionFile.open(QFile::ReadOnly);
+
+            QJsonArray partitionList = QJsonDocument::fromJson(partitionFile.readAll()).array();
+            if (partitionList.isEmpty())
+                continue;
+
+            for (int i = 0; i < partitionList.count(); i++) {
+                QJsonObject def = partitionList[i].toObject();
+                if (def.contains(JsonDbString::kNameStr)) {
+                    if (!def.contains(JsonDbString::kPathStr))
+                        def.insert(JsonDbString::kPathStr, QDir::currentPath());
+                    if (def.contains(JsonDbString::kDefaultStr))
+                        defaultSpecified = true;
+                    partitions.append(def);
+                }
+            }
+        }
+    }
+
+    // if no partitions are specified just make a partition in the current working
+    // directory and call it "default"
+    if (partitions.isEmpty()) {
+        QJsonObject defaultPartition;
+        defaultPartition.insert(JsonDbString::kNameStr, QLatin1String("default"));
+        defaultPartition.insert(JsonDbString::kPathStr, QDir::currentPath());
+        defaultPartition.insert(JsonDbString::kDefaultStr, true);
+        partitions.append(defaultPartition);
+        defaultSpecified = true;
+    }
+
+    // ensure that at least one partition is marked as default
+    if (!defaultSpecified) {
+        QJsonObject defaultPartition = partitions.takeFirst();
+        defaultPartition.insert(JsonDbString::kDefaultStr, true);
+        partitions.append(defaultPartition);
+    }
+
+    return partitions;
 }
 
 void DBServer::receiveMessage(const QJsonObject &message)

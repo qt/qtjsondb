@@ -107,7 +107,7 @@ void TestQJsonDbWatcher::initTestCase()
     removeDbFiles();
 
     QStringList arg_list = QStringList() << "-validate-schemas";
-    launchJsonDbDaemon(QString::fromLatin1(dbfileprefix), arg_list);
+    launchJsonDbDaemon(QString::fromLatin1(dbfileprefix), arg_list, __FILE__);
 }
 
 void TestQJsonDbWatcher::cleanupTestCase()

@@ -115,7 +115,7 @@ void JsonDbCachingListModelBench::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 
     connection = new QJsonDbConnection();
     connection->connectToServer();

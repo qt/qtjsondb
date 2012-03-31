@@ -47,6 +47,7 @@
 #include <QJsonDbWatcher>
 
 #include <QEventLoop>
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonValue>
 #include <QObject>
@@ -67,8 +68,8 @@ public:
 
     QJsonDocument readJsonFile(const QString &filename, QJsonParseError *error = 0);
 
-    void launchJsonDbDaemon(const QString &basename, const QStringList &args);
-    qint64 launchJsonDbDaemonDetached(const QString &basename, const QStringList &args);
+    void launchJsonDbDaemon(const QString &basename, const QStringList &args, const char *sourceFile);
+    qint64 launchJsonDbDaemonDetached(const QString &basename, const QStringList &args, const char *sourceFile);
     void stopDaemon();
 
     void connectToServer();
@@ -93,6 +94,7 @@ protected:
     int mNotificationsExpected;
     int mLastStateChangedExpected;
     int mLastStateChangedReceived;
+    QHash<QtJsonDb::QJsonDbRequest *, QtJsonDb::QJsonDbRequest::ErrorCode> mRequestErrors;
 
 protected Q_SLOTS:
     void connectionError(QtJsonDb::QJsonDbConnection::ErrorCode code, QString msg);

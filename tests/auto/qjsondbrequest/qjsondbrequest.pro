@@ -12,3 +12,6 @@ DEFINES += SRCDIR=\\\"$$PWD/\\\"
 RESOURCES += ../daemon/daemon.qrc
 
 SOURCES += testqjsondbrequest.cpp
+
+OTHER_FILES += \
+    partitions.json

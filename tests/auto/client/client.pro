@@ -14,3 +14,6 @@ NSS_PREFIX = $$(NSS_PREFIX)
 DEFINES += NSS_PREFIX=\\\"$$NSS_PREFIX\\\"
 
 SOURCES += test-jsondb-client.cpp
+
+OTHER_FILES += \
+    partitions.json

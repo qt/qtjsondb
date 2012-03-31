@@ -248,7 +248,7 @@ void TestJsonDbClient::initTestCase()
         arg_list << "-enforce-access-control";
     arg_list << "-base-name";
     arg_list << QString::fromLatin1(dbfileprefix);
-    mProcess = launchJsonDbDaemonDetached(JSONDB_DAEMON_BASE, QString("testjsondb_%1").arg(getpid()), arg_list);
+    mProcess = launchJsonDbDaemonDetached(JSONDB_DAEMON_BASE, QString("testjsondb_%1").arg(getpid()), arg_list, __FILE__);
 #endif
 #if !defined(Q_OS_MAC)
     if (wasRoot) {
@@ -256,7 +256,7 @@ void TestJsonDbClient::initTestCase()
         JsonDbObject capa_obj;
         capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
         capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
-        capa_obj.insert(QLatin1String("partition"), QLatin1String(dbfileprefix) + QLatin1String(".System"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("default"));
         QVariantMap access_rules;
         QVariantMap rw_rule;
         rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
@@ -1572,24 +1572,7 @@ void TestJsonDbClient::partition()
     const QString firstPartitionName = "com.example.autotest.Partition1";
     const QString secondPartitionName = "com.example.autotest.Partition2";
 
-    QVariantMap item;
-    item.insert(JsonDbString::kTypeStr, "Partition");
-    item.insert("name", firstPartitionName);
-    id = mClient->create(item);
-    waitForResponse1(id);
-    QVERIFY(mData.toMap().contains("_uuid"));
-    QVariant firstPartitionUuid = mData.toMap().value("_uuid");
-
-    item = QVariantMap();
-    item.insert(JsonDbString::kTypeStr, "Partition");
-    item.insert("name", secondPartitionName);
-    id = mClient->create(item);
-    waitForResponse1(id);
-    QVERIFY(mData.toMap().contains("_uuid"));
-    QVariant secondPartitionUuid = mData.toMap().value("_uuid");
-
-
-    item = QVariantMap();
+    QVariantMap item = QVariantMap();
     item.insert(JsonDbString::kTypeStr, "Foobar");
     item.insert("one", "one");
     id = mClient->create(item, firstPartitionName);
@@ -1811,7 +1794,7 @@ void TestJsonDbClient::sigstop()
     QStringList argList = QStringList() << "-sigstop";
     argList << QString::fromLatin1("sigstop.db");
 
-    QProcess *jsondb = launchJsonDbDaemon(JSONDB_DAEMON_BASE, QString("testjsondb_sigstop%1").arg(getpid()), argList);
+    QProcess *jsondb = launchJsonDbDaemon(JSONDB_DAEMON_BASE, QString("testjsondb_sigstop%1").arg(getpid()), argList, __FILE__);
     int status;
     ::waitpid(jsondb->pid(), &status, WUNTRACED);
     QVERIFY(WIFSTOPPED(status));

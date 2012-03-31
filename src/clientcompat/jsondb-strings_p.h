@@ -117,6 +117,8 @@ public:
     static const QString kCaseSensitiveStr;
     static const QString kCasePreferenceStr;
     static const QString kDatabaseSchemaVersionStr;
+    static const QString kPathStr;
+    static const QString kDefaultStr;
 };
 
 QT_END_NAMESPACE_JSONDB

@@ -92,7 +92,7 @@ void TestJson::initTestCase()
 #ifndef DONT_START_SERVER
     removeDbFiles();
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 #endif
 
     connectToServer();

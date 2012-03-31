@@ -82,8 +82,10 @@ QJsonDocument TestHelper::readJsonFile(const QString &filename, QJsonParseError 
     return doc;
 }
 
-void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &args)
+void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &args, const char *sourceFile)
 {
+    qputenv("JSONDB_CONFIG_SEARCH_PATH", QFileInfo(QString::fromUtf8(sourceFile)).dir().absolutePath().toUtf8());
+
     if (dontLaunch())
         return;
 
@@ -136,8 +138,10 @@ void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &
         qFatal("Unable to connect to jsondb process");
 }
 
-inline qint64 TestHelper::launchJsonDbDaemonDetached(const QString &basename, const QStringList &args)
+inline qint64 TestHelper::launchJsonDbDaemonDetached(const QString &basename, const QStringList &args, const char *sourceFile)
 {
+    qputenv("JSONDB_CONFIG_SEARCH_PATH", QFileInfo(QString::fromUtf8(sourceFile)).dir().absolutePath().toUtf8());
+
     if (dontLaunch())
         return 0;
 
@@ -210,6 +214,8 @@ void TestHelper::disconnectFromServer()
         delete mConnection;
         mConnection = 0;
     }
+
+    mRequestErrors.clear();
 }
 
 void TestHelper::removeDbFiles(const QStringList &additionalFiles)
@@ -364,6 +370,10 @@ void TestHelper::requestFinished()
 void TestHelper::requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, QString msg)
 {
     qWarning() << "Request error:" << code << msg;
+    QJsonDbRequest *request = qobject_cast<QJsonDbRequest*>(sender());
+    if (request)
+        mRequestErrors[request] = code;
+
     requestFinished();
 }
 

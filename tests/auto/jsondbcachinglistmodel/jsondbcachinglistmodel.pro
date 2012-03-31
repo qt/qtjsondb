@@ -15,3 +15,6 @@ DEFINES += SRCDIR=\\\"$$PWD/\\\"
 HEADERS += testjsondbcachinglistmodel.h \
            $$PWD/../../shared/requestwrapper.h
 SOURCES += testjsondbcachinglistmodel.cpp
+
+OTHER_FILES += \
+    partitions.json

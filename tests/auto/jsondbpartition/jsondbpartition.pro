@@ -15,3 +15,6 @@ DEFINES += SRCDIR=\\\"$$PWD/\\\"
 HEADERS += testjsondbpartition.h \
            $$PWD/../../shared/requestwrapper.h
 SOURCES += testjsondbpartition.cpp
+
+OTHER_FILES += \
+    partitions.json
