@@ -63,18 +63,18 @@ QT_USE_NAMESPACE_JSONDB_PARTITION
 Q_DECLARE_METATYPE(QJsonArray)
 Q_DECLARE_METATYPE(QJsonObject)
 
-class TestJsonDb: public QObject
+class TestPartition: public QObject
 {
     Q_OBJECT
 public:
-    TestJsonDb();
+    TestPartition();
 
 private slots:
     void init();
     void initTestCase();
     void cleanupTestCase();
     void cleanup();
-    void contactListChaff();//moved from auto/daemon
+    void contactListChaff();
     void compact();
     void jsonArrayCreate();
     void jsonObjectCreate();
@@ -150,13 +150,13 @@ private:
 
 const char *kFilename = "testdatabase";
 
-TestJsonDb::TestJsonDb() :
+TestPartition::TestPartition() :
     mJsonDbPartition(0)
   , mOwner(0)
 {
 }
 
-void TestJsonDb::removeDbFiles()
+void TestPartition::removeDbFiles()
 {
     QStringList filters;
     filters << QString::fromLatin1(kFilename)+QLatin1Char('*');
@@ -166,11 +166,11 @@ void TestJsonDb::removeDbFiles()
         QFile::remove(fileName);
 }
 
-void TestJsonDb::initTestCase()
+void TestPartition::initTestCase()
 {
     QCoreApplication::setOrganizationName("Example");
     QCoreApplication::setOrganizationDomain("example.com");
-    QCoreApplication::setApplicationName("TestJsonDb");
+    QCoreApplication::setApplicationName("TestPartition");
     QCoreApplication::setApplicationVersion("1.0");
 
     removeDbFiles();
@@ -228,11 +228,11 @@ void TestJsonDb::initTestCase()
     qDebug() << "done. Time per item (ms):" << (double)elapsed / count << "count" << count << "elapsed" << elapsed << "ms";
 }
 
-void TestJsonDb::init()
+void TestPartition::init()
 {
 }
 
-void TestJsonDb::cleanupTestCase()
+void TestPartition::cleanupTestCase()
 {
     if (mJsonDbPartition) {
         mJsonDbPartition->close();
@@ -246,12 +246,12 @@ void TestJsonDb::cleanupTestCase()
     removeDbFiles();
 }
 
-void TestJsonDb::cleanup()
+void TestPartition::cleanup()
 {
     QCOMPARE(mJsonDbPartition->mTransactionDepth, 0);
 }
 
-void TestJsonDb::addSchema(const QString &schemaName)
+void TestPartition::addSchema(const QString &schemaName)
 {
     QJsonValue schema = readJsonFile(QString(":/partition/schemas/%1.json").arg(schemaName)).toArray();
     JsonDbObject schemaDocument;
@@ -263,7 +263,7 @@ void TestJsonDb::addSchema(const QString &schemaName)
     verifyGoodResult(result);
 }
 
-void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyType, const QString &objectType)
+void TestPartition::addIndex(const QString &propertyName, const QString &propertyType, const QString &objectType)
 {
     QJsonObject index;
     index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
@@ -276,26 +276,26 @@ void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyTy
     QVERIFY(result.code == JsonDbError::NoError);
 }
 
-void TestJsonDb::compact()
+void TestPartition::compact()
 {
     mJsonDbPartition->compact();
 }
 
-void TestJsonDb::jsonArrayCreate()
+void TestPartition::jsonArrayCreate()
 {
     QBENCHMARK {
         QJsonArray list;
     }
 }
 
-void TestJsonDb::jsonObjectCreate()
+void TestPartition::jsonObjectCreate()
 {
     QBENCHMARK {
         QJsonObject map;
     }
 }
 
-void TestJsonDb::jsonArrayReadValue_data()
+void TestPartition::jsonArrayReadValue_data()
 {
     QTest::addColumn<QJsonArray>("list");
     QTest::addColumn<int>("index");
@@ -313,7 +313,7 @@ void TestJsonDb::jsonArrayReadValue_data()
     QTest::newRow("large list") << data3 << 12 << 12;
 }
 
-void TestJsonDb::jsonArrayReadValue()
+void TestPartition::jsonArrayReadValue()
 {
     QFETCH(QJsonArray, list);
     QFETCH(int, index);
@@ -324,7 +324,7 @@ void TestJsonDb::jsonArrayReadValue()
     }
 }
 
-void TestJsonDb::jsonObjectReadValue_data()
+void TestPartition::jsonObjectReadValue_data()
 {
     QTest::addColumn<QJsonObject>("map");
     QTest::addColumn<QString>("property");
@@ -342,7 +342,7 @@ void TestJsonDb::jsonObjectReadValue_data()
     QTest::newRow("large map") << data2 << QString::number(12) << 12;
 }
 
-void TestJsonDb::jsonObjectReadValue()
+void TestPartition::jsonObjectReadValue()
 {
     QFETCH(QJsonObject, map);
     QFETCH(QString, property);
@@ -353,7 +353,7 @@ void TestJsonDb::jsonObjectReadValue()
     }
 }
 
-void TestJsonDb::jsonArrayInsertValue()
+void TestPartition::jsonArrayInsertValue()
 {
     QBENCHMARK {
         QJsonArray list;
@@ -362,7 +362,7 @@ void TestJsonDb::jsonArrayInsertValue()
     }
 }
 
-void TestJsonDb::jsonObjectInsertValue()
+void TestPartition::jsonObjectInsertValue()
 {
     const int iterations = 1024;
     QVarLengthArray<QString, iterations> names;
@@ -377,7 +377,7 @@ void TestJsonDb::jsonObjectInsertValue()
     }
 }
 
-void TestJsonDb::benchmarkCreate()
+void TestPartition::benchmarkCreate()
 {
     QJsonArray contacts(readJsonFile(":/partition/json/largeContactsTest.json").toArray());
     QBENCHMARK {
@@ -386,7 +386,7 @@ void TestJsonDb::benchmarkCreate()
     }
 }
 
-void TestJsonDb::benchmarkFileAppend()
+void TestPartition::benchmarkFileAppend()
 {
     QJsonArray contacts(readJsonFile(":/partition/json/largeContactsTest.json").toArray());
     QFile objectFile("objectFile.bin");
@@ -399,7 +399,7 @@ void TestJsonDb::benchmarkFileAppend()
     }
 }
 
-void TestJsonDb::benchmarkFileAppend2()
+void TestPartition::benchmarkFileAppend2()
 {
     QJsonValue bson(readJsonFile(":/partition/json/largeContactsTest.json"));
     QJsonArray contacts(bson.toArray());
@@ -418,7 +418,7 @@ void TestJsonDb::benchmarkFileAppend2()
     }
 }
 
-void TestJsonDb::benchmarkParseQuery_data()
+void TestPartition::benchmarkParseQuery_data()
 {
     QTest::addColumn<QString>("query");
     QTest::newRow("1")  << "[?foo exists]";
@@ -438,7 +438,7 @@ void TestJsonDb::benchmarkParseQuery_data()
     QTest::newRow("21") << "[?_type=\"contact\"][?foo startsWith \"bar\"]";
 }
 
-void TestJsonDb::benchmarkParseQuery()
+void TestPartition::benchmarkParseQuery()
 {
     QFETCH(QString, query);
     QJsonObject bindings;
@@ -448,7 +448,7 @@ void TestJsonDb::benchmarkParseQuery()
     }
 }
 
-void TestJsonDb::benchmarkFieldMatch()
+void TestPartition::benchmarkFieldMatch()
 {
     int count = mContactList.size();
     if (!count)
@@ -466,7 +466,7 @@ void TestJsonDb::benchmarkFieldMatch()
     }
 }
 
-void TestJsonDb::benchmarkTokenizer()
+void TestPartition::benchmarkTokenizer()
 {
     QStringList queries = (QStringList()
                            << "[?abc=\"def\"]"
@@ -495,7 +495,7 @@ QByteArray makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectK
 int forwardKeyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *op);
 } } // end namespace QtAddOn::JsonDb
 
-void TestJsonDb::benchmarkForwardKeyCmp()
+void TestPartition::benchmarkForwardKeyCmp()
 {
     int count = mContactList.size();
 
@@ -525,7 +525,7 @@ void TestJsonDb::benchmarkForwardKeyCmp()
     }
 }
 
-void TestJsonDb::benchmarkParsedQuery()
+void TestPartition::benchmarkParsedQuery()
 {
     int count = mContactList.size();
     if (!count)
@@ -560,7 +560,7 @@ void TestJsonDb::benchmarkParsedQuery()
     }
 }
 
-void TestJsonDb::benchmarkSchemaValidation_data()
+void TestPartition::benchmarkSchemaValidation_data()
 {
     QTest::addColumn<QByteArray>("item");
     QTest::addColumn<bool>("isPerson");
@@ -580,7 +580,7 @@ void TestJsonDb::benchmarkSchemaValidation_data()
             << QByteArray("{ \"name\":\"Alice's great-grandmother\", \"age\": 130}") << false << false;
 }
 
-void TestJsonDb::benchmarkSchemaValidation()
+void TestPartition::benchmarkSchemaValidation()
 {
     bool validate = jsondbSettings->validateSchemas();
     jsondbSettings->setValidateSchemas(true);
@@ -637,7 +637,7 @@ void TestJsonDb::benchmarkSchemaValidation()
     jsondbSettings->setValidateSchemas(validate);
 }
 
-void TestJsonDb::benchmarkFind()
+void TestPartition::benchmarkFind()
 {
     int count = mContactList.size();
     if (!count)
@@ -656,7 +656,7 @@ void TestJsonDb::benchmarkFind()
     }
 }
 
-void TestJsonDb::benchmarkFindByName()
+void TestPartition::benchmarkFindByName()
 {
     int count = mContactList.size();
     if (!count)
@@ -673,7 +673,7 @@ void TestJsonDb::benchmarkFindByName()
     }
 }
 
-void TestJsonDb::benchmarkFindByUuid()
+void TestPartition::benchmarkFindByUuid()
 {
     int count = mContactList.size();
     if (!count)
@@ -690,7 +690,7 @@ void TestJsonDb::benchmarkFindByUuid()
     }
 }
 
-void TestJsonDb::benchmarkFindEQ()
+void TestPartition::benchmarkFindEQ()
 {
   int count = mContactList.size();
   if (!count)
@@ -709,7 +709,7 @@ void TestJsonDb::benchmarkFindEQ()
   }
 }
 
-void TestJsonDb::benchmarkFindLE()
+void TestPartition::benchmarkFindLE()
 {
     int count = mContactList.size();
     if (!count)
@@ -728,7 +728,7 @@ void TestJsonDb::benchmarkFindLE()
     }
 }
 
-void TestJsonDb::benchmarkFirst()
+void TestPartition::benchmarkFirst()
 {
     int count = mContactList.size();
     if (!count)
@@ -744,7 +744,7 @@ void TestJsonDb::benchmarkFirst()
     }
 }
 
-void TestJsonDb::benchmarkLast()
+void TestPartition::benchmarkLast()
 {
     int count = mContactList.size();
     if (!count)
@@ -760,7 +760,7 @@ void TestJsonDb::benchmarkLast()
     }
 }
 
-void TestJsonDb::benchmarkFirst10()
+void TestPartition::benchmarkFirst10()
 {
     int count = mContactList.size();
     if (!count)
@@ -776,7 +776,7 @@ void TestJsonDb::benchmarkFirst10()
     }
 }
 
-void TestJsonDb::benchmarkFind10()
+void TestPartition::benchmarkFind10()
 {
     int count = mContactList.size();
     if (!count)
@@ -794,7 +794,7 @@ void TestJsonDb::benchmarkFind10()
         verifyGoodQueryResult(queryResult);
     }
 }
-void TestJsonDb::benchmarkFind20()
+void TestPartition::benchmarkFind20()
 {
     int count = mContactList.size();
     if (!count)
@@ -814,7 +814,7 @@ void TestJsonDb::benchmarkFind20()
     }
 }
 
-void TestJsonDb::benchmarkFirstByUuid()
+void TestPartition::benchmarkFirstByUuid()
 {
     int count = mContactList.size();
     if (!count)
@@ -830,7 +830,7 @@ void TestJsonDb::benchmarkFirstByUuid()
     }
 }
 
-void TestJsonDb::benchmarkLastByUuid()
+void TestPartition::benchmarkLastByUuid()
 {
     int count = mContactList.size();
     if (!count)
@@ -846,7 +846,7 @@ void TestJsonDb::benchmarkLastByUuid()
     }
 }
 
-void TestJsonDb::benchmarkFirst10ByUuid()
+void TestPartition::benchmarkFirst10ByUuid()
 {
     int count = mContactList.size();
     if (!count)
@@ -862,7 +862,7 @@ void TestJsonDb::benchmarkFirst10ByUuid()
     }
 }
 
-void TestJsonDb::benchmarkFind10ByUuid()
+void TestPartition::benchmarkFind10ByUuid()
 {
     int count = mContactList.size();
     if (!count)
@@ -880,7 +880,7 @@ void TestJsonDb::benchmarkFind10ByUuid()
     }
 }
 
-void TestJsonDb::benchmarkFindUnindexed()
+void TestPartition::benchmarkFindUnindexed()
 {
     int count = mContactList.size();
     if (!count)
@@ -899,7 +899,7 @@ void TestJsonDb::benchmarkFindUnindexed()
     }
 }
 
-void TestJsonDb::benchmarkFindReindexed()
+void TestPartition::benchmarkFindReindexed()
 {
     int count = mContactList.size();
     if (!count)
@@ -922,7 +922,7 @@ void TestJsonDb::benchmarkFindReindexed()
     }
 }
 
-void TestJsonDb::benchmarkFindNames()
+void TestPartition::benchmarkFindNames()
 {
     QBENCHMARK {
         QString query = QString("[?%1=\"%2\"]")
@@ -934,7 +934,7 @@ void TestJsonDb::benchmarkFindNames()
     }
 }
 
-void TestJsonDb::findNamesMapObject()
+void TestPartition::findNamesMapObject()
 {
     QBENCHMARK_ONCE {
         QString query = QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
@@ -947,7 +947,7 @@ void TestJsonDb::findNamesMapObject()
     }
 }
 
-void TestJsonDb::benchmarkFindNamesMapObject()
+void TestPartition::benchmarkFindNamesMapObject()
 {
     QBENCHMARK {
         QString query = QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
@@ -960,7 +960,7 @@ void TestJsonDb::benchmarkFindNamesMapObject()
     }
 }
 
-void TestJsonDb::benchmarkCursorCount()
+void TestPartition::benchmarkCursorCount()
 {
     QStringList queries = (QStringList()
                            << "[/name.first]"
@@ -984,7 +984,7 @@ void TestJsonDb::benchmarkCursorCount()
     }
 }
 
-void TestJsonDb::benchmarkQueryCount()
+void TestPartition::benchmarkQueryCount()
 {
     QStringList queries = (QStringList()
                            << "[/name.first]"
@@ -998,7 +998,7 @@ void TestJsonDb::benchmarkQueryCount()
     }
 }
 
-void TestJsonDb::benchmarkScriptEngineCreation()
+void TestPartition::benchmarkScriptEngineCreation()
 {
     QJSValue result;
     QBENCHMARK {
@@ -1012,7 +1012,7 @@ void TestJsonDb::benchmarkScriptEngineCreation()
     }
 }
 
-void TestJsonDb::contactListChaff()
+void TestPartition::contactListChaff()
 {
     QBENCHMARK {
         for (int ii = 0; ii < mContactList.size(); ii++) {
@@ -1031,5 +1031,5 @@ void TestJsonDb::contactListChaff()
     }
 }
 
-QTEST_MAIN(TestJsonDb)
-#include "bench_daemon.moc"
+QTEST_MAIN(TestPartition)
+#include "bench_partition.moc"

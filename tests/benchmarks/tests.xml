@@ -6,9 +6,9 @@
         <description>Client API performance 01</description>
         <step>cd /usr/lib/qt5jsondb-tests/benchmarks/client; date &amp;&amp; ./tst_bench_client &amp;&amp; date</step>
       </case>
-      <case name="tst_bench_daemon" timeout="5000" component="qt5jsondb">
+      <case name="tst_bench_partition" timeout="5000" component="qt5jsondb">
         <description>Server-side performance</description>
-        <step>cd /usr/lib/qt5jsondb-tests/benchmarks/daemon; date &amp;&amp; ./tst_bench_daemon &amp;&amp; date</step>
+        <step>cd /usr/lib/qt5jsondb-tests/benchmarks/partition; date &amp;&amp; ./tst_bench_partition &amp;&amp; date</step>
       </case>
       <case name="tst_bench_listmodel" timeout="5000" component="qt5jsondb">
         <description>JsonDbListModel performance</description>

@@ -1,4 +1,4 @@
-TARGET = tst_bench_daemon
+TARGET = tst_bench_partition
 
 QT = network qml testlib jsondbpartition
 CONFIG -= app_bundle
@@ -8,6 +8,7 @@ LIBS += -L$$QT.jsondb.libs
 
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
-RESOURCES+=../../json.qrc daemon.qrc
+RESOURCES+=../../json.qrc partition.qrc
+
 SOURCES += \
-    bench_daemon.cpp \
+    bench_partition.cpp \
