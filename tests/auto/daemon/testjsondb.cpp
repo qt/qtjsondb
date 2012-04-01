@@ -54,8 +54,8 @@
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
 #include "jsondbsettings.h"
-#include "jsondb-strings.h"
-#include "jsondb-error.h"
+#include "jsondbstrings.h"
+#include "jsondberrors.h"
 
 #include <qjsonobject.h>
 
@@ -67,7 +67,7 @@
 #define DBG() if (0) qDebug()
 #endif
 
-QT_USE_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 static QString kContactStr = "com.example.unittest.contact";
 
@@ -4214,7 +4214,7 @@ void TestJsonDb::managedBtree()
 
     QFile::remove(mdbname);
     QScopedPointer<JsonDbManagedBtree> mdb(new JsonDbManagedBtree);
-    if (!mdb->open(mdbname, QBtree::NoSync))
+    if (!mdb->open(mdbname))
         Q_ASSERT(false);
 
     for (int i = 0; i < numtags; ++i) {

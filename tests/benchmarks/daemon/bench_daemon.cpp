@@ -51,14 +51,14 @@
 #include "jsondbindex.h"
 #include "jsondbindexquery.h"
 #include "jsondbsettings.h"
-#include "jsondb-strings.h"
-#include "jsondb-error.h"
+#include "jsondbstrings.h"
+#include "jsondberrors.h"
 
 #include <qjsonobject.h>
 
 #include "../../shared/util.h"
 
-QT_USE_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 Q_DECLARE_METATYPE(QJsonArray)
 Q_DECLARE_METATYPE(QJsonObject)

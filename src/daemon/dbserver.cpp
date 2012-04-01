@@ -43,8 +43,8 @@
 #include <QDir>
 #include <QElapsedTimer>
 
-#include "jsondb-strings.h"
-#include "jsondb-error.h"
+#include "jsondbstrings.h"
+#include "jsondberrors.h"
 
 #include "jsondbephemeralpartition.h"
 #include "jsondbindexquery.h"
@@ -59,7 +59,7 @@
 #include <errno.h>
 #endif
 
-QT_BEGIN_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 static const int gReadBufferSize = 65536;
 
@@ -1411,5 +1411,3 @@ void DBServer::removeConnection()
 }
 
 #include "moc_dbserver.cpp"
-
-QT_END_NAMESPACE_JSONDB

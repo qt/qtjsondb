@@ -52,7 +52,7 @@
 
 #include "../../shared/util.h"
 
-QT_USE_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 /*
   Ensure that a good result object contains the correct fields

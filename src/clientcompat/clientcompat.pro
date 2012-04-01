@@ -38,6 +38,7 @@ SOURCES += \
     jsondb-connection.cpp \
     jsondb-query.cpp \
     jsondb-oneshot.cpp \
-    jsondb-notification.cpp
+    jsondb-notification.cpp \
+    jsondb-strings.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondbcompat.name

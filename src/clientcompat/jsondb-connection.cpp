@@ -39,7 +39,7 @@
 **
 ****************************************************************************/
 
-#include "jsondb-strings.h"
+#include "jsondb-strings_p.h"
 #include "jsondb-error.h"
 #include "jsondb-oneshot_p.h"
 #include "jsondb-connection_p.h"

@@ -41,7 +41,7 @@
 
 #include "jsondb-client.h"
 #include "jsondb-client_p.h"
-#include "jsondb-strings.h"
+#include "jsondb-strings_p.h"
 
 #include "jsondb-connection_p.h"
 

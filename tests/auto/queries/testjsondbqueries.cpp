@@ -51,8 +51,8 @@
 #include "jsondbowner.h"
 #include "jsondbpartition.h"
 #include "jsondbquery.h"
-#include "jsondb-strings.h"
-#include "jsondb-error.h"
+#include "jsondbstrings.h"
+#include "jsondberrors.h"
 
 #include "../../shared/util.h"
 
@@ -70,7 +70,7 @@
          __result.error.toObject().value("message").toString().toLocal8Bit()); \
 }
 
-QT_USE_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 class TestJsonDbQueries: public QObject
 {

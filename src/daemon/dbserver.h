@@ -58,11 +58,10 @@ class QLocalServer;
 class QTcpServer;
 QT_END_NAMESPACE
 
-QT_BEGIN_NAMESPACE_JSONDB
+class JsonDbEphemeralPartition;
 
 using QtJsonDbJsonStream::JsonStream;
-
-class JsonDbEphemeralPartition;
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 class DBServer : public QObject
 {
@@ -153,8 +152,6 @@ private:
     QMap<QString,JsonStream *>       mNotifications; // maps notification Id to socket
     bool mCompactOnClose;
 };
-
-QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 

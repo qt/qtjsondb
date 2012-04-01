@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "jsondbpartitionglobal.h"
 #include "jsondbsettings.h"
 #include "jsondbsignals.h"
 #include "dbserver.h"
@@ -60,11 +61,7 @@
 
 QString progname;
 
-QT_BEGIN_NAMESPACE_JSONDB
-
-QT_END_NAMESPACE_JSONDB
-
-QT_USE_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 /***************************************************************************/
 

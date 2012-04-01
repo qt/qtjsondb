@@ -1,3 +1,3 @@
 TEMPLATE = subdirs
 CONFIG += ordered
-SUBDIRS += 3rdparty jsonstream clientcompat client daemon imports
+SUBDIRS += 3rdparty jsonstream clientcompat partition client daemon imports

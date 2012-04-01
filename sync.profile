@@ -1,5 +1,6 @@
 %modules = ( # path to module name map
     "QtJsonDb" => "$basedir/src/client",
+    "QtJsonDbPartition" => "$basedir/src/partition",
     "QtJsonDbCompat" => "$basedir/src/clientcompat",
 );
 %moduleheaders = ( # restrict the module headers to those found in relative path
@@ -14,6 +15,7 @@
 );
 %modulepris = (
     "QtJsonDb" => "$basedir/modules/qt_jsondb.pri",
+    "QtJsonDbPartition" => "$basedir/modules/qt_jsondbpartition.pri",
     "QtJsonDbCompat" => "$basedir/modules/qt_jsondbcompat.pri",
 );
 $publicclassregexp = "QJsonDb.+";

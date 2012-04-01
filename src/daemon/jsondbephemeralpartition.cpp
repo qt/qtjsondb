@@ -43,12 +43,12 @@
 
 #include "jsondbobject.h"
 #include "jsondbquery.h"
-#include "jsondb-error.h"
-#include "jsondb-strings.h"
+#include "jsondberrors.h"
+#include "jsondbstrings.h"
 
 #include <qjsonobject.h>
 
-QT_BEGIN_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 JsonDbEphemeralPartition::JsonDbEphemeralPartition(const QString &name, QObject *parent) :
     QObject(parent)
@@ -149,5 +149,3 @@ JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *own
     emit objectsUpdated(updated);
     return result;
 }
-
-QT_END_NAMESPACE_JSONDB
