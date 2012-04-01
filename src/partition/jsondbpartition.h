@@ -224,6 +224,7 @@ private:
     friend class JsonDbObjectTable;
     friend class JsonDbMapDefinition;
     friend class WithTransaction;
+    friend class ::TestPartition;
     friend class ::TestJsonDb;
 };
 

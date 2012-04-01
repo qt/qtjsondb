@@ -6,9 +6,9 @@
         <description>Client library tests: C++ APIs testcases.</description>
         <step>cd /usr/lib/qt5jsondb-tests/auto/client;date &amp;&amp; ./tst_client&amp;&amp; date</step>
       </case>
-      <case name="tst_daemon" requirement="BAT" component="qt5jsondb"  timeout="2000">
-        <description> JsonDb daemon tests: This testcase tests server behavior.</description>
-        <step>cd /usr/lib/qt5jsondb-tests/auto/daemon;date &amp;&amp; ./tst_daemon &amp;&amp; date</step>
+      <case name="tst_partition" requirement="BAT" component="qt5jsondb"  timeout="2000">
+        <description> JsonDb partition tests: This testcase tests server behavior.</description>
+        <step>cd /usr/lib/qt5jsondb-tests/auto/partition;date &amp;&amp; ./tst_partition &amp;&amp; date</step>
       </case>
       <case name="tst_accesscontrol" requirement="BAT,CST" type="Security" component="qt5jsondb"  timeout="600">
         <description> JsonDb security tests</description>

@@ -53,7 +53,7 @@
 
 QT_BEGIN_HEADER
 
-class TestJsonDb;
+class TestPartition;
 struct passwd;
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
@@ -90,7 +90,7 @@ private:
     QMap<QString, QMap<QString, QList<JsonDbQuery *> > > mAllowedObjectQueries;
     int mStorageQuota;
     bool mAllowAll;
-    friend class ::TestJsonDb;
+    friend class ::TestPartition;
     bool _setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *partition);
 };
 

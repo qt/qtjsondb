@@ -1,7 +1,7 @@
 TEMPLATE = subdirs
 SUBDIRS = \
     client \
-    daemon \
+    partition \
     accesscontrol \
     qbtree \
     jsondb-listmodel \

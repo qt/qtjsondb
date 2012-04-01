@@ -179,7 +179,7 @@ void TestJsonDb::initTestCase()
     mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
     mJsonDbPartition->open();
 
-    QFile contactsFile(":/daemon/json/largeContactsTest.json");
+    QFile contactsFile(":/partition/json/largeContactsTest.json");
     QVERIFY(contactsFile.exists());
     contactsFile.open(QIODevice::ReadOnly);
     QByteArray json = contactsFile.readAll();
@@ -253,7 +253,7 @@ void TestJsonDb::cleanup()
 
 void TestJsonDb::addSchema(const QString &schemaName)
 {
-    QJsonValue schema = readJsonFile(QString(":/daemon/schemas/%1.json").arg(schemaName)).toArray();
+    QJsonValue schema = readJsonFile(QString(":/partition/schemas/%1.json").arg(schemaName)).toArray();
     JsonDbObject schemaDocument;
     schemaDocument.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaDocument.insert("name", schemaName);
@@ -379,7 +379,7 @@ void TestJsonDb::jsonObjectInsertValue()
 
 void TestJsonDb::benchmarkCreate()
 {
-    QJsonArray contacts(readJsonFile(":/daemon/json/largeContactsTest.json").toArray());
+    QJsonArray contacts(readJsonFile(":/partition/json/largeContactsTest.json").toArray());
     QBENCHMARK {
         JsonDbObject contact(contacts.at(0).toObject());
             mJsonDbPartition->updateObject(mOwner, contact);
@@ -388,7 +388,7 @@ void TestJsonDb::benchmarkCreate()
 
 void TestJsonDb::benchmarkFileAppend()
 {
-    QJsonArray contacts(readJsonFile(":/daemon/json/largeContactsTest.json").toArray());
+    QJsonArray contacts(readJsonFile(":/partition/json/largeContactsTest.json").toArray());
     QFile objectFile("objectFile.bin");
     objectFile.open(QIODevice::ReadWrite);
 
@@ -401,7 +401,7 @@ void TestJsonDb::benchmarkFileAppend()
 
 void TestJsonDb::benchmarkFileAppend2()
 {
-    QJsonValue bson(readJsonFile(":/daemon/json/largeContactsTest.json"));
+    QJsonValue bson(readJsonFile(":/partition/json/largeContactsTest.json"));
     QJsonArray contacts(bson.toArray());
     QFile objectFile("objectFile.bin");
     objectFile.open(QIODevice::ReadWrite);

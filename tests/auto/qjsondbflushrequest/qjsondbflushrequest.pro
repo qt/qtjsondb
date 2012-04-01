@@ -8,6 +8,6 @@ include($$PWD/../../shared/shared.pri)
 
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
-RESOURCES += ../daemon/daemon.qrc
+RESOURCES += ../partition/partition.qrc
 
 SOURCES += testqjsondbflushrequest.cpp

@@ -1,4 +1,4 @@
-TARGET = tst_daemon
+TARGET = tst_partition
 CONFIG += debug
 
 QT = network qml testlib jsondbpartition
@@ -9,13 +9,13 @@ LIBS += -L$$QT.jsondb.libs
 
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
+RESOURCES += json-validation.qrc partition.qrc
+
 unix:!mac:contains(QT_CONFIG,icu) {
     LIBS += -licuuc -licui18n
 } else {
     DEFINES += NO_COLLATION_SUPPORT
 }
 
-RESOURCES += json-validation.qrc daemon.qrc
-
 SOURCES += \
-    testjsondb.cpp \
+    testpartition.cpp \

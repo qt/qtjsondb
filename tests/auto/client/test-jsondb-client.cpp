@@ -1298,7 +1298,7 @@ void TestJsonDbClient::notifyMultiple()
 
 void TestJsonDbClient::mapNotification()
 {
-    QVariantList list = readJsonFile(":/json/auto/daemon/json/map-reduce.json").toArray().toVariantList();
+    QVariantList list = readJsonFile(":/json/auto/partition/json/map-reduce.json").toArray().toVariantList();
     QList<QVariantMap> mapsReduces;
     QList<QVariantMap> schemas;
     QMap<QString, QVariantMap> toDelete;

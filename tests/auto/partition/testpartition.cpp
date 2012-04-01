@@ -115,11 +115,11 @@ private:
     T mValue;
 };
 
-class TestJsonDb: public QObject
+class TestPartition: public QObject
 {
     Q_OBJECT
 public:
-    TestJsonDb();
+    TestPartition();
 
 private slots:
     void initTestCase();
@@ -266,13 +266,13 @@ const QString kReplica1Name = QString("replica1");
 const QString kReplica2Name = QString("replica2");
 const QStringList kReplicaNames = (QStringList() << kReplica1Name << kReplica2Name);
 
-TestJsonDb::TestJsonDb() :
+TestPartition::TestPartition() :
     mJsonDbPartition(0)
   , mOwner(0)
 {
 }
 
-void TestJsonDb::removeDbFiles()
+void TestPartition::removeDbFiles()
 {
     QStringList filters;
     filters << QLatin1String("*.db")
@@ -282,7 +282,7 @@ void TestJsonDb::removeDbFiles()
         QFile::remove(fileName);
 }
 
-void TestJsonDb::initTestCase()
+void TestPartition::initTestCase()
 {
     qsrand(QDateTime::currentDateTime().toTime_t());
     QCoreApplication::setOrganizationName("Example");
@@ -299,7 +299,7 @@ void TestJsonDb::initTestCase()
     mJsonDbPartition->open();
 }
 
-void TestJsonDb::cleanupTestCase()
+void TestPartition::cleanupTestCase()
 {
     if (mJsonDbPartition) {
         mJsonDbPartition->close();
@@ -313,12 +313,12 @@ void TestJsonDb::cleanupTestCase()
     removeDbFiles();
 }
 
-void TestJsonDb::cleanup()
+void TestPartition::cleanup()
 {
     QCOMPARE(mJsonDbPartition->mTransactionDepth, 0);
 }
 
-void TestJsonDb::reopen()
+void TestPartition::reopen()
 {
     int counter = 1;
     for (int i = 0; i < 10; ++i, ++counter) {
@@ -340,12 +340,12 @@ void TestJsonDb::reopen()
     }
 }
 
-void TestJsonDb::createContacts()
+void TestPartition::createContacts()
 {
     if (!mContactList.isEmpty())
         return;
 
-    QVariantList contactList = readJsonFile(":/daemon/json/largeContactsTest.json").toArray().toVariantList();
+    QVariantList contactList = readJsonFile(":/partition/json/largeContactsTest.json").toArray().toVariantList();
     QList<JsonDbObject> newContactList;
     foreach (QVariant v, contactList) {
         JsonDbObject contact(JsonDbObject::fromVariantMap(v.toMap()));
@@ -368,7 +368,7 @@ void TestJsonDb::createContacts()
 
 }
 
-JsonDbQueryResult TestJsonDb::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
+JsonDbQueryResult TestPartition::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
 {
     JsonDbQuery *parsedQuery = JsonDbQuery::parse(query, bindings);
     JsonDbQueryResult result = mJsonDbPartition->queryObjects(owner, parsedQuery);
@@ -376,7 +376,7 @@ JsonDbQueryResult TestJsonDb::find(JsonDbOwner *owner, const QString &query, con
     return result;
 }
 
-JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult TestPartition::create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
 {
     JsonDbWriteResult result =  mJsonDbPartition->updateObject(owner, object, mode);
     if (result.code == JsonDbError::NoError) {
@@ -386,7 +386,7 @@ JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, J
     return result;
 }
 
-JsonDbWriteResult TestJsonDb::update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult TestPartition::update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
 {
     JsonDbWriteResult result =  mJsonDbPartition->updateObject(owner, object, mode);
     if (result.code == JsonDbError::NoError)
@@ -394,7 +394,7 @@ JsonDbWriteResult TestJsonDb::update(JsonDbOwner *owner, JsonDbObject &object, J
     return result;
 }
 
-JsonDbWriteResult TestJsonDb::remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult TestPartition::remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
 {
     JsonDbObject toDelete = object;
     toDelete.insert(JsonDbString::kDeletedStr, true);
@@ -407,16 +407,16 @@ JsonDbWriteResult TestJsonDb::remove(JsonDbOwner *owner, JsonDbObject &object, J
 /*
  * const version for all the cleanup code that doesn't care about updated properties
  */
-JsonDbWriteResult TestJsonDb::remove(JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult TestPartition::remove(JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::WriteMode mode)
 {
     JsonDbObject toDelete = object;
     toDelete.insert(JsonDbString::kDeletedStr, true);
     return mJsonDbPartition->updateObject(owner, toDelete, mode);
 }
 
-void TestJsonDb::addSchema(const QString &schemaName, JsonDbObject &schemaObject)
+void TestPartition::addSchema(const QString &schemaName, JsonDbObject &schemaObject)
 {
-    QJsonValue schema = readJsonFile(QString(":/daemon/schemas/%1.json").arg(schemaName));
+    QJsonValue schema = readJsonFile(QString(":/partition/schemas/%1.json").arg(schemaName));
     schemaObject = JsonDbObject();
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject.insert("name", schemaName);
@@ -425,7 +425,7 @@ void TestJsonDb::addSchema(const QString &schemaName, JsonDbObject &schemaObject
     verifyGoodResult(create(mOwner, schemaObject));
 }
 
-void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyType, const QString &objectType)
+void TestPartition::addIndex(const QString &propertyName, const QString &propertyType, const QString &objectType)
 {
     JsonDbObject index;
     index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
@@ -437,7 +437,7 @@ void TestJsonDb::addIndex(const QString &propertyName, const QString &propertyTy
     verifyGoodResult(create(mOwner, index));
 }
 
-void TestJsonDb::computeVersion()
+void TestPartition::computeVersion()
 {
     JsonDbObject item0;
     QCOMPARE(item0.version(), QString());
@@ -592,7 +592,7 @@ void TestJsonDb::computeVersion()
     QCOMPARE(item9.version().mid(1), item1.version().mid(1));
 }
 
-void TestJsonDb::updateVersionOptimistic()
+void TestPartition::updateVersionOptimistic()
 {
     JsonDbObject master;
     master.generateUuid();
@@ -640,7 +640,7 @@ void TestJsonDb::updateVersionOptimistic()
 
 }
 
-void TestJsonDb::updateVersionReplicating()
+void TestPartition::updateVersionReplicating()
 {
     JsonDbObject master;
     master.generateUuid();
@@ -751,7 +751,7 @@ void TestJsonDb::updateVersionReplicating()
 /*
  * Create an item
  */
-void TestJsonDb::create()
+void TestPartition::create()
 {
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QString("create-test-type"));
@@ -782,7 +782,7 @@ void TestJsonDb::create()
  * Insert an item and then update it.
  */
 
-void TestJsonDb::update()
+void TestPartition::update()
 {
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("update-test-type"));
@@ -805,7 +805,7 @@ void TestJsonDb::update()
  * Update an item which doesn't exist
  */
 
-void TestJsonDb::update2()
+void TestPartition::update2()
 {
     JsonDbObject item;
     item.insert("update2-test", 100);
@@ -821,7 +821,7 @@ void TestJsonDb::update2()
  * Update an item which doesn't have a "uuid" field
  */
 
-void TestJsonDb::update3()
+void TestPartition::update3()
 {
     JsonDbObject item;
     item.insert("update2-test", 100);
@@ -834,7 +834,7 @@ void TestJsonDb::update3()
  * Update a stale copy of an item
  */
 
-void TestJsonDb::update4()
+void TestPartition::update4()
 {
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("update-test-type"));
@@ -895,7 +895,7 @@ void TestJsonDb::update4()
  * Create an item and immediately remove it
  */
 
-void TestJsonDb::remove()
+void TestPartition::remove()
 {
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("remove-test-type"));
@@ -922,7 +922,7 @@ void TestJsonDb::remove()
  * Try to remove an item which doesn't exist
  */
 
-void TestJsonDb::remove2()
+void TestPartition::remove2()
 {
     JsonDbObject item;
     item.insert("remove2-test", 100);
@@ -937,7 +937,7 @@ void TestJsonDb::remove2()
  * Don't include a 'uuid' field
  */
 
-void TestJsonDb::remove3()
+void TestPartition::remove3()
 {
     JsonDbObject item;
     item.insert("remove3-test", 100);
@@ -949,7 +949,7 @@ void TestJsonDb::remove3()
 /*
  * Try to remove an item which existed before but was removed
  */
-void TestJsonDb::remove4()
+void TestPartition::remove4()
 {
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QLatin1String("remove-test-type"));
@@ -973,7 +973,7 @@ void TestJsonDb::remove4()
 /*
  * Remove a stale version of the object
  */
-void TestJsonDb::remove5()
+void TestPartition::remove5()
 {
     jsondbSettings->setRejectStaleUpdates(true);
 
@@ -994,7 +994,7 @@ void TestJsonDb::remove5()
     jsondbSettings->setRejectStaleUpdates(false);
 }
 
-void TestJsonDb::schemaValidation_data()
+void TestPartition::schemaValidation_data()
 {
     QTest::addColumn<QByteArray>("schema");
     QTest::addColumn<QByteArray>("object");
@@ -1028,7 +1028,7 @@ void TestJsonDb::schemaValidation_data()
     }
 }
 
-void TestJsonDb::schemaValidation()
+void TestPartition::schemaValidation()
 {
     jsondbSettings->setValidateSchemas(true);
 
@@ -1070,7 +1070,7 @@ void TestJsonDb::schemaValidation()
     jsondbSettings->setValidateSchemas(false);
 }
 
-void TestJsonDb::schemaValidationExtends_data()
+void TestPartition::schemaValidationExtends_data()
 {
     QTest::addColumn<QByteArray>("item");
     QTest::addColumn<bool>("isPerson");
@@ -1090,7 +1090,7 @@ void TestJsonDb::schemaValidationExtends_data()
             << QByteArray("{ \"name\":\"Alice's great-grandmother\", \"age\": 130}") << false << false;
 }
 
-void TestJsonDb::schemaValidationExtends()
+void TestPartition::schemaValidationExtends()
 {
     jsondbSettings->setValidateSchemas(true);
 
@@ -1168,7 +1168,7 @@ void TestJsonDb::schemaValidationExtends()
 }
 
 
-void TestJsonDb::schemaValidationExtendsArray_data()
+void TestPartition::schemaValidationExtendsArray_data()
 {
     QTest::addColumn<QByteArray>("item");
     QTest::addColumn<bool>("isValid");
@@ -1185,7 +1185,7 @@ void TestJsonDb::schemaValidationExtendsArray_data()
             << QByteArray("{ \"waterSpeed\":100, \"landSpeed\": 100, \"airSpeed\": 100}") << true;
 }
 
-void TestJsonDb::schemaValidationExtendsArray()
+void TestPartition::schemaValidationExtendsArray()
 {
     jsondbSettings->setValidateSchemas(true);
 
@@ -1262,7 +1262,7 @@ void TestJsonDb::schemaValidationExtendsArray()
     jsondbSettings->setValidateSchemas(false);
 }
 
-void TestJsonDb::schemaValidationLazyInit()
+void TestPartition::schemaValidationLazyInit()
 {
     jsondbSettings->setValidateSchemas(true);
 
@@ -1353,7 +1353,7 @@ void TestJsonDb::schemaValidationLazyInit()
 
 #define LIST_TEST_ITEMS 6
 
-void TestJsonDb::createList()
+void TestPartition::createList()
 {
     JsonDbObjectList list;
     for (int i = 0 ; i < LIST_TEST_ITEMS ; i++ ) {
@@ -1371,7 +1371,7 @@ void TestJsonDb::createList()
  * Create a list of items and then update them
  */
 
-void TestJsonDb::updateList()
+void TestPartition::updateList()
 {
     JsonDbObjectList list;
     for (int i = 0 ; i < LIST_TEST_ITEMS ; i++ ) {
@@ -1391,7 +1391,7 @@ void TestJsonDb::updateList()
     QCOMPARE(result.objectsWritten.count(), LIST_TEST_ITEMS);
 }
 
-void TestJsonDb::mapDefinition()
+void TestPartition::mapDefinition()
 {
     // we need a schema that extends View for our targetType
     JsonDbObject schema;
@@ -1417,7 +1417,7 @@ void TestJsonDb::mapDefinition()
     verifyGoodResult(remove(mOwner, schema));
 }
 
-void TestJsonDb::mapDefinitionInvalid()
+void TestPartition::mapDefinitionInvalid()
 {
     // we need a schema that extends View for our targetType
     JsonDbObject schema;
@@ -1465,7 +1465,7 @@ void TestJsonDb::mapDefinitionInvalid()
     verifyGoodResult(res);
 }
 
-void TestJsonDb::reduceDefinition()
+void TestPartition::reduceDefinition()
 {
     // we need a schema that extends View for our targetType
     JsonDbObject schema;
@@ -1492,7 +1492,7 @@ void TestJsonDb::reduceDefinition()
     verifyGoodResult(remove(mOwner, schema));
 }
 
-void TestJsonDb::reduceDefinitionInvalid()
+void TestPartition::reduceDefinitionInvalid()
 {
     // we need a schema that extends View for our targetType
     JsonDbObject schema;
@@ -1577,7 +1577,7 @@ void TestJsonDb::reduceDefinitionInvalid()
     verifyGoodResult(remove(mOwner, schema));
 }
 
-void TestJsonDb::mapInvalidMapFunc()
+void TestPartition::mapInvalidMapFunc()
 {
     JsonDbObject schema;
     schema.insert(JsonDbString::kTypeStr, QLatin1String("_schemaType"));
@@ -1603,7 +1603,7 @@ void TestJsonDb::mapInvalidMapFunc()
     verifyGoodResult(remove(mOwner, schema));
 }
 
-void TestJsonDb::reduceInvalidAddSubtractFuncs()
+void TestPartition::reduceInvalidAddSubtractFuncs()
 {
     JsonDbObject schema;
     schema.insert(JsonDbString::kTypeStr, QLatin1String("_schemaType"));
@@ -1628,10 +1628,10 @@ void TestJsonDb::reduceInvalidAddSubtractFuncs()
     verifyGoodResult(remove(mOwner, schema));
 }
 
-void TestJsonDb::map()
+void TestPartition::map()
 {
     addIndex(QLatin1String("phoneNumber"));
-    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-reduce.json").toArray());
 
     JsonDbObjectList mapsReduces;
     JsonDbObjectList schemas;
@@ -1731,9 +1731,9 @@ void TestJsonDb::map()
 }
 
 
-void TestJsonDb::mapDuplicateSourceAndTarget()
+void TestPartition::mapDuplicateSourceAndTarget()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/map-sametarget.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-sametarget.json").toArray());
     JsonDbObjectList toDelete;
     JsonDbObjectList maps;
 
@@ -1765,9 +1765,9 @@ void TestJsonDb::mapDuplicateSourceAndTarget()
     mJsonDbPartition->removeIndex("ContactView");
 }
 
-void TestJsonDb::mapRemoval()
+void TestPartition::mapRemoval()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/map-sametarget.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-sametarget.json").toArray());
 
     QList<JsonDbObject> maps;
     QList<JsonDbObject> toDelete;
@@ -1807,9 +1807,9 @@ void TestJsonDb::mapRemoval()
         verifyGoodResult(remove(mOwner, toDelete.at(ii)));
 }
 
-void TestJsonDb::mapUpdate()
+void TestPartition::mapUpdate()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/map-sametarget.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-sametarget.json").toArray());
 
     JsonDbObjectList maps;
     JsonDbObjectList toDelete;
@@ -1871,9 +1871,9 @@ void TestJsonDb::mapUpdate()
 
 }
 
-void TestJsonDb::mapJoin()
+void TestPartition::mapJoin()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/map-join.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-join.json").toArray());
 
     JsonDbObject join;
     JsonDbObject schema;
@@ -1974,11 +1974,11 @@ void TestJsonDb::mapJoin()
     mJsonDbPartition->removeIndex("value.foaf", "FoafPerson");
 }
 
-void TestJsonDb::mapSelfJoinSourceUuids()
+void TestPartition::mapSelfJoinSourceUuids()
 {
     addIndex("magic", "string");
 
-    QJsonArray objects(readJsonFile(":/daemon/json/map-join-sourceuuids.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-join-sourceuuids.json").toArray());
     JsonDbObjectList toDelete;
     JsonDbObject toUpdate;
 
@@ -2015,7 +2015,7 @@ void TestJsonDb::mapSelfJoinSourceUuids()
     mJsonDbPartition->removeIndex("magic", "string");
 }
 
-void TestJsonDb::mapMapFunctionError()
+void TestPartition::mapMapFunctionError()
 {
     JsonDbObject schema;
     schema.insert(JsonDbString::kTypeStr, QString("_schemaType"));
@@ -2054,7 +2054,7 @@ void TestJsonDb::mapMapFunctionError()
     verifyGoodResult(remove(mOwner, schema));
 }
 
-void TestJsonDb::mapSchemaViolation()
+void TestPartition::mapSchemaViolation()
 {
     jsondbSettings->setValidateSchemas(true);
 
@@ -2064,7 +2064,7 @@ void TestJsonDb::mapSchemaViolation()
             remove(mOwner, toRemove);
     }
 
-    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-reduce-schema.json").toArray());
     JsonDbObjectList toDelete;
     QJsonValue workingMap;
     JsonDbObject map;
@@ -2133,7 +2133,7 @@ void TestJsonDb::mapSchemaViolation()
 }
 
 // verify that only one target object per source object is allowed without targetKeyName
-void TestJsonDb::mapMultipleEmitNoTargetKeyName()
+void TestPartition::mapMultipleEmitNoTargetKeyName()
 {
     jsondbSettings->setValidateSchemas(true);
 
@@ -2143,7 +2143,7 @@ void TestJsonDb::mapMultipleEmitNoTargetKeyName()
             remove(mOwner, toRemove);
     }
 
-    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-reduce-schema.json").toArray());
     JsonDbObjectList toDelete;
     JsonDbObject map;
 
@@ -2181,9 +2181,9 @@ void TestJsonDb::mapMultipleEmitNoTargetKeyName()
     jsondbSettings->setValidateSchemas(false);
 }
 
-void TestJsonDb::mapArrayConversion()
+void TestPartition::mapArrayConversion()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/map-array-conversion.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-array-conversion.json").toArray());
     JsonDbObjectList toDelete;
     JsonDbObject mapDefinition;
     for (int i = 0; i < objects.size(); i++) {
@@ -2232,7 +2232,7 @@ void logMessageOutput(QtMsgType type, const QMessageLogContext &context, const c
     }
 }
 
-void TestJsonDb::mapConsole()
+void TestPartition::mapConsole()
 {
     bool wasVerbose = jsondbSettings->verbose();
     bool wasDebug = jsondbSettings->debug();
@@ -2241,7 +2241,7 @@ void TestJsonDb::mapConsole()
     jsondbSettings->setVerbose(true);
     jsondbSettings->setDebug(true);
 
-    QJsonArray objects(readJsonFile(":/daemon/json/map-array-conversion.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-array-conversion.json").toArray());
     JsonDbObjectList toDelete;
     JsonDbObject mapDefinition;
     QLatin1Literal sourceType("com.test.Test");
@@ -2296,9 +2296,9 @@ void TestJsonDb::mapConsole()
         verifyGoodResult(remove(mOwner, toDelete.at(ii)));
 }
 
-void TestJsonDb::reduce()
+void TestPartition::reduce()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce-data.json").toArray());
 
     JsonDbObjectList toDelete;
     JsonDbObjectList reduces;
@@ -2312,7 +2312,7 @@ void TestJsonDb::reduce()
         toDelete.append(object);
     }
 
-    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    objects = readJsonFile(":/partition/json/reduce.json").toArray();
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
         JsonDbWriteResult result = create(mOwner, object);
@@ -2339,9 +2339,9 @@ void TestJsonDb::reduce()
     mJsonDbPartition->removeIndex("MyContactCount");
 }
 
-void TestJsonDb::reduceFlattened()
+void TestPartition::reduceFlattened()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce-data.json").toArray());
 
     JsonDbObjectList toDelete;
     JsonDbObjectList reduces;
@@ -2355,7 +2355,7 @@ void TestJsonDb::reduceFlattened()
         toDelete.append(object);
     }
 
-    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    objects = readJsonFile(":/partition/json/reduce.json").toArray();
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
         if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr) {
@@ -2388,9 +2388,9 @@ void TestJsonDb::reduceFlattened()
     mJsonDbPartition->removeIndex("MyContactCount");
 }
 
-void TestJsonDb::reduceSourceKeyFunction()
+void TestPartition::reduceSourceKeyFunction()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce-data.json").toArray());
 
     JsonDbObjectList toDelete;
     JsonDbObjectList reduces;
@@ -2404,7 +2404,7 @@ void TestJsonDb::reduceSourceKeyFunction()
         toDelete.append(object);
     }
 
-    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    objects = readJsonFile(":/partition/json/reduce.json").toArray();
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
         if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr) {
@@ -2437,9 +2437,9 @@ void TestJsonDb::reduceSourceKeyFunction()
     mJsonDbPartition->removeIndex("MyContactCount");
 }
 
-void TestJsonDb::reduceRemoval()
+void TestPartition::reduceRemoval()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce-data.json").toArray());
 
     QJsonArray toDelete;
     QHash<QString, int> firstNameCount;
@@ -2451,7 +2451,7 @@ void TestJsonDb::reduceRemoval()
         toDelete.append(object);
     }
 
-    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    objects = readJsonFile(":/partition/json/reduce.json").toArray();
     JsonDbObject reduce;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
@@ -2479,9 +2479,9 @@ void TestJsonDb::reduceRemoval()
     mJsonDbPartition->removeIndex("MyContactCount");
 }
 
-void TestJsonDb::reduceUpdate()
+void TestPartition::reduceUpdate()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce-data.json").toArray());
 
     QJsonArray toDelete;
     QHash<QString, int> firstNameCount;
@@ -2495,7 +2495,7 @@ void TestJsonDb::reduceUpdate()
         toDelete.append(object);
     }
 
-    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    objects = readJsonFile(":/partition/json/reduce.json").toArray();
     JsonDbObject reduce;
     JsonDbObject schema;
     for (int ii = 0; ii < objects.size(); ii++) {
@@ -2542,9 +2542,9 @@ void TestJsonDb::reduceUpdate()
     mJsonDbPartition->removeIndex("MyContactCount");
 }
 
-void TestJsonDb::reduceDuplicate()
+void TestPartition::reduceDuplicate()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce-data.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce-data.json").toArray());
 
     JsonDbObjectList toDelete;
     QHash<QString, int> firstNameCount;
@@ -2558,7 +2558,7 @@ void TestJsonDb::reduceDuplicate()
         toDelete.append(object);
     }
 
-    objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    objects = readJsonFile(":/partition/json/reduce.json").toArray();
     JsonDbObject reduce;
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
@@ -2613,7 +2613,7 @@ void TestJsonDb::reduceDuplicate()
     mJsonDbPartition->removeIndex("MyContactCount");
 }
 
-void TestJsonDb::reduceFunctionError()
+void TestPartition::reduceFunctionError()
 {
     JsonDbObject schema;
     QString viewTypeStr("ReduceFunctionErrorView");
@@ -2652,11 +2652,11 @@ void TestJsonDb::reduceFunctionError()
     verifyGoodResult(remove(mOwner, schema));
 }
 
-void TestJsonDb::reduceSchemaViolation()
+void TestPartition::reduceSchemaViolation()
 {
     jsondbSettings->setValidateSchemas(true);
 
-    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce-schema.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-reduce-schema.json").toArray());
 
     QJsonArray toDelete;
     JsonDbObject map;
@@ -2727,9 +2727,9 @@ void TestJsonDb::reduceSchemaViolation()
     jsondbSettings->setValidateSchemas(false);
 }
 
-void TestJsonDb::reduceSubObjectProp()
+void TestPartition::reduceSubObjectProp()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce-subprop.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce-subprop.json").toArray());
 
     QJsonArray toDelete;
     JsonDbObject reduce;
@@ -2767,9 +2767,9 @@ void TestJsonDb::reduceSubObjectProp()
     mJsonDbPartition->removeIndex("NameCount");
 }
 
-void TestJsonDb::reduceArray()
+void TestPartition::reduceArray()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce-array.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce-array.json").toArray());
     QJsonArray toDelete;
 
     JsonDbObject human;
@@ -2815,7 +2815,7 @@ void TestJsonDb::reduceArray()
     mJsonDbPartition->removeIndex("ArrayView");
 }
 
-void TestJsonDb::changesSinceCreate()
+void TestPartition::changesSinceCreate()
 {
     QJsonObject csRes = mJsonDbPartition->changesSince(0);
     QVERIFY(csRes.value(JsonDbString::kErrorStr).isNull());
@@ -2843,7 +2843,7 @@ void TestJsonDb::changesSinceCreate()
     QCOMPARE(after.value("lastName").toString(), toCreate.value("lastName").toString());
 }
 
-void TestJsonDb::addIndex()
+void TestPartition::addIndex()
 {
     addIndex(QLatin1String("subject"));
 
@@ -2858,16 +2858,16 @@ void TestJsonDb::addIndex()
     remove(mOwner, indexObject);
 }
 
-void TestJsonDb::addSchema()
+void TestPartition::addSchema()
 {
     JsonDbObject s;
     addSchema("contact", s);
     verifyGoodResult(remove(mOwner, s));
 }
 
-void TestJsonDb::duplicateSchema()
+void TestPartition::duplicateSchema()
 {
-    QJsonValue schema = readJsonFile(":/daemon/schemas/address.json");
+    QJsonValue schema = readJsonFile(":/partition/schemas/address.json");
     JsonDbObject schemaObject;
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject.insert("name", QLatin1String("Address"));
@@ -2887,9 +2887,9 @@ void TestJsonDb::duplicateSchema()
     verifyGoodResult(result);
 }
 
-void TestJsonDb::removeSchema()
+void TestPartition::removeSchema()
 {
-    QJsonValue schema = readJsonFile(":/daemon/schemas/address.json");
+    QJsonValue schema = readJsonFile(":/partition/schemas/address.json");
     JsonDbObject schemaObject;
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
     schemaObject.insert("name", QLatin1String("Address"));
@@ -2916,9 +2916,9 @@ void TestJsonDb::removeSchema()
     verifyGoodResult(result);
 }
 
-void TestJsonDb::removeViewSchema()
+void TestPartition::removeViewSchema()
 {
-    QJsonArray objects = readJsonFile(":/daemon/json/reduce.json").toArray();
+    QJsonArray objects = readJsonFile(":/partition/json/reduce.json").toArray();
     JsonDbObject schema;
     JsonDbObject reduce;
     for (int i = 0; i < objects.size(); ++i) {
@@ -2943,9 +2943,9 @@ void TestJsonDb::removeViewSchema()
     verifyGoodResult(result);
 }
 
-void TestJsonDb::updateSchema()
+void TestPartition::updateSchema()
 {
-    QJsonObject schema = readJsonFile(":/daemon/schemas/address.json").toObject();
+    QJsonObject schema = readJsonFile(":/partition/schemas/address.json").toObject();
     QVERIFY(!schema.isEmpty());
     JsonDbObject schemaObject;
     schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
@@ -2978,7 +2978,7 @@ void TestJsonDb::updateSchema()
     verifyGoodResult(result);
 }
 
-void TestJsonDb::unindexedFind()
+void TestPartition::unindexedFind()
 {
     JsonDbObject item;
     item.insert("_type", QLatin1String("unindexedFind"));
@@ -3006,7 +3006,7 @@ void TestJsonDb::unindexedFind()
     remove(mOwner, item);
 }
 
-void TestJsonDb::find1()
+void TestPartition::find1()
 {
     JsonDbObject item;
     item.insert(JsonDbString::kTypeStr, QString("Find1Type"));
@@ -3019,7 +3019,7 @@ void TestJsonDb::find1()
     QVERIFY(queryResult.data.size() >= 1);
 }
 
-void TestJsonDb::find2()
+void TestPartition::find2()
 {
     addIndex(QLatin1String("name"));
     addIndex(QLatin1String("_type"));
@@ -3102,7 +3102,7 @@ QStringList strings = (QStringList()
 QStringList patterns = (QStringList()
         );
 
-void TestJsonDb::findLikeRegexp_data()
+void TestPartition::findLikeRegexp_data()
 {
     QTest::addColumn<QString>("pattern");
     QTest::addColumn<QString>("modifiers");
@@ -3135,7 +3135,7 @@ void TestJsonDb::findLikeRegexp_data()
     }
 }
 
-void TestJsonDb::findLikeRegexp()
+void TestPartition::findLikeRegexp()
 {
     QFETCH(QString, pattern);
     QFETCH(QString, modifiers);
@@ -3169,7 +3169,7 @@ void TestJsonDb::findLikeRegexp()
     QCOMPARE(length, expectedMatches.size());
 }
 
-void TestJsonDb::findInContains()
+void TestPartition::findInContains()
 {
     QList<QStringList> stringLists;
     stringLists << (QStringList() << "fred" << "barney");
@@ -3207,7 +3207,7 @@ void TestJsonDb::findInContains()
     mJsonDbPartition->removeIndex("i");
 }
 
-void TestJsonDb::findFields()
+void TestPartition::findFields()
 {
     addIndex(QLatin1String("name"));
     addIndex(QLatin1String("_type"));
@@ -3235,7 +3235,7 @@ void TestJsonDb::findFields()
     mJsonDbPartition->removeIndex(QLatin1String("firstName"));
 }
 
-void TestJsonDb::orderedFind1_data()
+void TestPartition::orderedFind1_data()
 {
     QTest::addColumn<QString>("order");
     QTest::newRow("asc") << "/";
@@ -3260,7 +3260,7 @@ void TestJsonDb::orderedFind1_data()
     create(mOwner, item3);
 }
 
-void TestJsonDb::orderedFind1()
+void TestPartition::orderedFind1()
 {
     QFETCH(QString, order);
 
@@ -3289,7 +3289,7 @@ void TestJsonDb::orderedFind1()
     mJsonDbPartition->removeIndex(QLatin1String("_type"));
 }
 
-void TestJsonDb::orderedFind2_data()
+void TestPartition::orderedFind2_data()
 {
     QTest::addColumn<QString>("order");
     QTest::addColumn<QString>("field");
@@ -3306,7 +3306,7 @@ void TestJsonDb::orderedFind2_data()
     }
 }
 
-void TestJsonDb::orderedFind2()
+void TestPartition::orderedFind2()
 {
     QFETCH(QString, order);
     QFETCH(QString, field);
@@ -3339,7 +3339,7 @@ void TestJsonDb::orderedFind2()
     }
 }
 
-void TestJsonDb::wildcardIndex()
+void TestPartition::wildcardIndex()
 {
     addIndex("telephoneNumbers.*.number");
     JsonDbObject item;
@@ -3364,7 +3364,7 @@ void TestJsonDb::wildcardIndex()
     mJsonDbPartition->removeIndex("telephoneNumbers.*.number");
 }
 
-void TestJsonDb::uuidJoin()
+void TestPartition::uuidJoin()
 {
     addIndex("name");
     addIndex("thumbnailUuid");
@@ -3446,7 +3446,7 @@ void TestJsonDb::uuidJoin()
     mJsonDbPartition->removeIndex("bettyUuid");
 }
 
-void TestJsonDb::orQuery_data()
+void TestPartition::orQuery_data()
 {
     QTest::addColumn<QString>("field1");
     QTest::addColumn<QString>("value1");
@@ -3499,7 +3499,7 @@ void TestJsonDb::orQuery_data()
     mJsonDbPartition->removeIndex(QLatin1String("key2"));
 }
 
-void TestJsonDb::orQuery()
+void TestPartition::orQuery()
 {
     QFETCH(QString, field1);
     QFETCH(QString, value1);
@@ -3525,7 +3525,7 @@ void TestJsonDb::orQuery()
     mJsonDbPartition->removeIndex("key2");
 }
 
-void TestJsonDb::findByName()
+void TestPartition::findByName()
 {
     createContacts();
     int count = mContactList.size();
@@ -3545,7 +3545,7 @@ void TestJsonDb::findByName()
     verifyGoodQueryResult(queryResult);
 }
 
-void TestJsonDb::findEQ()
+void TestPartition::findEQ()
 {
     createContacts();
     int count = mContactList.size();
@@ -3564,7 +3564,7 @@ void TestJsonDb::findEQ()
     mJsonDbPartition->removeIndex("name.last");
 }
 
-void TestJsonDb::find10()
+void TestPartition::find10()
 {
     createContacts();
     int count = mContactList.size();
@@ -3587,7 +3587,7 @@ void TestJsonDb::find10()
     mJsonDbPartition->removeIndex("contact");
 }
 
-void TestJsonDb::startsWith()
+void TestPartition::startsWith()
 {
     addIndex(QLatin1String("name"));
 
@@ -3634,7 +3634,7 @@ void TestJsonDb::startsWith()
     QCOMPARE(queryResult.data.size(), 4);
 }
 
-void TestJsonDb::comparison()
+void TestPartition::comparison()
 {
     addIndex(QLatin1String("latitude"), QLatin1String("number"));
 
@@ -3677,7 +3677,7 @@ void TestJsonDb::comparison()
     mJsonDbPartition->removeIndex(QLatin1String("latitude"));
 }
 
-void TestJsonDb::removedObjects()
+void TestPartition::removedObjects()
 {
     addIndex(QLatin1String("foo"));
     addIndex(QLatin1String("name"));
@@ -3723,11 +3723,11 @@ void TestJsonDb::removedObjects()
     mJsonDbPartition->removeIndex(QLatin1String("name"));
 }
 
-void TestJsonDb::arrayIndexQuery()
+void TestPartition::arrayIndexQuery()
 {
     addIndex(QLatin1String("phoneNumber"));
 
-    QJsonArray objects(readJsonFile(":/daemon/json/array.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/array.json").toArray());
     QMap<QString, JsonDbObject> toDelete;
     for (int i = 0; i < objects.size(); ++i) {
         JsonDbObject object = objects.at(i).toObject();
@@ -3780,7 +3780,7 @@ void TestJsonDb::arrayIndexQuery()
         verifyGoodResult(remove(mOwner, object));
 }
 
-void TestJsonDb::deindexError()
+void TestPartition::deindexError()
 {
     JsonDbWriteResult result;
 
@@ -3822,7 +3822,7 @@ void TestJsonDb::deindexError()
     }
 }
 
-void TestJsonDb::expectedOrder()
+void TestPartition::expectedOrder()
 {
     QStringList list;
     QStringList uuids;
@@ -3865,7 +3865,7 @@ void TestJsonDb::expectedOrder()
     }
 }
 
-void TestJsonDb::indexQueryOnCommonValues()
+void TestPartition::indexQueryOnCommonValues()
 {
     // Specific indexing bug when you have records inserted that only differ
     // by their _type
@@ -3905,7 +3905,7 @@ void TestJsonDb::indexQueryOnCommonValues()
     QCOMPARE(queryResult.data.size(), 1);
 }
 
-void TestJsonDb::removeIndexes()
+void TestPartition::removeIndexes()
 {
     addIndex("wacky_index");
     QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
@@ -3931,7 +3931,7 @@ void TestJsonDb::removeIndexes()
     QVERIFY(mJsonDbPartition->findObjectTable("Index")->indexSpec("predicate") == 0);
 }
 
-void TestJsonDb::setOwner()
+void TestPartition::setOwner()
 {
     jsondbSettings->setEnforceAccessControl(true);
 
@@ -3971,7 +3971,7 @@ void TestJsonDb::setOwner()
     jsondbSettings->setEnforceAccessControl(false);
 }
 
-void TestJsonDb::indexPropertyFunction()
+void TestPartition::indexPropertyFunction()
 {
     JsonDbObject index;
     index.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
@@ -4039,7 +4039,7 @@ void TestJsonDb::indexPropertyFunction()
 
 }
 
-void TestJsonDb::indexCollation()
+void TestPartition::indexCollation()
 {
 #ifndef NO_COLLATION_SUPPORT
     JsonDbObject item;
@@ -4136,9 +4136,9 @@ void TestJsonDb::indexCollation()
 #endif
 }
 
-void TestJsonDb::indexCaseSensitive()
+void TestPartition::indexCaseSensitive()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/index-casesensitive.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/index-casesensitive.json").toArray());
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
         JsonDbWriteResult result = create(mOwner, object);
@@ -4162,10 +4162,10 @@ void TestJsonDb::indexCaseSensitive()
     QCOMPARE(queryResult2.data.at(6).value("field").toString(), QLatin1String("aBB"));
 }
 
-void TestJsonDb::indexCasePreference()
+void TestPartition::indexCasePreference()
 {
 #ifndef NO_COLLATION_SUPPORT
-    QJsonArray objects(readJsonFile(":/daemon/json/index-casepreference.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/index-casepreference.json").toArray());
     for (int ii = 0; ii < objects.size(); ii++) {
         JsonDbObject object(objects.at(ii).toObject());
         JsonDbWriteResult result = create(mOwner, object);
@@ -4204,7 +4204,7 @@ void TestJsonDb::indexCasePreference()
 #endif
 }
 
-void TestJsonDb::managedBtree()
+void TestPartition::managedBtree()
 {
     const char mdbname[] = "tst_qmanagedbtree.db";
     const int numtags = 3;
@@ -4264,7 +4264,7 @@ void TestJsonDb::managedBtree()
     QFile::remove(mdbname);
 }
 
-void TestJsonDb::settings()
+void TestPartition::settings()
 {
     JsonDbSettings currentSettings;
     const QMetaObject *metaObject = jsondbSettings->metaObject();
@@ -4343,7 +4343,7 @@ void TestJsonDb::settings()
     }
 }
 
-void TestJsonDb::typeChangeIndex()
+void TestPartition::typeChangeIndex()
 {
     JsonDbObject test1;
     test1.insert(JsonDbString::kTypeStr, QLatin1String("TestContactTCI"));
@@ -4404,9 +4404,9 @@ void TestJsonDb::typeChangeIndex()
     verifyGoodResult(remove(mOwner, test2));
 }
 
-void TestJsonDb::typeChangeMap()
+void TestPartition::typeChangeMap()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-reduce.json").toArray());
 
     JsonDbObjectList schemas;
     JsonDbObject map;
@@ -4461,7 +4461,7 @@ void TestJsonDb::typeChangeMap()
         verifyGoodResult(remove(mOwner, del));
 }
 
-void TestJsonDb::typeChangeReduce()
+void TestPartition::typeChangeReduce()
 {
     JsonDbObject test1;
     test1.insert(JsonDbString::kTypeStr, QLatin1String("MyContact"));
@@ -4473,7 +4473,7 @@ void TestJsonDb::typeChangeReduce()
     test2.insert(QLatin1String("firstName"), QLatin1String("Alice"));
     verifyGoodResult(create(mOwner, test2));
 
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce.json").toArray());
 
     JsonDbObject reduce;
     JsonDbObject schema;
@@ -4520,9 +4520,9 @@ void TestJsonDb::typeChangeReduce()
     verifyGoodResult(remove(mOwner, test2));
 }
 
-void TestJsonDb::typeChangeMapSource()
+void TestPartition::typeChangeMapSource()
 {
-    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/map-reduce.json").toArray());
 
     JsonDbObject map;
     JsonDbObject schema;
@@ -4587,7 +4587,7 @@ void TestJsonDb::typeChangeMapSource()
         verifyGoodResult(remove(mOwner, del));
 }
 
-void TestJsonDb::typeChangeReduceSource()
+void TestPartition::typeChangeReduceSource()
 {
     JsonDbObject test1;
     test1.insert(JsonDbString::kTypeStr, QLatin1String("MyContact"));
@@ -4599,7 +4599,7 @@ void TestJsonDb::typeChangeReduceSource()
     test2.insert(QLatin1String("firstName"), QLatin1String("Alice"));
     verifyGoodResult(create(mOwner, test2));
 
-    QJsonArray objects(readJsonFile(":/daemon/json/reduce.json").toArray());
+    QJsonArray objects(readJsonFile(":/partition/json/reduce.json").toArray());
 
     JsonDbObject reduce;
     JsonDbObject schema;
@@ -4680,7 +4680,7 @@ void TestJsonDb::typeChangeReduceSource()
     verifyGoodResult(remove(mOwner, changing));
 }
 
-void TestJsonDb::typeChangeSchema()
+void TestPartition::typeChangeSchema()
 {
     bool currentValidateSchemas = jsondbSettings->validateSchemas();
     jsondbSettings->setValidateSchemas(true);
@@ -4718,5 +4718,5 @@ void TestJsonDb::typeChangeSchema()
     jsondbSettings->setValidateSchemas(currentValidateSchemas);
 }
 
-QTEST_MAIN(TestJsonDb)
-#include "testjsondb.moc"
+QTEST_MAIN(TestPartition)
+#include "testpartition.moc"

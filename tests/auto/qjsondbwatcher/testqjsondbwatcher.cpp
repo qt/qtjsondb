@@ -282,7 +282,7 @@ void TestQJsonDbWatcher::history()
 {
     QVERIFY(mConnection);
 
-    QFile dataFile(":/daemon/json/largeContactsTest.json");
+    QFile dataFile(":/partition/json/largeContactsTest.json");
     QVERIFY(dataFile.exists());
     dataFile.open(QIODevice::ReadOnly);
     QByteArray json = dataFile.readAll();
@@ -411,7 +411,8 @@ void TestQJsonDbWatcher::notificationTriggersView()
     QVERIFY(mConnection);
 
     QLatin1String query("[?_type=\"com.test.TestView\"]");
-    QJsonArray array(readJsonFile(":/daemon/json/map-array-conversion.json").array());
+    QJsonArray array(readJsonFile(":/partition/json/map-array-conversion.json").array());
+
     QList<QJsonObject> objects;
     foreach (const QJsonValue v, array)
         objects.append(v.toObject());
@@ -472,7 +473,7 @@ void TestQJsonDbWatcher::notificationTriggersMapReduce()
     QVERIFY(mConnection);
 
     QJsonParseError error;
-    QJsonArray array(readJsonFile(":/daemon/json/map-reduce.json", &error).array());
+    QJsonArray array(readJsonFile(":/partition/json/map-reduce.json", &error).array());
     QVERIFY(error.error == QJsonParseError::NoError);
     QList<QJsonObject> objects;
     foreach (const QJsonValue v, array)
@@ -557,7 +558,7 @@ void TestQJsonDbWatcher::typeChangeEagerViewSource()
     QVERIFY(mConnection);
 
     QJsonParseError error;
-    QJsonArray array(readJsonFile(":/daemon/json/map-reduce.json", &error).array());
+    QJsonArray array(readJsonFile(":/partition/json/map-reduce.json", &error).array());
     QVERIFY(error.error == QJsonParseError::NoError);
     QList<QJsonObject> objects;
     foreach (const QJsonValue v, array)
