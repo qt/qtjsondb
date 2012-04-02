@@ -211,7 +211,11 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
         }
     }
 
-    mapObject(afterObject);
+    if (!afterObject.isDeleted()) {
+        if (jsondbSettings->verbose())
+            qDebug() << "Mapping object" << afterObject;
+        mapObject(afterObject);
+    }
 
     for (QHash<QString, JsonDbObject>::const_iterator it = unmappedObjects.begin();
          it != unmappedObjects.end();
@@ -235,6 +239,8 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
         } else {
             // remove unmatched objects
             unmappedObject.markDeleted();
+            if (jsondbSettings->verbose())
+                qDebug() << "Unmapping object" << unmappedObject;
             res = mPartition->updateObject(mOwner, unmappedObject, JsonDbPartition::ViewObject);
         }
 

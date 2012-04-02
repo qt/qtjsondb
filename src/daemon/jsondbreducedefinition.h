@@ -99,7 +99,7 @@ private:
         SourceKeyValue = 2
     };
     static bool compileFunctions(QJSEngine *scriptEngine, QJsonObject definition, QVector<QJSValue> &mFunctions, QString &message);
-    QJsonValue sourceKeyValue(const QJsonObject &object);
+    QJsonValue sourceKeyValue(const JsonDbObject &object);
     QJsonValue addObject(FunctionNumber fn, const QJsonValue &keyValue, QJsonValue previousResult, JsonDbObject object);
 
 private:

@@ -66,36 +66,18 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 class JsonDbManagedBtree;
 
-struct ObjectChange
+inline QDebug &operator<<(QDebug &qdb, const JsonDbUpdate &oc)
 {
-    ObjectKey objectKey;
-    enum Action {
-        Created,
-        Updated,
-        Deleted,
-        LastAction = Deleted
-    } action;
-    QJsonObject oldObject;
-
-    // needed for QMap<ObjectKey,ObjectChange>
-    inline ObjectChange() {}
-    inline ObjectChange(const ObjectKey &obj, Action act, const QJsonObject &old = QJsonObject())
-        : objectKey(obj), action(act), oldObject(old)
-    {
-    }
-};
-
-inline QDebug &operator<<(QDebug &qdb, const ObjectChange &oc)
-{
-    qdb.nospace() << "ObjectChange(";
-    qdb.nospace() << oc.objectKey;
-    qdb.nospace() << ", action = ";
+    qdb.nospace() << "JsonDbUpdate(";
+    //qdb.nospace() << oc.objectKey;
+    qdb.nospace() << "action = ";
     switch (oc.action) {
-    case ObjectChange::Created: qdb.nospace() << "Created"; break;
-    case ObjectChange::Updated: qdb.nospace() << "Updated"; break;
-    case ObjectChange::Deleted: qdb.nospace() << "Deleted"; break;
+    case JsonDbNotification::None: qdb.nospace() << "None"; break;
+    case JsonDbNotification::Create: qdb.nospace() << "Created"; break;
+    case JsonDbNotification::Update: qdb.nospace() << "Updated"; break;
+    case JsonDbNotification::Delete: qdb.nospace() << "Deleted"; break;
     }
-    if (oc.action != ObjectChange::Created)
+    if (oc.action != JsonDbNotification::Create)
         qdb.nospace() << ", oldObject = " << oc.oldObject;
     qdb.nospace() << ")";
     return qdb;
@@ -131,9 +113,12 @@ public:
     void flushCaches();
 
     quint32 stateNumber() const { return mStateNumber; }
-    quint32 storeStateChange(const ObjectKey &key1, ObjectChange::Action action, const JsonDbObject &old = JsonDbObject());
-    quint32 storeStateChange(const QList<ObjectChange> &stateChange);
-    QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
+    quint32 storeStateChange(const ObjectKey &key1, JsonDbNotification::Action action, const JsonDbObject &old = JsonDbObject());
+    quint32 storeStateChange(const QList<JsonDbUpdate> &stateChange);
+    enum TypeChangeMode {
+        SplitTypeChanges, KeepTypeChanges
+    };
+    quint32 changesSince(quint32 stateNumber, const QSet<QString> &limitTypes, QList<JsonDbUpdate> *updateList, TypeChangeMode mode=KeepTypeChanges);
 
     IndexSpec *indexSpec(const QString &indexName);
     QHash<QString, IndexSpec> indexSpecs() const;
@@ -167,7 +152,7 @@ public:
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &keyValue, const QString &objectType);
 
 private:
-    void changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectChange> *changes);
+    quint32 changesSince(quint32 stateNumber, QMap<ObjectKey,JsonDbUpdate> *changes);
 
 private:
     JsonDbPartition *mPartition;

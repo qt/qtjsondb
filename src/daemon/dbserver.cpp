@@ -972,15 +972,11 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
             JsonDbObjectTable *objectTable = partition->findObjectTable(matchedType);
             if (objectTable->stateNumber() == stateNumber)
                 continue;
-            QJsonObject changesSince = objectTable->changesSince(stateNumber, matchedTypes);
-            QJsonObject changes(changesSince.value("result").toObject());
-            lastStateNumber = changes.value("currentStateNumber").toDouble();
-            QJsonArray changeList(changes.value("changes").toArray());
-            quint32 count = changeList.size();
-            for (quint32 i = 0; i < count; i++) {
-                QJsonObject change = changeList.at(i).toObject();
-                QJsonObject before = change.value("before").toObject();
-                QJsonObject after = change.value("after").toObject();
+            QList<JsonDbUpdate> updateList;
+            lastStateNumber = objectTable->changesSince(stateNumber, matchedTypes, &updateList);
+            foreach (const JsonDbUpdate &update, updateList) {
+                QJsonObject before = update.oldObject;
+                QJsonObject after = update.newObject;
 
                 JsonDbNotification::Action action = JsonDbNotification::Update;
                 if (before.isEmpty())

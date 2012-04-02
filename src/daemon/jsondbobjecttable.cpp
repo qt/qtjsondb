@@ -427,9 +427,8 @@ void JsonDbObjectTable::updateIndex(JsonDbIndex *index)
     quint32 indexStateNumber = qMax(1u, index->bdb()->tag());
     if (indexStateNumber == stateNumber())
         return;
-    QJsonObject changes = changesSince(indexStateNumber).value("result").toObject();
-    quint32 count = changes.value("count").toDouble();
-    QJsonArray changeList = changes.value("changes").toArray();
+    JsonDbUpdateList changeList;
+    changesSince(indexStateNumber, QSet<QString>(), &changeList);
     bool inTransaction = mBdb->isWriteTxnActive();
     if (!inTransaction)
         index->begin();
@@ -437,14 +436,13 @@ void JsonDbObjectTable::updateIndex(JsonDbIndex *index)
         index->begin();
         mBdbTransactions.append(index->begin());
     }
-    for (quint32 i = 0; i < count; i++) {
-        QJsonObject change = changeList.at(i).toObject();
-        JsonDbObject before = change.value("before").toObject();
-        JsonDbObject after = change.value("after").toObject();
+    foreach (const JsonDbUpdate &change, changeList) {
+        JsonDbObject before = change.oldObject;
+        JsonDbObject after = change.newObject;
         ObjectKey objectKey(after.value(JsonDbString::kUuidStr).toString());
         if (!before.isEmpty())
             index->deindexObject(objectKey, before, stateNumber());
-        if (!after.isEmpty())
+        if (!after.isDeleted())
             index->indexObject(objectKey, after, stateNumber());
     }
     if (!inTransaction)
@@ -576,7 +574,7 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     return result;
 }
 
-quint32 JsonDbObjectTable::storeStateChange(const ObjectKey &key, ObjectChange::Action action, const JsonDbObject &oldObject)
+quint32 JsonDbObjectTable::storeStateChange(const ObjectKey &key, JsonDbNotification::Action action, const JsonDbObject &oldObject)
 {
     quint32 stateNumber = mStateNumber + 1;
 
@@ -591,14 +589,15 @@ quint32 JsonDbObjectTable::storeStateChange(const ObjectKey &key, ObjectChange::
     return stateNumber;
 }
 
-quint32 JsonDbObjectTable::storeStateChange(const QList<ObjectChange> &changes)
+quint32 JsonDbObjectTable::storeStateChange(const QList<JsonDbUpdate> &changes)
 {
     quint32 stateNumber = mStateNumber + 1;
     int oldSize = mStateChanges.size();
     mStateChanges.resize(oldSize + changes.size() * 20);
     uchar *data = (uchar *)mStateChanges.data() + oldSize;
-    foreach (const ObjectChange &change, changes) {
-        qToBigEndian(change.objectKey, data);
+    foreach (const JsonDbUpdate &change, changes) {
+        ObjectKey objectKey(change.newObject.uuid());
+        qToBigEndian(objectKey, data);
         qToBigEndian<quint32>(change.action, data+16);
         data += 20;
         if (!change.oldObject.isEmpty())
@@ -607,10 +606,10 @@ quint32 JsonDbObjectTable::storeStateChange(const QList<ObjectChange> &changes)
     return stateNumber;
 }
 
-void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectChange> *changes)
+quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,JsonDbUpdate> *changes)
 {
     if (!changes)
-        return;
+        return -1;
     stateNumber = qMax(quint32(1), stateNumber+1);
 
     QElapsedTimer timer;
@@ -621,7 +620,7 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectC
     QByteArray baStateKey(5, 0);
     makeStateKey(baStateKey, stateNumber);
 
-    QMap<ObjectKey,ObjectChange> changeMap; // collect one change per uuid
+    QMap<ObjectKey,JsonDbUpdate> changeMap; // collect one change per uuid
 
     if (cursor.seekRange(baStateKey)) {
         do {
@@ -643,28 +642,34 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectC
             for (int i = 0; i < baObject.size() / 20; ++i) {
                 const uchar *data = (const uchar *)baObject.constData() + i*20;
                 ObjectKey objectKey = qFromBigEndian<ObjectKey>(data);
+                QByteArray baObjectKey(objectKey.key.toRfc4122());
                 quint32 action = qFromBigEndian<quint32>(data + 16);
-                Q_ASSERT(action <= ObjectChange::LastAction);
                 QByteArray baValue;
                 QJsonObject oldObject;
-                if ((action != ObjectChange::Created)
-                    && mBdb->getOne(baStateKey + objectKey.key.toRfc4122(), &baValue)) {
+                if ((action != JsonDbNotification::Create)
+                    && mBdb->getOne(baStateKey + baObjectKey, &baValue)) {
                     oldObject = QJsonDocument::fromBinaryData(baValue).object();
                     Q_ASSERT(objectKey == ObjectKey(oldObject.value(JsonDbString::kUuidStr).toString()));
                 }
-                ObjectChange change(objectKey, ObjectChange::Action(action), oldObject);
+                QJsonObject newObject;
+                mBdb->getOne(baObjectKey, &baValue);
+                newObject = QJsonDocument::fromBinaryData(baValue).object();
+                if (jsondbSettings->debug())
+                    qDebug() << "change" << action << endl << oldObject << endl << newObject;
+
+                JsonDbUpdate change(oldObject, newObject, JsonDbNotification::Action(action));
                 if (changeMap.contains(objectKey)) {
-                    ObjectChange oldChange = changeMap.value(objectKey);
+                    JsonDbUpdate oldChange = changeMap.value(objectKey);
                     // create followed by delete cancels out
-                    ObjectChange::Action newAction = ObjectChange::Action(action);
-                    ObjectChange::Action oldAction = oldChange.action;
-                    if ((oldAction == ObjectChange::Created)
-                        && (newAction == ObjectChange::Deleted)) {
+                    JsonDbNotification::Action newAction = JsonDbNotification::Action(action);
+                    JsonDbNotification::Action oldAction = oldChange.action;
+                    if ((oldAction == JsonDbNotification::Create)
+                        && (newAction == JsonDbNotification::Delete)) {
                         changeMap.remove(objectKey);
                     } else {
-                        if ((oldAction == ObjectChange::Deleted)
-                            && (newAction == ObjectChange::Created))
-                            oldChange.action = ObjectChange::Updated;
+                        if ((oldAction == JsonDbNotification::Delete)
+                            && (newAction == JsonDbNotification::Create))
+                            oldChange.action = JsonDbNotification::Update;
                         changeMap.insert(objectKey, oldChange);
                     }
                 } else {
@@ -678,55 +683,41 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectC
 
     if (jsondbSettings->performanceLog())
         qDebug() << "changesSince" << mFilename << timer.elapsed() << "ms";
+    return mStateNumber;
 }
 
-QJsonObject JsonDbObjectTable::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
+quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes, QList<JsonDbUpdate> *updateList, JsonDbObjectTable::TypeChangeMode splitTypeChanges)
 {
     if (jsondbSettings->verbose())
-        qDebug() << "changesSince" << stateNumber << "current state" << this->stateNumber();
-
-    QJsonArray result;
-    int count = 0;
-
-    QMap<ObjectKey,ObjectChange> changes;
-    changesSince(stateNumber, &changes);
-
-    for (QMap<ObjectKey,ObjectChange>::const_iterator it = changes.begin();
-         it != changes.end();
-         ++it) {
-        const ObjectChange &change = it.value();
-        QJsonObject before;
-        QJsonObject after;
-        switch (change.action) {
-        case ObjectChange::Created:
-            get(change.objectKey, &after);
-            break;
-        case ObjectChange::Updated:
-            before = change.oldObject;
-            get(change.objectKey, &after);
-            break;
-        case ObjectChange::Deleted:
-            before = change.oldObject;
-            break;
+        qDebug() << "changesSince" << "list" << "{";
+    QMap<ObjectKey,JsonDbUpdate> changeSet;
+    changesSince(stateNumber, &changeSet);
+    QList<JsonDbUpdate> changeList;
+    bool allTypes = limitTypes.isEmpty();
+    foreach (const JsonDbUpdate &update, changeSet) {
+        const JsonDbObject &oldObject = update.oldObject;
+        const JsonDbObject &newObject = update.newObject;
+        QString oldType = oldObject.value(JsonDbString::kTypeStr).toString();
+        QString newType = newObject.value(JsonDbString::kTypeStr).toString();
+        // if the types don't match, split into two updates
+        if (!oldObject.isEmpty() && oldType != newType && splitTypeChanges == JsonDbObjectTable::SplitTypeChanges) {
+            if (allTypes || limitTypes.contains(oldType)) {
+                JsonDbObject tombstone(oldObject);
+                tombstone.insert(QLatin1String("_deleted"), true);
+                changeList.append(JsonDbUpdate(oldObject, tombstone, JsonDbNotification::Delete));
+            }
+            if (allTypes || limitTypes.contains(newType)) {
+                changeList.append(JsonDbUpdate(JsonDbObject(), newObject, JsonDbNotification::Create));
+            }
+        } else if (allTypes || limitTypes.contains(oldType) || limitTypes.contains(newType)) {
+            changeList.append(update);
         }
-        if (!limitTypes.isEmpty()) {
-            QString type = (after.isEmpty() ? before : after).value(JsonDbString::kTypeStr).toString();
-            if (!limitTypes.contains(type))
-                continue;
-        }
-        QJsonObject res;
-        res.insert("before", before);
-        res.insert("after", after);
-        result.append(res);
-        ++count;
     }
-    QJsonObject resultmap, errormap;
-    resultmap.insert("count", count);
-    resultmap.insert("startingStateNumber", (qint32)stateNumber);
-    resultmap.insert("currentStateNumber", (qint32)this->stateNumber());
-    resultmap.insert("changes", result);
-    QJsonObject changesSince(JsonDbPartition::makeResponse(resultmap, errormap));
-    return changesSince;
+    if (updateList)
+        *updateList = changeList;
+    if (jsondbSettings->verbose())
+        qDebug() << "changesSince" << "list" << "}";
+    return mStateNumber;
 }
 
 QT_END_NAMESPACE_JSONDB

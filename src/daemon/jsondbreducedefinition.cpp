@@ -168,7 +168,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
         before = QJsonObject();
     }
 
-    const QJsonValue keyValue(after.isEmpty() ? beforeKeyValue : afterKeyValue);
+    const QJsonValue keyValue(after.isDeleted() ? beforeKeyValue : afterKeyValue);
     if (keyValue.isUndefined())
         return;
 
@@ -192,7 +192,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
     QJsonValue value = previousValue;
     if (!before.isEmpty())
         value = addObject(JsonDbReduceDefinition::Subtract, keyValue, value, before);
-    if (!after.isEmpty())
+    if (!after.isDeleted())
         value = addObject(JsonDbReduceDefinition::Add, keyValue, value, after);
 
     JsonDbWriteResult res;
@@ -339,9 +339,9 @@ bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObje
     return status;
 }
 
-QJsonValue JsonDbReduceDefinition::sourceKeyValue(const QJsonObject &object)
+QJsonValue JsonDbReduceDefinition::sourceKeyValue(const JsonDbObject &object)
 {
-    if (object.isEmpty()) {
+    if (object.isEmpty() || object.isDeleted()) {
         return QJsonValue(QJsonValue::Undefined);
     } else if (mFunctions[JsonDbReduceDefinition::SourceKeyValue].isCallable()) {
         QJSValueList args;

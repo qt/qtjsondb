@@ -1644,7 +1644,6 @@ void TestJsonDb::reduceInvalidAddSubtractFuncs()
 void TestJsonDb::map()
 {
     addIndex(QLatin1String("phoneNumber"));
-
     QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
 
     JsonDbObjectList mapsReduces;
@@ -1679,12 +1678,12 @@ void TestJsonDb::map()
 
     // get results with getObjects()
     GetObjectsResult getObjectsResult = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
-    QCOMPARE(getObjectsResult.data.size(), 3);
     if (jsondbSettings->verbose()) {
         JsonDbObjectList vs = getObjectsResult.data;
         for (int i = 0; i < vs.size(); i++)
             qDebug() << "    " << vs[i];
     }
+    QCOMPARE(getObjectsResult.data.size(), 3);
 
     // query for results
     queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));

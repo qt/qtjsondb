@@ -325,46 +325,9 @@ void JsonDbView::updateView(quint32 desiredStateNumber)
             // up-to-date with respect this source table
             continue;
 
-        // TODO: fix changesSince to return JsonDbUpdateList
-        // and then call JsonDbView::updateViewOnChanges() here
-        QJsonObject changesSince(sourceTable->changesSince(viewStateNumber, sourceTypes));
-        QJsonObject changes(changesSince.value("result").toObject());
-        QJsonArray changeList(changes.value("changes").toArray());
-        quint32 count = changeList.size();
-        for (quint32 i = 0; i < count; i++) {
-            QJsonObject change = changeList.at(i).toObject();
-            QJsonValue before = change.value("before");
-            QJsonValue after = change.value("after");
-
-            QJsonObject beforeObject = before.toObject();
-            QJsonObject afterObject = after.toObject();
-            QString beforeType = beforeObject.value(JsonDbString::kTypeStr).toString();
-            QString afterType = afterObject.value(JsonDbString::kTypeStr).toString();
-
-            if (mMapDefinitionsBySource.contains(beforeType)) {
-                JsonDbMapDefinition *def = mMapDefinitionsBySource.value(beforeType);
-                if (processedDefinitionUuids.contains(def->uuid()))
-                    continue;
-                def->updateObject(beforeObject, afterObject);
-            } else if (mMapDefinitionsBySource.contains(afterType)) {
-                JsonDbMapDefinition *def = mMapDefinitionsBySource.value(afterType);
-                if (processedDefinitionUuids.contains(def->uuid()))
-                    continue;
-                def->updateObject(beforeObject, afterObject);
-            }
-
-            if (mReduceDefinitionsBySource.contains(beforeType)) {
-                JsonDbReduceDefinition *def = mReduceDefinitionsBySource.value(beforeType);
-                if (processedDefinitionUuids.contains(def->uuid()))
-                    continue;
-                def->updateObject(beforeObject, afterObject);
-            } else if (mReduceDefinitionsBySource.contains(afterType)) {
-                JsonDbReduceDefinition *def = mReduceDefinitionsBySource.value(afterType);
-                if (processedDefinitionUuids.contains(def->uuid()))
-                    continue;
-                def->updateObject(beforeObject, afterObject);
-            }
-        }
+        QList<JsonDbUpdate> changeList;
+        sourceTable->changesSince(viewStateNumber, sourceTypes, &changeList, JsonDbObjectTable::SplitTypeChanges);
+        updateViewOnChanges(changeList, processedDefinitionUuids);
     }
     JsonDbScriptEngine::scriptEngine()->collectGarbage();
     if (inTransaction)
@@ -462,18 +425,19 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
         return inTransaction;
     QSet<QString> limitTypes;
     limitTypes << JsonDbString::kMapTypeStr << JsonDbString::kReduceTypeStr;
-    QJsonObject changes = mMainObjectTable->changesSince(targetStateNumber, limitTypes).value("result").toObject();
-    quint32 count = changes.value("count").toDouble();
-    QJsonArray changeList = changes.value("changes").toArray();
-    for (quint32 i = 0; i < count; i++) {
-        QJsonObject change = changeList.at(i).toObject();
+    QList<JsonDbUpdate> changeList;
+    mMainObjectTable->changesSince(targetStateNumber, limitTypes, &changeList, JsonDbObjectTable::SplitTypeChanges);
+    foreach (const JsonDbUpdate &change, changeList) {
         QString definitionUuid;
+        JsonDbNotification::Action action = change.action;
+        JsonDbObject before = change.oldObject;
+        JsonDbObject after = change.newObject;
+        QString beforeType = before.value(JsonDbString::kTypeStr).toString();
+        QString afterType = after.value(JsonDbString::kTypeStr).toString();
         if (jsondbSettings->verbose())
-            qDebug() << "change" << change;
-        if (change.contains("before")) {
-            QJsonObject before = change.value("before").toObject();
-            QString beforeType = before.value(JsonDbString::kTypeStr).toString();
-            if ((limitTypes.contains(beforeType))
+            qDebug() << "definition change" << change;
+        if (action != JsonDbNotification::Create) {
+            if (limitTypes.contains(beforeType)
                 && (before.value("targetType").toString() == viewType)) {
                 if (!inTransaction) {
                     mViewObjectTable->begin();
@@ -488,11 +452,7 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
                     JsonDbReduceDefinition::definitionRemoved(mPartition, mViewObjectTable, targetType, definitionUuid);
             }
         }
-        if (change.contains("after")) {
-            QJsonObject after = change.value("after").toObject();
-            QString afterType = after.value(JsonDbString::kTypeStr).toString();
-            if (jsondbSettings->verbose())
-                qDebug() << "afterVersion" << after.value(JsonDbString::kVersionStr).toString();
+        if (action != JsonDbNotification::Delete) {
             if ((limitTypes.contains(afterType))
                 && (after.value("targetType").toString() == viewType)) {
                 if (!inTransaction) {

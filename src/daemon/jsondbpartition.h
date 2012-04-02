@@ -73,6 +73,7 @@ class JsonDbView;
 struct JsonDbUpdate {
     JsonDbUpdate(const JsonDbObject &oldObj, const JsonDbObject &newObj, JsonDbNotification::Action act) :
         oldObject(oldObj), newObject(newObj), action(act) { }
+    JsonDbUpdate() : action(JsonDbNotification::None) {}
     JsonDbObject oldObject;
     JsonDbObject newObject;
     JsonDbNotification::Action action;

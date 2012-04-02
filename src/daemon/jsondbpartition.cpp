@@ -651,10 +651,26 @@ QJsonObject JsonDbPartition::changesSince(quint32 stateNumber, const QSet<QStrin
             else if (ot == objectTable)
                 continue;
             else
-                return makeError(JsonDbError::InvalidRequest, "limit types must be from the same object table");
+                return JsonDbPartition::makeError(JsonDbError::InvalidRequest, "limit types must be from the same object table");
         }
     Q_ASSERT(objectTable);
-    return objectTable->changesSince(stateNumber, limitTypes);
+    JsonDbUpdateList changeList;
+    quint32 currentStateNumber = objectTable->changesSince(stateNumber, limitTypes, &changeList);
+    QJsonArray changeArray;
+    foreach (const JsonDbUpdate &update, changeList) {
+        QJsonObject change;
+        change.insert("before", update.oldObject);
+        change.insert("after", update.newObject);
+        changeArray.append(change);
+    }
+
+    QJsonObject resultmap, errormap;
+    resultmap.insert("count", changeArray.size());
+    resultmap.insert("startingStateNumber", static_cast<qint32>(stateNumber));
+    resultmap.insert("currentStateNumber", static_cast<qint32>(currentStateNumber));
+    resultmap.insert("changes", changeArray);
+    QJsonObject changesSince(JsonDbPartition::makeResponse(resultmap, errormap));
+    return changesSince;
 }
 
 void JsonDbPartition::flushCaches()
@@ -1384,13 +1400,13 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
         if (forRemoval) {
             action = JsonDbNotification::Delete;
-            stateNumber = objectTable->storeStateChange(objectKey, ObjectChange::Deleted, oldMaster);
+            stateNumber = objectTable->storeStateChange(objectKey, action, oldMaster);
         } else if (forCreation) {
             action = JsonDbNotification::Create;
-            stateNumber = objectTable->storeStateChange(objectKey, ObjectChange::Created);
+            stateNumber = objectTable->storeStateChange(objectKey, action);
         } else {
             action =  JsonDbNotification::Update;
-            stateNumber = objectTable->storeStateChange(objectKey, ObjectChange::Updated, oldMaster);
+            stateNumber = objectTable->storeStateChange(objectKey, action, oldMaster);
        }
 
         if (!forRemoval)
