@@ -503,8 +503,8 @@ void JsonDbIndex::setCacheSize(quint32 cacheSize)
 }
 
 JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index)
-    : isOwnTransaction(!index->bdb()->btree()->writeTransaction()),
-      mTxn(isOwnTransaction ? index->bdb()->btree()->beginWrite() : index->bdb()->btree()->writeTransaction()),
+    : isOwnTransaction(!index->bdb()->writeTransaction()),
+      mTxn(isOwnTransaction ? index->bdb()->beginWrite() : index->bdb()->writeTransaction()),
       mCursor(mTxn)
 {
 }

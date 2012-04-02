@@ -285,6 +285,8 @@ void QBtree::abort(QBtreeTxn *txn)
     Q_ASSERT(txn);
     Q_ASSERT(txn->handle());
     btree_txn_abort(txn->handle());
+    if (txn == mWriteTxn)
+        mWriteTxn = 0;
     delete txn;
 }
 

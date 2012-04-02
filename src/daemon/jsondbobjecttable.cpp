@@ -184,7 +184,7 @@ bool JsonDbObjectTable::compact()
 void JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
 {
     if (flags & SyncObjectTable)
-        mBdb->btree()->sync();
+        mBdb->sync();
 
     if (flags & SyncIndexes) {
         foreach (const IndexSpec &spec, mIndexes.values()) {
@@ -195,7 +195,7 @@ void JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
                     index->begin();
                     index->commit(mStateNumber);
                 }
-                spec.index->bdb()->btree()->sync();
+                spec.index->bdb()->sync();
             }
         }
     }
@@ -354,7 +354,7 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringLi
     JsonDbIndex *index = indexSpec.index;
     bool isInIndexTransaction = index->bdb()->writeTransaction();
     bool isInObjectTableTransaction = mBdb->writeTransaction();
-    JsonDbBtree::Transaction *bdbTxn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->btree()->beginWrite();
+    JsonDbBtree::Transaction *bdbTxn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
     JsonDbBtree::Cursor cursor(bdbTxn);
     if (!isInIndexTransaction)
         index->begin();
@@ -503,8 +503,8 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     }
 
     if (!mIndexes.contains(keyName) && (keyName == JsonDbString::kTypeStr)) {
-        bool isInTransaction = mBdb->btree()->writeTransaction();
-        JsonDbBtree::Transaction *txn = mBdb->btree()->writeTransaction() ? mBdb->btree()->writeTransaction() : mBdb->btree()->beginWrite();
+        bool isInTransaction = mBdb->writeTransaction();
+        JsonDbBtree::Transaction *txn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
         JsonDbBtree::Cursor cursor(txn);
         for (bool ok = cursor.first(); ok; ok = cursor.next()) {
             QByteArray baKey, baObject;
@@ -530,7 +530,7 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     if (indexSpec->lazy)
         updateIndex(indexSpec->index);
     bool isInTransaction = indexSpec->index->bdb()->writeTransaction();
-    JsonDbBtree::Transaction *txn = indexSpec->index->bdb()->writeTransaction() ? indexSpec->index->bdb()->writeTransaction() : indexSpec->index->bdb()->btree()->beginWrite();
+    JsonDbBtree::Transaction *txn = indexSpec->index->bdb()->writeTransaction() ? indexSpec->index->bdb()->writeTransaction() : indexSpec->index->bdb()->beginWrite();
     JsonDbBtree::Cursor cursor(txn);
     if (cursor.seekRange(forwardKey)) {
         do {
@@ -609,8 +609,8 @@ void JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,ObjectC
     QElapsedTimer timer;
     if (jsondbSettings->performanceLog())
         timer.start();
-    bool inTransaction = mBdb->btree()->writeTransaction();
-    JsonDbBtree::Transaction *txn = mBdb->btree()->writeTransaction() ? mBdb->btree()->writeTransaction() : mBdb->btree()->beginWrite();
+    bool inTransaction = mBdb->writeTransaction();
+    JsonDbBtree::Transaction *txn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
     JsonDbBtree::Cursor cursor(txn);
     QByteArray baStateKey(5, 0);
     makeStateKey(baStateKey, stateNumber);

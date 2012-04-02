@@ -84,12 +84,12 @@ JsonDbIndexQuery::JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable
 {
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->indexSpec(propertyName)->index->bdb();
-        isOwnTransaction = !mBdbIndex->btree()->writeTransaction();
-        mTxn = isOwnTransaction ? mBdbIndex->btree()->beginWrite() : mBdbIndex->btree()->writeTransaction();
+        isOwnTransaction = !mBdbIndex->writeTransaction();
+        mTxn = isOwnTransaction ? mBdbIndex->beginWrite() : mBdbIndex->writeTransaction();
         mCursor = new JsonDbBtree::Cursor(mTxn);
     } else {
-        isOwnTransaction = !table->bdb()->btree()->writeTransaction();
-        mTxn = isOwnTransaction ? table->bdb()->btree()->beginWrite() : table->bdb()->btree()->writeTransaction();
+        isOwnTransaction = !table->bdb()->writeTransaction();
+        mTxn = isOwnTransaction ? table->bdb()->beginWrite() : table->bdb()->writeTransaction();
         mCursor = new JsonDbBtree::Cursor(mTxn);
     }
 }

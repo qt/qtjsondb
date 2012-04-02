@@ -115,6 +115,8 @@ public:
     Btree *btree() const
     { return mBtree; }
     Stat stats() const;
+    bool sync()
+    { Q_ASSERT(mBtree); return mBtree->sync(); }
 
     bool putOne(const QByteArray &key, const QByteArray &value);
     bool getOne(const QByteArray &key, QByteArray *value);
