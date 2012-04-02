@@ -232,6 +232,13 @@ private slots:
 
     void settings();
 
+    void typeChangeIndex();
+    void typeChangeMap();
+    void typeChangeReduce();
+    void typeChangeMapSource();
+    void typeChangeReduceSource();
+    void typeChangeSchema();
+
 private:
     void createContacts();
     JsonDbQueryResult find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings = QJsonObject());
@@ -4222,6 +4229,381 @@ void TestJsonDb::settings()
         QByteArray property = metaObject->property(i).name();
         jsondbSettings->setProperty(property, currentSettings.property(property));
     }
+}
+
+void TestJsonDb::typeChangeIndex()
+{
+    JsonDbObject test1;
+    test1.insert(JsonDbString::kTypeStr, QLatin1String("TestContactTCI"));
+    test1.insert(QLatin1String("firstName"), QLatin1String("adam"));
+    verifyGoodResult(create(mOwner, test1));
+
+    JsonDbObject test2;
+    test2.insert(JsonDbString::kTypeStr, QLatin1String("TestContactTCI"));
+    test2.insert(QLatin1String("firstName"), QLatin1String("Betty"));
+    verifyGoodResult(create(mOwner, test2));
+
+    // create an object that's not an index
+    QString uuid = QUuid::createUuid().toString();
+    JsonDbObject changing;
+    changing.insert(JsonDbString::kUuidStr, uuid);
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("not.an.index"));
+    verifyGoodResult(create(mOwner, changing));
+
+    // FIXME: I think this only works currently because we auto-create the index
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"TestContactTCI\"][/firstName]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.count(), 2);
+    QCOMPARE(queryResult.data.at(0).value(JsonDbString::kUuidStr).toString(),
+             test2.value(JsonDbString::kUuidStr).toString());
+    QCOMPARE(queryResult.data.at(1).value(JsonDbString::kUuidStr).toString(),
+             test1.value(JsonDbString::kUuidStr).toString());
+
+    // change the object into an Index
+    changing.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    changing.insert(JsonDbString::kNameStr, QLatin1String("firstName"));
+    changing.insert(JsonDbString::kPropertyNameStr, QLatin1String("firstName"));
+    changing.insert(JsonDbString::kCaseSensitiveStr, false);
+    verifyGoodResult(update(mOwner, changing));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"TestContactTCI\"][/firstName]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.count(), 2);
+    QCOMPARE(queryResult.data.at(0).value(JsonDbString::kUuidStr).toString(),
+             test1.value(JsonDbString::kUuidStr).toString());
+    QCOMPARE(queryResult.data.at(1).value(JsonDbString::kUuidStr).toString(),
+             test2.value(JsonDbString::kUuidStr).toString());
+
+    // change it back into a non-Index
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("not.an.index"));
+    verifyGoodResult(update(mOwner, changing));
+
+    // make sure the old ordering is back
+    queryResult = find(mOwner, QLatin1String("[?_type=\"TestContactTCI\"][/firstName]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.count(), 2);
+    QCOMPARE(queryResult.data.at(0).value(JsonDbString::kUuidStr).toString(),
+             test2.value(JsonDbString::kUuidStr).toString());
+    QCOMPARE(queryResult.data.at(1).value(JsonDbString::kUuidStr).toString(),
+             test1.value(JsonDbString::kUuidStr).toString());
+
+    verifyGoodResult(remove(mOwner, changing));
+    verifyGoodResult(remove(mOwner, test1));
+    verifyGoodResult(remove(mOwner, test2));
+}
+
+void TestJsonDb::typeChangeMap()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
+
+    JsonDbObjectList schemas;
+    JsonDbObject map;
+
+    QMap<QString, JsonDbObject> toDelete;
+
+    for (int i = 0; i < objects.size(); ++i) {
+        QJsonObject object(objects.at(i).toObject());
+        JsonDbObject doc(object);
+
+        if (doc.type() == JsonDbString::kMapTypeStr)
+            doc.insert(JsonDbString::kTypeStr, QLatin1String("not.a.Map"));
+
+        if (doc.type() != JsonDbString::kReduceTypeStr) {
+            JsonDbWriteResult result = create(mOwner, doc);
+            verifyGoodResult(result);
+
+            if (doc.value(JsonDbString::kTypeStr).toString() == QLatin1String("not.a.Map"))
+                map = doc;
+            else if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
+                schemas.append(doc);
+            else
+                toDelete.insert(doc.value("_uuid").toString(), doc);
+        }
+    }
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 0);
+
+    // change the object into a Map and test the result
+    map.insert(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr);
+    verifyGoodResult(update(mOwner, map));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 5);
+
+    // make it not a Map again and test the result
+    map.insert(JsonDbString::kTypeStr, QLatin1String("not.a.Map"));
+    verifyGoodResult(update(mOwner, map));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 0);
+
+    verifyGoodResult(remove(mOwner, map));
+    foreach (JsonDbObject schema, schemas)
+        verifyGoodResult(remove(mOwner, schema));
+
+    foreach (JsonDbObject del, toDelete.values())
+        verifyGoodResult(remove(mOwner, del));
+}
+
+void TestJsonDb::typeChangeReduce()
+{
+    JsonDbObject test1;
+    test1.insert(JsonDbString::kTypeStr, QLatin1String("MyContact"));
+    test1.insert(QLatin1String("firstName"), QLatin1String("Bill"));
+    verifyGoodResult(create(mOwner, test1));
+
+    JsonDbObject test2;
+    test2.insert(JsonDbString::kTypeStr, QLatin1String("MyContact"));
+    test2.insert(QLatin1String("firstName"), QLatin1String("Alice"));
+    verifyGoodResult(create(mOwner, test2));
+
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce.json").toArray());
+
+    JsonDbObject reduce;
+    JsonDbObject schema;
+
+    for (int i = 0; i < objects.size(); ++i) {
+        QJsonObject object(objects.at(i).toObject());
+        JsonDbObject doc(object);
+
+        if (doc.type() == JsonDbString::kReduceTypeStr)
+            doc.insert(JsonDbString::kTypeStr, QLatin1String("not.a.Reduce"));
+
+        JsonDbWriteResult result = create(mOwner, doc);
+        verifyGoodResult(result);
+
+        if (doc.value(JsonDbString::kTypeStr).toString() == QLatin1String("not.a.Reduce"))
+            reduce = doc;
+        else if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
+            schema = doc;
+    }
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 0);
+
+    // make it into a Reduce and check the result
+    reduce.insert(JsonDbString::kTypeStr, JsonDbString::kReduceTypeStr);
+    verifyGoodResult(update(mOwner, reduce));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 2);
+
+    // make it not a Reduce again and check the result
+    reduce.insert(JsonDbString::kTypeStr, QLatin1String("not.a.Reduce"));
+    verifyGoodResult(update(mOwner, reduce));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 0);
+
+    verifyGoodResult(remove(mOwner, reduce));
+    verifyGoodResult(remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, test1));
+    verifyGoodResult(remove(mOwner, test2));
+}
+
+void TestJsonDb::typeChangeMapSource()
+{
+    QJsonArray objects(readJsonFile(":/daemon/json/map-reduce.json").toArray());
+
+    JsonDbObject map;
+    JsonDbObject schema;
+    QMap<QString, JsonDbObject> toDelete;
+
+    for (int i = 0; i < objects.size(); ++i) {
+        QJsonObject object(objects.at(i).toObject());
+        JsonDbObject doc(object);
+
+        if (doc.type() != JsonDbString::kReduceTypeStr) {
+            JsonDbWriteResult result = create(mOwner, doc);
+            verifyGoodResult(result);
+
+            if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kMapTypeStr)
+                map = doc;
+            else if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
+                schema = doc;
+            else
+                toDelete.insert(doc.value("_uuid").toString(), doc);
+        }
+    }
+
+    JsonDbObject changing;
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("not.a.Contact"));
+    QJsonObject phoneNumber1;
+    phoneNumber1.insert(QLatin1String("type"), QLatin1String("home"));
+    phoneNumber1.insert(QLatin1String("number"), QLatin1String("+4700112233"));
+    QJsonObject phoneNumber2;
+    phoneNumber2.insert(QLatin1String("type"), QLatin1String("work"));
+    phoneNumber2.insert(QLatin1String("number"), QLatin1String("+4711223344"));
+    QJsonArray phoneNumbers;
+    phoneNumbers.append(phoneNumber1);
+    phoneNumbers.append(phoneNumber2);
+    changing.insert(QLatin1String("phoneNumbers"), phoneNumbers);
+
+    verifyGoodResult(create(mOwner, changing));
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 5);
+
+    // change the _type to a source type of the Map
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("Contact"));
+    verifyGoodResult(update(mOwner, changing));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 7);
+
+    // change it back to a non-source type
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("not.a.Contact"));
+    verifyGoodResult(update(mOwner, changing));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 5);
+
+    verifyGoodResult(remove(mOwner, map));
+    verifyGoodResult(remove(mOwner, schema));
+
+    foreach (JsonDbObject del, toDelete.values())
+        verifyGoodResult(remove(mOwner, del));
+}
+
+void TestJsonDb::typeChangeReduceSource()
+{
+    JsonDbObject test1;
+    test1.insert(JsonDbString::kTypeStr, QLatin1String("MyContact"));
+    test1.insert(QLatin1String("firstName"), QLatin1String("Bill"));
+    verifyGoodResult(create(mOwner, test1));
+
+    JsonDbObject test2;
+    test2.insert(JsonDbString::kTypeStr, QLatin1String("MyContact"));
+    test2.insert(QLatin1String("firstName"), QLatin1String("Alice"));
+    verifyGoodResult(create(mOwner, test2));
+
+    QJsonArray objects(readJsonFile(":/daemon/json/reduce.json").toArray());
+
+    JsonDbObject reduce;
+    JsonDbObject schema;
+
+    for (int i = 0; i < objects.size(); ++i) {
+        QJsonObject object(objects.at(i).toObject());
+        JsonDbObject doc(object);
+
+        JsonDbWriteResult result = create(mOwner, doc);
+        verifyGoodResult(result);
+
+        if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kReduceTypeStr)
+            reduce = doc;
+        else if (object.value(JsonDbString::kTypeStr).toString() == JsonDbString::kSchemaTypeStr)
+            schema = doc;
+    }
+
+    JsonDbObject changing;
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("not.a.MyContact"));
+    changing.insert(QLatin1String("firstName"), QLatin1String("Bob"));
+    verifyGoodResult(create(mOwner, changing));
+
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 2);
+
+    // change the object so it's the source type of the Reduce
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("MyContact"));
+    verifyGoodResult(update(mOwner, changing));
+
+    // re-query to see if the Reduce picked it up
+    queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 3);
+
+    // change the object back to not being a source type of the Reduce
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("not.a.MyContact"));
+    verifyGoodResult(update(mOwner, changing));
+
+    // re-query to see if the Reduce picked it up
+    queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 2);
+
+    // one more time, but this time adding to an existing Reduce target object
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("MyContact"));
+    changing.insert(QLatin1String("firstName"), QLatin1String("Alice"));
+    verifyGoodResult(update(mOwner, changing));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 2);
+
+    foreach (const JsonDbObject &object, queryResult.data) {
+        if (object.value(QLatin1String("firstName")).toString() == QLatin1String("Alice")) {
+            QCOMPARE(static_cast<int>(object.value(QLatin1String("count")).toDouble()), 2);
+        } else {
+            QVERIFY(object.value(QLatin1String("firstName")).toString() == QLatin1String("Bill"));
+            QCOMPARE(static_cast<int>(object.value(QLatin1String("count")).toDouble()), 1);
+        }
+    }
+
+    // change the type again and make sure the count goes back down
+    changing.insert(JsonDbString::kTypeStr, QLatin1String("not.a.MyContact"));
+    verifyGoodResult(update(mOwner, changing));
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"MyContactCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 2);
+
+    foreach (const JsonDbObject &object, queryResult.data)
+        QCOMPARE(static_cast<int>(object.value(QLatin1String("count")).toDouble()), 1);
+
+    verifyGoodResult(remove(mOwner, reduce));
+    verifyGoodResult(remove(mOwner, schema));
+    verifyGoodResult(remove(mOwner, test1));
+    verifyGoodResult(remove(mOwner, test2));
+    verifyGoodResult(remove(mOwner, changing));
+}
+
+void TestJsonDb::typeChangeSchema()
+{
+    bool currentValidateSchemas = jsondbSettings->validateSchemas();
+    jsondbSettings->setValidateSchemas(true);
+    QJsonObject schemaDef(readJsonFile(":/json-validation/required-schema.json").toObject());
+    JsonDbObject schema;
+    schema.insert(JsonDbString::kTypeStr, QLatin1String("not.a._schemaType"));
+    schema.insert(JsonDbString::kSchemaStr, schemaDef);
+    schema.insert(JsonDbString::kNameStr, QLatin1String("TestObject"));
+    verifyGoodResult(create(mOwner, schema));
+
+    // test object which is missing the required "important" field
+    JsonDbObject test;
+    test.insert(JsonDbString::kTypeStr, QLatin1String("TestObject"));
+    verifyGoodResult(create(mOwner, test));
+
+    // change the object into a schema and try the invalid update
+    schema.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
+    verifyGoodResult(update(mOwner, schema));
+
+    test.insert(QLatin1String("notimportant"), QLatin1String("foo"));
+    JsonDbWriteResult result = update(mOwner, test);
+    verifyErrorResult(result);
+    QCOMPARE(result.code, JsonDbError::FailedSchemaValidation);
+    verifyGoodResult(remove(mOwner, test));
+
+    // change it back into a non-schema and make sure the update goes through
+    schema.insert(JsonDbString::kTypeStr, QLatin1String("not.a._schemaType"));
+    verifyGoodResult(update(mOwner, schema));
+
+    test.remove(JsonDbString::kDeletedStr);
+    verifyGoodResult(update(mOwner, test));
+
+    verifyGoodResult(remove(mOwner, test));
+    verifyGoodResult(remove(mOwner, schema));
+    jsondbSettings->setValidateSchemas(currentValidateSchemas);
 }
 
 QTEST_MAIN(TestJsonDb)

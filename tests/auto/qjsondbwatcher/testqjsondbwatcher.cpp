@@ -55,6 +55,7 @@
 #include "qjsondocument.h"
 
 #include "qjsondbconnection.h"
+#include "qjsondbobject.h"
 #include "qjsondbreadrequest.h"
 #include "qjsondbwatcher.h"
 #include "qjsondbwriterequest.h"
@@ -85,6 +86,7 @@ private slots:
     void currentState();
     void notificationTriggersView();
     void notificationTriggersMapReduce();
+    void typeChangeEagerViewSource();
 };
 
 static const char dbfileprefix[] = "test-jsondb-watcher";
@@ -333,6 +335,9 @@ void TestQJsonDbWatcher::notificationTriggersView()
     QJsonDbCreateRequest request(objects);
     mConnection->send(&request);
     waitForResponse(&request);
+    QList<QJsonObject> toDelete;
+    foreach (const QJsonObject result, request.takeResults())
+        toDelete.prepend(result);
 
     {
         QJsonDbReadRequest read(query);
@@ -366,7 +371,6 @@ void TestQJsonDbWatcher::notificationTriggersView()
     }
     mConnection->removeWatcher(&watcher);
 
-    QList<QJsonObject> toDelete;
     foreach (const QJsonObject &object, request.takeResults())
         toDelete.prepend(object);
 
@@ -390,6 +394,9 @@ void TestQJsonDbWatcher::notificationTriggersMapReduce()
     QJsonDbCreateRequest request(objects);
     mConnection->send(&request);
     waitForResponse(&request);
+    QList<QJsonObject> toDelete;
+    foreach (const QJsonObject result, request.takeResults())
+        toDelete.prepend(result);
 
     QString query = QLatin1String("[?_type=\"PhoneCount\"]");
 
@@ -442,8 +449,99 @@ void TestQJsonDbWatcher::notificationTriggersMapReduce()
         QCOMPARE(numNotifications, 1);
     }
 
+    mConnection->removeWatcher(&watcher);
+    {
+        QJsonDbReadRequest read("[?_type=\"Contact\"]");
+        mConnection->send(&read);
+        waitForResponse(&read);
+        QJsonDbRemoveRequest remove(read.takeResults());
+        mConnection->send(&remove);
+        waitForResponse(&remove);
+    }
+
+    QJsonDbRemoveRequest remove(toDelete);
+    mConnection->send(&remove);
+    waitForResponse(&remove);
+}
+
+void TestQJsonDbWatcher::typeChangeEagerViewSource()
+{
+    QVERIFY(mConnection);
+
+    QJsonParseError error;
+    QJsonArray array(readJsonFile(":/daemon/json/map-reduce.json", &error).array());
+    QVERIFY(error.error == QJsonParseError::NoError);
+    QList<QJsonObject> objects;
+    foreach (const QJsonValue v, array)
+        objects.append(v.toObject());
+
+    // create the objects
+    QJsonDbCreateRequest request(objects);
+    mConnection->send(&request);
+    waitForResponse(&request);
+    QList<QJsonObject> toDelete;
+    foreach (const QJsonObject result, request.takeResults())
+        toDelete.prepend(result);
+
+    QString query = QLatin1String("[?_type=\"PhoneCount\"]");
+
+    // verify that we get what we expect
+    {
+        QJsonDbReadRequest read(query);
+        mConnection->send(&read);
+        waitForResponse(&read);
+        int numObjects = read.takeResults().size();
+        QCOMPARE(numObjects, 5);
+    }
+
+    // create an object that's not of the source type of the view
+    const char json[] = "{\"_type\":\"not.a.Contact\",\"displayName\":\"Will Robinson\",\"phoneNumbers\":[{\"type\":\"satellite\",\"number\":\"+614159\"}]}";
+    QJsonDbObject object(QJsonDocument::fromJson(json).object());
+    object.setUuid(QJsonDbObject::createUuidFromString("typeChangeEagerViewSource"));
+
+    QJsonDbWriteRequest write;
+    write.setObjects(QList<QJsonObject>() << object);
+    mConnection->send(&write);
+    waitForResponse(&write);
+
+    // verify that the view didn't change
+    {
+        QJsonDbReadRequest read(query);
+        mConnection->send(&read);
+        waitForResponse(&read);
+        int numObjects = read.takeResults().size();
+        QCOMPARE(numObjects, 5);
+    }
+
+    // create a watcher
+    QJsonDbWatcher watcher;
+    watcher.setWatchedActions(QJsonDbWatcher::All);
+    watcher.setQuery(query);
+    mConnection->addWatcher(&watcher);
+    waitForStatus(&watcher, QJsonDbWatcher::Active);
+
+    // change the object so that it's now a source type of the view
+    object.insert(QLatin1String("_type"), QLatin1String("Contact"));
+    write.setObjects(QList<QJsonObject>() << object);
+    mConnection->send(&write);
+    waitForResponseAndNotifications(&write, &watcher, 1);
+    QList<QJsonDbNotification> notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.count(), 1);
+    QCOMPARE(notifications[0].action(), QJsonDbWatcher::Created);
+
+    // change it back, which should result in a remove notification
+    object.insert(QLatin1String("_type"), QLatin1String("not.a.Contact"));
+    write.setObjects(QList<QJsonObject>() << object);
+    mConnection->send(&write);
+    waitForResponseAndNotifications(&write, &watcher, 1);
+    notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.count(), 1);
+    QCOMPARE(notifications[0].action(), QJsonDbWatcher::Removed);
 
     mConnection->removeWatcher(&watcher);
+    QJsonDbRemoveRequest remove(toDelete);
+    mConnection->send(&remove);
+    waitForResponse(&remove);
 }
 
 QTEST_MAIN(TestQJsonDbWatcher)
