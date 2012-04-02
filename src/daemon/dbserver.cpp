@@ -895,16 +895,16 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
                 indexName = JsonDbString::kUuidStr;
 
             lastStateNumber = objectTable->stateNumber();
-            JsonDbIndexQuery *indexQuery = JsonDbIndexQuery::indexQuery(partition, objectTable,
+            QScopedPointer<JsonDbIndexQuery> indexQuery(JsonDbIndexQuery::indexQuery(partition, objectTable,
                                                                         indexName, QString("string"),
-                                                                        n->owner());
+                                                                        n->owner()));
             if (!matchAnyType) {
-                indexQuery->setMin(matchedType);
-                indexQuery->setMax(matchedType);
+                indexQuery.data()->setMin(matchedType);
+                indexQuery.data()->setMax(matchedType);
             }
 
             JsonDbObject oldObject;
-            for (JsonDbObject o = indexQuery->first(); !o.isEmpty(); o = indexQuery->next()) {
+            for (JsonDbObject o = indexQuery.data()->first(); !o.isEmpty(); o = indexQuery.data()->next()) {
                 JsonDbNotification::Action action = JsonDbNotification::Create;
                 objectUpdated(partition->name(), stateNumber, n, action, oldObject, o);
             }
