@@ -519,9 +519,13 @@ private slots:
     void insertHugeData_10Mb();
     void splitBranch_1kData();
     void splitBranchWithOverflows();
+    void cursorExactMatch_data();
     void cursorExactMatch();
+    void cursorFuzzyMatch_data();
     void cursorFuzzyMatch();
+    void cursorNext_data();
     void cursorNext();
+    void cursorPrev_data();
     void cursorPrev();
     void lastMultiPage();
     void firstMultiPage();
@@ -1323,17 +1327,28 @@ void TestHBtree::splitBranchWithOverflows()
 
 }
 
+void TestHBtree::cursorExactMatch_data()
+{
+    QList<int> itemCounts = QList<int>() << 5 << 100 << 1000;
+    QList<int> dataSizes = QList<int>() << 100 << 1000 << 3000;
+    setTestData(itemCounts, QList<int>(), dataSizes, false, true);
+}
+
 void TestHBtree::cursorExactMatch()
 {
-    const int numItems = 1000;
+    QFETCH(int, numItems);
+    QFETCH(int, valueSize);
+    QFETCH(bool, randomize);
+
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray ba = QString::number(myRand(10,1000)).toAscii();
+        QByteArray key = QByteArray::number(randomize ? numTable[i] : i);
+        QByteArray value = key + QByteArray('-', valueSize - key.size());
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
-        QVERIFY(transaction->put(ba, ba));
-        keyValues.insert(ba, ba);
+        QVERIFY(transaction->put(key, value));
+        keyValues.insert(key, value);
         QVERIFY(transaction->commit(i));
     }
 
@@ -1344,53 +1359,77 @@ void TestHBtree::cursorExactMatch()
     while (it != keyValues.end()) {
         QVERIFY(cursor.seek(it.key()));
         QCOMPARE(cursor.key(), it.key());
+        QCOMPARE(cursor.value(), it.value());
         ++it;
     }
 
     transaction->abort();
 }
 
+void TestHBtree::cursorFuzzyMatch_data()
+{
+    QList<int> itemCounts = QList<int>() << 5 << 100 << 1000;
+    QList<int> dataSizes = QList<int>() << 100 << 1000 << 3000;
+    setTestData(itemCounts, QList<int>(), dataSizes, false, false);
+}
+
 void TestHBtree::cursorFuzzyMatch()
 {
-    const int numItems = 1000;
+    QFETCH(int, numItems);
+    QFETCH(int, valueSize);
+
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray ba = QString::number(i * 2 + (i % 2)).toAscii();
+        QByteArray key = QByteArray::number(i);
+        QByteArray value = key + QByteArray('-', valueSize - key.size());
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
-        QVERIFY(transaction->put(ba, ba));
-        keyValues.insert(ba, ba);
+        QVERIFY(transaction->put(key, value));
+        keyValues.insert(key, value);
         QVERIFY(transaction->commit(i));
     }
 
     HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
     HBtreeCursor cursor(transaction);
     for (int i = 0; i < numItems * 2; ++i) {
-        QByteArray ba = QString::number(i).toAscii();
+        QByteArray ba = QByteArray::number(i);
         bool ok = cursor.seekRange(ba);
         QMap<QByteArray, QByteArray>::iterator it = keyValues.lowerBound(ba);
 
-        if (it == keyValues.end())
+        if (it == keyValues.end()) {
             QVERIFY(!ok);
-        else
+        } else {
             QCOMPARE(cursor.key(), it.key());
+            QCOMPARE(cursor.value(), it.value());
+        }
     }
 
     transaction->abort();
 }
 
+void TestHBtree::cursorNext_data()
+{
+    QList<int> itemCounts = QList<int>() << 5 << 100 << 1000;
+    QList<int> dataSizes = QList<int>() << 100 << 1000 << 3000;
+    setTestData(itemCounts, QList<int>(), dataSizes, false, true);
+}
+
 void TestHBtree::cursorNext()
 {
-    const int numItems = 500;
+    QFETCH(int, numItems);
+    QFETCH(int, valueSize);
+    QFETCH(bool, randomize);
+
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray ba = QString::number(myRand(0,100000)).toAscii();
+        QByteArray key = QByteArray::number(randomize ? numTable[i] : i);
+        QByteArray value = key + QByteArray('-', valueSize - key.size());
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
-        QVERIFY(transaction->put(ba, ba));
-        keyValues.insert(ba, ba);
+        QVERIFY(transaction->put(key, value));
+        keyValues.insert(key, value);
         QVERIFY(transaction->commit(i));
     }
 
@@ -1401,23 +1440,35 @@ void TestHBtree::cursorNext()
     while (it != keyValues.end()) {
         QVERIFY(cursor.next());
         QCOMPARE(cursor.key(), it.key());
+        QCOMPARE(cursor.value(), it.value());
         ++it;
     }
 
     transaction->abort();
 }
 
+void TestHBtree::cursorPrev_data()
+{
+    QList<int> itemCounts = QList<int>() << 5 << 100 << 1000;
+    QList<int> dataSizes = QList<int>() << 100 << 1000 << 3000;
+    setTestData(itemCounts, QList<int>(), dataSizes, false, true);
+}
+
 void TestHBtree::cursorPrev()
 {
-    const int numItems = 500;
+    QFETCH(int, numItems);
+    QFETCH(int, valueSize);
+    QFETCH(bool, randomize);
+
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray ba = QString::number(myRand(0,100000)).toAscii();
+        QByteArray key = QByteArray::number(randomize ? numTable[i] : i);
+        QByteArray value = key + QByteArray('-', valueSize - key.size());
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
-        QVERIFY(transaction->put(ba, ba));
-        keyValues.insert(ba, ba);
+        QVERIFY(transaction->put(key, value));
+        keyValues.insert(key, value);
         QVERIFY(transaction->commit(i));
     }
 
@@ -1430,6 +1481,7 @@ void TestHBtree::cursorPrev()
                 --it;
                 QVERIFY(cursor.previous());
                 QCOMPARE(cursor.key(), it.key());
+                QCOMPARE(cursor.value(), it.value());
         } while (it != keyValues.begin());
     }
 

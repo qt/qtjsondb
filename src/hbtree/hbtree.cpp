@@ -2459,7 +2459,7 @@ bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArr
     NodeKey nkey(compareFunction_, matchKey);
 
     NodePage *page = 0;
-    if (!searchPage(cursor, cursor->transaction_, nkey, SearchKey, false, &page))
+    if (!searchPage(exact ? NULL : cursor, cursor->transaction_, nkey, SearchKey, false, &page))
         return false;
 
     bool ok = false;
