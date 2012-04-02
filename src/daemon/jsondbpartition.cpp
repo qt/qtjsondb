@@ -1905,7 +1905,7 @@ void JsonDbPartition::initSchemas()
             QJsonParseError error;
             QJsonDocument doc = QJsonDocument::fromJson(schemaFile.readAll(), &error);
             if (doc.isNull()) {
-                qWarning() << "Parsing " << schemaName << " schema" << error.errorString();
+                qWarning() << "Parsing " << schemaName << " schema" << error.error;
                 return;
             }
             QJsonObject schema = doc.object();
@@ -1931,7 +1931,7 @@ void JsonDbPartition::initSchemas()
         QJsonParseError error;
         QJsonDocument doc = QJsonDocument::fromJson(capabilityFile.readAll(), &error);
         if (doc.isNull()) {
-            qWarning() << "Parsing " << capabilityName << " capability" << error.errorString();
+            qWarning() << "Parsing " << capabilityName << " capability" << error.error;
             return;
         }
         JsonDbObject capability = doc.object();
