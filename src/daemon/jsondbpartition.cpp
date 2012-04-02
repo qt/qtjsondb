@@ -1732,22 +1732,22 @@ void JsonDbPartition::updateBuiltInTypes(const JsonDbObject &object, const JsonD
                  caseSensitivity == true ? Qt::CaseSensitive : Qt::CaseInsensitive);
     }
 
-    if (oldObject.type() == JsonDbString::kSchemaTypeStr) {
+    if (oldObject.type() == JsonDbString::kSchemaTypeStr)
         removeSchema(oldObject.value(JsonDbString::kNameStr).toString());
-    } else if (object.type() == JsonDbString::kSchemaTypeStr &&
-             object.value(JsonDbString::kSchemaStr).type() == QJsonValue::Object
-             && !object.isDeleted()) {
+
+    if (object.type() == JsonDbString::kSchemaTypeStr &&
+        object.value(JsonDbString::kSchemaStr).type() == QJsonValue::Object
+        && !object.isDeleted())
         setSchema(object.value(JsonDbString::kNameStr).toString(), object.value(JsonDbString::kSchemaStr).toObject());
-    } else if (oldObject.type() == JsonDbString::kMapTypeStr || oldObject.type() == JsonDbString::kReduceTypeStr ||
-               object.type() == JsonDbString::kMapTypeStr || object.type() == JsonDbString::kReduceTypeStr) {
 
-        if (!oldObject.isEmpty())
-            JsonDbView::removeDefinition(this, oldObject);
+    if (!oldObject.isEmpty()
+        && (oldObject.type() == JsonDbString::kMapTypeStr || oldObject.type() == JsonDbString::kReduceTypeStr))
+        JsonDbView::removeDefinition(this, oldObject);
 
-        if (!(object.isDeleted() ||
-              (object.contains(JsonDbString::kActiveStr) && !object.value(JsonDbString::kActiveStr).toBool())))
-            JsonDbView::createDefinition(this, object);
-    }
+    if (!object.isDeleted()
+        && (object.type() == JsonDbString::kMapTypeStr || object.type() == JsonDbString::kReduceTypeStr)
+        && !(object.contains(JsonDbString::kActiveStr) && !object.value(JsonDbString::kActiveStr).toBool()))
+        JsonDbView::createDefinition(this, object);
 }
 
 void JsonDbPartition::setSchema(const QString &schemaName, const QJsonObject &schema)
