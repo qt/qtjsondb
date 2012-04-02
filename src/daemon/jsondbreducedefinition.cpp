@@ -107,6 +107,8 @@ void JsonDbReduceDefinition::definitionCreated()
 
 void JsonDbReduceDefinition::definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid)
 {
+    if (jsondbSettings->verbose())
+        qDebug() << "Removing Reduce view objects" << targetType;
     // remove the output objects
     GetObjectsResult getObjectResponse = table->getObjects(QLatin1String("_reduceUuid"), definitionUuid, targetType);
     JsonDbObjectList objects = getObjectResponse.data;
@@ -213,7 +215,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
             reduced.insert("_reduceUuid", mUuid);
             res = mPartition->updateObject(mOwner, reduced, JsonDbPartition::ViewObject);
         }
-    } else {
+    } else if (!value.isUndefined()) {
         // otherwise create the new object
         JsonDbObject reduced(value.toObject());
         reduced.insert(JsonDbString::kTypeStr, mTargetType);
