@@ -88,6 +88,8 @@ public:
 private slots:
     void initTestCase();
     void cleanupTestCase();
+    void init();
+    void cleanup();
 
     void connectionStatus();
 
@@ -453,7 +455,6 @@ void TestJsonDbClient::initTestCase()
         }
     }
 #endif
-    connectToServer();
 }
 
 void TestJsonDbClient::cleanupTestCase()
@@ -505,6 +506,19 @@ void TestJsonDbClient::cleanupTestCase()
     }
     removeDbFiles();
 #endif
+}
+
+void TestJsonDbClient::init()
+{
+    connectToServer();
+}
+
+void TestJsonDbClient::cleanup()
+{
+    if (mClient) {
+        delete mClient;
+        mClient = NULL;
+    }
 }
 
 void TestJsonDbClient::connectionStatus()
