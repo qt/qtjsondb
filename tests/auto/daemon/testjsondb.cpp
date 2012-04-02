@@ -137,6 +137,7 @@ private slots:
     void update2();
     void update3();
     void update4();
+    void updateType();
 
     void remove();
     void remove2();
@@ -878,6 +879,27 @@ void TestJsonDb::update4()
     // conflict
     item.insert(JsonDbString::kVersionStr, version2);
     item.insert("update-test", 102);
+    result = update(mOwner, item);
+    verifyErrorResult(result);
+}
+
+void TestJsonDb::updateType()
+{
+    JsonDbObject item;
+    item.insert(JsonDbString::kTypeStr, QLatin1String("update-object-type"));
+    item.insert("update-test", 100);
+
+    JsonDbWriteResult result = create(mOwner, item);
+    verifyGoodResult(result);
+    QString uuid = result.objectsWritten[0].uuid().toString();
+    QString version1 = result.objectsWritten[0].version();
+
+    item.insert(JsonDbString::kUuidStr, uuid);
+    item.insert(JsonDbString::kVersionStr, version1);
+
+
+    item.insert(JsonDbString::kTypeStr, QLatin1String("update-object-type-2"));
+
     result = update(mOwner, item);
     verifyErrorResult(result);
 }

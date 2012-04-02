@@ -1344,6 +1344,11 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         bool isVisibleWrite = oldMaster.version() != master.version();
 
         if (isVisibleWrite) {
+            if (!forCreation && master.type() != oldMaster.type()) {
+                result.code = JsonDbError::InvalidType;
+                result.message = QStringLiteral("Cannot change _type of an existing object");
+                return result;
+            }
             JsonDbError::ErrorCode errorCode;
             if (!(forRemoval || (errorCode = checkBuiltInTypeValidity(master, oldMaster, errorMsg)) == JsonDbError::NoError)) {
                 result.code = errorCode;
