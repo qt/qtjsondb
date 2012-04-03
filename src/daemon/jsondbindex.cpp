@@ -238,7 +238,7 @@ bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject
 {
     message.clear();
 
-    if (!newIndex.isEmpty() && !oldIndex.isEmpty()) {
+    if (!newIndex.isEmpty() && !oldIndex.isEmpty() && oldIndex.type() == JsonDbString::kIndexTypeStr) {
         if (oldIndex.value(JsonDbString::kPropertyNameStr).toString() != newIndex.value(JsonDbString::kPropertyNameStr).toString())
             message = QString("Changing old index propertyName '%1' to '%2' not supported")
                              .arg(oldIndex.value(JsonDbString::kPropertyNameStr).toString())
