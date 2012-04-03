@@ -361,7 +361,7 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
         QByteArray forwardValue(makeForwardValue(objectKey));
 
-        if (jsondbSettings->debug() && jsondbSettings->verbose())
+        if (jsondbSettings->debug())
             qDebug() << "indexing" << objectKey << mPropertyName << fieldValue
                      << "forwardIndex" << "key" << forwardKey.toHex()
                      << "forwardIndex" << "value" << forwardValue.toHex()
@@ -398,7 +398,7 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
         fieldValue = makeFieldValue(fieldValue, mPropertyType);
         if (fieldValue.isUndefined())
             continue;
-        if (jsondbSettings->verbose())
+        if (jsondbSettings->debug())
             qDebug() << "deindexing" << objectKey << mPropertyName << fieldValue;
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
         if (!txn.remove(forwardKey)) {
