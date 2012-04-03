@@ -393,6 +393,7 @@ public:
     quint32 lastPage_;
     QSet<quint32> residueHistory_;
     QList<Page *> lru_;
+    bool cursorDisrupted_;
 
     bool verifyIntegrity(const Page *pPage) const;
 };

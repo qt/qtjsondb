@@ -1098,8 +1098,6 @@ void TestHBtree::addDeleteNodes()
         QCOMPARE(i + 1, db->stats().numEntries);
     }
 
-    qDebug() << db->stats().depth;
-
     for (int i = 0; i < numItems; ++i) {
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);

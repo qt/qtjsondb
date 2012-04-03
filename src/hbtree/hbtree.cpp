@@ -91,7 +91,7 @@ const quint32 HBtreePrivate::PageInfo::INVALID_PAGE = 0xFFFFFFFF;
 HBtreePrivate::HBtreePrivate(HBtree *q, const QString &name)
     : q_ptr(q), fileName_(name), fd_(-1), openMode_(HBtree::ReadOnly), size_(0), lastSyncedId_(0), cacheSize_(20),
       compareFunction_(0),
-      writeTransaction_(0), lastPage_(PageInfo::INVALID_PAGE)
+      writeTransaction_(0), lastPage_(PageInfo::INVALID_PAGE), cursorDisrupted_(false)
 {
 }
 
@@ -227,6 +227,7 @@ void HBtreePrivate::close(bool doSync)
         collectiblePages_.clear();
         marker_ = MarkerPage(0);
         synced_ = MarkerPage(0);
+        cursorDisrupted_ = false;
     }
 }
 
@@ -936,6 +937,7 @@ void HBtreePrivate::abort(HBtreeTransaction *transaction)
     }
     delete transaction;
     cachePrune();
+    cursorDisrupted_ = false;
 }
 
 quint32 HBtreePrivate::calculateChecksum(quint32 crc, const char *begin, const char *end) const
@@ -1162,6 +1164,7 @@ bool HBtreePrivate::del(HBtreeTransaction *transaction, const QByteArray &keyDat
     q->stats_.numEntries--;
 
     cachePrune();
+    cursorDisrupted_ = true;
     return ok;
 }
 
@@ -2362,44 +2365,66 @@ bool HBtreePrivate::cursorNext(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
         return cursorFirst(cursor, keyOut, valueOut);
 
     HBTREE_DEBUG("last key/value - " << NodeKey(compareFunction_, cursor->key_) << NodeValue(cursor->value_) << ". last leaf -" << cursor->lastLeaf_);
-    NodeKey nkey(compareFunction_, cursor->key_);
 
+    NodeKey nkey(compareFunction_, cursor->key_);
     NodePage *page = 0;
     Node node;
+    bool ok = false;
+    bool checkRight = false;
 
-    if (!searchPage(cursor, cursor->transaction_, nkey, SearchKey, false, &page))
+    if (cursor->lastLeaf_ != PageInfo::INVALID_PAGE && !cursorDisrupted_) {
+        page = static_cast<NodePage *>(getPage(cursor->lastLeaf_));
+        if (page) {
+            node = page->nodes.lowerBound(nkey);
+            if (node != page->nodes.constEnd()) {
+                if (node.key() > nkey) {
+                    ok = true;
+                } else if (++node != page->nodes.constEnd()) {
+                    ok = true;
+                } else {
+                    page = 0;
+                    checkRight = true;
+                }
+            } else {
+                page = 0;
+            }
+        }
+    }
+
+    if (!page && !searchPage(cursor, cursor->transaction_, nkey, SearchKey, false, &page))
         return false;
-    node = page->nodes.lowerBound(nkey);
-    bool checkRight = (node == page->nodes.constEnd() || node.key() == nkey) &&
-            (node == page->nodes.constEnd() || ++node == page->nodes.constEnd());
+
+    if (!checkRight && !ok) {
+        node = page->nodes.lowerBound(nkey);
+        checkRight = (node == page->nodes.constEnd() || node.key() == nkey) &&
+                (node == page->nodes.constEnd() || ++node == page->nodes.constEnd());
+        ok = !checkRight;
+    }
 
     // Could've been deleted so check if node == end.
-    if (checkRight) {
+    if (checkRight && !ok) {
         cursor->lastLeaf_ = PageInfo::INVALID_PAGE;
         HBTREE_DEBUG("moving right from" << page->info << "to" << page->rightPageNumber);
         if (page->rightPageNumber != PageInfo::INVALID_PAGE) {
             NodePage *right = static_cast<NodePage *>(getPage(page->rightPageNumber));
             node = right->nodes.constBegin();
             if (node != right->nodes.constEnd()) {
-                if (keyOut)
-                    *keyOut = node.key().data;
-                if (valueOut)
-                    *valueOut = getDataFromNode(node.value());
-                return true;
+                ok = true;
             } else {
                 // This should never happen if rebalancing is working properly
                 HBTREE_ASSERT(0)(*right)(node)(*page).message("what up?");
             }
         }
-    } else {
+    }
+
+    if (ok) {
         if (keyOut)
             *keyOut = node.key().data;
         if (valueOut)
             *valueOut = getDataFromNode(node.value());
-        return true;
     }
 
-    return false;
+    return ok;
 }
 
 bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut)
