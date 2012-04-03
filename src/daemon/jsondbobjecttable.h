@@ -113,8 +113,7 @@ public:
     void flushCaches();
 
     quint32 stateNumber() const { return mStateNumber; }
-    quint32 storeStateChange(const ObjectKey &key1, JsonDbNotification::Action action, const JsonDbObject &old = JsonDbObject());
-    quint32 storeStateChange(const QList<JsonDbUpdate> &stateChange);
+    quint32 storeStateChange(const ObjectKey &key, const JsonDbUpdate &stateChange);
     enum TypeChangeMode {
         SplitTypeChanges, KeepTypeChanges
     };

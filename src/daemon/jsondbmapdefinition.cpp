@@ -196,7 +196,7 @@ void JsonDbMapDefinition::initIndexes()
     mTargetTable->addIndexOnProperty(QLatin1String("_sourceUuids.*"), QLatin1String("string"), mTargetType);
 }
 
-void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const JsonDbObject &afterObject)
+void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const JsonDbObject &afterObject, JsonDbUpdateList *changeList)
 {
     initScriptEngine();
     QHash<QString, JsonDbObject> unmappedObjects;
@@ -217,6 +217,7 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
         mapObject(afterObject);
     }
 
+    JsonDbObjectList objectsToUpdate;
     for (QHash<QString, JsonDbObject>::const_iterator it = unmappedObjects.begin();
          it != unmappedObjects.end();
          ++it) {
@@ -227,13 +228,12 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
             JsonDbObject emittedObject(mEmittedObjects.value(uuid));
             emittedObject.insert(JsonDbString::kVersionStr, unmappedObject.value(JsonDbString::kVersionStr));
             emittedObject.insert(JsonDbString::kOwnerStr, unmappedObject.value(JsonDbString::kOwnerStr));
-            if (emittedObject == it.value()) {
+            if (emittedObject == it.value())
                 // skip duplicates
                 continue;
-            } else {
+            else
                 // update changed view objects
-                res = mPartition->updateObject(mOwner, emittedObject, JsonDbPartition::ViewObject);
-            }
+                objectsToUpdate.append(emittedObject);
 
             mEmittedObjects.remove(uuid);
         } else {
@@ -241,21 +241,18 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
             unmappedObject.markDeleted();
             if (jsondbSettings->verbose())
                 qDebug() << "Unmapping object" << unmappedObject;
-            res = mPartition->updateObject(mOwner, unmappedObject, JsonDbPartition::ViewObject);
+            objectsToUpdate.append(unmappedObject);
         }
-
-        if (res.code != JsonDbError::NoError)
-            setError("Error updating view object: " + res.message);
     }
 
     for (QHash<QString, JsonDbObject>::const_iterator it = mEmittedObjects.begin();
          it != mEmittedObjects.end();
-         ++it) {
-        JsonDbObject newItem(it.value());
-        JsonDbWriteResult res = mPartition->updateObject(mOwner, newItem, JsonDbPartition::ViewObject);
-        if (res.code != JsonDbError::NoError)
-            setError("Error creating view object: " + res.message);
-    }
+         ++it)
+        objectsToUpdate.append(JsonDbObject(it.value()));
+
+    JsonDbWriteResult res = mPartition->updateObjects(mOwner, objectsToUpdate, JsonDbPartition::ViewObject, changeList);
+    if (res.code != JsonDbError::NoError)
+        setError("Error creating view object: " + res.message);
 }
 
 QJSValue JsonDbMapDefinition::mapFunction(const QString &sourceType) const

@@ -76,8 +76,9 @@ public:
     static void createDefinition(JsonDbPartition *partition, QJsonObject definition);
     static void removeDefinition(JsonDbPartition *partition, QJsonObject definition);
 
-    void updateView(quint32 stateNumber=0);
-    void updateEagerView(const JsonDbUpdateList &objectsUpdated);
+    void updateView(quint32 stateNumber=0, JsonDbUpdateList *resultingChanges=0);
+    void updateEagerView(const JsonDbUpdateList &objectsUpdated, JsonDbUpdateList *resultingChanges);
+    void updateViewStateNumber(quint32 partitionStateNumber);
     void reduceMemoryUsage();
 
     bool isActive() const;
@@ -94,12 +95,13 @@ private:
                                    QSet<QString> &processedDefinitions);
     void updateSourceTypesList();
     bool viewDefinitionUpdated(const JsonDbUpdateList &objectsUpdated) const;
-    void updateViewOnChanges(const JsonDbUpdateList &objectsUpdated, QSet<QString> &processedDefinitionUuids);
+    void updateViewOnChanges(const JsonDbUpdateList &objectsUpdated, QSet<QString> &processedDefinitionUuids, JsonDbUpdateList *changeList);
 
 private:
     JsonDbPartition *mPartition;
     JsonDbObjectTable   *mViewObjectTable;     // view object table
     JsonDbObjectTable   *mMainObjectTable; // partition's main object table
+    quint32        mViewStateNumber;
     QString        mViewType;
     QStringList    mSourceTypes;
     typedef QMap<JsonDbObjectTable*,QSet<QString> > ObjectTableSourceTypeMap;

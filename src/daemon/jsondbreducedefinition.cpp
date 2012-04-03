@@ -152,7 +152,7 @@ void JsonDbReduceDefinition::initIndexes()
     mTargetTable->addIndexOnProperty(QLatin1String("_reduceUuid"), QLatin1String("string"), mTargetType);
 }
 
-void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject after)
+void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject after, JsonDbUpdateList *changeList)
 {
     initScriptEngine();
 
@@ -162,7 +162,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
     if (!after.isEmpty() && !before.isEmpty() && (beforeKeyValue != afterKeyValue)) {
         // do a subtract only on the before key
         if (!beforeKeyValue.isUndefined())
-            updateObject(before, QJsonObject());
+          updateObject(before, QJsonObject(), changeList);
 
         // and then continue here with the add with the after key
         before = QJsonObject();
@@ -195,14 +195,14 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
     if (!after.isDeleted())
         value = addObject(JsonDbReduceDefinition::Add, keyValue, value, after);
 
-    JsonDbWriteResult res;
+    JsonDbObjectList objectsToUpdate;
     // if we had a previous object to reduce
     if (previousObject.contains(JsonDbString::kUuidStr)) {
         // and now the value is undefined
         if (value.isUndefined()) {
             // then remove it
             previousObject.markDeleted();
-            res = mPartition->updateObject(mOwner, previousObject, JsonDbPartition::ViewObject);
+            objectsToUpdate.append(previousObject);
         } else {
             //otherwise update it
             JsonDbObject reduced(value.toObject());
@@ -213,7 +213,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
                          previousObject.value(JsonDbString::kVersionStr));
             reduced.insert(mTargetKeyName, keyValue);
             reduced.insert("_reduceUuid", mUuid);
-            res = mPartition->updateObject(mOwner, reduced, JsonDbPartition::ViewObject);
+            objectsToUpdate.append(reduced);
         }
     } else if (!value.isUndefined()) {
         // otherwise create the new object
@@ -222,9 +222,10 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
         reduced.insert(mTargetKeyName, keyValue);
         reduced.insert("_reduceUuid", mUuid);
 
-        res = mPartition->updateObject(mOwner, reduced, JsonDbPartition::ViewObject);
+        objectsToUpdate.append(reduced);
     }
 
+    JsonDbWriteResult res = mPartition->updateObjects(mOwner, objectsToUpdate, JsonDbPartition::ViewObject, changeList);
     if (res.code != JsonDbError::NoError)
         setError(QString("Error executing add function: %1").arg(res.message));
 }

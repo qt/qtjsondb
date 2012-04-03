@@ -51,6 +51,7 @@
 #include <qjsonvalue.h>
 
 #include <jsondbobject.h>
+#include <jsondbpartition.h>
 
 QT_BEGIN_HEADER
 
@@ -86,7 +87,7 @@ public:
     void releaseScriptEngine();
     void initIndexes();
 
-    void updateObject(JsonDbObject before, JsonDbObject after);
+    void updateObject(JsonDbObject before, JsonDbObject after, JsonDbUpdateList *changeList = 0);
 
     void setError(const QString &errorMsg);
 

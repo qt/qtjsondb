@@ -67,6 +67,7 @@ JsonDbView::JsonDbView(JsonDbPartition *partition, const QString &viewType, QObj
   , mUpdating(false)
 {
     mViewObjectTable = new JsonDbObjectTable(mPartition);
+    mViewStateNumber = 0; // FIXME: should be able to read it from the object table
 }
 
 JsonDbView::~JsonDbView()
@@ -262,16 +263,16 @@ void JsonDbView::updateSourceTypesList()
     mObjectTableSourceTypeMap = objectTableSourceTypeMap;
 }
 
-void JsonDbView::updateView(quint32 desiredStateNumber)
+void JsonDbView::updateView(quint32 desiredStateNumber, JsonDbUpdateList *resultingChanges)
 {
     QElapsedTimer timer;
     if (jsondbSettings->performanceLog())
         timer.start();
     if (jsondbSettings->verbose())
-        qDebug() << endl << "updateView" << mViewType << "{" << endl;
+        qDebug() << "updateView" << mViewType << "{";
     // current state of the main object table of the partition
     quint32 partitionStateNumber = mMainObjectTable->stateNumber();
-    quint32 viewStateNumber = mViewObjectTable->stateNumber();
+    quint32 viewStateNumber = mViewStateNumber;
 
     // if the view is up to date, then return
     if ((desiredStateNumber && viewStateNumber >= desiredStateNumber)
@@ -282,7 +283,7 @@ void JsonDbView::updateView(quint32 desiredStateNumber)
     }
     if (mUpdating) {
         if (jsondbSettings->verbose())
-            qDebug() << endl << "Update already in progess" << endl
+            qDebug() << "Update already in progess"
                      << "updateView" << mViewType << "}";
         return;
     }
@@ -327,41 +328,70 @@ void JsonDbView::updateView(quint32 desiredStateNumber)
 
         QList<JsonDbUpdate> changeList;
         sourceTable->changesSince(viewStateNumber, sourceTypes, &changeList, JsonDbObjectTable::SplitTypeChanges);
-        updateViewOnChanges(changeList, processedDefinitionUuids);
+        updateViewOnChanges(changeList, processedDefinitionUuids, resultingChanges);
     }
+    mViewStateNumber = partitionStateNumber;
+    mUpdating = false;
     JsonDbScriptEngine::scriptEngine()->collectGarbage();
     if (inTransaction)
         mViewObjectTable->commit(partitionStateNumber);
     if (jsondbSettings->verbose())
-        qDebug() << endl << "}" << "updateView" << mViewType << endl;
+        qDebug() << "}" << "updateView" << mViewType << partitionStateNumber;
     if (jsondbSettings->performanceLog())
-        qDebug() << "updateView" << mViewType << timer.elapsed() << "ms";
-    mUpdating = false;
+        qDebug() << "updateView" << "stateNumber" << mViewStateNumber << mViewType << timer.elapsed() << "ms";
 
     emit updated(mViewType);
 }
 
-void JsonDbView::updateEagerView(const JsonDbUpdateList &objectsUpdated)
+void JsonDbView::updateEagerView(const JsonDbUpdateList &objectsUpdated, JsonDbUpdateList *resultingChanges)
 {
     quint32 partitionStateNumber = mMainObjectTable->stateNumber();
-    quint32 viewStateNumber = mViewObjectTable->stateNumber();
+    quint32 viewStateNumber = mViewStateNumber;
 
     // make sure we can run this set of updates
-    if (viewStateNumber != (partitionStateNumber-1)
-        || viewDefinitionUpdated(objectsUpdated))
+    if (mViewStateNumber != (partitionStateNumber - 1)
+        || viewDefinitionUpdated(objectsUpdated)) {
         // otherwise do a full update
-        updateView(partitionStateNumber);
+        if (jsondbSettings->verbose())
+            qDebug() << "updateEagerView" << mViewType << "full update"
+                     << "viewStateNumber" << mViewStateNumber << "partitionStateNumber" << partitionStateNumber
+                     << (viewDefinitionUpdated(objectsUpdated) ? "definition updated" : "");
+        updateView(partitionStateNumber, resultingChanges);
+        return;
+    }
+
+    QElapsedTimer timer;
+    if (jsondbSettings->performanceLog())
+        timer.start();
+    if (jsondbSettings->verbose())
+        qDebug() << "updateEagerView" << mViewType << "{";
 
     // begin transaction
     mViewObjectTable->begin();
 
     // then do the update
     QSet<QString> processedDefinitionUuids;
-    updateViewOnChanges(objectsUpdated, processedDefinitionUuids);
+    updateViewOnChanges(objectsUpdated, processedDefinitionUuids, resultingChanges);
 
     // end transaction
     JsonDbScriptEngine::scriptEngine()->collectGarbage();
     mViewObjectTable->commit(partitionStateNumber);
+    mViewStateNumber = partitionStateNumber;
+
+    if (jsondbSettings->verbose())
+        qDebug() << "updateEagerView" << mViewType << viewStateNumber << "}";
+    if (jsondbSettings->performanceLog())
+        qDebug() << "updateEagerView" << "stateNumber" << mViewStateNumber << mViewType << timer.elapsed() << "ms";
+}
+
+// Updates the in-memory state numbers on the view so that we know it
+// has seen all relevant updates from this transaction
+void JsonDbView::updateViewStateNumber(quint32 partitionStateNumber)
+{
+    // If the change is not zero or one it's an error
+    if (jsondbSettings->verbose() || (mViewStateNumber != (partitionStateNumber - 1) && mViewStateNumber != partitionStateNumber))
+        qCritical() << "updateViewStateNumber" << mViewType << "viewStateNumber" << mViewStateNumber << "partitionStateNumber" << partitionStateNumber;
+    mViewStateNumber = partitionStateNumber;
 }
 
 bool JsonDbView::viewDefinitionUpdated(const JsonDbUpdateList &objectsUpdated) const
@@ -378,11 +408,12 @@ bool JsonDbView::viewDefinitionUpdated(const JsonDbUpdateList &objectsUpdated) c
                 && (mMapDefinitions.contains(afterUuid) || mReduceDefinitions.contains(afterUuid))))
             return false;
     }
-    return true;
+    return false;
 }
 
 void JsonDbView::updateViewOnChanges(const JsonDbUpdateList &objectsUpdated,
-                                     QSet<QString> &processedDefinitionUuids)
+                                     QSet<QString> &processedDefinitionUuids,
+                                     JsonDbUpdateList *changeList)
 {
     foreach (const JsonDbUpdate &update, objectsUpdated) {
         QJsonObject beforeObject = update.oldObject;
@@ -394,24 +425,24 @@ void JsonDbView::updateViewOnChanges(const JsonDbUpdateList &objectsUpdated,
             JsonDbMapDefinition *def = mMapDefinitionsBySource.value(beforeType);
             if (processedDefinitionUuids.contains(def->uuid()))
                 continue;
-            def->updateObject(beforeObject, afterObject);
+            def->updateObject(beforeObject, afterObject, changeList);
         } else if (mMapDefinitionsBySource.contains(afterType)) {
             JsonDbMapDefinition *def = mMapDefinitionsBySource.value(afterType);
             if (processedDefinitionUuids.contains(def->uuid()))
                 continue;
-            def->updateObject(beforeObject, afterObject);
+            def->updateObject(beforeObject, afterObject, changeList);
         }
 
         if (mReduceDefinitionsBySource.contains(beforeType)) {
             JsonDbReduceDefinition *def = mReduceDefinitionsBySource.value(beforeType);
             if (processedDefinitionUuids.contains(def->uuid()))
                 continue;
-            def->updateObject(beforeObject, afterObject);
+            def->updateObject(beforeObject, afterObject, changeList);
         } else if (mReduceDefinitionsBySource.contains(afterType)) {
             JsonDbReduceDefinition *def = mReduceDefinitionsBySource.value(afterType);
             if (processedDefinitionUuids.contains(def->uuid()))
                 continue;
-            def->updateObject(beforeObject, afterObject);
+            def->updateObject(beforeObject, afterObject, changeList);
         }
     }
 }

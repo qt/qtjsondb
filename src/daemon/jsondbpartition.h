@@ -129,8 +129,8 @@ public:
     bool addToQuota(const JsonDbOwner *owner, int size);
 
     JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
-    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, WriteMode mode = OptimisticWrite);
-    JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, WriteMode mode = OptimisticWrite);
+    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, WriteMode mode = OptimisticWrite, JsonDbUpdateList *changeList = 0);
+    JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, WriteMode mode = OptimisticWrite, JsonDbUpdateList *changeList = 0);
 
     QJsonObject flush();
 
@@ -170,7 +170,6 @@ public Q_SLOTS:
     void updateView(const QString &objectType, quint32 stateNumber=0);
 
 Q_SIGNALS:
-    void viewUpdated(const QString &objectType);
     void objectsUpdated(const JsonDbUpdateList &objects);
 
 protected:

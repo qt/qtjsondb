@@ -86,7 +86,7 @@ public:
     void initIndexes();
 
     void setError(const QString &errorMsg);
-    void updateObject(const JsonDbObject &before, const JsonDbObject &after);
+    void updateObject(const JsonDbObject &before, const JsonDbObject &after, JsonDbUpdateList *changeList = 0);
     static bool validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message);
     static bool compileMapFunctions(QJSEngine *scriptEngine, QJsonObject definition, JsonDbJoinProxy *joinProxy, QMap<QString,QJSValue> &mapFunctions, QString &message);
 

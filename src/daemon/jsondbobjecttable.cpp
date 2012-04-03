@@ -574,7 +574,7 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     return result;
 }
 
-quint32 JsonDbObjectTable::storeStateChange(const ObjectKey &key, JsonDbNotification::Action action, const JsonDbObject &oldObject)
+quint32 JsonDbObjectTable::storeStateChange(const ObjectKey &key, const JsonDbUpdate &change)
 {
     quint32 stateNumber = mStateNumber + 1;
 
@@ -583,26 +583,9 @@ quint32 JsonDbObjectTable::storeStateChange(const ObjectKey &key, JsonDbNotifica
     uchar *data = (uchar *)mStateChanges.data() + oldSize;
 
     qToBigEndian(key, data);
-    qToBigEndian<quint32>(action, data+16);
-    if (!oldObject.isEmpty())
-        mStateObjectChanges.append(oldObject);
-    return stateNumber;
-}
-
-quint32 JsonDbObjectTable::storeStateChange(const QList<JsonDbUpdate> &changes)
-{
-    quint32 stateNumber = mStateNumber + 1;
-    int oldSize = mStateChanges.size();
-    mStateChanges.resize(oldSize + changes.size() * 20);
-    uchar *data = (uchar *)mStateChanges.data() + oldSize;
-    foreach (const JsonDbUpdate &change, changes) {
-        ObjectKey objectKey(change.newObject.uuid());
-        qToBigEndian(objectKey, data);
-        qToBigEndian<quint32>(change.action, data+16);
-        data += 20;
-        if (!change.oldObject.isEmpty())
-            mStateObjectChanges.append(change.oldObject);
-    }
+    qToBigEndian<quint32>(change.action, data+16);
+    if (!change.oldObject.isEmpty())
+        mStateObjectChanges.append(change.oldObject);
     return stateNumber;
 }
 
@@ -689,7 +672,7 @@ quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,Json
 quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes, QList<JsonDbUpdate> *updateList, JsonDbObjectTable::TypeChangeMode splitTypeChanges)
 {
     if (jsondbSettings->verbose())
-        qDebug() << "changesSince" << "list" << "{";
+        qDebug() << "changesSince" << stateNumber << limitTypes << "{";
     QMap<ObjectKey,JsonDbUpdate> changeSet;
     changesSince(stateNumber, &changeSet);
     QList<JsonDbUpdate> changeList;
@@ -716,7 +699,7 @@ quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, const QSet<QString>
     if (updateList)
         *updateList = changeList;
     if (jsondbSettings->verbose())
-        qDebug() << "changesSince" << "list" << "}";
+        qDebug() << "changesSince" << changeList.size() << "changes" << "}";
     return mStateNumber;
 }
 

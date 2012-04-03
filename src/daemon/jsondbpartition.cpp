@@ -446,7 +446,6 @@ JsonDbView *JsonDbPartition::addView(const QString &viewType)
         return view;
 
     view = new JsonDbView(this, viewType, this);
-    connect(view, SIGNAL(updated(QString)), this, SIGNAL(viewUpdated(QString)));
     view->open();
     mViews.insert(viewType, view);
     return view;
@@ -1232,7 +1231,8 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     return result;
 }
 
-JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode,
+                                                 JsonDbUpdateList *changeList)
 {
     JsonDbWriteResult result;
     WithTransaction transaction(this);
@@ -1390,19 +1390,16 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         if (jsondbSettings->debug())
             qDebug() << "Wrote object" << objectKey << endl << master << endl << oldMaster;
 
-        JsonDbNotification::Action action;
-        quint32 stateNumber;
-
-        if (forRemoval) {
+        JsonDbNotification::Action action = JsonDbNotification::Update;
+        if (forRemoval)
             action = JsonDbNotification::Delete;
-            stateNumber = objectTable->storeStateChange(objectKey, action, oldMaster);
-        } else if (forCreation) {
+        else if (forCreation)
             action = JsonDbNotification::Create;
-            stateNumber = objectTable->storeStateChange(objectKey, action);
-        } else {
-            action =  JsonDbNotification::Update;
-            stateNumber = objectTable->storeStateChange(objectKey, action, oldMaster);
-       }
+
+        JsonDbUpdate change(oldMaster, master, action);
+        quint32 stateNumber = objectTable->storeStateChange(objectKey, change);
+        if (changeList)
+            changeList->append(change);
 
         if (!forRemoval)
             objectTable->indexObject(objectKey, master, objectTable->stateNumber());
@@ -1414,7 +1411,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
         master.insert(JsonDbString::kVersionStr, versionWritten);
         result.objectsWritten.append(master);
-        updated.append(JsonDbUpdate(oldMaster, master, action));
+        updated.append(change);
     }
 
     transaction.commit();
@@ -1423,9 +1420,9 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
     return result;
 }
 
-JsonDbWriteResult JsonDbPartition::updateObject(const JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult JsonDbPartition::updateObject(const JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::WriteMode mode, JsonDbUpdateList *changeList)
 {
-    return updateObjects(owner, JsonDbObjectList() << object, mode);
+    return updateObjects(owner, JsonDbObjectList() << object, mode, changeList);
 }
 
 void JsonDbPartition::checkIndex(const QString &propertyName)

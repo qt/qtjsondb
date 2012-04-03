@@ -65,7 +65,7 @@ public:
     const QString&  uuid() const { return mUuid; }
     const QString&  query() const { return mQuery; }
     Actions         actions() const { return mActions; }
-    JsonDbQuery *parsedQuery() { return mCompiledQuery; }
+    JsonDbQuery *parsedQuery() const { return mCompiledQuery; }
     void            setCompiledQuery(JsonDbQuery *parsedQuery) { mCompiledQuery = parsedQuery; }
     const QString & partition() const { return mPartition; }
     quint32 initialStateNumber() const { return mInitialStateNumber; }

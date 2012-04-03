@@ -96,8 +96,7 @@ protected slots:
 
     void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
     void objectsUpdated(const JsonDbUpdateList &objects);
-    void viewUpdated(const QString &type);
-    void updateEagerViews(JsonDbPartition *partition);
+    void updateEagerViews(JsonDbPartition *partition, const QSet<QString> eagerViewTypes, JsonDbUpdateList changeList);
     void emitStateChanged(JsonDbPartition *partition);
 
 private:
@@ -118,21 +117,31 @@ private:
     void createNotification(const JsonDbObject &object, JsonStream *stream);
     void removeNotification(const JsonDbObject &object);
     void notifyHistoricalChanges(JsonDbNotification *n);
-    void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber);
+    void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber, int weight=1);
+    void updateEagerViewStateNumbers(JsonDbPartition *partition, quint32 partitionStateNumber);
 
     JsonDbPartition* findPartition(const QString &partitionName);
 
     JsonDbOwner *getOwner( JsonStream *stream);
     JsonDbOwner *createDummyOwner( JsonStream *stream);
 
+
     QHash<QString, JsonDbPartition *> mPartitions;
     JsonDbPartition *mDefaultPartition;
     JsonDbEphemeralPartition *mEphemeralPartition;
     QMap<QString, JsonDbNotification *> mNotificationMap;
     QMultiMap<QString, JsonDbNotification *> mKeyedNotifications;
-    QMap<QString,QSet<QString> >     mEagerViewSourceTypes; // set of eager view types dependent on this source type
-    QMap<QString,QSet<QString> >     mEagerViewsToUpdate;   // by partitionName, used by updateEagerViews();
-    QMap<QString, JsonDbUpdateList>  mPartitionChanges;     // by partitionName
+    class EdgeCount {
+    public:
+        EdgeCount() : count(0){};
+        int count;
+        bool operator >(int val) const { return count > val; }
+        bool operator ==(int val) const { return count == val; }
+        EdgeCount &operator +=(int delta) { count += delta; if (count < 0) count = 0; return *this; }
+    };
+    typedef QHash<QString, EdgeCount>        ViewEdgeWeights;
+    typedef QHash<QString, ViewEdgeWeights>  WeightedSourceViewGraph;
+    QHash<QString, WeightedSourceViewGraph>  mEagerViewSourceGraph; // per partition graph with weighted edges from source to target types
     quint16                          mTcpServerPort;
     QLocalServer                    *mServer;
     QTcpServer                      *mTcpServer;
