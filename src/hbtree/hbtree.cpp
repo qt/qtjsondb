@@ -2438,14 +2438,47 @@ bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
     HBTREE_DEBUG("last key/value was - " << cursor->key_ << cursor->value_);
 
     NodeKey nkey(compareFunction_, cursor->key_);
-
     NodePage *page = 0;
-    if (!searchPage(cursor, cursor->transaction_, nkey, SearchKey, false, &page))
+    Node node;
+    bool ok = false;
+    bool checkLeft = false;
+
+    if (cursor->lastLeaf_ != PageInfo::INVALID_PAGE && !cursorDisrupted_) {
+        page = static_cast<NodePage *>(getPage(cursor->lastLeaf_));
+        if (page) {
+            node = page->nodes.lowerBound(nkey);
+            if (node != page->nodes.constBegin()) {
+                if (node.key() < nkey) {
+                    ok = true;
+                } else {
+                    --node;
+                    ok = true;
+                }
+            } else {
+                if (node.key() < nkey) {
+                    ok = true;
+                } else {
+                    page = 0;
+                    checkLeft = true;
+                }
+            }
+        }
+    }
+
+    if (!page && !searchPage(cursor, cursor->transaction_, nkey, SearchKey, false, &page))
         return false;
 
-    Node node = page->nodes.find(nkey);
-    if (node == page->nodes.constBegin()) {
+    if (!ok && !checkLeft) {
+        node = page->nodes.lowerBound(nkey);
+        checkLeft = node == page->nodes.constBegin() && node.key() >= nkey;
+        ok = !checkLeft;
+        if (!checkLeft)
+            --node;
+    }
+
+    if (checkLeft) {
         HBTREE_DEBUG("moving left from" << page->info << "to" << page->leftPageNumber);
+        cursor->lastLeaf_ = PageInfo::INVALID_PAGE;
         if (page->leftPageNumber != PageInfo::INVALID_PAGE) {
             NodePage *left = static_cast<NodePage *>(getPage(page->leftPageNumber));
             if (left->nodes.size() > 1)
@@ -2453,18 +2486,16 @@ bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
             else
                 node = left->nodes.constBegin();
             if (node != left->nodes.constEnd()) {
-                if (keyOut)
-                    *keyOut = node.key().data;
-                if (valueOut)
-                    *valueOut = getDataFromNode(node.value());
-                return true;
+                ok = true;
             } else {
                 // This should never happen if rebalancing is working properly
                 HBTREE_ASSERT(0)(*left)(node)(*page).message("what up?");
+                ok = false;
             }
         }
-    } else {
-        --node;
+    }
+
+    if (ok) {
         if (keyOut)
             *keyOut = node.key().data;
         if (valueOut)

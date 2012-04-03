@@ -90,6 +90,9 @@ private slots:
     void cursorNext_data();
     void cursorNext();
 
+    void cursorPrevious_data();
+    void cursorPrevious();
+
 private:
 
     HBtree *hybridDb;
@@ -512,6 +515,65 @@ void TestBtrees::cursorNext()
             QBtreeTxn *txn = appendOnlyDb->beginRead();
             QBtreeCursor cursor(txn);
             while (cursor.next()) {
+                QByteArray key;
+                QByteArray val;
+                cursor.current(&key, &val);
+                QCOMPARE(val, values[key]);
+            }
+            txn->abort();
+        }
+    }
+}
+
+void TestBtrees::cursorPrevious_data()
+{
+    QTest::addColumn<int>("btreeType");
+    QTest::newRow(hybridDataTag) << (int)Hybrid;
+    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+}
+
+void TestBtrees::cursorPrevious()
+{
+    QFETCH(int, btreeType);
+    int numItems = 1000;
+
+    QMap<QByteArray, QByteArray> values;
+    if (btreeType == Hybrid) {
+        HBtreeTransaction *txn = hybridDb->beginWrite();
+        QVERIFY(txn);
+        for (int i = 0; i < numItems; i++) {
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+            values.insert(key, value);
+        }
+        QVERIFY(txn->commit(0));
+    } else if (btreeType == AppendOnly) {
+        QBtreeTxn *txn = appendOnlyDb->beginWrite();
+        QVERIFY(txn);
+        for (int i = 0; i < numItems; i++) {
+            QByteArray key = QByteArray::number(i);
+            QByteArray value = QByteArray::number(i);
+            QVERIFY(txn->put(key, value));
+            values.insert(key, value);
+        }
+        QVERIFY(txn->commit(0));
+    }
+
+
+    if (btreeType == Hybrid) {
+        QBENCHMARK {
+            HBtreeTransaction *txn = hybridDb->beginRead();
+            HBtreeCursor cursor(txn);
+            while (cursor.previous())
+                QCOMPARE(cursor.key(), values[cursor.key()]);
+            txn->abort();
+        }
+    } else if (btreeType == AppendOnly) {
+        QBENCHMARK {
+            QBtreeTxn *txn = appendOnlyDb->beginRead();
+            QBtreeCursor cursor(txn);
+            while (cursor.previous()) {
                 QByteArray key;
                 QByteArray val;
                 cursor.current(&key, &val);
