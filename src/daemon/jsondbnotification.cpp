@@ -57,9 +57,11 @@ JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, const QString &
     : mOwner(owner)
     , mUuid(uuid)
     , mQuery(query)
+    , mCompiledQuery(NULL)
     , mActions(None)
     , mPartition(partition)
     , mInitialStateNumber(0)
+    , mLastStateNumber(0)
 {
     foreach (QString s, actions) {
         if (s == JsonDbString::kCreateStr)
