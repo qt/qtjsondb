@@ -4147,6 +4147,13 @@ void TestJsonDb::managedBtree()
 
 void TestJsonDb::settings()
 {
+    JsonDbSettings currentSettings;
+    const QMetaObject *metaObject = jsondbSettings->metaObject();
+    for (int i = metaObject->propertyOffset(); i < metaObject->propertyCount(); ++i) {
+        QByteArray property = metaObject->property(i).name();
+        currentSettings.setProperty(property, jsondbSettings->property(property));
+    }
+
     // first explicitly set the values
     jsondbSettings->setRejectStaleUpdates(true);
     jsondbSettings->setDebug(true);
@@ -4209,6 +4216,12 @@ void TestJsonDb::settings()
     QCOMPARE(jsondbSettings->syncInterval(), 6000);
     QCOMPARE(jsondbSettings->indexSyncInterval(), 17000);
     QVERIFY(jsondbSettings->debugQuery());
+
+    // restore settings
+    for (int i = metaObject->propertyOffset(); i < metaObject->propertyCount(); ++i) {
+        QByteArray property = metaObject->property(i).name();
+        jsondbSettings->setProperty(property, currentSettings.property(property));
+    }
 }
 
 QTEST_MAIN(TestJsonDb)
