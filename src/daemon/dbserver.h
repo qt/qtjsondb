@@ -69,6 +69,7 @@ class DBServer : public QObject
     Q_OBJECT
 public:
     DBServer(const QString &fileName, const QString &baseName, QObject *parent = 0);
+    ~DBServer();
     void setTcpServerPort(quint16 port) { mTcpServerPort = port; }
     quint16 tcpServerPort() const { return mTcpServerPort; }
 
@@ -91,6 +92,7 @@ protected slots:
     void receiveMessage(const QJsonObject &document);
     void handleConnectionError();
     void removeConnection();
+    void clearNotifications();
 
     void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
     void objectsUpdated(const JsonDbUpdateList &objects);

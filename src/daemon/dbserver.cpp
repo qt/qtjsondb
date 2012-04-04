@@ -125,6 +125,24 @@ DBServer::DBServer(const QString &filePath, const QString &baseName, QObject *pa
     mOwner->setAllowAll(true);
 }
 
+DBServer::~DBServer()
+{
+    close();
+}
+
+void DBServer::clearNotifications()
+{
+    QMapIterator<QString,JsonDbNotification*> mi(mNotificationMap);
+    while (mi.hasNext()) {
+        delete mi.value();
+        mi.next();
+    }
+    delete mi.value();
+    mNotificationMap.clear();
+    mNotifications.clear();
+    mKeyedNotifications.clear();
+}
+
 void DBServer::sigHUP()
 {
     if (jsondbSettings->debug())
@@ -218,7 +236,7 @@ void DBServer::close()
             partition->compact();
         partition->close();
     }
-
+    clearNotifications();
     QCoreApplication::exit();
 }
 
