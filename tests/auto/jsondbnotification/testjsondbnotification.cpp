@@ -70,6 +70,21 @@ const QString qmlProgramForPartition = QLatin1String(
                 "name: \"com.nokia.shared\";"
             "}");
 
+#define waitForReadyStatus(obj) \
+    { \
+        int status = 0; \
+        while ((status = obj->property("status").toInt()) < 2) { \
+            waitForCallback1(); \
+        } \
+    }
+
+#define waitForCallbackNId(id) \
+    { \
+        waitForCallback1(); \
+        if (id != lastRequestId) \
+            waitForResponse1(id); \
+    }
+
 TestJsonDbNotification::TestJsonDbNotification()
     : mTimedOut(false)
 {
@@ -229,17 +244,14 @@ void TestJsonDbNotification::singleObjectNotifications()
     actionsList.append(2);
     actionsList.append(4);
     notification->qmlElement->setProperty("actions", actionsList);
-    // Wait for Ready Status
-    int status = 0;
-    while ((status = notification->qmlElement->property("status").toInt()) < 2) {
-        waitForCallback1();
-    }
+    waitForReadyStatus(notification->qmlElement);
 
     CallbackData data;
     //Create an object
     QVariantMap item = createObject(__FUNCTION__).toMap();
-    create(item,  "com.nokia.shared");
-    waitForCallback1();
+    int id = create(item,  "com.nokia.shared");
+    waitForCallbackNId(id);
+
     QCOMPARE(callbackData.size(), 1);
     data = callbackData.takeAt(0);
     QCOMPARE(data.action, 1);
@@ -248,15 +260,17 @@ void TestJsonDbNotification::singleObjectNotifications()
     //update the object
     QString newAlphabet = data.result.value("alphabet").toString()+QString("**");
     data.result.insert("alphabet", newAlphabet);
-    update(data.result,  "com.nokia.shared");
-    waitForCallback1();
+    id = update(data.result,  "com.nokia.shared");
+    waitForCallbackNId(id);
+
     QCOMPARE(callbackData.size(), 1);
     data = callbackData.takeAt(0);
     QCOMPARE(data.action, 2);
     QCOMPARE(data.result.value("alphabet").toString(), newAlphabet);
     //Remove the object
-    remove(data.result,  "com.nokia.shared");
-    waitForCallback1();
+    id = remove(data.result,  "com.nokia.shared");
+    waitForCallbackNId(id);
+
     QCOMPARE(callbackData.size(), 1);
     data = callbackData.takeAt(0);
     QCOMPARE(data.action, 4);
@@ -276,20 +290,19 @@ void TestJsonDbNotification::multipleObjectNotifications()
     actionsList.append(2);
     actionsList.append(4);
     notification->qmlElement->setProperty("actions", actionsList);
-    // Wait for Ready Status
-    int status = 0;
-    while ((status = notification->qmlElement->property("status").toInt()) < 2) {
-        waitForCallback1();
-    }
+    waitForReadyStatus(notification->qmlElement);
 
     //Create objects
     QVariantList items = createObjectList(__FUNCTION__, 10).toList();
-    create(items,  "com.nokia.shared");
+    int id = create(items,  "com.nokia.shared");
     for (int i = 0; i<10; i++) {
         waitForCallback1();
         if (callbackData.size() >= 10)
             break;
     }
+    if (id != lastRequestId)
+        waitForResponse1(id);
+
     QCOMPARE(callbackData.size(), 10);
     QVariantList objList;
     for (int i = 0; i<10; i++) {
@@ -304,12 +317,15 @@ void TestJsonDbNotification::multipleObjectNotifications()
     callbackData.clear();
 
     //update the object
-    update(objList,  "com.nokia.shared");
+    id = update(objList,  "com.nokia.shared");
     for (int i = 0; i<10; i++) {
         waitForCallback1();
         if (callbackData.size() >= 10)
             break;
     }
+    if (id != lastRequestId)
+        waitForResponse1(id);
+
     QCOMPARE(callbackData.size(), 10);
     QVariantList lst = objList;
     objList.clear();
@@ -323,12 +339,15 @@ void TestJsonDbNotification::multipleObjectNotifications()
     callbackData.clear();
 
     //Remove the object
-    remove(objList,  "com.nokia.shared");
+    id = remove(objList,  "com.nokia.shared");
     for (int i = 0; i<10; i++) {
         waitForCallback1();
         if (callbackData.size() >= 10)
             break;
     }
+    if (id != lastRequestId)
+        waitForResponse1(id);
+
     QCOMPARE(callbackData.size(), 10);
     for (int i = 0; i<10; i++) {
         QCOMPARE(callbackData[i].action, 4);
@@ -339,7 +358,7 @@ void TestJsonDbNotification::multipleObjectNotifications()
     callbackData.clear();
     deleteComponent(notification);
 }
-/*
+
 void TestJsonDbNotification::createNotification()
 {
     const QString createString = QString("createNotification('[?_type=\"%1\"]');");
@@ -357,18 +376,15 @@ void TestJsonDbNotification::createNotification()
                      this, SLOT(notificationSlot2(QJSValue,Actions,int)));
     QObject::connect(notification, SIGNAL(statusChanged(JsonDbNotify::Status)),
                      this, SLOT(statusChangedSlot2()));
-    // Wait for Ready Status
-    int status = 0;
-    while ((status = notification->property("status").toInt()) < 2) {
-        waitForCallback1();
-    }
+    waitForReadyStatus(notification);
 
 
     CallbackData data;
     //Create an object
     QVariantMap item = createObject(__FUNCTION__).toMap();
-    create(item,  "com.nokia.shared");
-    waitForCallback1();
+    int id = create(item,  "com.nokia.shared");
+    waitForCallbackNId(id);
+
     QCOMPARE(callbackData.size(), 1);
     data = callbackData.takeAt(0);
     QCOMPARE(data.action, 1);
@@ -377,6 +393,6 @@ void TestJsonDbNotification::createNotification()
     delete expr;
     deleteComponent(partition);
 }
-*/
+
 QTEST_MAIN(TestJsonDbNotification)
 

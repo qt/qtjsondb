@@ -41,22 +41,9 @@
 #ifndef JsonDbCachingListModel_Bench_H
 #define JsonDbCachingListModel_Bench_H
 
-#include <QCoreApplication>
-#include <QList>
-#include <QTest>
-#include <QFile>
-#include <QProcess>
-#include <QEventLoop>
-#include <QDebug>
-#include <QLocalSocket>
-#include <QTimer>
-
-#include <jsondb-client.h>
-#include <jsondb-error.h>
-
 #include <QAbstractListModel>
-#include "clientwrapper.h"
-#include "../../shared/qmltestutil.h"
+#include "requestwrapper.h"
+#include "qmltestutil.h"
 
 QT_BEGIN_NAMESPACE
 class QQmlEngine;
@@ -65,22 +52,16 @@ QT_END_NAMESPACE
 
 QT_USE_NAMESPACE_JSONDB
 
-class JsonDbListModel;
-
 class ModelData {
 public:
     ModelData();
     ~ModelData();
     QQmlEngine *engine;
     QQmlComponent *component;
-    QQmlComponent *partitionComponent1;
-    QQmlComponent *partitionComponent2;
     QObject *model;
-    QObject *partition1;
-    QObject *partition2;
 };
 
-class JsonDbCachingListModelBench: public ClientWrapper
+class JsonDbCachingListModelBench: public RequestWrapper
 {
     Q_OBJECT
 public:
@@ -97,9 +78,7 @@ public slots:
     void rowsMoved( const QModelIndex &parent, int start, int end, const QModelIndex &destination, int row );
     void modelReset();
     void stateChanged();
-
     void callbackSlot(QVariant error, QVariant response);
-
 
 protected slots:
     void timeout();
@@ -124,28 +103,23 @@ private:
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);
     void deleteItems(const QString &type, const QString &partition);
+    void resetWaitFlags();
 
 private:
     QProcess *mProcess;
-    QStringList mNotificationsReceived;
     QList<ModelData*> mModels;
     QString mPluginPath;
-    QEventLoop mEventLoop2; // for all listmodel slots
 
     // Response values
-    int mItemsCreated;
-    bool mWaitingForNotification;
-    bool mWaitingForDataChange;
-    bool mWaitingForRowsRemoved;
-    bool mTimeoutCalled;
-    bool mWaitingForReset;
-    bool mWaitingForStateChanged;
-
     bool mTimedOut;
-    bool callbackError;
-    bool mCallbackReceived;
-    QVariant callbackMeta;
-    QVariant callbackResponse;
+    int mItemsCreated;
+    int mItemsUpdated;
+    int mItemsRemoved;
+    bool mWaitingForStateChanged;
+    bool mWaitingForRowsInserted;
+    bool mWaitingForReset;
+    bool mWaitingForChanged;
+    bool mWaitingForRemoved;
 
 };
 

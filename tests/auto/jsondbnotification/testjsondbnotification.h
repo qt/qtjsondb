@@ -71,7 +71,7 @@ private slots:
 
     void singleObjectNotifications();
     void multipleObjectNotifications();
-//    void createNotification();
+    void createNotification();
 
 public slots:
     void notificationSlot(QVariant result, int action, int stateNumber);

@@ -1300,7 +1300,7 @@ void TestJsonDbCachingListModel::waitForItemsRemoved(int items)
     elapsedTimer.start();
 
     while (!mTimedOut && mItemsRemoved != items) {
-        mWaitingForRowsInserted = true;
+        mWaitingForRemoved = true;
         eventLoop1.exec(QEventLoop::AllEvents);
     }
     if (mTimedOut)

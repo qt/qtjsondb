@@ -55,6 +55,7 @@
 
 #include "qjsondbconnection.h"
 #include "qjsondbwriterequest.h"
+#include "qjsondbreadrequest.h"
 
 QT_USE_NAMESPACE_JSONDB
 
@@ -195,10 +196,37 @@ public:
         return request->property("requestId").toInt();
     }
 
+    int query(const QString &queryString, const QString &partitionName = QString())
+    {
+        QJsonDbReadRequest *request = new QJsonDbReadRequest;
+        request->setQuery(queryString);
+        request->setPartition(partitionName);
+        connect(request, SIGNAL(finished()), this, SLOT(onQueryFinished()));
+        connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
+        connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                this, SLOT(onWriteError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                request, SLOT(deleteLater()));
+        connection->send(request);
+        return request->property("requestId").toInt();
+    }
+
 public Q_SLOTS:
     void onWriteFinished()
     {
         QtJsonDb::QJsonDbWriteRequest *request = qobject_cast<QtJsonDb::QJsonDbWriteRequest*>(sender());
+        if (request) {
+            QList<QJsonObject> objects = request->takeResults();
+            QVariantList list;
+            for (int i = 0; i<objects.count(); i++) {
+                list.append(objects[i].toVariantMap());
+            }
+            emit response(request->property("requestId").toInt(), list);
+        }
+    }
+    void onQueryFinished()
+    {
+        QtJsonDb::QJsonDbReadRequest *request = qobject_cast<QtJsonDb::QJsonDbReadRequest*>(sender());
         if (request) {
             QList<QJsonObject> objects = request->takeResults();
             QVariantList list;
@@ -225,7 +253,7 @@ public Q_SLOTS:
     }
     void onError(int id, int code, const QString &message)
     {
-        qDebug() << "onError" << id;
+        qDebug() << "onError" << id << code << message;
         lastRequestId = id;
         lastErrorCode = code;
         lastErrorMessage = message;

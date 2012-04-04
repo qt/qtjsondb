@@ -3,7 +3,7 @@ TARGET = tst_bench_jsondbsortinglistmodel
 DEPENDPATH += .
 INCLUDEPATH += .
 
-QT = core network testlib gui qml jsondbcompat-private
+QT = core network testlib gui qml jsondb
 CONFIG -= app_bundle
 CONFIG += testcase
 
@@ -12,5 +12,6 @@ include($$PWD/../../shared/shared.pri)
 DEFINES += JSONDB_DAEMON_BASE=\\\"$$QT.jsondb.bins\\\"
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
-HEADERS += jsondbsortinglistmodel-bench.h
+HEADERS += jsondbsortinglistmodel-bench.h \
+            $$PWD/../../shared/requestwrapper.h
 SOURCES += jsondbsortinglistmodel-bench.cpp
