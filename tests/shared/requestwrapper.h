@@ -72,35 +72,15 @@ QT_USE_NAMESPACE_JSONDB
     QObject::connect(&timer, SIGNAL(timeout()), eventLoop, SLOT(quit())); \
     timer.start(clientTimeout);                                       \
     elapsedTimer.start(); \
-    eventLoop->exec(QEventLoop::AllEvents); \
-    eventLoop = 0; \
-    if (givenid_ != -1) QVERIFY2((lastRequestId!=-1), "Failed to receive an answer from the db server"); \
-    if (givenid_ != -1) QCOMPARE(lastRequestId, givenid_); \
-}
-
-#define waitForResponseUntilId(eventloop_, id_) \
-{ \
-    int givenid_ = (id_); \
-    lastRequestId = -1; \
-    lastResult.clear(); \
-    lastErrorCode = 0; \
-    lastErrorMessage.clear(); \
-    eventLoop = &eventloop_; \
-    \
-    QTimer timer; \
-    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout())); \
-    QObject::connect(&timer, SIGNAL(timeout()), eventLoop, SLOT(quit())); \
-    timer.start(clientTimeout);                                       \
-    elapsedTimer.start(); \
-    while (lastRequestId != givenid_) \
+    do { \
         eventLoop->exec(QEventLoop::AllEvents); \
+    } while (lastRequestId < givenid_); \
     eventLoop = 0; \
     if (givenid_ != -1) QVERIFY2((lastRequestId!=-1), "Failed to receive an answer from the db server"); \
     if (givenid_ != -1) QCOMPARE(lastRequestId, givenid_); \
 }
 
 #define waitForResponse1(id) waitForResponse(eventLoop1, id)
-#define waitForResponseUntil(id) waitForResponseUntilId(eventLoop1, id)
 
 #define waitForCallbackGeneric(eventloop) \
 { \

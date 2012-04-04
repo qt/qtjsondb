@@ -250,7 +250,7 @@ void TestJsonDbQueryObject::multipleObjects()
     index.insert("propertyName", "pos");
     index.insert("propertyType", "number");
     int id = create(index, "com.nokia.shared");
-    waitForResponseUntil(id);
+    waitForResponse1(id);
 
     const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
     queryObject->qmlElement->setProperty("query", queryString);
@@ -299,7 +299,7 @@ void TestJsonDbQueryObject::createQuery()
     //Create an object
     QVariantMap item = createObject(__FUNCTION__).toMap();
     int id = create(item,  "com.nokia.shared");
-    waitForResponseUntil(id);
+    waitForResponse1(id);
 
     QMetaObject::invokeMethod(currentQmlElement, "start", Qt::DirectConnection);
     callbackData.clear();
@@ -321,7 +321,7 @@ void TestJsonDbQueryObject::queryWithoutPartition()
     index.insert("propertyName", "pos");
     index.insert("propertyType", "number");
     int id = create(index);
-    waitForResponseUntil(id);
+    waitForResponse1(id);
 
     const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
     queryObject->qmlElement->setProperty("query", queryString);
@@ -423,7 +423,7 @@ void TestJsonDbQueryObject::queryLimit()
     index.insert("propertyName", "pos");
     index.insert("propertyType", "number");
     int id = create(index, "com.nokia.shared");
-    waitForResponseUntil(id);
+    waitForResponse1(id);
 
     const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
     queryObject->qmlElement->setProperty("query", queryString);

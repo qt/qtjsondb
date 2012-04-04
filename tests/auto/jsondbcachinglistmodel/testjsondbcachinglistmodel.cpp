@@ -360,7 +360,7 @@ void TestJsonDbCachingListModel::updateItemClient()
 
     mItemsUpdated = 0;
     id = update(item, "com.nokia.shared.1");
-    waitForResponseUntil(id);
+    waitForResponse1(id);
     while (!mItemsUpdated) {
         mWaitingForChanged = true;
         waitForExitOrTimeout();
@@ -382,7 +382,7 @@ void TestJsonDbCachingListModel::deleteItem()
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Charlie");
     int id = create(item, "com.nokia.shared.1");
-    waitForResponseUntil(id);
+    waitForResponse1(id);
 
     QAbstractListModel *listModel = createModel();
     if (!listModel) return;
@@ -402,7 +402,7 @@ void TestJsonDbCachingListModel::deleteItem()
     item.insert("name", "Baker");
     mItemsCreated = 0;
     id = create(item, "com.nokia.shared.2");
-    waitForResponseUntil(id);
+    waitForResponse1(id);
     waitForItemsCreated(1);
 
     QCOMPARE(listModel->rowCount(), 2);
@@ -417,7 +417,7 @@ void TestJsonDbCachingListModel::deleteItem()
     item.insert("_uuid", lastUuid);
     mItemsRemoved = 0;
     id = remove(item, "com.nokia.shared.2");
-    waitForResponseUntil(id);
+    waitForResponse1(id);
 
     while (!mItemsRemoved) {
         mWaitingForRemoved = true;
@@ -509,7 +509,7 @@ void TestJsonDbCachingListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("ordering", QString::number(i));
         int id = create(item, "com.nokia.shared.2");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
     }
 
     QAbstractListModel *listModel = createModel();
@@ -544,7 +544,7 @@ void TestJsonDbCachingListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("ordering", "99");  // move it to the end
         int id = update(item, "com.nokia.shared.2");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
     }
 
     while (!mItemsUpdated) {
@@ -567,7 +567,7 @@ void TestJsonDbCachingListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("ordering", "22");    // move it after "2"
         int id = update(item, "com.nokia.shared.2");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
     }
     while (!mItemsUpdated) {
         mWaitingForChanged = true;
@@ -589,7 +589,7 @@ void TestJsonDbCachingListModel::ordering()
         item.insert("name", "Charlie");
         item.insert("ordering", "0");    // move it to the beginning
         int id = update(item, "com.nokia.shared.2");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
     }
     while (!mItemsUpdated) {
         mWaitingForChanged = true;
@@ -668,7 +668,7 @@ void TestJsonDbCachingListModel::checkRemoveNotification()
         item.insert("_version", version);
         mItemsRemoved = 0;
         id = remove(item, "com.nokia.shared.2");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
         waitForItemsRemoved(1);
         QCOMPARE(listModel->rowCount(), 49);
 
@@ -683,7 +683,7 @@ void TestJsonDbCachingListModel::checkRemoveNotification()
         item.insert("_version", version);
         mItemsRemoved = 0;
         id = remove(item, "com.nokia.shared.2");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
         waitForItemsRemoved(1);
         QCOMPARE(listModel->rowCount(), 48);
         result = getIndex(listModel, 9, 4);
@@ -697,7 +697,7 @@ void TestJsonDbCachingListModel::checkRemoveNotification()
         item.insert("_version", version);
         mItemsRemoved = 0;
         id = remove(item, "com.nokia.shared.2");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
         waitForItemsRemoved(1);
         QCOMPARE(listModel->rowCount(), 47);
         result = getIndex(listModel, 4, 4);
@@ -759,7 +759,7 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("order", 1);
         mItemsUpdated = 0;
         id = update(item, "com.nokia.shared.1");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
         while (!mItemsUpdated) {
             mWaitingForChanged = true;
             waitForExitOrTimeout();
@@ -784,7 +784,7 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("order", 19);
         mItemsUpdated = 0;
         id = update(item,"com.nokia.shared.1");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
         while (!mItemsUpdated) {
             mWaitingForChanged = true;
             waitForExitOrTimeout();
@@ -800,7 +800,7 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("order", 19);
         mItemsUpdated = 0;
         id = update(item,"com.nokia.shared.1");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
         while (!mItemsUpdated) {
             mWaitingForChanged = true;
             waitForExitOrTimeout();
@@ -825,7 +825,7 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("order", 59);
         mItemsUpdated = 0;
         id = update(item, "com.nokia.shared.1");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
         while (!mItemsUpdated) {
             mWaitingForChanged = true;
             waitForExitOrTimeout();
@@ -849,7 +849,7 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("order", 17);
         mItemsUpdated = 0;
         id = update(item, "com.nokia.shared.1");
-        waitForResponseUntil(id);
+        waitForResponse1(id);
         while (!mItemsUpdated) {
             mWaitingForChanged = true;
             waitForExitOrTimeout();
