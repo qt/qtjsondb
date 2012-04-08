@@ -80,8 +80,8 @@ void JsonDbView::open()
     QFileInfo fi(mPartition->filename());
     QString dirName = fi.dir().path();
     QString baseName = fi.fileName();
-    baseName.replace(".db", "");
-    if (!mViewObjectTable->open(QString("%1/%2-%3-View.db")
+    baseName.replace(QStringLiteral(".db"), QStringLiteral(""));
+    if (!mViewObjectTable->open(QString::fromLatin1("%1/%2-%3-View.db")
                                .arg(dirName)
                                .arg(baseName)
                                .arg(mViewType))) {
@@ -105,7 +105,7 @@ void JsonDbView::initViews(JsonDbPartition *partition)
 
         for (int i = 0; i < mrdList.size(); ++i) {
             JsonDbObject mrd = mrdList.at(i);
-            JsonDbView *view = partition->addView(mrd.value("targetType").toString());
+            JsonDbView *view = partition->addView(mrd.value(QStringLiteral("targetType")).toString());
             view->createMapDefinition(mrd);
         }
     }
@@ -114,7 +114,7 @@ void JsonDbView::initViews(JsonDbPartition *partition)
 
         for (int i = 0; i < mrdList.size(); ++i) {
             JsonDbObject mrd = mrdList.at(i);
-            JsonDbView *view = partition->addView(mrd.value("targetType").toString());
+            JsonDbView *view = partition->addView(mrd.value(QStringLiteral("targetType")).toString());
             view->createReduceDefinition(mrd);
         }
     }
@@ -123,7 +123,7 @@ void JsonDbView::initViews(JsonDbPartition *partition)
 void JsonDbView::createDefinition(JsonDbPartition *partition, QJsonObject definition)
 {
     QString definitionType = definition.value(JsonDbString::kTypeStr).toString();
-    QString targetType = definition.value("targetType").toString();
+    QString targetType = definition.value(QStringLiteral("targetType")).toString();
     JsonDbView *view = partition->findView(targetType);
      if (!view)
         return;
@@ -137,7 +137,7 @@ void JsonDbView::createDefinition(JsonDbPartition *partition, QJsonObject defini
 void JsonDbView::removeDefinition(JsonDbPartition *partition, QJsonObject definition)
 {
     QString definitionType = definition.value(JsonDbString::kTypeStr).toString();
-    QString targetType = definition.value("targetType").toString();
+    QString targetType = definition.value(QStringLiteral("targetType")).toString();
     JsonDbView *view = partition->findView(targetType);
      if (!view)
         return;
@@ -153,7 +153,7 @@ void JsonDbView::removeDefinition(JsonDbPartition *partition, QJsonObject defini
 
 void JsonDbView::createMapDefinition(QJsonObject mapDefinition)
 {
-    QString targetType = mapDefinition.value("targetType").toString();
+    QString targetType = mapDefinition.value(QStringLiteral("targetType")).toString();
     QString uuid = mapDefinition.value(JsonDbString::kUuidStr).toString();
     if (jsondbSettings->verbose())
         qDebug() << "createMapDefinition" << uuid << targetType << "{";
@@ -176,7 +176,7 @@ void JsonDbView::createMapDefinition(QJsonObject mapDefinition)
 
 void JsonDbView::removeMapDefinition(QJsonObject mapDefinition)
 {
-    QString targetType = mapDefinition.value("targetType").toString();
+    QString targetType = mapDefinition.value(QStringLiteral("targetType")).toString();
     QString uuid = mapDefinition.value(JsonDbString::kUuidStr).toString();
     if (jsondbSettings->verbose())
         qDebug() << "removeMapDefinition" << uuid << targetType << "{";
@@ -198,8 +198,8 @@ void JsonDbView::removeMapDefinition(QJsonObject mapDefinition)
 
 void JsonDbView::createReduceDefinition(QJsonObject reduceDefinition)
 {
-    QString targetType = reduceDefinition.value("targetType").toString();
-    QString sourceType = reduceDefinition.value("sourceType").toString();
+    QString targetType = reduceDefinition.value(QStringLiteral("targetType")).toString();
+    QString sourceType = reduceDefinition.value(QStringLiteral("sourceType")).toString();
     if (jsondbSettings->debug())
         qDebug() << "createReduceDefinition" << sourceType << targetType << sourceType << "{";
 
@@ -217,8 +217,8 @@ void JsonDbView::createReduceDefinition(QJsonObject reduceDefinition)
 
 void JsonDbView::removeReduceDefinition(QJsonObject reduceDefinition)
 {
-    QString targetType = reduceDefinition.value("targetType").toString();
-    QString sourceType = reduceDefinition.value("sourceType").toString();
+    QString targetType = reduceDefinition.value(QStringLiteral("targetType")).toString();
+    QString sourceType = reduceDefinition.value(QStringLiteral("sourceType")).toString();
     QString uuid = reduceDefinition.value(JsonDbString::kUuidStr).toString();
 
     if (jsondbSettings->verbose())
@@ -467,14 +467,14 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
             qDebug() << "definition change" << change;
         if (action != JsonDbNotification::Create) {
             if (limitTypes.contains(beforeType)
-                && (before.value("targetType").toString() == viewType)) {
+                && (before.value(QStringLiteral("targetType")).toString() == viewType)) {
                 if (!inTransaction) {
                     mViewObjectTable->begin();
                     inTransaction = true;
                 }
                 definitionUuid = before.value(JsonDbString::kUuidStr).toString();
                 QString definitionType = before.value(JsonDbString::kTypeStr).toString();
-                QString targetType = before.value("targetType").toString();
+                QString targetType = before.value(QStringLiteral("targetType")).toString();
                 if (definitionType == JsonDbString::kMapTypeStr)
                     JsonDbMapDefinition::definitionRemoved(mPartition, mViewObjectTable, targetType, definitionUuid);
                 else
@@ -483,7 +483,7 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
         }
         if (action != JsonDbNotification::Delete) {
             if ((limitTypes.contains(afterType))
-                && (after.value("targetType").toString() == viewType)) {
+                && (after.value(QStringLiteral("targetType")).toString() == viewType)) {
                 if (!inTransaction) {
                     mViewObjectTable->begin();
                     inTransaction = true;

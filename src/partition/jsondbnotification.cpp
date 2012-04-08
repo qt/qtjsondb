@@ -68,7 +68,7 @@ JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, const QString &
             mActions |= Create;
         else if (s == JsonDbString::kUpdateStr)
             mActions |= Update;
-        else if ((s == "delete") || (s == JsonDbString::kRemoveStr))
+        else if (s == QLatin1String("delete") || s == JsonDbString::kRemoveStr)
             mActions |= Delete;
     }
 }

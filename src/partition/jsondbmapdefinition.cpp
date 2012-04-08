@@ -70,21 +70,21 @@ JsonDbMapDefinition::JsonDbMapDefinition(const JsonDbOwner *owner, JsonDbPartiti
     , mDefinition(definition)
     , mScriptEngine(0)
     , mUuid(definition.value(JsonDbString::kUuidStr).toString())
-    , mTargetType(definition.value("targetType").toString())
+    , mTargetType(definition.value(QStringLiteral("targetType")).toString())
     , mTargetTable(mPartition->findObjectTable(mTargetType))
 {
     mMapId = mUuid;
-    mMapId.replace(QRegExp("[-{}]"), "$");
-    QJsonObject sourceFunctions(mDefinition.contains("join")
-                                ? mDefinition.value("join").toObject()
-                                : mDefinition.value("map").toObject());
+    mMapId.replace(QRegExp(QStringLiteral("[-{}]")), QStringLiteral("$"));
+    QJsonObject sourceFunctions(mDefinition.contains(QStringLiteral("join"))
+                                ? mDefinition.value(QStringLiteral("join")).toObject()
+                                : mDefinition.value(QStringLiteral("map")).toObject());
     mSourceTypes = sourceFunctions.keys();
     for (int i = 0; i < mSourceTypes.size(); i++) {
         const QString &sourceType = mSourceTypes[i];
         mSourceTables[sourceType] = mPartition->findObjectTable(sourceType);
     }
-    if (mDefinition.contains("targetKeyName"))
-        mTargetKeyName = mDefinition.value("targetKeyName").toString();
+    if (mDefinition.contains(QStringLiteral("targetKeyName")))
+        mTargetKeyName = mDefinition.value(QStringLiteral("targetKeyName")).toString();
 }
 
 void JsonDbMapDefinition::definitionCreated()
@@ -146,28 +146,28 @@ void JsonDbMapDefinition::initScriptEngine()
 bool JsonDbMapDefinition::compileMapFunctions(QJSEngine *scriptEngine, QJsonObject definition, JsonDbJoinProxy *joinProxy, QMap<QString,QJSValue> &mapFunctions, QString &message)
 {
     bool status = true;
-    QJsonObject sourceFunctions(definition.contains("join")
-                                ? definition.value("join").toObject()
-                                : definition.value("map").toObject());
+    QJsonObject sourceFunctions(definition.contains(QStringLiteral("join"))
+                                ? definition.value(QStringLiteral("join")).toObject()
+                                : definition.value(QStringLiteral("map")).toObject());
     QJSValue svJoinProxyValue = joinProxy ? scriptEngine->newQObject(joinProxy) : QJSValue(QJSValue::UndefinedValue);
     for (QJsonObject::const_iterator it = sourceFunctions.begin(); it != sourceFunctions.end(); ++it) {
         const QString &sourceType = it.key();
         const QString &script = it.value().toString();
         QString jsonDbBinding;
-        if (definition.contains("join"))
+        if (definition.contains(QStringLiteral("join")))
             // only joins can use lookup()
-            jsonDbBinding = QString("{ emit: proxy.create, lookup: proxy.lookup, createUuidFromString: proxy.createUuidFromString}");
+            jsonDbBinding = QStringLiteral("{ emit: proxy.create, lookup: proxy.lookup, createUuidFromString: proxy.createUuidFromString}");
         else
-            jsonDbBinding = QString("{ emit: proxy.create, createUuidFromString: proxy.createUuidFromString }");
+            jsonDbBinding = QStringLiteral("{ emit: proxy.create, createUuidFromString: proxy.createUuidFromString }");
 
         // first, package it as a function that takes a jsondb proxy and returns the map function
         QJSValue moduleFunction =
-            scriptEngine->evaluate(QString("(function (proxy) { var jsondb=%3; map_%1 = (%2); return map_%1; })")
-                                   .arg(QString(sourceType).replace(".", "_"))
+            scriptEngine->evaluate(QString::fromLatin1("(function (proxy) { var jsondb=%3; map_%1 = (%2); return map_%1; })")
+                                   .arg(QString(sourceType).replace(QLatin1Char('.'), QLatin1Char('_')))
                                    .arg(script)
                                    .arg(jsonDbBinding));
         if (moduleFunction.isError() || !moduleFunction.isCallable()) {
-            message = QString( "Unable to parse map function: " + moduleFunction.toString());
+            message = QString::fromLatin1("Unable to parse map function: %1").arg(moduleFunction.toString());
             status = false;
         }
 
@@ -176,7 +176,7 @@ bool JsonDbMapDefinition::compileMapFunctions(QJSEngine *scriptEngine, QJsonObje
         args << svJoinProxyValue;
         QJSValue mapFunction = moduleFunction.call(args);
         if (moduleFunction.isError() || !moduleFunction.isCallable()) {
-            message = QString( "Unable to evaluate map function: " + moduleFunction.toString());
+            message = QString::fromLatin1("Unable to evaluate map function: %1").arg(moduleFunction.toString());
             status = false;
         }
         mapFunctions[sourceType] = mapFunction;
@@ -204,7 +204,7 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
 
     if (!beforeObject.isEmpty()) {
         QJsonValue uuid = beforeObject.value(JsonDbString::kUuidStr);
-        GetObjectsResult getObjectResponse = mTargetTable->getObjects("_sourceUuids.*", uuid, mTargetType);
+        GetObjectsResult getObjectResponse = mTargetTable->getObjects(QStringLiteral("_sourceUuids.*"), uuid, mTargetType);
         foreach (const JsonDbObject &unmappedObject, getObjectResponse.data) {
             QString uuid = unmappedObject.value(JsonDbString::kUuidStr).toString();
             unmappedObjects[uuid] = unmappedObject;
@@ -252,7 +252,7 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
 
     JsonDbWriteResult res = mPartition->updateObjects(mOwner, objectsToUpdate, JsonDbPartition::ViewObject, changeList);
     if (res.code != JsonDbError::NoError)
-        setError("Error creating view object: " + res.message);
+        setError(QString::fromLatin1("Error creating view object: %1").arg(res.message));
 }
 
 QJSValue JsonDbMapDefinition::mapFunction(const QString &sourceType) const
@@ -279,14 +279,14 @@ void JsonDbMapDefinition::mapObject(JsonDbObject object)
     mapped = mapFunction(sourceType).call(mapArgs);
 
     if (mapped.isError())
-        setError("Error executing map function: " + mapped.toString());
+        setError(QString::fromLatin1("Error executing map function: %1").arg(mapped.toString()));
 }
 
 void JsonDbMapDefinition::unmapObject(const JsonDbObject &object)
 {
     Q_ASSERT(object.value(JsonDbString::kUuidStr).type() == QJsonValue::String);
     QJsonValue uuid = object.value(JsonDbString::kUuidStr);
-    GetObjectsResult getObjectResponse = mTargetTable->getObjects("_sourceUuids.*", uuid, mTargetType);
+    GetObjectsResult getObjectResponse = mTargetTable->getObjects(QStringLiteral("_sourceUuids.*"), uuid, mTargetType);
     JsonDbObjectList dependentObjects = getObjectResponse.data;
 
     for (int i = 0; i < dependentObjects.size(); i++) {
@@ -301,22 +301,22 @@ void JsonDbMapDefinition::unmapObject(const JsonDbObject &object)
 
 void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue &context)
 {
-    QString objectType = query.property("objectType").toString();
+    QString objectType = query.property(QStringLiteral("objectType")).toString();
     // compatibility for old style maps
-    if (mDefinition.value("map").isObject()) {
+    if (mDefinition.value(QStringLiteral("map")).isObject()) {
         if (objectType.isEmpty()) {
-            setError("No objectType provided to jsondb.lookup");
+            setError(QStringLiteral("No objectType provided to jsondb.lookup"));
             return;
         }
         if (!mSourceTypes.contains(objectType)) {
-            setError(QString("lookup requested for type %1 not in source types: %2")
+            setError(QString::fromLatin1("lookup requested for type %1 not in source types: %2")
                      .arg(objectType)
-                     .arg(mSourceTypes.join(", ")));
+                     .arg(mSourceTypes.join(QStringLiteral(", "))));
             return;
         }
     }
-    QString findKey = query.property("index").toString();
-    QJSValue findValue = query.property("value");
+    QString findKey = query.property(QStringLiteral("index")).toString();
+    QJSValue findValue = query.property(QStringLiteral("value"));
     GetObjectsResult getObjectResponse =
         mPartition->getObjects(findKey, JsonDbScriptEngine::fromJSValue(findValue), objectType, false);
     if (!getObjectResponse.error.isNull()) {
@@ -342,7 +342,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
         QJSValue mapped = mMapFunctions[objectType].call(mapArgs);
 
         if (mapped.isError())
-            setError("Error executing map function during lookup: " + mapped.toString());
+            setError(QString::fromLatin1("Error executing map function during lookup: %1").arg(mapped.toString()));
 
         mSourceUuids.removeOne(uuid);
     }
@@ -356,7 +356,7 @@ void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
     QJsonArray sourceUuidArray;
     foreach (const QString &sourceUuid, mSourceUuids)
         sourceUuidArray.append(sourceUuid);
-    newItem.insert("_sourceUuids", sourceUuidArray);
+    newItem.insert(QStringLiteral("_sourceUuids"), sourceUuidArray);
 
     if (!newItem.contains(JsonDbString::kUuidStr)) {
         if (newItem.contains(QLatin1String("_id")))
@@ -367,12 +367,12 @@ void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
                 targetKeyString = JsonDbObject(newItem).propertyLookup(mTargetKeyName).toString();
 
             // colon separated sorted source uuids
-            QString sourceUuidString = mSourceUuids.join(":");
+            QString sourceUuidString = mSourceUuids.join(QStringLiteral(":"));
             QString identifier =
-                QString("%1:%2%3%4")
+                QString::fromLatin1("%1:%2%3%4")
                 .arg(mTargetType)
                 .arg(sourceUuidString)
-                .arg(targetKeyString.isEmpty() ? "" : ":")
+                .arg(targetKeyString.isEmpty() ? QStringLiteral("") : QStringLiteral(":"))
                 .arg(targetKeyString);
             newItem.insert(JsonDbString::kUuidStr,
                            JsonDbObject::createUuidFromString(identifier).toString());
@@ -399,7 +399,7 @@ void JsonDbMapDefinition::setError(const QString &errorMsg)
 bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message)
 {
     message.clear();
-    QString targetType = map.value("targetType").toString();
+    QString targetType = map.value(QStringLiteral("targetType")).toString();
     QString uuid = map.value(JsonDbString::kUuidStr).toString();
     JsonDbView *view = partition->findView(targetType);
     QStringList sourceTypes;
@@ -410,8 +410,8 @@ bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPart
         message = QLatin1Literal("sourceType property for Map no longer supported");
     } else if (!view) {
         message = QLatin1Literal("targetType must be of a type that extends View");
-    } else if (map.contains("join")) {
-        QJsonObject sourceFunctions = map.value("join").toObject();
+    } else if (map.contains(QStringLiteral("join"))) {
+        QJsonObject sourceFunctions = map.value(QStringLiteral("join")).toObject();
 
         if (sourceFunctions.isEmpty())
             message = QLatin1Literal("sourceTypes and functions for Map with join not specified");
@@ -420,18 +420,17 @@ bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPart
 
         foreach (const QString &sourceType, sourceTypes) {
             if (sourceFunctions.value(sourceType).toString().isEmpty())
-                message = QString("join function for source type '%1' not specified for Map").arg(sourceType);
+                message = QString::fromLatin1("join function for source type '%1' not specified for Map").arg(sourceType);
             if (view->mMapDefinitionsBySource.contains(sourceType)
                 && view->mMapDefinitionsBySource.value(sourceType)->uuid() != uuid)
-                message =
-                  QString("duplicate Map definition on source %1 and target %2")
-                    .arg(sourceType).arg(targetType);
+                message =  QString::fromLatin1("duplicate Map definition on source %1 and target %2")
+                        .arg(sourceType).arg(targetType);
         }
 
-        if (map.contains("map"))
+        if (map.contains(QStringLiteral("map")))
             message = QLatin1Literal("Map 'join' and 'map' options are mutually exclusive");
     } else {
-        QJsonValue mapValue = map.value("map");
+        QJsonValue mapValue = map.value(QStringLiteral("map"));
         if (!mapValue.isObject())
             message = QLatin1String("sourceType property for Map not specified");
         else if (!mapValue.isString() && !mapValue.isObject())
@@ -448,12 +447,11 @@ bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPart
 
             foreach (const QString &sourceType, sourceTypes) {
                 if (sourceFunctions.value(sourceType).toString().isEmpty())
-                    message = QString("map function for source type '%1' not specified for Map").arg(sourceType);
+                    message = QString::fromLatin1("map function for source type '%1' not specified for Map").arg(sourceType);
                 if (view->mMapDefinitionsBySource.contains(sourceType)
                     && view->mMapDefinitionsBySource.value(sourceType)->uuid() != uuid)
-                    message =
-                      QString("duplicate Map definition on source %1 and target %2")
-                        .arg(sourceType).arg(targetType);
+                    message = QString::fromLatin1("duplicate Map definition on source %1 and target %2")
+                            .arg(sourceType).arg(targetType);
             }
         }
     }

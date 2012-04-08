@@ -117,7 +117,7 @@ public:
     void flushCaches();
     bool addIndex(const QString &indexName,
                   const QString &propertyName,
-                  const QString &propertyType = QString("string"),
+                  const QString &propertyType = QStringLiteral("string"),
                   const QStringList &objectTypes = QStringList(),
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),

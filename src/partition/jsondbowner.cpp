@@ -90,20 +90,20 @@ void JsonDbOwner::setAllowedObjects(const QString &partition, const QString &op,
 void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDbPartition *partition)
 {
     QJsonObject request;
-    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QString("Capability"));
+    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QStringLiteral("Capability"));
     JsonDbObjectList translations = result.data;
     //qDebug() << "JsonDbOwner::setCapabilities" << "translations" << translations;
 
     QMap<QString, QSet<QString> > allowedObjects;
-    const QStringList ops = (QStringList() << "read" << "write" << "setOwner");
+    const QStringList ops = (QStringList() << QStringLiteral("read") << QStringLiteral("write") << QStringLiteral("setOwner"));
 
     for (int i = 0; i < translations.size(); ++i) {
         JsonDbObject translation = translations.at(i);
-        QString name = translation.value("name").toString();
-        QString partition = translation.value("partition").toString();
-        partition = partition.replace("%owner", ownerId());
+        QString name = translation.value(QStringLiteral("name")).toString();
+        QString partition = translation.value(QStringLiteral("partition")).toString();
+        partition = partition.replace(QStringLiteral("%owner"), ownerId());
         if (applicationCapabilities.contains(name)) {
-            QJsonObject accessRules = translation.value("accessRules").toObject();
+            QJsonObject accessRules = translation.value(QStringLiteral("accessRules")).toObject();
             QVariantList accessTypesAllowed =
                 applicationCapabilities.value(name).toArray().toVariantList();
             foreach (QVariant accessTypeAllowed, accessTypesAllowed) {
@@ -223,7 +223,7 @@ bool JsonDbOwner::_setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *par
     }
 
     // Read quota from security object
-    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QString("Quota"));
+    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QStringLiteral("Quota"));
     JsonDbObjectList securityObjects;
     for (int i = 0; i < result.data.size(); i++) {
         JsonDbObject doc = result.data.at(i);
@@ -232,11 +232,11 @@ bool JsonDbOwner::_setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *par
     }
     if (securityObjects.size() == 1) {
         QJsonObject securityObject = securityObjects.at(0);
-        QJsonObject capabilities = securityObject.value("capabilities").toObject();
+        QJsonObject capabilities = securityObject.value(QStringLiteral("capabilities")).toObject();
         QStringList keys = capabilities.keys();
-        if (keys.contains("quotas")) {
-            QJsonObject quotas = capabilities.value("quotas").toObject();
-            int storageQuota = quotas.value("storage").toDouble();
+        if (keys.contains(QStringLiteral("quotas"))) {
+            QJsonObject quotas = capabilities.value(QStringLiteral("quotas")).toObject();
+            int storageQuota = quotas.value(QStringLiteral("storage")).toDouble();
             setStorageQuota(storageQuota);
         }
     } else if (!securityObjects.isEmpty()) {

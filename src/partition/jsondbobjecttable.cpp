@@ -300,7 +300,7 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     foreach (const QString objectType, objectTypes)
         objectTypeList.append(objectType);
     indexObject.insert(JsonDbString::kObjectTypeStr, objectTypeList);
-    indexObject.insert("lazy", false);
+    indexObject.insert(QStringLiteral("lazy"), false);
     indexObject.insert(JsonDbString::kPropertyFunctionStr, propertyFunction);
     Q_ASSERT(!name.isEmpty());
     Q_ASSERT(mIndexes.contains(name));

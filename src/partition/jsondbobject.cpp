@@ -385,7 +385,7 @@ QString JsonDbObject::tokenizeVersion(const QString &versionIn, int *updateCount
     if (versionIn.isEmpty()) {
         updateCount = 0;
     } else {
-        QStringList splitUp = versionIn.split(QChar('-'));
+        QStringList splitUp = versionIn.split(QLatin1Char('-'));
         if (splitUp.size() == 2) {
             updateCount = qMax(1, splitUp.at(0).toInt());
             hash = splitUp.at(1);

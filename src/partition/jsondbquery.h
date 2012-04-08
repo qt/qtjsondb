@@ -97,7 +97,7 @@ public:
     void setJoinField(QString joinField) {
         mJoinField = joinField;
         if (!joinField.isEmpty()) {
-            QStringList joinFields = joinField.split("->");
+            QStringList joinFields = joinField.split(QStringLiteral("->"));
             mJoinPaths.resize(joinFields.size());
             for (int j = 0; j < joinFields.size(); j++)
                 mJoinPaths[j] = joinFields[j].split('.');

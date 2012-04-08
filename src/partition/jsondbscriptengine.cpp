@@ -67,7 +67,7 @@ QJsonValue JsonDbScriptEngine::fromJSValue(const QJSValue &v)
         return QJsonValue(v.toBool());
     if (v.isArray()) {
         QJsonArray a;
-        int size = v.property("length").toInt();
+        int size = v.property(QStringLiteral("length")).toInt();
         for (int i = 0; i < size; i++) {
             a.append(fromJSValue(v.property(i)));
         }
@@ -128,7 +128,7 @@ QJSEngine *JsonDbScriptEngine::scriptEngine()
     if (!sScriptEngine) {
         sScriptEngine = new QJSEngine();
         QJSValue globalObject = sScriptEngine->globalObject();
-        globalObject.setProperty("console", sScriptEngine->newQObject(new Console()));
+        globalObject.setProperty(QStringLiteral("console"), sScriptEngine->newQObject(new Console()));
     }
     return sScriptEngine;
 }

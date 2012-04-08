@@ -123,7 +123,7 @@ public:
 
     bool addIndex(const QString &indexName,
                   const QString &propertyName = QString(),
-                  const QString &propertyType = QString("string"),
+                  const QString &propertyType = QStringLiteral("string"),
                   const QStringList &objectTypes = QStringList(),
                   const QString &propertyFunction = QString(),
                   const QString &locale = QString(),
@@ -131,7 +131,7 @@ public:
                   const QString &casePreference = QString(),
                   Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive);
     bool addIndexOnProperty(const QString &propertyName,
-                            const QString &propertyType = QString("string"),
+                            const QString &propertyType = QStringLiteral("string"),
                             const QString &objectType = QString())
     { return addIndex(propertyName, propertyName, propertyType,
                       objectType.isEmpty() ? QStringList() : (QStringList() << objectType)); }

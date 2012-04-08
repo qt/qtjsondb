@@ -284,7 +284,7 @@ bool JsonDbManagedBtree::removeOne(const QByteArray &key)
 
 QString JsonDbManagedBtree::errorMessage() const
 {
-    return QString("JsonDbManagedBtree: %1, %2").arg(mBtree->fileName(), strerror(errno));
+    return QString::fromLatin1("JsonDbManagedBtree: %1, %2").arg(mBtree->fileName(), QLatin1String(strerror(errno)));
 }
 
 bool JsonDbManagedBtree::clearData()

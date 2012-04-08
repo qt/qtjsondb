@@ -70,20 +70,20 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(const JsonDbOwner *owner, JsonDbP
     , mDefinition(definition)
     , mScriptEngine(0)
     , mUuid(mDefinition.value(JsonDbString::kUuidStr).toString())
-    , mTargetType(mDefinition.value("targetType").toString())
+    , mTargetType(mDefinition.value(QStringLiteral("targetType")).toString())
     , mTargetTable(mPartition->findObjectTable(mTargetType))
-    , mSourceType(mDefinition.value("sourceType").toString())
+    , mSourceType(mDefinition.value(QStringLiteral("sourceType")).toString())
 {
-    if (mDefinition.contains("targetKeyName"))
-        mTargetKeyName = mDefinition.value("targetKeyName").toString();
+    if (mDefinition.contains(QStringLiteral("targetKeyName")))
+        mTargetKeyName = mDefinition.value(QStringLiteral("targetKeyName")).toString();
     else
         mTargetKeyName = QLatin1String("key");
-    if (mDefinition.contains("sourceKeyName"))
-        mSourceKeyName = mDefinition.value("sourceKeyName").toString();
-    mSourceKeyNameList = mSourceKeyName.split(".");
-    if (mDefinition.contains("targetValueName")) {
-        if (mDefinition.value("targetValueName").isString())
-            mTargetValueName = mDefinition.value("targetValueName").toString();
+    if (mDefinition.contains(QStringLiteral("sourceKeyName")))
+        mSourceKeyName = mDefinition.value(QStringLiteral("sourceKeyName")).toString();
+    mSourceKeyNameList = mSourceKeyName.split(QStringLiteral("."));
+    if (mDefinition.contains(QStringLiteral("targetValueName"))) {
+        if (mDefinition.value(QStringLiteral("targetValueName")).isString())
+            mTargetValueName = mDefinition.value(QStringLiteral("targetValueName")).toString();
     } else
         mTargetValueName = QLatin1String("value");
 
@@ -130,8 +130,8 @@ void JsonDbReduceDefinition::initScriptEngine()
     if (!status)
         setError(message);
 
-    Q_ASSERT(!mDefinition.value("add").toString().isEmpty());
-    Q_ASSERT(!mDefinition.value("subtract").toString().isEmpty());
+    Q_ASSERT(!mDefinition.value(QStringLiteral("add")).toString().isEmpty());
+    Q_ASSERT(!mDefinition.value(QStringLiteral("subtract")).toString().isEmpty());
 }
 
 void JsonDbReduceDefinition::releaseScriptEngine()
@@ -182,7 +182,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
     JsonDbObjectList previousResults = getObjectResponse.data;
     for (int k = 0; k < previousResults.size(); ++k) {
         JsonDbObject previous = previousResults.at(k);
-        if (previous.value("_reduceUuid").toString() == mUuid) {
+        if (previous.value(QStringLiteral("_reduceUuid")).toString() == mUuid) {
             previousObject = previous;
             previousValue = previousObject;
             break;
@@ -212,7 +212,7 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
             reduced.insert(JsonDbString::kVersionStr,
                          previousObject.value(JsonDbString::kVersionStr));
             reduced.insert(mTargetKeyName, keyValue);
-            reduced.insert("_reduceUuid", mUuid);
+            reduced.insert(QStringLiteral("_reduceUuid"), mUuid);
             objectsToUpdate.append(reduced);
         }
     } else if (!value.isUndefined()) {
@@ -220,14 +220,14 @@ void JsonDbReduceDefinition::updateObject(JsonDbObject before, JsonDbObject afte
         JsonDbObject reduced(value.toObject());
         reduced.insert(JsonDbString::kTypeStr, mTargetType);
         reduced.insert(mTargetKeyName, keyValue);
-        reduced.insert("_reduceUuid", mUuid);
+        reduced.insert(QStringLiteral("_reduceUuid"), mUuid);
 
         objectsToUpdate.append(reduced);
     }
 
     JsonDbWriteResult res = mPartition->updateObjects(mOwner, objectsToUpdate, JsonDbPartition::ViewObject, changeList);
     if (res.code != JsonDbError::NoError)
-        setError(QString("Error executing add function: %1").arg(res.message));
+        setError(QString::fromLatin1("Error executing add function: %1").arg(res.message));
 }
 
 QJsonValue JsonDbReduceDefinition::addObject(JsonDbReduceDefinition::FunctionNumber functionNumber,
@@ -255,7 +255,7 @@ QJsonValue JsonDbReduceDefinition::addObject(JsonDbReduceDefinition::FunctionNum
     } else {
 
         if (reduced.isError())
-            setError("Error executing add function: " + reduced.toString());
+            setError(QString::fromLatin1("Error executing add function: %1").arg(reduced.toString()));
 
         return QJsonValue(QJsonValue::Undefined);
     }
@@ -277,8 +277,8 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
 bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message)
 {
     message.clear();
-    QString targetType = reduce.value("targetType").toString();
-    QString sourceType = reduce.value("sourceType").toString();
+    QString targetType = reduce.value(QStringLiteral("targetType")).toString();
+    QString sourceType = reduce.value(QStringLiteral("sourceType")).toString();
     QString uuid = reduce.value(JsonDbString::kUuidStr).toString();
     JsonDbView *view = partition->findView(targetType);
 
@@ -290,18 +290,18 @@ bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, Json
         message = QLatin1Literal("sourceType property for Reduce not specified");
     else if (view->mReduceDefinitionsBySource.contains(sourceType)
              && view->mReduceDefinitionsBySource.value(sourceType)->uuid() != uuid)
-        message = QString("duplicate Reduce definition on source %1 and target %2")
+        message = QString::fromLatin1("duplicate Reduce definition on source %1 and target %2")
             .arg(sourceType).arg(targetType);
-    else if (reduce.value("sourceKeyName").toString().isEmpty() && reduce.value("sourceKeyFunction").toString().isEmpty())
+    else if (reduce.value(QStringLiteral("sourceKeyName")).toString().isEmpty() && reduce.value(QStringLiteral("sourceKeyFunction")).toString().isEmpty())
         message = QLatin1Literal("sourceKeyName or sourceKeyFunction must be provided for Reduce");
-    else if (!reduce.value("sourceKeyName").toString().isEmpty() && !reduce.value("sourceKeyFunction").toString().isEmpty())
+    else if (!reduce.value(QStringLiteral("sourceKeyName")).toString().isEmpty() && !reduce.value(QStringLiteral("sourceKeyFunction")).toString().isEmpty())
         message = QLatin1Literal("Only one of sourceKeyName and sourceKeyFunction may be provided for Reduce");
-    else if (reduce.value("add").toString().isEmpty())
+    else if (reduce.value(QStringLiteral("add")).toString().isEmpty())
         message = QLatin1Literal("add function for Reduce not specified");
-    else if (reduce.value("subtract").toString().isEmpty())
+    else if (reduce.value(QStringLiteral("subtract")).toString().isEmpty())
         message = QLatin1Literal("subtract function for Reduce not specified");
-    else if (reduce.contains("targetValueName")
-             && !(reduce.value("targetValueName").isString() || reduce.value("targetValueName").isNull()))
+    else if (reduce.contains(QStringLiteral("targetValueName"))
+             && !(reduce.value(QStringLiteral("targetValueName")).isString() || reduce.value(QStringLiteral("targetValueName")).isNull()))
         message = QLatin1Literal("targetValueName for Reduce must be a string or null");
     else {
         QJSEngine *scriptEngine = JsonDbScriptEngine::scriptEngine();
@@ -328,10 +328,10 @@ bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObje
         if (!definition.contains(functionName))
             continue;
         QString script = definition.value(functionName).toString();
-        QJSValue result = scriptEngine->evaluate(QString("(%1)").arg(script));
+        QJSValue result = scriptEngine->evaluate(QString::fromLatin1("(%1)").arg(script));
 
         if (result.isError() || !result.isCallable()) {
-            message = QString("Unable to parse add function: %1").arg(result.toString());
+            message = QString::fromLatin1("Unable to parse add function: %1").arg(result.toString());
             status = false;
             continue;
         }
@@ -350,7 +350,7 @@ QJsonValue JsonDbReduceDefinition::sourceKeyValue(const JsonDbObject &object)
         QJsonValue keyValue = JsonDbScriptEngine::fromJSValue(mFunctions[JsonDbReduceDefinition::SourceKeyValue].call(args));
         return keyValue;
     } else
-        return mSourceKeyName.contains(".") ? JsonDbObject(object).propertyLookup(mSourceKeyNameList) : object.value(mSourceKeyName);
+        return mSourceKeyName.contains('.') ? JsonDbObject(object).propertyLookup(mSourceKeyNameList) : object.value(mSourceKeyName);
 
 }
 

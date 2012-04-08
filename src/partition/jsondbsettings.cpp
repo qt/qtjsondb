@@ -79,7 +79,7 @@ void JsonDbSettings::loadEnvironment()
 
         for (int j = 0; j < propertyName.count(); j++) {
             if (j > 0 && propertyName.at(j).isUpper() && !propertyName.at(j - 1).isUpper())
-                envVariable += QString("_%1").arg(propertyName.at(j));
+                envVariable += QString::fromLatin1("_%1").arg(propertyName.at(j));
             else
                 envVariable += propertyName.at(j).toUpper();
         }

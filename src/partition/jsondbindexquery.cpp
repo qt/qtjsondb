@@ -280,7 +280,7 @@ void JsonDbIndexQuery::setResultExpressionList(const QStringList &resultExpressi
     mJoinPaths.resize(numExpressions);
     for (int i = 0; i < numExpressions; i++) {
         const QString &propertyName = resultExpressionList.at(i);
-        QStringList joinPath = propertyName.split("->");
+        QStringList joinPath = propertyName.split(QStringLiteral("->"));
         int joinPathSize = joinPath.size();
         QVector<QStringList> fieldPaths(joinPathSize);
         for (int j = 0; j < joinPathSize; j++) {

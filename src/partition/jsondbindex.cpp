@@ -88,7 +88,7 @@ static const char * const casePreferenceStrings[casePreferenceStringsCount] = {
 JsonDbCollator::Collation _q_correctCollationString(const QString &s)
 {
     for (int i = 0; i < collationStringsCount; ++i) {
-        if (s == collationStrings[i])
+        if (s == QLatin1String(collationStrings[i]))
             return JsonDbCollator::Collation(i);
     }
     return JsonDbCollator::Default;
@@ -96,7 +96,7 @@ JsonDbCollator::Collation _q_correctCollationString(const QString &s)
 JsonDbCollator::CasePreference _q_correctCasePreferenceString(const QString &s)
 {
     for (int i = 0; i < casePreferenceStringsCount; ++i) {
-        if (s == casePreferenceStrings[i])
+        if (s == QLatin1String(casePreferenceStrings[i]))
             return JsonDbCollator::CasePreference(i);
     }
     return JsonDbCollator::IgnoreCase;
@@ -184,9 +184,9 @@ JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, cons
     QFileInfo fi(fileName);
     QString dirName = fi.dir().path();
     QString baseName = fi.fileName();
-    if (baseName.endsWith(".db"))
+    if (baseName.endsWith(QStringLiteral(".db")))
         baseName.chop(3);
-    mFileName = QString("%1/%2-%3-Index.db").arg(dirName).arg(baseName).arg(indexName);
+    mFileName = QString::fromLatin1("%1/%2-%3-Index.db").arg(dirName).arg(baseName).arg(indexName);
 #ifndef NO_COLLATION_SUPPORT
     mCollator.setCasePreference(_q_correctCasePreferenceString(mCasePreference));
 #endif
@@ -209,11 +209,12 @@ bool JsonDbIndex::setPropertyFunction(const QString &propertyFunction)
     JsonDbJoinProxy *mapProxy = new JsonDbJoinProxy(0, 0, this);
     connect(mapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
             this, SLOT(propertyValueEmitted(QJSValue)));
-    QString proxyName(QString("_jsondbIndexProxy%1").arg(mIndexName));
-    proxyName.replace(".", "$");
+    QString proxyName(QString::fromLatin1("_jsondbIndexProxy%1").arg(mIndexName));
+    proxyName.replace(QLatin1Char('.'), QLatin1Char('$'));
     mScriptEngine->globalObject().setProperty(proxyName, mScriptEngine->newQObject(mapProxy));
 
-    QString script(QString("(function() { var jsondb={emit: %2.create, lookup: %2.lookup }; var fcn = (%1); return fcn})()").arg(propertyFunction).arg(proxyName));
+    QString script(QString::fromLatin1("(function() { var jsondb={emit: %2.create, lookup: %2.lookup }; var fcn = (%1); return fcn})()")
+                   .arg(propertyFunction).arg(proxyName));
     mPropertyFunction = mScriptEngine->evaluate(script);
     if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
         qDebug() << "Unable to parse index value function: " << mPropertyFunction.toString();
@@ -267,27 +268,27 @@ bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject
 
     if (!newIndex.isEmpty() && !oldIndex.isEmpty() && oldIndex.type() == JsonDbString::kIndexTypeStr) {
         if (oldIndex.value(JsonDbString::kPropertyNameStr).toString() != newIndex.value(JsonDbString::kPropertyNameStr).toString())
-            message = QString("Changing old index propertyName '%1' to '%2' not supported")
+            message = QString::fromLatin1("Changing old index propertyName '%1' to '%2' not supported")
                              .arg(oldIndex.value(JsonDbString::kPropertyNameStr).toString())
                              .arg(newIndex.value(JsonDbString::kPropertyNameStr).toString());
         else if (oldIndex.value(JsonDbString::kPropertyTypeStr).toString() != newIndex.value(JsonDbString::kPropertyTypeStr).toString())
-            message = QString("Changing old index propertyType from '%1' to '%2' not supported")
+            message = QString::fromLatin1("Changing old index propertyType from '%1' to '%2' not supported")
                              .arg(oldIndex.value(JsonDbString::kPropertyTypeStr).toString())
                              .arg(newIndex.value(JsonDbString::kPropertyTypeStr).toString());
         else if (oldIndex.value(JsonDbString::kObjectTypeStr) != newIndex.value(JsonDbString::kObjectTypeStr))
-            message = QString("Changing old index objectType from '%1' to '%2' not supported")
+            message = QString::fromLatin1("Changing old index objectType from '%1' to '%2' not supported")
                              .arg(oldIndex.value(JsonDbString::kObjectTypeStr).toString())
                              .arg(newIndex.value(JsonDbString::kObjectTypeStr).toString());
         else if (oldIndex.value(JsonDbString::kPropertyFunctionStr).toString() != newIndex.value(JsonDbString::kPropertyFunctionStr).toString())
-            message = QString("Changing old index propertyFunction from '%1' to '%2' not supported")
+            message = QString::fromLatin1("Changing old index propertyFunction from '%1' to '%2' not supported")
                              .arg(oldIndex.value(JsonDbString::kPropertyFunctionStr).toString())
                              .arg(newIndex.value(JsonDbString::kPropertyFunctionStr).toString());
     }
 
     if (!(newIndex.contains(JsonDbString::kPropertyFunctionStr) ^ newIndex.contains(JsonDbString::kPropertyNameStr)))
-        message = QString("Index object must have one of propertyName or propertyFunction set");
+        message = QStringLiteral("Index object must have one of propertyName or propertyFunction set");
     else if (newIndex.contains(JsonDbString::kPropertyFunctionStr) && !newIndex.contains(JsonDbString::kNameStr))
-        message = QString("Index object with propertyFunction must have name");
+        message = QStringLiteral("Index object with propertyFunction must have name");
 
     return message.isEmpty();
 }
@@ -333,7 +334,7 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
     mFieldValues.clear();
     if (!mScriptEngine) {
         int size = mPath.size();
-        if (mPath[size-1] == QString("*")) {
+        if (mPath[size-1] == QLatin1String("*")) {
             QJsonValue v = object.propertyLookup(mPath.mid(0, size-1));
             QJsonArray array = v.toArray();
             mFieldValues.reserve(array.size());
