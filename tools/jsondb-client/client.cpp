@@ -388,6 +388,7 @@ void Client::aboutToRemove(void)
 
 void Client::onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
 {
+    Q_UNUSED(code);
     InputThread::print(message);
 }
 

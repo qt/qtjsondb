@@ -132,7 +132,7 @@ void JsonStream::deviceReadyRead()
             qWarning() << "Error reading from socket" << mDevice->errorString();
             continue;
         }
-        while (mReadBuffer.size() > sizeof(JsonHeader)) {
+        while (mReadBuffer.size() > static_cast<int>(sizeof(JsonHeader))) {
             JsonHeader header;
             memcpy(&header, mReadBuffer.constData(), sizeof(header));
             if (header.h.tag != QJsonDocument::BinaryFormatTag || header.h.version != qToLittleEndian(1u)) {
