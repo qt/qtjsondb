@@ -104,6 +104,11 @@ public:
     void setQuery(const QString &query);
     QString query() const;
 
+    void bindValue(const QString &placeHolder, const QJsonValue &val);
+    QJsonValue boundValue(const QString &placeHolder) const;
+    QMap<QString,QJsonValue> boundValues() const;
+    void clearBoundValues();
+
     void setPartition(const QString &partition);
     QString partition() const;
 

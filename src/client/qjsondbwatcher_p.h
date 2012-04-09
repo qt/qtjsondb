@@ -54,7 +54,9 @@
 //
 
 #include <QObject>
+#include <QMap>
 #include <QWeakPointer>
+#include <qjsonvalue.h>
 
 #include "qjsondbwatcher.h"
 #include "qjsondbrequest.h"
@@ -81,6 +83,7 @@ public:
     QJsonDbWatcher::Status status;
     QJsonDbWatcher::Actions actions;
     QString query;
+    QMap<QString, QJsonValue> bindings;
     QString partition;
     enum {
         UnspecifiedInitialStateNumber = -1

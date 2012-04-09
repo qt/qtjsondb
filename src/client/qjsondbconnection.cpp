@@ -585,6 +585,13 @@ void QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
     QJsonDbObject object;
     object.insert(JsonDbStrings::Property::type(), QJsonValue(JsonDbStrings::Types::notification()));
     object.insert(JsonDbStrings::Property::query(), QJsonValue(dwatcher->query));
+    if (!dwatcher->bindings.isEmpty()) {
+        QJsonObject b;
+        QMap<QString, QJsonValue>::const_iterator it, e;
+        for (it = dwatcher->bindings.begin(), e = dwatcher->bindings.end(); it != e; ++it)
+            b.insert(it.key(), it.value());
+        object.insert(JsonDbStrings::Property::bindings(), b);
+    }
     bool initialStateNumberSpecified = (dwatcher->initialStateNumber != static_cast<quint32>(QJsonDbWatcherPrivate::UnspecifiedInitialStateNumber));
     if (dwatcher->lastStateNumber != 0 || initialStateNumberSpecified) {
         quint32 initialStateNumber;

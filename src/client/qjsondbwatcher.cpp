@@ -103,6 +103,56 @@ QJsonDbWatcher::Action QJsonDbNotification::action() const
 }
 
 /*!
+    Set the placeholder \a placeHolder to be bound to value \a val in the query
+    string. Note that '%' is the only placeholder mark supported by the query.
+    The marker '%' should not be included in the \a placeHolder name.
+
+    \code
+        QJsonDbWatcher *watcher = new QJsonDbWatcher;
+        query->setQuery(QStringLiteral("[?_type=\"Person\"][?firstName = %name]"));
+        query->bindValue(QStringLiteral("name"), QLatin1String("Malcolm"));
+    \endcode
+
+    \sa query, boundValue(), boundValues(), clearBoundValues()
+*/
+void QJsonDbWatcher::bindValue(const QString &placeHolder, const QJsonValue &val)
+{
+    Q_D(QJsonDbWatcher);
+    if (d->status != QJsonDbWatcher::Inactive)
+        qWarning("QJsonDbWatcher: should not change already active watcher.");
+    d->bindings.insert(placeHolder, val);
+}
+
+/*!
+    Returns the value for the \a placeHolder.
+*/
+QJsonValue QJsonDbWatcher::boundValue(const QString &placeHolder) const
+{
+    Q_D(const QJsonDbWatcher);
+    return d->bindings.value(placeHolder, QJsonValue(QJsonValue::Undefined));
+}
+
+/*!
+    Returns a map of the bound values.
+*/
+QMap<QString,QJsonValue> QJsonDbWatcher::boundValues() const
+{
+    Q_D(const QJsonDbWatcher);
+    return d->bindings;
+}
+
+/*!
+    Clears all bound values.
+*/
+void QJsonDbWatcher::clearBoundValues()
+{
+    Q_D(QJsonDbWatcher);
+    if (d->status != QJsonDbWatcher::Inactive)
+        qWarning("QJsonDbWatcher: should not change already active watcher.");
+    d->bindings.clear();
+}
+
+/*!
     Returns the state number that corresponds to the object in notification.
 */
 quint32 QJsonDbNotification::stateNumber() const

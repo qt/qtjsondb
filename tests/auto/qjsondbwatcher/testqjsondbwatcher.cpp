@@ -147,7 +147,8 @@ void TestQJsonDbWatcher::createAndRemove()
     // create a watcher
     QJsonDbWatcher watcher;
     watcher.setWatchedActions(QJsonDbWatcher::All);
-    watcher.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"]"));
+    watcher.setQuery(QLatin1String("[?_type=%type]"));
+    watcher.bindValue(QLatin1String("type"), QLatin1String("com.test.qjsondbwatcher-test"));
     watcher.setPartition(partition);
     mConnection->addWatcher(&watcher);
     waitForStatus(&watcher, QJsonDbWatcher::Active);
