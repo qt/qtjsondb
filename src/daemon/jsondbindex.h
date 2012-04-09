@@ -88,6 +88,7 @@ public:
     bool setPropertyFunction(const QString &propertyFunction);
     void indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
     void deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
+    QList<QJsonValue> indexValues(JsonDbObject &object);
 
     quint32 stateNumber() const;
 
@@ -106,7 +107,6 @@ public:
     static QString determineName(const JsonDbObject &index);
 
 private:
-    QList<QJsonValue> indexValues(JsonDbObject &object);
     QJsonValue indexValue(const QJsonValue &v);
 
 private slots:

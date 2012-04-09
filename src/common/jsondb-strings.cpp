@@ -55,6 +55,7 @@ const QString JsonDbString::kNameStr    = QString::fromLatin1("name");
 const QString JsonDbString::kCountStr   = QString::fromLatin1("count");
 const QString JsonDbString::kCurrentStr = QString::fromLatin1("_current");
 const QString JsonDbString::kDomainStr    = QString::fromLatin1("_domain");
+const QString JsonDbString::kIndexValueStr = QString::fromLatin1("_indexValue");
 const QString JsonDbString::kOwnerStr   = QString::fromLatin1("_owner");
 const QString JsonDbString::kTypeStr    = QString::fromLatin1("_type");
 const QString JsonDbString::kTypesStr   = QString::fromLatin1("types");

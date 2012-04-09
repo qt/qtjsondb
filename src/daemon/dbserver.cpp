@@ -489,7 +489,6 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
             notificationKeys << objectType;
 
             // eagerly update views if this object that was created isn't a view type itself
-            if (!partition) qDebug() << "DBServer::updateObjects no partition";
             if (partition) {
                 WeightedSourceViewGraph &sourceViewGraph = mEagerViewSourceGraph[partitionName];
                 if (jsondbSettings->verbose()) qDebug() << "objectType" << objectType << sourceViewGraph.contains(oldObjectType) << sourceViewGraph.contains(objectType);
@@ -687,6 +686,18 @@ void DBServer::objectUpdated(const QString &partitionName, quint32 stateNumber, 
             r = object;
         }
         if (!r.isEmpty()&& (n->actions() & effectiveAction)) {
+            JsonDbPartition *partition = findPartition(partitionName);
+            if (partition && !n->parsedQuery()->orderTerms.isEmpty()) {
+                const QString &indexName = n->parsedQuery()->orderTerms[0].propertyName;
+                QString objectType = r.type();
+                JsonDbObjectTable *objectTable = partition->findObjectTable(objectType);
+                IndexSpec *indexSpec = objectTable->indexSpec(indexName);
+                if (indexSpec) {
+                    QList<QJsonValue> indexValues = indexSpec->index->indexValues(r);
+                    if (!indexValues.isEmpty())
+                        r.insert(JsonDbString::kIndexValueStr, indexValues[0]);
+                }
+            }
             QString actionStr = (effectiveAction == JsonDbNotification::Create ? JsonDbString::kCreateStr :
                                  (effectiveAction == JsonDbNotification::Update ? JsonDbString::kUpdateStr :
                                   JsonDbString::kRemoveStr));

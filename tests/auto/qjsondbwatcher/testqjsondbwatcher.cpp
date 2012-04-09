@@ -82,6 +82,8 @@ private slots:
 
     void createAndRemove_data();
     void createAndRemove();
+    void indexValue_data();
+    void indexValue();
     void history();
     void currentState();
     void notificationTriggersView();
@@ -183,6 +185,92 @@ void TestQJsonDbWatcher::createAndRemove()
     // make sure we got notified on the right object
     QCOMPARE(o.value(JsonDbStrings::Property::uuid()), info.value(JsonDbStrings::Property::uuid()));
     QCOMPARE(o.value(QLatin1String("create-test")).toDouble(), 22.);
+
+    // we do now expect a tombstone
+    QVERIFY(o.contains(JsonDbStrings::Property::deleted()));
+
+    mConnection->removeWatcher(&watcher);
+}
+
+void TestQJsonDbWatcher::indexValue_data()
+{
+    QTest::addColumn<QString>("partition");
+
+    QTest::newRow("persistent") << "";
+    QTest::newRow("ephemeral") << "Ephemeral";
+}
+
+void TestQJsonDbWatcher::indexValue()
+{
+    QVERIFY(mConnection);
+    QFETCH(QString, partition);
+
+    // create an index
+    QJsonObject index;
+    index.insert(JsonDbStrings::Property::type(), QLatin1String("Index"));
+    index.insert(QLatin1String("name"), QLatin1String("create-test"));
+    index.insert(QLatin1String("propertyName"), QLatin1String("create-test"));
+    index.insert(QLatin1String("propertyType"), QLatin1String("string"));
+    index.insert(QLatin1String("objectType"), QLatin1String("com.test.qjsondbwatcher-test"));
+    QJsonDbCreateRequest create(index);
+    mConnection->send(&create);
+    waitForResponse(&create);
+    QList<QJsonObject> toDelete = create.takeResults();
+
+    // create a watcher
+    QJsonDbWatcher watcher;
+    watcher.setWatchedActions(QJsonDbWatcher::All);
+    watcher.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"][/create-test]"));
+    watcher.setPartition(partition);
+    mConnection->addWatcher(&watcher);
+    waitForStatus(&watcher, QJsonDbWatcher::Active);
+
+    QJsonObject item;
+    item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
+    item.insert(QLatin1String("create-test"), 22);
+
+    // Create an item
+    QJsonDbCreateRequest request(item);
+    request.setPartition(partition);
+    mConnection->send(&request);
+    waitForResponseAndNotifications(&request, &watcher, 1);
+
+    QList<QJsonObject> results = request.takeResults();
+    QCOMPARE(results.size(), 1);
+    QJsonObject info = results.at(0);
+    item.insert(JsonDbStrings::Property::uuid(), info.value(JsonDbStrings::Property::uuid()));
+    item.insert(JsonDbStrings::Property::version(), info.value(JsonDbStrings::Property::version()));
+
+    QList<QJsonDbNotification> notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.size(), 1);
+    QJsonDbNotification n = notifications[0];
+    QJsonObject o = n.object();
+    // verify _indexValue was set unless partition was Ephemeral
+    if (partition != QLatin1String("Ephemeral")) {
+        QVERIFY(o.contains(QLatin1String("_indexValue")));
+        QCOMPARE(o.value(QLatin1String("_indexValue")), item.value(QLatin1String("create-test")));
+    }
+
+    // remove the object
+    QJsonDbRemoveRequest remove(item);
+    remove.setPartition(partition);
+    mConnection->send(&remove);
+    waitForResponseAndNotifications(&remove, &watcher, 1);
+
+    notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.size(), 1);
+    n = notifications[0];
+    o = n.object();
+
+    // make sure we got notified on the right object
+    QCOMPARE(o.value(JsonDbStrings::Property::uuid()), info.value(JsonDbStrings::Property::uuid()));
+    QCOMPARE(o.value(QLatin1String("create-test")).toDouble(), 22.);
+
+    // verify the index value was set unless partition was Ephemeral
+    if (partition != QLatin1String("Ephemeral")) {
+        QVERIFY(o.contains(QLatin1String("_indexValue")));
+        QCOMPARE(o.value(QLatin1String("_indexValue")), item.value(QLatin1String("create-test")));
+    }
 
     // we do now expect a tombstone
     QVERIFY(o.contains(JsonDbStrings::Property::deleted()));

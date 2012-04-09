@@ -70,6 +70,7 @@ public:
     static const QString kFindStr;
     static const QString kNameStr;
     static const QString kIdStr;
+    static const QString kIndexValueStr;
     static const QString kLengthStr;
     static const QString kLimitStr;
     static const QString kMapTypeStr;
