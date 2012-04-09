@@ -9,7 +9,7 @@ DESTDIR = $$QT.jsondb.libs
 VERSION = $$QT.jsondb.VERSION
 DEFINES += QT_JSONDB_LIB
 
-QT = core network
+QT = core network jsondbpartition
 
 CONFIG += module create_prl
 MODULE_PRI = ../../modules/qt_jsondb.pri
@@ -33,7 +33,8 @@ HEADERS += \
     qjsondbflushrequest_p.h \
     qjsondbwatcher_p.h \
     qjsondbwatcher.h \
-    qjsondbobject.h
+    qjsondbobject.h \
+    qjsondbprivatepartition_p.h
 
 SOURCES += \
     qjsondbconnection.cpp \
@@ -42,6 +43,7 @@ SOURCES += \
     qjsondbwriterequest.cpp \
     qjsondbflushrequest_p.cpp \
     qjsondbwatcher.cpp \
-    qjsondbobject.cpp
+    qjsondbobject.cpp \
+    qjsondbprivatepartition.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondb.name

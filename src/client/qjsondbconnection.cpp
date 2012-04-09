@@ -45,6 +45,8 @@
 #include "qjsondbwatcher_p.h"
 #include "qjsondbstrings_p.h"
 #include "qjsondbobject.h"
+#include "qjsondbprivatepartition_p.h"
+#include "qjsondbreadrequest.h"
 
 #include <qcoreevent.h>
 #include <qtimer.h>
@@ -152,9 +154,13 @@ Q_GLOBAL_STATIC(QThreadStorage<QJsonDbConnection *>, _q_defaultConnection);
 
 QJsonDbConnectionPrivate::QJsonDbConnectionPrivate(QJsonDbConnection *q)
     : q_ptr(q), status(QJsonDbConnection::Unconnected), autoReconnectEnabled(true),
-      explicitDisconnect(false), timeoutTimer(q), stream(0), lastRequestId(0)
+      explicitDisconnect(false), timeoutTimer(q), stream(0), lastRequestId(0),
+      privatePartitionProcessing(0), privatePartitionHandler(0)
 {
+    qRegisterMetaType<QtJsonDb::QJsonDbRequest::ErrorCode>("QtJsonDb::QJsonDbRequest::Status");
     qRegisterMetaType<QtJsonDb::QJsonDbRequest::ErrorCode>("QtJsonDb::QJsonDbRequest::ErrorCode");
+    qRegisterMetaType<QtJsonDb::QJsonDbWatcher::ErrorCode>("QtJsonDb::QJsonDbWatcher::ErrorCode");
+    qRegisterMetaType<QList<QJsonObject> >("QList<QJsonObject>");
 
     timeoutTimer.setSingleShot(true);
     timeoutTimer.setTimerType(Qt::VeryCoarseTimer);
@@ -279,13 +285,58 @@ void QJsonDbConnectionPrivate::handleRequestQueue()
         QJsonObject req = drequest->getRequest();
         if (!req.isEmpty()) {
             currentRequest = request;
-            stream->send(req);
+            if (drequest->isPrivatePartition())
+                handlePrivatePartitionRequest(req);
+            else
+                stream->send(req);
         } else {
             drequest->setStatus(QJsonDbRequest::Error);
             QMetaObject::invokeMethod(request.data(), "error", Qt::QueuedConnection,
                                       Q_ARG(QtJsonDb::QJsonDbRequest::ErrorCode, QJsonDbRequest::MissingObject),
                                       Q_ARG(QString, QLatin1String("Empty request")));
         }
+    }
+}
+
+void QJsonDbConnectionPrivate::handlePrivatePartitionRequest(const QJsonObject &request)
+{
+    Q_Q(QJsonDbConnection);
+
+    if (!privatePartitionHandler)
+        privatePartitionHandler = new QJsonDbPrivatePartition(this);
+
+    privatePartitionHandler->setRequest(request);
+    QObject::connect(privatePartitionHandler, SIGNAL(started()),
+                     currentRequest.data(), SIGNAL(started()));
+    QObject::connect(privatePartitionHandler, SIGNAL(finished()),
+                     currentRequest.data(), SIGNAL(finished()));
+    QObject::connect(privatePartitionHandler, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                     currentRequest.data(), SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    QObject::connect(privatePartitionHandler, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+                     currentRequest.data(), SLOT(_q_privatePartitionStatus(QtJsonDb::QJsonDbRequest::Status)));
+    QObject::connect(privatePartitionHandler, SIGNAL(resultsAvailable(QList<QJsonObject>)),
+                     currentRequest.data(), SLOT(_q_privatePartitionResults(QList<QJsonObject>)));
+    QObject::connect(privatePartitionHandler, SIGNAL(requestCompleted()),
+                     q, SLOT(_q_privatePartitionRequestCompleted()));
+
+    if (qobject_cast<QJsonDbReadRequest*>(currentRequest.data()))
+        QObject::connect(privatePartitionHandler, SIGNAL(readRequestStarted(quint32,QString)),
+                         qobject_cast<QJsonDbReadRequest*>(currentRequest.data()),
+                         SLOT(_q_privatePartitionStarted(quint32,QString)));
+    else if (qobject_cast<QJsonDbWriteRequest*>(currentRequest.data()))
+        QObject::connect(privatePartitionHandler, SIGNAL(writeRequestStarted(quint32)),
+                         qobject_cast<QJsonDbWriteRequest*>(currentRequest.data()),
+                         SLOT(_q_privatePartitionStarted(quint32)));
+
+    if (!privatePartitionProcessing) {
+        privatePartitionProcessing = new QThread(q);
+        privatePartitionHandler->moveToThread(privatePartitionProcessing);
+        QObject::connect(privatePartitionProcessing, SIGNAL(started()),
+                privatePartitionHandler, SLOT(handleRequest()),
+                Qt::QueuedConnection);
+        privatePartitionProcessing->start();
+    } else {
+        QMetaObject::invokeMethod(privatePartitionHandler, "handleRequest",Qt::QueuedConnection);
     }
 }
 
@@ -354,6 +405,40 @@ void QJsonDbConnectionPrivate::_q_onAuthFinished()
     status = QJsonDbConnection::Connected;
     emit q->statusChanged(status);
     reactivateAllWatchers();
+    handleRequestQueue();
+}
+
+void QJsonDbConnectionPrivate::_q_privatePartitionRequestCompleted()
+{
+    Q_Q(QJsonDbConnection);
+
+    if (currentRequest) {
+        Q_ASSERT(currentRequest.data()->d_func()->isPrivatePartition());
+
+        QObject::disconnect(privatePartitionHandler, SIGNAL(started()),
+                            currentRequest.data(), SIGNAL(started()));
+        QObject::disconnect(privatePartitionHandler, SIGNAL(finished()),
+                            currentRequest.data(), SIGNAL(finished()));
+        QObject::disconnect(privatePartitionHandler, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                            currentRequest.data(), SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        QObject::disconnect(privatePartitionHandler, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+                            currentRequest.data(), SLOT(_q_privatePartitionStatus(QtJsonDb::QJsonDbRequest::Status)));
+        QObject::disconnect(privatePartitionHandler, SIGNAL(resultsAvailable(QList<QJsonObject>)),
+                            currentRequest.data(), SLOT(_q_privatePartitionResults(QList<QJsonObject>)));
+        QObject::disconnect(privatePartitionHandler, SIGNAL(requestCompleted()),
+                            q, SLOT(_q_privatePartitionRequestCompleted()));
+
+        if (qobject_cast<QJsonDbReadRequest*>(currentRequest.data()))
+            QObject::disconnect(privatePartitionHandler, SIGNAL(readRequestStarted(quint32,QString)),
+                             qobject_cast<QJsonDbReadRequest*>(currentRequest.data()),
+                             SLOT(_q_privatePartitionStarted(quint32,QString)));
+        else if (qobject_cast<QJsonDbWriteRequest*>(currentRequest.data()))
+            QObject::disconnect(privatePartitionHandler, SIGNAL(writeRequestStarted(quint32)),
+                             qobject_cast<QJsonDbWriteRequest*>(currentRequest.data()),
+                             SLOT(_q_privatePartitionStarted(quint32)));
+        currentRequest.clear();
+    }
+
     handleRequestQueue();
 }
 
@@ -473,6 +558,15 @@ void QJsonDbConnection::disconnectFromServer()
         return;
     d->explicitDisconnect = true;
     d->socket->disconnectFromServer();
+
+    if (d->privatePartitionProcessing) {
+        d->privatePartitionProcessing->quit();
+        d->privatePartitionProcessing->wait();
+        delete d->privatePartitionProcessing;
+        d->privatePartitionProcessing = 0;
+        delete d->privatePartitionHandler;
+        d->privatePartitionHandler = 0;
+    }
 }
 
 /*!
@@ -581,10 +675,17 @@ void QJsonDbConnectionPrivate::reactivateAllWatchers()
     }
 }
 
-void QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
+bool QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
 {
     Q_Q(QJsonDbConnection);
     QJsonDbWatcherPrivate *dwatcher = watcher->d_func();
+
+    if (dwatcher->partition == JsonDbStrings::Partition::privatePartition() ||
+            dwatcher->partition.endsWith(QString::fromLatin1(".%1").arg(JsonDbStrings::Partition::privatePartition()))) {
+        qWarning() << "QJsonDbWatcher does not support private partitions";
+        return false;
+    }
+
     dwatcher->connection = q;
     dwatcher->setStatus(QJsonDbWatcher::Activating);
 
@@ -637,6 +738,8 @@ void QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
     QObject::connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                      request, SLOT(deleteLater()));
     q->send(request);
+
+    return true;
 }
 
 void QJsonDbConnectionPrivate::removeWatcher(QJsonDbWatcher *watcher)
@@ -690,8 +793,7 @@ bool QJsonDbConnection::addWatcher(QJsonDbWatcher *watcher)
         qWarning("QJsonDbConnection: cannot add watcher that is already active.");
         return false;
     }
-    d->initWatcher(watcher);
-    return true;
+    return d->initWatcher(watcher);
 }
 
 /*!

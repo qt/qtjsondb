@@ -122,6 +122,12 @@ public:
     static inline const QString actionStateChange() { return QStringLiteral("stateChange"); }
 };
 
+class Partition
+{
+public:
+    static inline const QString privatePartition() { return QStringLiteral("Private"); }
+};
+
 } // namespace JsonDbStrings
 QT_END_NAMESPACE_JSONDB
 

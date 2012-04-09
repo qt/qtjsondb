@@ -262,6 +262,11 @@ void QJsonDbWriteRequestPrivate::handleError(int code, const QString &message)
     emit q->error(QJsonDbRequest::ErrorCode(code), message);
 }
 
+void QJsonDbWriteRequestPrivate::_q_privatePartitionStarted(quint32 state)
+{
+    stateNumber = state;
+}
+
 /*!
     \class QJsonDbCreateRequest
     \inmodule QtJsonDb

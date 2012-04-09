@@ -56,6 +56,7 @@
 #include <QObject>
 #include <QWeakPointer>
 #include <QLocalSocket>
+#include <QThread>
 #include <QTimer>
 
 #include "qjsondbglobal.h"
@@ -64,11 +65,16 @@
 
 #include "jsonstream.h"
 
+#include "jsondbpartitionglobal.h"
+
 QT_BEGIN_NAMESPACE_JSONDB
 
+class QJsonDbPrivatePartition;
 class QJsonDbConnectionPrivate
 {
     Q_DECLARE_PUBLIC(QJsonDbConnection)
+    friend class QJsonDbPrivatePartition;
+
 public:
     QJsonDbConnectionPrivate(QJsonDbConnection *q);
 
@@ -89,9 +95,11 @@ public:
     void _q_onTimer();
     void _q_onReceivedObject(const QJsonObject &);
     void _q_onAuthFinished();
+    void _q_privatePartitionRequestCompleted();
 
     void handleRequestQueue();
-    void initWatcher(QJsonDbWatcher *);
+    void handlePrivatePartitionRequest(const QJsonObject &);
+    bool initWatcher(QJsonDbWatcher *);
     void removeWatcher(QJsonDbWatcher *);
     void reactivateAllWatchers();
 
@@ -110,6 +118,8 @@ public:
     QList<QWeakPointer<QJsonDbRequest> > pendingRequests;
 
     QMap<QString, QWeakPointer<QJsonDbWatcher> > watchers; // uuid->watcher map
+    QThread *privatePartitionProcessing;
+    QJsonDbPrivatePartition *privatePartitionHandler;
 };
 
 QT_END_NAMESPACE_JSONDB

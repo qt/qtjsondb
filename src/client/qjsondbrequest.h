@@ -120,8 +120,13 @@ protected:
 private:
     Q_DISABLE_COPY(QJsonDbRequest)
     Q_DECLARE_PRIVATE(QJsonDbRequest)
+
+    Q_PRIVATE_SLOT(d_func(), void _q_privatePartitionResults(const QList<QJsonObject> &))
+    Q_PRIVATE_SLOT(d_func(), void _q_privatePartitionStatus(QtJsonDb::QJsonDbRequest::Status))
+
     friend class QJsonDbConnection;
     friend class QJsonDbConnectionPrivate;
+    friend class QJsonDbPrivatePartition;
 };
 
 QT_END_NAMESPACE_JSONDB

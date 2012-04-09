@@ -40,6 +40,7 @@
 ****************************************************************************/
 
 #include "qjsondbrequest_p.h"
+#include "qjsondbstrings_p.h"
 
 #include <QVariant>
 
@@ -144,6 +145,24 @@ void QJsonDbRequestPrivate::setRequestId(int id)
     Q_Q(QJsonDbRequest);
     requestId = id;
     q->setProperty("requestId", QVariant::fromValue(requestId));
+}
+
+bool QJsonDbRequestPrivate::isPrivatePartition() const
+{
+    return partition == JsonDbStrings::Partition::privatePartition() ||
+            partition.endsWith(QString::fromLatin1(".%1").arg(JsonDbStrings::Partition::privatePartition()));
+}
+
+void QJsonDbRequestPrivate::_q_privatePartitionResults(const QList<QJsonObject> &res)
+{
+    Q_Q(QJsonDbRequest);
+    results.append(res);
+    q->resultsAvailable(results.count());
+}
+
+void QJsonDbRequestPrivate::_q_privatePartitionStatus(QtJsonDb::QJsonDbRequest::Status status)
+{
+    setStatus(status);
 }
 
 /*!

@@ -70,7 +70,7 @@ class JsonDbIndex;
 class JsonDbIndexQuery;
 class JsonDbView;
 
-struct JsonDbUpdate {
+struct Q_JSONDB_PARTITION_EXPORT JsonDbUpdate {
     JsonDbUpdate(const JsonDbObject &oldObj, const JsonDbObject &newObj, JsonDbNotification::Action act) :
         oldObject(oldObj), newObject(newObj), action(act) { }
     JsonDbUpdate() : action(JsonDbNotification::None) {}
@@ -81,7 +81,7 @@ struct JsonDbUpdate {
 
 typedef QList<JsonDbUpdate> JsonDbUpdateList;
 
-struct JsonDbWriteResult {
+struct Q_JSONDB_PARTITION_EXPORT JsonDbWriteResult {
     JsonDbWriteResult() : state(0), code(JsonDbError::NoError) { }
     JsonDbObjectList objectsWritten;
     quint32 state;

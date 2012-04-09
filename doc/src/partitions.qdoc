@@ -113,4 +113,31 @@ request->setQuery("[?_type=\"Status\"]");
 request->setPartition("Ephemeral");
 \endcode
 
+\section1 Private Partitions
+
+JSON DB also provides support for private partitions on a per-user basis. These
+partitions are private to each user and are disconnected from the database daemon
+itself. Rather than routing calls to these private partitions through the daemon
+(as with typical partitions) the JSON DB client library directly accesses the
+database files.
+
+Private partitions are addressed as follows:
+\list
+\li If the partition is specified as "Private", then the private partition for the
+current user is used.
+\li If the partition is specified as "username.Private" (where "username" is a user
+with a home directory on the system), then the private partition for the user with
+the specified username is used.
+\endlist
+
+Only a single thread/process may access a private partition at a time. This is because
+the database files are directly accessed and do not support concurrency. Advisory file
+locks are used to ensure that two clients do not access the database files at the same
+time.
+
+Private partitions currently do not support \l Notifications. This means that the QML
+list models will not automatically update themselves when used with private partitions.
+
+Apart from the naming scheme and the lack of \l Notifications, private partitions behave
+like normal partitions and are accessed via exactly the same APIs as other partitions.
 */

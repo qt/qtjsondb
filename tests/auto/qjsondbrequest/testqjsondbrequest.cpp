@@ -55,6 +55,7 @@
 #include <QFile>
 #include <QFileInfo>
 
+#include <pwd.h>
 #include <signal.h>
 
 QT_USE_NAMESPACE_JSONDB
@@ -85,13 +86,19 @@ private slots:
     void cleanup();
 
     void modifyPartitions();
+    void readRequest_data();
     void readRequest();
+    void writeRequest_data();
     void writeRequest();
+    void createRequest_data();
     void createRequest();
+    void updateRequest_data();
     void updateRequest();
+    void privatePartition();
+    void invalidPrivatePartition();
 
 private:
-    bool writeTestObject(QObject* parent, const QString &type, int value = 0);
+    bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
 };
 
 void TestQJsonDbRequest::initTestCase()
@@ -105,6 +112,17 @@ void TestQJsonDbRequest::initTestCase()
 void TestQJsonDbRequest::cleanupTestCase()
 {
     removeDbFiles();
+
+    struct passwd *pwd = getpwnam(qgetenv("USER"));
+    if (pwd) {
+        QDir homePartition(QString::fromLatin1("%1/.jsondb").arg(QString::fromUtf8(pwd->pw_dir)));
+        foreach (const QString &file, homePartition.entryList())
+            QFile::remove(homePartition.absoluteFilePath(file));
+
+        homePartition.cdUp();
+        homePartition.rmpath(QStringLiteral(".jsondb"));
+    }
+
     stopDaemon();
 }
 
@@ -221,7 +239,7 @@ void TestQJsonDbRequest::modifyPartitions()
 /*!
     Write one object with the _type "test" and the value \a value into the database.
 */
-bool TestQJsonDbRequest::writeTestObject(QObject* parent, const QString &type, int value)
+bool TestQJsonDbRequest::writeTestObject(QObject* parent, const QString &type, int value, const QString &partition)
 {
     // -- write one object
     QJsonDbObject obj;
@@ -229,6 +247,7 @@ bool TestQJsonDbRequest::writeTestObject(QObject* parent, const QString &type, i
     obj.insert(QStringLiteral("val"), QJsonValue(value));
 
     QJsonDbCreateRequest *req1 = new QJsonDbCreateRequest(obj, parent);
+    req1->setPartition(partition);
     mConnection->send(req1);
     return waitForResponse(req1);
 }
@@ -296,12 +315,21 @@ void TestQJsonDbRequest::severalWrites()
     QCOMPARE(obj.value(typeStr()).toString(), QStringLiteral("test"));
 }
 
+void TestQJsonDbRequest::readRequest_data()
+{
+    QTest::addColumn<QString>("partition");
+
+    QTest::newRow("default") << "";
+    QTest::newRow("private") << "Private";
+}
+
 /*!
     In depth checking of read request.
 */
 void TestQJsonDbRequest::readRequest()
 {
     QVERIFY(mConnection);
+    QFETCH(QString, partition);
 
     QJsonDbReadRequest req2(QString("[?_type=\"hallo\"]"));
 
@@ -312,6 +340,7 @@ void TestQJsonDbRequest::readRequest()
 
     // -- try to send a query with no query field
     req2.setQuery(QString());
+    req2.setPartition(partition);
     mConnection->send(&req2);
     QVERIFY(waitForResponse(&req2));
 
@@ -350,6 +379,7 @@ void TestQJsonDbRequest::readRequest()
 
     // -- check status
     QCOMPARE(req3.status(), QJsonDbRequest::Inactive);
+    req3.setPartition(partition);
     mConnection->send(&req3);
     QVERIFY(req3.status() != QJsonDbRequest::Inactive);
     QVERIFY(waitForResponse(&req3));
@@ -361,7 +391,7 @@ void TestQJsonDbRequest::readRequest()
 
     // -- write one object and re-read
     QObject parent;
-    QVERIFY(writeTestObject(&parent, QStringLiteral("readTest2"), 0));
+    QVERIFY(writeTestObject(&parent, QStringLiteral("readTest2"), 0, partition));
     mConnection->send(&req3);
     QVERIFY(waitForResponse(&req3));
     QVERIFY(!mRequestErrors.contains(&req3));
@@ -373,7 +403,7 @@ void TestQJsonDbRequest::readRequest()
     QCOMPARE(obj.value(QStringLiteral("val")), QJsonValue(0));
 
     // -- write another object and re-read
-    QVERIFY(writeTestObject(&parent, QStringLiteral("readTest2"), 1));
+    QVERIFY(writeTestObject(&parent, QStringLiteral("readTest2"), 1, partition));
     mConnection->send(&req3);
     QVERIFY(waitForResponse(&req3));
     QVERIFY(!mRequestErrors.contains(&req3));
@@ -392,12 +422,21 @@ void TestQJsonDbRequest::readRequest()
     QCOMPARE(req3.sortKey(), uuidStr());
 }
 
+void TestQJsonDbRequest::writeRequest_data()
+{
+    QTest::addColumn<QString>("partition");
+
+    QTest::newRow("default") << "";
+    QTest::newRow("private") << "Private";
+}
+
 /*!
     In depth checking of write request.
 */
 void TestQJsonDbRequest::writeRequest()
 {
     QVERIFY(mConnection);
+    QFETCH(QString, partition);
 
     QJsonObject obj;
     obj.insert(typeStr(), QJsonValue(QStringLiteral("writeTest")));
@@ -410,6 +449,7 @@ void TestQJsonDbRequest::writeRequest()
     // try to send an object without uuid and since it's a remove
     // it'll fail
     req1.setObjects(QList<QJsonObject>() << obj);
+    req1.setPartition(partition);
     mConnection->send(&req1);
     QVERIFY(waitForResponse(&req1));
 
@@ -441,9 +481,18 @@ void TestQJsonDbRequest::writeRequest()
     mRequestErrors.clear();
 }
 
+void TestQJsonDbRequest::createRequest_data()
+{
+    QTest::addColumn<QString>("partition");
+
+    QTest::newRow("default") << "";
+    QTest::newRow("private") << "Private";
+}
+
 void TestQJsonDbRequest::createRequest()
 {
     QVERIFY(mConnection);
+    QFETCH(QString, partition);
 
     // -- write one object
     QJsonObject obj;
@@ -451,6 +500,7 @@ void TestQJsonDbRequest::createRequest()
     obj.insert(QStringLiteral("val"), QJsonValue(QStringLiteral("test2")));
 
     QJsonDbCreateRequest req1(obj);
+    req1.setPartition(partition);
     mConnection->send(&req1);
     QVERIFY(waitForResponse(&req1));
     QVERIFY(!mRequestErrors.contains(&req1));
@@ -480,6 +530,7 @@ void TestQJsonDbRequest::createRequest()
 
     // -- read the objects
     QJsonDbReadRequest req2(QString("[?_type=\"createTest\"]"));
+    req2.setPartition(partition);
     mConnection->send(&req2);
     QVERIFY(waitForResponse(&req2));
     QVERIFY(!mRequestErrors.contains(&req2));
@@ -490,16 +541,26 @@ void TestQJsonDbRequest::createRequest()
     QCOMPARE(obj.value(typeStr()).toString(), QStringLiteral("createTest"));
 }
 
+void TestQJsonDbRequest::updateRequest_data()
+{
+    QTest::addColumn<QString>("partition");
+
+    QTest::newRow("default") << "";
+    QTest::newRow("private") << "Private";
+}
+
 void TestQJsonDbRequest::updateRequest()
 {
     QVERIFY(mConnection);
+    QFETCH(QString, partition);
 
     // -- write one object
     QObject parent;
-    QVERIFY(writeTestObject(&parent, QStringLiteral("updateTest"), 0));
+    QVERIFY(writeTestObject(&parent, QStringLiteral("updateTest"), 0, partition));
 
     // -- read one object
     QJsonDbReadRequest req2(QString("[?_type=\"updateTest\"]"));
+    req2.setPartition(partition);
     mConnection->send(&req2);
     QVERIFY(waitForResponse(&req2));
     QVERIFY(!mRequestErrors.contains(&req2));
@@ -513,6 +574,7 @@ void TestQJsonDbRequest::updateRequest()
     results.append(obj1);
 
     QJsonDbUpdateRequest req3(results);
+    req3.setPartition(partition);
     mConnection->send(&req3);
     QVERIFY(waitForResponse(&req3));
     QVERIFY(!mRequestErrors.contains(&req3));
@@ -541,6 +603,107 @@ void TestQJsonDbRequest::updateRequest()
     mConnection->send(&req3);
     QVERIFY(waitForResponse(&req3));
     QVERIFY(!mRequestErrors.contains(&req3));
+}
+
+void TestQJsonDbRequest::privatePartition()
+{
+    QJsonObject contact1;
+    contact1.insert(QStringLiteral("_type"), QStringLiteral("test-contact"));
+    contact1.insert(QStringLiteral("_uuid"), QUuid::createUuid().toString());
+    contact1.insert(QStringLiteral("name"), QStringLiteral("Joe"));
+    QJsonObject contact2;
+    contact2.insert(QStringLiteral("_type"), QStringLiteral("test-contact"));
+    contact2.insert(QStringLiteral("_uuid"), QUuid::createUuid().toString());
+    contact2.insert(QStringLiteral("name"), QStringLiteral("Alice"));
+
+    QJsonDbWriteRequest write;
+    write.setObjects(QList<QJsonObject>() << contact1 << contact2);
+    // use the explicit form of the private partition (with full username)
+    write.setPartition(QString::fromLatin1("%1.Private").arg(QString::fromLatin1(qgetenv("USER"))));
+    mConnection->send(&write);
+    QVERIFY(waitForResponse(&write));
+    QVERIFY(!mRequestErrors.contains(&write));
+    QList<QJsonObject> results = write.takeResults();
+    QCOMPARE(results.count(), 2);
+    contact1.insert(QStringLiteral("_version"), results[0].value(QStringLiteral("_version")));
+    contact2.insert(QStringLiteral("_version"), results[1].value(QStringLiteral("_version")));
+
+    QJsonDbReadRequest query;
+    query.setQuery(QStringLiteral("[?_type=%type][/_type]"));
+    query.bindValue(QStringLiteral("type"), QStringLiteral("test-contact"));
+
+    // use the default form of private partition (no username specified, default to current user)
+    query.setPartition(QStringLiteral("Private"));
+    mConnection->send(&query);
+    QVERIFY(waitForResponse(&query));
+    QVERIFY(!mRequestErrors.contains(&query));
+    QCOMPARE(query.sortKey(), QStringLiteral("_type"));
+
+    quint32 state = query.stateNumber();
+    QVERIFY(state != 0);
+
+    results = query.takeResults();
+    QCOMPARE(results.count(), 2);
+    foreach (const QJsonObject &object, results) {
+        QVERIFY(object.value(QStringLiteral("_uuid")).toString() == contact1.value(QStringLiteral("_uuid")).toString() ||
+                object.value(QStringLiteral("_uuid")).toString() == contact2.value(QStringLiteral("_uuid")).toString());
+    }
+
+    contact1.insert(QStringLiteral("_deleted"), true);
+    contact2.insert(QStringLiteral("name"), QStringLiteral("Jane"));
+    write.setObjects(QList<QJsonObject>() << contact1 << contact2);
+    mConnection->send(&write);
+    QVERIFY(waitForResponse(&write));
+    QVERIFY(!mRequestErrors.contains(&write));
+    results = write.takeResults();
+    QCOMPARE(results.count(), 2);
+    contact1.insert(QStringLiteral("_version"), results[0].value(QStringLiteral("_version")));
+    contact2.insert(QStringLiteral("_version"), results[1].value(QStringLiteral("_version")));
+
+    mConnection->send(&query);
+    QVERIFY(waitForResponse(&query));
+    QVERIFY(!mRequestErrors.contains(&query));
+    QVERIFY(query.stateNumber() > state);
+    state = query.stateNumber();
+
+    results = query.takeResults();
+    QCOMPARE(results.count(), 1);
+    QCOMPARE(results[0].value(QStringLiteral("_uuid")).toString(), contact2.value(QStringLiteral("_uuid")).toString());
+    QCOMPARE(results[0].value(QStringLiteral("name")).toString(), contact2.value(QStringLiteral("name")).toString());
+
+    // switch
+    query.setPartition(QString::fromLatin1("%1.Private").arg(QString::fromLatin1(qgetenv("USER"))));
+    write.setPartition(QStringLiteral("Private"));
+
+    contact2.insert(QStringLiteral("_deleted"), true);
+    write.setObjects(QList<QJsonObject>() << contact2);
+    mConnection->send(&write);
+    QVERIFY(waitForResponse(&write));
+    QVERIFY(!mRequestErrors.contains(&write));
+
+    mConnection->send(&query);
+    QVERIFY(waitForResponse(&query));
+    QVERIFY(!mRequestErrors.contains(&query));
+    QVERIFY(query.stateNumber() > state);
+
+    results = query.takeResults();
+    QVERIFY(results.isEmpty());
+}
+
+void TestQJsonDbRequest::invalidPrivatePartition()
+{
+    QJsonObject contact1;
+    contact1.insert(QStringLiteral("_type"), QStringLiteral("test-contact"));
+    contact1.insert(QStringLiteral("_uuid"), QUuid::createUuid().toString());
+    contact1.insert(QStringLiteral("name"), QStringLiteral("Joe"));
+
+    QJsonDbWriteRequest write;
+    write.setObjects(QList<QJsonObject>() << contact1);
+    write.setPartition(QStringLiteral("userthatdoesnotexist.Private"));
+    mConnection->send(&write);
+    waitForResponse(&write);
+    QVERIFY(mRequestErrors.contains(&write));
+    QCOMPARE(mRequestErrors[&write], QJsonDbRequest::InvalidPartition);
 }
 
 QTEST_MAIN(TestQJsonDbRequest)

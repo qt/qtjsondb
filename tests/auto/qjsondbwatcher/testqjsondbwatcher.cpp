@@ -90,6 +90,7 @@ private slots:
     void notificationTriggersMapReduce();
     void typeChangeEagerViewSource();
     void invalid();
+    void privatePartition();
 };
 
 static const char dbfileprefix[] = "test-jsondb-watcher";
@@ -658,6 +659,15 @@ void TestQJsonDbWatcher::invalid()
     mConnection->addWatcher(&watcher3);
     QVERIFY(waitForError(&watcher3, QJsonDbWatcher::InvalidPartition));
     mConnection->removeWatcher(&watcher3);
+}
+
+void TestQJsonDbWatcher::privatePartition()
+{
+    // watchers are not supported on private partitions, so it should fail
+    QJsonDbWatcher privateWatcher;
+    privateWatcher.setQuery("[?_type=\"foo\"]");
+    privateWatcher.setPartition(QString::fromLatin1("%1.Private").arg(QString::fromLatin1(qgetenv("USER"))));
+    QVERIFY(!mConnection->addWatcher(&privateWatcher));
 }
 
 QTEST_MAIN(TestQJsonDbWatcher)

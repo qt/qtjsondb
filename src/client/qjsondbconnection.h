@@ -118,6 +118,7 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_onTimer())
     Q_PRIVATE_SLOT(d_func(), void _q_onReceivedObject(QJsonObject))
     Q_PRIVATE_SLOT(d_func(), void _q_onAuthFinished())
+    Q_PRIVATE_SLOT(d_func(), void _q_privatePartitionRequestCompleted())
 
     friend class QJsonDbWatcher;
 };

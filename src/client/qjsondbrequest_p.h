@@ -60,9 +60,12 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
+class QJsonPrivatePartition;
 class QJsonDbRequestPrivate
 {
     Q_DECLARE_PUBLIC(QJsonDbRequest)
+    friend class QJsonPrivatePartition;
+
 public:
     QJsonDbRequestPrivate(QJsonDbRequest *q);
     virtual ~QJsonDbRequestPrivate() { }
@@ -74,12 +77,16 @@ public:
     void setStatus(QJsonDbRequest::Status newStatus);
     void setRequestId(int id);
 
+    bool isPrivatePartition() const;
+
+    void _q_privatePartitionResults(const QList<QJsonObject> &res);
+    void _q_privatePartitionStatus(QtJsonDb::QJsonDbRequest::Status status);
+
     QJsonDbRequest *q_ptr;
     QString partition;
     QJsonDbRequest::Status status;
     int requestId;
     bool internal; // marks internal requests e.g. notification and token auth.
-
     QList<QJsonObject> results;
 };
 

@@ -100,7 +100,7 @@ private:
 
 typedef QList<JsonDbObject> JsonDbObjectList;
 
-struct GetObjectsResult
+struct Q_JSONDB_PARTITION_EXPORT GetObjectsResult
 {
     JsonDbObjectList data;
     QJsonValue error;

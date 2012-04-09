@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef QJSONDB_WRITE_REQUEST_P_H
-#define QJSONDB_WRITE_REQUEST_P_H
+#ifndef QJSONDB_PRIVATE_PARTITION_P_H
+#define QJSONDB_PRIVATE_PARTITION_P_H
 
 //
 //  W A R N I N G
@@ -53,33 +53,60 @@
 // We mean it.
 //
 
+#include <QJsonObject>
 #include <QObject>
-#include <QMap>
 
-#include "qjsondbrequest_p.h"
-#include "qjsondbwriterequest.h"
+#include "qjsondbglobal.h"
+#include "qjsondbrequest.h"
+#include "jsondbpartitionglobal.h"
+
+QT_BEGIN_HEADER
+
+QT_BEGIN_NAMESPACE_JSONDB_PARTITION
+class JsonDbOwner;
+class JsonDbPartition;
+QT_END_NAMESPACE_JSONDB_PARTITION
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class QJsonDbWriteRequestPrivate : public QJsonDbRequestPrivate
+class QJsonDbConnectionPrivate;
+class QJsonDbRequestPrivate;
+
+class QJsonDbPrivatePartition : public QObject
 {
-    Q_DECLARE_PUBLIC(QJsonDbWriteRequest)
+    Q_OBJECT
 public:
-    QJsonDbWriteRequestPrivate(QJsonDbWriteRequest *q);
+    QJsonDbPrivatePartition(QJsonDbConnectionPrivate *conn);
+    ~QJsonDbPrivatePartition();
 
-    QJsonObject getRequest() const;
-    void handleResponse(const QJsonObject &);
-    void handleError(int, const QString &);
+    inline void setRequest(const QJsonObject &req) { request = req; }
 
-    void _q_privatePartitionStarted(quint32 state);
+public Q_SLOTS:
+    void handleRequest();
 
-    QList<QJsonObject> objects;
-    QJsonDbWriteRequest::ConflictResolutionMode conflictResolutionMode;
+Q_SIGNALS:
+    void started();
+    void resultsAvailable(const QList<QJsonObject> &results);
+    void finished();
+    void error(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
-    // response data
-    quint32 stateNumber;
+    // signals for properties
+    void statusChanged(QtJsonDb::QJsonDbRequest::Status newStatus);
+
+    void readRequestStarted(quint32 state, const QString &sortKey);
+    void writeRequestStarted(quint32 state);
+    void requestCompleted();
+
+private:
+    QtJsonDb::QJsonDbRequest::ErrorCode ensurePartition(const QString &partitionName, QString &message);
+
+    QJsonDbConnectionPrivate *connection;
+    Partition::JsonDbOwner *partitionOwner;
+    Partition::JsonDbPartition *privatePartition;
+    QJsonObject request;
 };
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // QJSONDB_WRITE_REQUEST_P_H
+QT_END_HEADER
+#endif // QJSONDB_PRIVATE_PARTITION_P_H
