@@ -183,55 +183,118 @@ QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, c
     const ushort trueLiteral[] = {'t','r','u','e', 0};
     const ushort falseLiteral[] = {'f','a','l','s','e', 0};
     const ushort *literal = json.utf16();
+    QJsonValue value;
     Q_ASSERT(ok != NULL);
     *ok = true;
     switch (literal[0]) {
     case '"':
-        term->setValue(json.mid(1, json.size()-2));
+        value = json.mid(1, json.size()-2);
         break;
     case 't':
         // we will interpret  "true0something" as true is it a real problem ?
         for (int i = 1; i < 5 /* 'true0' length */; ++i) {
             if (trueLiteral[i] != literal[i]) {
                 *ok = false;
-                return term->value();
+                return value;
             }
         }
-        term->setValue(true);
+        value = true;
         break;
     case 'f':
         // we will interpret  "false0something" as false is it a real problem ?
         for (int i = 1; i < 6  /* 'false0' length */; ++i) {
             if (falseLiteral[i] != literal[i]) {
                 *ok = false;
-                return term->value();
+                return value;
             }
         }
-        term->setValue(false);
+        value = false;
         break;
     case '%':
     {
         const QString name = json.mid(1);
         if (bindings.contains(name))
-            term->setValue(bindings.value(name));
+            value = bindings.value(name);
         else
-            term->setVariable(name);
+            if (term)
+                term->setVariable(name);
         break;
     }
     case 0:
         // This can happen if json.length() == 0
         *ok = false;
-        return term->value();
+        return value;
     default:
         int result = json.toInt(ok);
         if (*ok) {
-            term->setValue(result);
+            value = result;
         } else {
             // bad luck, it can be only a double
-            term->setValue(json.toDouble(ok));
+            value = json.toDouble(ok);
         }
     }
-    return term->value();
+    if (term)
+        term->setValue(value);
+    return value;
+}
+
+QJsonArray JsonDbQuery::parseJsonArray(JsonDbQueryTokenizer &tokenizer, const QJsonObject &bindings, bool *ok)
+{
+    QJsonArray array;
+
+    *ok = true;
+    for (QString tkn = tokenizer.pop(); !tkn.isEmpty(); tkn = tokenizer.pop()) {
+        if (tkn == QLatin1String("]"))
+            break;
+        else if (tkn == QLatin1String("["))
+            array.append(parseJsonArray(tokenizer, bindings, ok));
+        else if (tkn == QLatin1String("{"))
+            array.append(parseJsonObject(tokenizer, bindings, ok));
+        else
+            array.append(parseJsonLiteral(tkn, 0, bindings, ok));
+        tkn = tokenizer.pop();
+        if (tkn == QLatin1String("]")) {
+            break;
+        } else if (tkn != QLatin1String(",")) {
+            *ok = false;
+            break;
+        }
+    }
+    return array;
+}
+
+QJsonObject JsonDbQuery::parseJsonObject(JsonDbQueryTokenizer &tokenizer, const QJsonObject &bindings, bool *ok)
+{
+    QJsonObject object;
+    *ok = true;
+    for (QString tkn = tokenizer.popIdentifier(); !tkn.isEmpty(); tkn = tokenizer.popIdentifier()) {
+        if (tkn == QLatin1String("}"))
+            break;
+        QString key = tkn;
+        tkn = tokenizer.pop();
+        if (tkn != QLatin1String(":")) {
+            *ok = false;
+            break;
+        }
+
+        tkn = tokenizer.pop();
+        QJsonValue value;
+        if (tkn == QLatin1String("["))
+            value = parseJsonArray(tokenizer, bindings, ok);
+        else if (tkn == QLatin1String("{"))
+            value = parseJsonObject(tokenizer, bindings, ok);
+        else
+            value = parseJsonLiteral(tkn, 0, bindings, ok);
+        object.insert(key, value);
+        tkn = tokenizer.pop();
+        if (tkn == QLatin1String("}")) {
+            break;
+        } else if (tkn != QLatin1String(",")) {
+            *ok = false;
+            break;
+        }
+    }
+    return object;
 }
 
 JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &bindings)
@@ -326,77 +389,22 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                         term.regExp().setCaseSensitivity(Qt::CaseInsensitive);
                     //qDebug() << "pattern" << tvs.mid(2, eor-2);
                     term.regExp().setPattern(tvs.mid(sepPos + 1, eor-sepPos-1));
-                } else if (op == QLatin1String("contains")) {
-                    bool ok = true;;
-
-                    QString value = tokenizer.pop();
-                    if (value == QLatin1String("[") || value == QLatin1String("{")) {
-                        QStack<QString> tokenStack;
-                        tokenStack.push(value);
-                        QString tkn = value;
-
-                        while (ok && !tkn.isEmpty()) {
-                            tkn = tokenizer.pop();
-                            if (tkn == QLatin1String("]") && tokenStack.isEmpty()) {
-                                tokenizer.push(tkn);
-                                break;
-                            } else {
-                                value += tkn;
-                                if (tkn == QLatin1String("]")) {
-                                    if (tokenStack.pop() != QLatin1String("["))
-                                        ok = false;
-                                } else if (tkn == QLatin1String("}")) {
-                                    if (tokenStack.pop() != QLatin1String("{"))
-                                        ok = false;
-                                }
-                            }
-                        }
-
-                        if (ok) {
-                            QJsonParseError parserError;
-                            QJsonDocument parsedValue = QJsonDocument::fromJson(value.toUtf8(), &parserError);
-                            if (parserError.error != QJsonParseError::NoError) {
-                                ok = false;
-                            } else {
-                                if (parsedValue.isArray())
-                                    term.setValue(parsedValue.array());
-                                else
-                                    term.setValue(parsedValue.object());
-                            }
-                        }
-                    } else {
-                        parseJsonLiteral(value, &term, bindings, &ok);
-                    }
-
-                    if (!ok) {
-                        parsedQuery->queryExplanation.append(QString::fromLatin1("Failed to parse query value '%1' in query '%2' %3 op %4")
-                                                             .arg(value)
-                                                             .arg(parsedQuery->query)
-                                                             .arg(fieldSpec)
-                                                             .arg(op));
-                        parseError = true;
-                        break;
-                    }
                 } else if ((op != QLatin1String("exists")) && (op != QLatin1String("notExists"))) {
+                    bool ok = true;
+
                     QString value = tokenizer.pop();
-                    bool ok = true;;
                     if (value == QLatin1String("[")) {
-                        QJsonArray values;
-                        while (1) {
-                            value = tokenizer.pop();
-                            if (value == QLatin1String("]"))
-                                break;
-                            parseJsonLiteral(value, &term, bindings, &ok);
-                            if (!ok)
-                                break;
-                            values.append(term.value());
-                            if (tokenizer.peek() == QLatin1String(","))
-                                tokenizer.pop();
-                        }
-                        term.setValue(values);
+                        QJsonValue value = parseJsonArray(tokenizer, bindings, &ok);
+                        if (ok)
+                            term.setValue(value);
+                    } else if (value == QLatin1String("{")) {
+                        QJsonValue value = parseJsonObject(tokenizer, bindings, &ok);
+                        if (ok)
+                            term.setValue(value);
                     } else {
                         parseJsonLiteral(value, &term, bindings, &ok);
                     }
+
                     if (!ok) {
                         parsedQuery->queryExplanation.append(QString::fromLatin1("Failed to parse query value '%1' in query '%2' %3 op %4")
                                                              .arg(value)

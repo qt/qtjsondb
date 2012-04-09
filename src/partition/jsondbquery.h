@@ -170,6 +170,8 @@ public:
     bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbPartition *partition = 0) const;
 
     static QJsonValue parseJsonLiteral(const QString &json, QueryTerm *term, const QJsonObject &bindings, bool *ok);
+    static QJsonArray parseJsonArray(JsonDbQueryTokenizer &tokenizer, const QJsonObject &bindings, bool *ok);
+    static QJsonObject parseJsonObject(JsonDbQueryTokenizer &tokenizer, const QJsonObject &bindings, bool *ok);
     static JsonDbQuery *parse(const QString &query, const QJsonObject &bindings = QJsonObject());
 
 private:
