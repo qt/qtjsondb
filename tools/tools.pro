@@ -1,3 +1,2 @@
 TEMPLATE = subdirs
-SUBDIRS += jsondb-client
-
+contains(config_test_libedit, yes):SUBDIRS += jsondb-client
