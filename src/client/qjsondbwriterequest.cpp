@@ -89,6 +89,9 @@ QT_BEGIN_NAMESPACE_JSONDB
 
     \value NoError
     \value MissingObject Missing object field.
+    \value UpdatingStaleVersion The value of _version supplied to this write request
+    does not match the current value of _version stored for this object in the
+    database.
 
     \sa error(), QJsonDbRequest::ErrorCode
 */

@@ -295,10 +295,16 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
     \qmlmethod int QtJsonDb::Partition::remove(object objectToRemove, object options, function callback)
 
     Removes the \a objectToRemove (or list of objects) from the partition. It returns the id of this
-    request. The \a options specifies how removal should be handled.
+    request.
+    \a options specifies how update should be handled.
     \list
-    \li options.mode - Supported values: "normal", which requires a an object with _uuid and
-    _version set to be passed.
+    \li options.mode - Supported values: "normal", "forced".
+    \list
+    \li"normal" removes the document if it exists and the _version value matches that of the object
+    in the database. Otherwise, if the _version doesn't match it will be rejected as a stale update.
+    \li"forced" ignores the existing database content.
+    \endlist
+    Default is "normal"
     \endlist
 
     The callback will be called in case of failure or success. The \a options and \a callback parameters

@@ -57,7 +57,8 @@ values of a single target type. The target type must extend \l View.
 \section2 Deterministic Map Uuids
 \target{deterministic-map-uuids}
 
-By default, View objects created by Map are assigned a deterministic Uuid. If
+By default, View objects created by Map are assigned a deterministic Uuid (see \l
+{Special JSON Properties}). If
 the "map" or "join" functions assign _uuid to the object they
 return, then that value is used as the uuid for the object. Otherwise,
 the view engine constructs an identifier string as follows:
