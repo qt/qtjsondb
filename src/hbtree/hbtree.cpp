@@ -91,7 +91,7 @@ const quint32 HBtreePrivate::PageInfo::INVALID_PAGE = 0xFFFFFFFF;
 HBtreePrivate::HBtreePrivate(HBtree *q, const QString &name)
     : q_ptr(q), fileName_(name), fd_(-1), openMode_(HBtree::ReadOnly), size_(0), lastSyncedId_(0), cacheSize_(20),
       compareFunction_(0),
-      writeTransaction_(0), lastPage_(PageInfo::INVALID_PAGE), cursorDisrupted_(false)
+      writeTransaction_(0), readTransaction_(0), lastPage_(PageInfo::INVALID_PAGE), cursorDisrupted_(false)
 {
 }
 
@@ -209,6 +209,8 @@ bool HBtreePrivate::open(int fd)
 
 void HBtreePrivate::close(bool doSync)
 {
+    HBTREE_ASSERT(!readTransaction_ && !writeTransaction_);
+
     if (fd_ != -1) {
         HBTREE_DEBUG("closing btree with fd:" << fd_);
         if (doSync)
@@ -931,9 +933,13 @@ void HBtreePrivate::abort(HBtreeTransaction *transaction)
     }
     dirtyPages_.clear();
     if (transaction->isReadWrite()) {
+        HBTREE_ASSERT(transaction == writeTransaction_);
         if (::flock(fd_, LOCK_UN) != 0)
             HBTREE_ERROR("failed to unlock file with transaction @" << transaction);
         writeTransaction_ = 0;
+    } else {
+        HBTREE_ASSERT(transaction == readTransaction_);
+        readTransaction_ = 0;
     }
     delete transaction;
     cachePrune();
@@ -998,6 +1004,13 @@ HBtreeTransaction *HBtreePrivate::beginTransaction(HBtreeTransaction::Type type)
 {
     Q_Q(HBtree);
 
+    HBTREE_ASSERT(!writeTransaction_ && !readTransaction_);
+
+    if (writeTransaction_ || readTransaction_) {
+        HBTREE_ERROR("Only one transaction type supported at a time");
+        return 0;
+    }
+
     if (type == HBtreeTransaction::ReadWrite && writeTransaction_) {
         HBTREE_ERROR("cannot open write transaction when one in progress");
         return 0;
@@ -1031,6 +1044,8 @@ HBtreeTransaction *HBtreePrivate::beginTransaction(HBtreeTransaction::Type type)
     transaction->revision_ = marker_.meta.revision;
     if (type == HBtreeTransaction::ReadWrite)
         writeTransaction_ = transaction;
+    else
+        readTransaction_ = transaction;
     HBTREE_DEBUG("began" << (transaction->isReadOnly() ? "read" : "write")
                  << "transaction @" << transaction
                  << "[root:" << transaction->rootPage_

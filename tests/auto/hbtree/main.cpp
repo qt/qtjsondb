@@ -2107,6 +2107,7 @@ void TestHBtree::deleteReinsertVerify()
         keyValueMap.insert(it.key(), it.value());
         ++it;
     }
+    txn->commit(0);
 
     // Verify in order.
     txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
@@ -2226,16 +2227,21 @@ void TestHBtree::tag()
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray("foo"), QByteArray("123")));
     QCOMPARE(db->tag(), 42u);
-    // do not commit just yet
+
+    // This test held off on a commit until the read was done. But for now we don't allow
+    // simultaneous reads and writes.
+    txn->abort();
 
     HBtreeTransaction *rtxn = db->beginTransaction(HBtreeTransaction::ReadOnly);
     QVERIFY(rtxn);
     QCOMPARE(rtxn->tag(), 42u);
+    rtxn->abort();
 
+    txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(txn);
     QVERIFY(txn->commit(64u));
     QCOMPARE(db->tag(), 64u);
-    QCOMPARE(rtxn->tag(), 42u);
-    rtxn->abort();
+
     rtxn = db->beginTransaction(HBtreeTransaction::ReadOnly);
     QVERIFY(rtxn);
     QCOMPARE(rtxn->tag(), 64u);

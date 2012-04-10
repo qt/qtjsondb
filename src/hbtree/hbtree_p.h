@@ -388,6 +388,7 @@ public:
     PageMap dirtyPages_;
     HBtree::CompareFunction compareFunction_;
     HBtreeTransaction *writeTransaction_;
+    HBtreeTransaction *readTransaction_;
     QSet<quint32> collectiblePages_;
     PageMap cache_;
     quint32 lastPage_;
