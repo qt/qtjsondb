@@ -50,6 +50,7 @@
 #include <QJsonDocument>
 #include <QProcess>
 #include <QTest>
+#include <QFile>
 
 #include <signal.h>
 
