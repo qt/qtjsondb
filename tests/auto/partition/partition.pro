@@ -19,3 +19,10 @@ unix:!mac:contains(QT_CONFIG,icu) {
 
 SOURCES += \
     testpartition.cpp \
+
+contains(config_test_icu, yes) {
+    LIBS += -licuuc -licui18n
+} else {
+    DEFINES += NO_COLLATION_SUPPORT
+}
+

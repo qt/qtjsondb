@@ -73,7 +73,7 @@ SOURCES += \
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondbpartition.name
 
-unix:!mac:contains(QT_CONFIG,icu) {
+contains(config_test_icu, yes) {
     LIBS += -licuuc -licui18n
 } else {
     DEFINES += NO_COLLATION_SUPPORT

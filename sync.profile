@@ -31,3 +31,6 @@ $publicclassregexp = "QJsonDb.+";
         "qtjsbackend" => "refs/heads/master",
         "qtxmlpatterns" => "refs/heads/master",
 );
+%configtests = (
+        "icu" => {}
+);
