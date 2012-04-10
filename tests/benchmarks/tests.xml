@@ -10,10 +10,6 @@
         <description>Server-side performance</description>
         <step>cd /usr/lib/qt5jsondb-tests/benchmarks/partition; date &amp;&amp; ./tst_bench_partition &amp;&amp; date</step>
       </case>
-      <case name="tst_bench_listmodel" timeout="5000" component="qt5jsondb">
-        <description>JsonDbListModel performance</description>
-        <step>cd /usr/lib/qt5jsondb-tests/benchmarks/jsondb-listmodel; date &amp;&amp; ./tst_bench_listmodel -platform minimal &amp;&amp; date</step>
-      </case>
       <case name="tst_bench_jsondbcachinglistmodel" timeout="5000" component="qt5jsondb">
         <description>JsonDbCachingListModel performance</description>
         <step>cd /usr/lib/qt5jsondb-tests/benchmarks/jsondbcachinglistmodel; date &amp;&amp; ./tst_bench_jsondbcachinglistmodel -platform minimal &amp;&amp; date</step>
