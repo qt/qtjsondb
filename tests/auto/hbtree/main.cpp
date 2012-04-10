@@ -564,6 +564,7 @@ private:
     HBtreePrivate *d;
 
     bool printOutCollectibles_;
+    bool printExtraInfo_;
 };
 
 static const char dbname[] = "tst_HBtree.db";
@@ -772,16 +773,19 @@ void TestHBtree::init()
         Q_ASSERT(false);
     d = db->d_func();
     printOutCollectibles_ = true;
+    printExtraInfo_ = false;
 }
 
 void TestHBtree::cleanup()
 {
-    qDebug() << "Size:" << sizeStr(db->size()) << " Pages:" << db->size() / d->spec_.pageSize;
-    qDebug() << "Stats:" << db->stats();
-    qDebug() << "Cache size:" << d->cache_.size();
-    qDebug() << "Num collectibles:" << d->collectiblePages_.size();
-    if (printOutCollectibles_)
-        qDebug() << "Collectible pages: " << d->collectiblePages_;
+    if (printExtraInfo_) {
+        qDebug() << "Size:" << sizeStr(db->size()) << " Pages:" << db->size() / d->spec_.pageSize;
+        qDebug() << "Stats:" << db->stats();
+        qDebug() << "Cache size:" << d->cache_.size();
+        qDebug() << "Num collectibles:" << d->collectiblePages_.size();
+        if (printOutCollectibles_)
+            qDebug() << "Collectible pages: " << d->collectiblePages_;
+    }
 
     delete db;
     db = 0;
