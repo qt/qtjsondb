@@ -523,10 +523,8 @@ private slots:
     void cursorExactMatch();
     void cursorFuzzyMatch_data();
     void cursorFuzzyMatch();
-    void cursorNext_data();
-    void cursorNext();
-    void cursorPrev_data();
-    void cursorPrev();
+    void cursorWalk_data();
+    void cursorWalk();
     void lastMultiPage();
     void firstMultiPage();
     void prev();
@@ -536,6 +534,7 @@ private slots:
     void rollback();
     void multipleRollbacks();
     void createWithCmp();
+    void variableSizeKeysAndData_data();
     void variableSizeKeysAndData();
     void compareSequenceOfVarLengthKeys();
     void asciiAsSortedNumbers();
@@ -559,7 +558,7 @@ private slots:
     void deleteAlotNoSyncReopen();
 
 private:
-    void setTestData(QList<int> itemCounts, QList<int> keySizes, QList<int> dataSizes, bool addCmpBool = false, bool addRandBool = false);
+    void setTestData(QList<int> itemCounts, QList<int> keySizes, QList<int> dataSizes, bool addCmpBool = false, bool addRandBool = false, bool addPreviousBool = false);
     void corruptSinglePage(int psize, int pgno = -1, qint32 type = -1);
     HBtree *db;
     HBtreePrivate *d;
@@ -607,15 +606,15 @@ bool asciiCmpFuncForVec(const QByteArray &a, const QByteArray &b) {
     return asciiCmpFunc(a, b) < 0;
 }
 
-void newTestRow(QString name, int nItems, int szKeys, int szData, bool addCmpBool, bool addRandBool)
+void newTestRow(QString name, int nItems, int szKeys, int szData, bool addCmpBool, bool addRandBool, bool addPreviousBool)
 {
     if (addRandBool)
         Q_ASSERT(nItems < numTableSize);
 
-    QTest::newRow(name.toAscii().constData()) << nItems << szKeys << szData << addCmpBool << addRandBool;
+    QTest::newRow(name.toAscii().constData()) << nItems << szKeys << szData << addCmpBool << addRandBool << addPreviousBool;
 }
 
-void makeTestRow(int nItems, int szKeys, int szData, bool addCmpBool, bool addRandBool)
+void makeTestRow(int nItems, int szKeys, int szData, bool addCmpBool, bool addRandBool, bool addPreviousBool)
 {
     QString strItems = QString("%1 items").arg(nItems);
     QString strKeys = szKeys ? QString("%1 keys").arg(sizeStr(szKeys)) : "";
@@ -626,30 +625,69 @@ void makeTestRow(int nItems, int szKeys, int szData, bool addCmpBool, bool addRa
     if (szData)
         str += QString(", ") + strData;
     if (!addCmpBool && !addRandBool) {
-        newTestRow(str, nItems, szKeys, szData, false, false);
+        if (addPreviousBool) {
+            QString strNext = str + " - cursorNext";
+            QString strPrev = str + " - cursorPrev";
+            newTestRow(strNext, nItems, szKeys, szData, false, false, false);
+            newTestRow(strPrev, nItems, szKeys, szData, false, false, true);
+        } else {
+            newTestRow(str, nItems, szKeys, szData, false, false, false);
+        }
     } else if (addCmpBool && addRandBool) {
         QString strContigiousWithCmp = str + " - contigious with cmp";
         QString strContigiousNoCmp = str + " - contigious without cmp";
         QString strRandomizedWithCmp = str + " - randomized with cmp";
         QString strRandomizedNoCmp = str + " - randomized without cmp";
-        newTestRow(strContigiousWithCmp, nItems, szKeys, szData, true, false);
-        newTestRow(strContigiousNoCmp, nItems, szKeys, szData, false, false);
-        newTestRow(strRandomizedWithCmp, nItems, szKeys, szData, true, true);
-        newTestRow(strRandomizedNoCmp, nItems, szKeys, szData, false, true);
+        if (addPreviousBool) {
+            QString withNext = " - cursorNext";
+            QString withPrev = " - cursorPrev";
+            newTestRow(strContigiousWithCmp + withNext, nItems, szKeys, szData, true, false, false);
+            newTestRow(strContigiousNoCmp + withNext, nItems, szKeys, szData, false, false, false);
+            newTestRow(strRandomizedWithCmp + withNext, nItems, szKeys, szData, true, true, false);
+            newTestRow(strRandomizedNoCmp + withNext, nItems, szKeys, szData, false, true, false);
+            newTestRow(strContigiousWithCmp + withPrev, nItems, szKeys, szData, true, false, true);
+            newTestRow(strContigiousNoCmp + withPrev, nItems, szKeys, szData, false, false, true);
+            newTestRow(strRandomizedWithCmp + withPrev, nItems, szKeys, szData, true, true, true);
+            newTestRow(strRandomizedNoCmp + withPrev, nItems, szKeys, szData, false, true, true);
+        } else {
+            newTestRow(strContigiousWithCmp, nItems, szKeys, szData, true, false, false);
+            newTestRow(strContigiousNoCmp, nItems, szKeys, szData, false, false, false);
+            newTestRow(strRandomizedWithCmp, nItems, szKeys, szData, true, true, false);
+            newTestRow(strRandomizedNoCmp, nItems, szKeys, szData, false, true, false);
+        }
     } else if (addCmpBool) {
         QString strWithCmp = str + " - with cmp";
         QString strNoCmp = str + " - without cmp";
-        newTestRow(strWithCmp, nItems, szKeys, szData, true, false);
-        newTestRow(strNoCmp, nItems, szKeys, szData, false, false);
+        if (addPreviousBool) {
+            QString withNext = " - cursorNext";
+            QString withPrev = " - cursorPrev";
+            newTestRow(strWithCmp + withNext, nItems, szKeys, szData, true, false, false);
+            newTestRow(strNoCmp + withNext, nItems, szKeys, szData, false, false, false);
+            newTestRow(strWithCmp + withPrev, nItems, szKeys, szData, true, false, true);
+            newTestRow(strNoCmp + withPrev, nItems, szKeys, szData, false, false, true);
+
+        } else {
+            newTestRow(strWithCmp, nItems, szKeys, szData, true, false, false);
+            newTestRow(strNoCmp, nItems, szKeys, szData, false, false, false);
+        }
     } else if (addRandBool) {
         QString strContigious = str + " - contigious";
         QString strRandomized = str + " - randomized";
-        newTestRow(strRandomized, nItems, szKeys, szData, false, true);
-        newTestRow(strContigious, nItems, szKeys, szData, false, false);
+        if (addPreviousBool) {
+            QString withNext = " - cursorNext";
+            QString withPrev = " - cursorPrev";
+            newTestRow(strRandomized + withNext, nItems, szKeys, szData, false, true, false);
+            newTestRow(strContigious + withNext, nItems, szKeys, szData, false, false, false);
+            newTestRow(strRandomized + withPrev, nItems, szKeys, szData, false, true, true);
+            newTestRow(strContigious + withPrev, nItems, szKeys, szData, false, false, true);
+        } else {
+            newTestRow(strRandomized, nItems, szKeys, szData, false, true, false);
+            newTestRow(strContigious, nItems, szKeys, szData, false, false, false);
+        }
     }
 }
 
-void TestHBtree::setTestData(QList<int> itemCounts, QList<int> keySizes, QList<int> dataSizes, bool addCmpBool, bool addRandBool)
+void TestHBtree::setTestData(QList<int> itemCounts, QList<int> keySizes, QList<int> dataSizes, bool addCmpBool, bool addRandBool, bool addPreviousBool)
 {
     Q_ASSERT(itemCounts.size());
 
@@ -658,27 +696,28 @@ void TestHBtree::setTestData(QList<int> itemCounts, QList<int> keySizes, QList<i
     QTest::addColumn<int>("valueSize");
     QTest::addColumn<bool>("useCmp");
     QTest::addColumn<bool>("randomize");
+    QTest::addColumn<bool>("usePrevious");
 
     if (itemCounts.size() && keySizes.size() && dataSizes.size()) {
         foreach (int nItems, itemCounts) {
             foreach (int szKey, keySizes) {
                 foreach (int szData, dataSizes)
-                    makeTestRow(nItems, szKey, szData, addCmpBool, addRandBool);
+                    makeTestRow(nItems, szKey, szData, addCmpBool, addRandBool, addPreviousBool);
             }
         }
     } else if (itemCounts.size() && keySizes.size()) {
         foreach (int nItems, itemCounts) {
             foreach (int szKey, keySizes)
-                makeTestRow(nItems, szKey, 0, addCmpBool, addRandBool);
+                makeTestRow(nItems, szKey, 0, addCmpBool, addRandBool, addPreviousBool);
         }
     } else if (itemCounts.size() && dataSizes.size()) {
         foreach (int nItems, itemCounts) {
             foreach (int szData, dataSizes)
-                makeTestRow(nItems, 0, szData, addCmpBool, addRandBool);
+                makeTestRow(nItems, 0, szData, addCmpBool, addRandBool, addPreviousBool);
         }
     } else if (itemCounts.size()) {
          foreach (int nItems, itemCounts)
-            makeTestRow(nItems, 0, 0, addCmpBool, addRandBool);
+            makeTestRow(nItems, 0, 0, addCmpBool, addRandBool, addPreviousBool);
     }
 }
 
@@ -1406,18 +1445,19 @@ void TestHBtree::cursorFuzzyMatch()
     transaction->abort();
 }
 
-void TestHBtree::cursorNext_data()
+void TestHBtree::cursorWalk_data()
 {
     QList<int> itemCounts = QList<int>() << 5 << 100 << 1000;
     QList<int> dataSizes = QList<int>() << 100 << 1000 << 3000;
-    setTestData(itemCounts, QList<int>(), dataSizes, false, true);
+    setTestData(itemCounts, QList<int>(), dataSizes, false, true, true);
 }
 
-void TestHBtree::cursorNext()
+void TestHBtree::cursorWalk()
 {
     QFETCH(int, numItems);
     QFETCH(int, valueSize);
     QFETCH(bool, randomize);
+    QFETCH(bool, usePrevious);
 
     QMap<QByteArray, QByteArray> keyValues;
 
@@ -1433,54 +1473,19 @@ void TestHBtree::cursorNext()
 
     HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
     HBtreeCursor cursor(transaction);
-    QMap<QByteArray, QByteArray>::iterator it = keyValues.begin();
+    QMap<QByteArray, QByteArray>::iterator it = usePrevious ? keyValues.end() - 1 : keyValues.begin();
 
     while (it != keyValues.end()) {
-        QVERIFY(cursor.next());
+        if (usePrevious)
+            QVERIFY(cursor.previous());
+        else
+            QVERIFY(cursor.next());
         QCOMPARE(cursor.key(), it.key());
         QCOMPARE(cursor.value(), it.value());
-        ++it;
-    }
-
-    transaction->abort();
-}
-
-void TestHBtree::cursorPrev_data()
-{
-    QList<int> itemCounts = QList<int>() << 5 << 100 << 1000;
-    QList<int> dataSizes = QList<int>() << 100 << 1000 << 3000;
-    setTestData(itemCounts, QList<int>(), dataSizes, false, true);
-}
-
-void TestHBtree::cursorPrev()
-{
-    QFETCH(int, numItems);
-    QFETCH(int, valueSize);
-    QFETCH(bool, randomize);
-
-    QMap<QByteArray, QByteArray> keyValues;
-
-    for (int i = 0; i < numItems; ++i) {
-        QByteArray key = QByteArray::number(randomize ? numTable[i] : i);
-        QByteArray value = key + QByteArray('-', valueSize - key.size());
-        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
-        QVERIFY(transaction);
-        QVERIFY(transaction->put(key, value));
-        keyValues.insert(key, value);
-        QVERIFY(transaction->commit(i));
-    }
-
-    HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
-    HBtreeCursor cursor(transaction);
-    QMap<QByteArray, QByteArray>::iterator it = keyValues.end();
-
-    if (keyValues.size()) {
-        do {
-                --it;
-                QVERIFY(cursor.previous());
-                QCOMPARE(cursor.key(), it.key());
-                QCOMPARE(cursor.value(), it.value());
-        } while (it != keyValues.begin());
+        if (usePrevious)
+            --it;
+        else
+            ++it;
     }
 
     transaction->abort();
@@ -1602,18 +1607,18 @@ void TestHBtree::prev2()
     int maxSize = file.size();
 
     int amount = ::getenv("BENCHMARK_AMOUNT") ? ::atoi(::getenv("BENCHMARK_AMOUNT")) : 40000;
+    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(txn);
     for (int i = 0; i < amount; ++i) {
         QByteArray data = QUuid::createUuid().toRfc4122();
-        HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
-        QVERIFY(txn);
         QVERIFY(txn->put(data, QByteArray("value_")+QByteArray::number(i)));
-        txn->commit(0);
         int size = file.size();
         if (size > maxSize)
             maxSize = size;
     }
+    txn->commit(0);
 
-    HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
+    txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
     QVERIFY(txn);
     HBtreeCursor c(txn);
     QVERIFY(c.first());
@@ -1835,8 +1840,17 @@ void TestHBtree::multipleRollbacks()
     txn->abort();
 }
 
+void TestHBtree::variableSizeKeysAndData_data()
+{
+    QList<int> itemCounts = QList<int>() << 1000;
+    setTestData(itemCounts, QList<int>(), QList<int>(), false, false, true);
+}
+
 void TestHBtree::variableSizeKeysAndData()
 {
+    QFETCH(int, numItems);
+    QFETCH(bool, usePrevious);
+
     QByteArray keyPrefix[10] = {
         QByteArray("0001234567890123456789"),
         QByteArray("000123456789"),
@@ -1852,7 +1866,7 @@ void TestHBtree::variableSizeKeysAndData()
     /* initialize random seed: */
     srand ( 0 ); //QDateTime::currentMSecsSinceEpoch() );
 
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < numItems; i++) {
         // Create a key with one of the prefixes from above
         // Start by selecting one of the key prefixes
         QByteArray key = keyPrefix[rand()%10];
@@ -1877,12 +1891,12 @@ void TestHBtree::variableSizeKeysAndData()
     HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
     // Delete every second object
     HBtreeCursor cursor(txn);
-    QVERIFY(cursor.first());
+    QVERIFY(usePrevious ? cursor.last() : cursor.first());
     QByteArray key;
     cursor.current(&key, 0);
     bool remove = true;
     int counter = 0;
-    while (cursor.next()) {
+    while (usePrevious ? cursor.previous() : cursor.next()) {
         counter++;
         if (remove) {
             remove = false;
@@ -1891,10 +1905,6 @@ void TestHBtree::variableSizeKeysAndData()
         else remove = true;
     }
     txn->commit(0);
-
-    // Set this to false because after all those deleted we get a shit load of collectible pages
-    // I don't know what to do with all of them. Commit them to disk on a new GC Page type?
-    printOutCollectibles_ = false;
 }
 
 int findLongestSequenceOf(const char *a, size_t size, char x)
@@ -2023,7 +2033,7 @@ void TestHBtree::asciiAsSortedNumbers()
 void TestHBtree::deleteReinsertVerify_data()
 {
     QList<int> itemCounts = QList<int>() << 100 << 1000 << 2000;
-    setTestData(itemCounts, QList<int>(), QList<int>(), true, true);
+    setTestData(itemCounts, QList<int>(), QList<int>(), true, true, true);
 }
 
 void TestHBtree::deleteReinsertVerify()
@@ -2031,6 +2041,7 @@ void TestHBtree::deleteReinsertVerify()
     QFETCH(int, numItems);
     QFETCH(bool, randomize);
     QFETCH(bool, useCmp);
+    QFETCH(bool, usePrevious);
 
     if (useCmp)
         db->setCompareFunction(asciiCmpFunc);
@@ -2098,10 +2109,14 @@ void TestHBtree::deleteReinsertVerify()
     QVERIFY(txn);
     HBtreeCursor cursor(txn);
     for (int i = 0; i < numItems; ++i) {
-        QVERIFY(cursor.next());
-        it = keyValueMap.find(keys[i]);
+        if (usePrevious)
+            QVERIFY(cursor.previous());
+        else
+            QVERIFY(cursor.next());
+        int idx = usePrevious ? (numItems - 1) - i : i;
+        it = keyValueMap.find(keys[idx]);
         QVERIFY(it != keyValueMap.end());
-        QCOMPARE(cursor.key(), keys[i]);
+        QCOMPARE(cursor.key(), keys[idx]);
         QCOMPARE(cursor.value(), it.value());
     }
     txn->abort();
@@ -2411,7 +2426,7 @@ void TestHBtree::cursorWhileDelete_data()
     QList<int> itemCounts = QList<int>() << 100 << 1000;
     QList<int> keySizes = QList<int>() << 100 << 1000;
     QList<int> dataSizes = QList<int>() << 100 << 1000 << 2000 << 5000;
-    setTestData(itemCounts, keySizes, dataSizes);
+    setTestData(itemCounts, keySizes, dataSizes, false, false, true);
 }
 
 void TestHBtree::cursorWhileDelete()
@@ -2419,6 +2434,7 @@ void TestHBtree::cursorWhileDelete()
     QFETCH(int, numItems);
     QFETCH(int, keySize);
     QFETCH(int, valueSize);
+    QFETCH(bool, usePrevious);
 
     // Insert data
     QMap<QByteArray, QByteArray> keyValues;
@@ -2438,7 +2454,7 @@ void TestHBtree::cursorWhileDelete()
     HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
     QVERIFY(txn);
     HBtreeCursor cursor1(txn);
-    while (cursor1.next()) {
+    while (usePrevious ? cursor1.previous() : cursor1.next()) {
         QVERIFY(txn->del(cursor1.key()));
     }
     txn->commit(0);
