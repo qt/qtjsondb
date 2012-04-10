@@ -98,9 +98,6 @@ bool JsonStream::send(const QJsonObject &object)
         } else if (didWrite < shouldWrite) {
             mWriteBuffer = data.mid(didWrite);
         }
-        QLocalSocket *s = qobject_cast<QLocalSocket *>(mDevice);
-        if (s)
-            s->flush();
     } else {
         qWarning() << "Buffering, slow down your writes";
         mWriteBuffer.append(data);
