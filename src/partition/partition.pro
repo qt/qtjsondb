@@ -15,7 +15,6 @@ CONFIG += module create_prl
 MODULE_PRI = ../../modules/qt_jsondbpartition.pri
 
 include(../3rdparty/btree/btree.pri)
-include(../common/common.pri)
 
 RESOURCES = jsondb.qrc
 

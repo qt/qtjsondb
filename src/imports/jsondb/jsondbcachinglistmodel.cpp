@@ -877,7 +877,6 @@ int JsonDbCachingListModelPrivate::indexOf(const QString &uuid) const
 
 void JsonDbCachingListModelPrivate::sendNotification(int partitionIndex, const QJsonObject &object, QJsonDbWatcher::Action action)
 {
-    Q_Q(JsonDbCachingListModel);
     if (action == QJsonDbWatcher::Created) {
        addItem(object, partitionIndex);
     } else if (action == QJsonDbWatcher::Removed)

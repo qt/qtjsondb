@@ -28,8 +28,6 @@ INSTALLS += target qmldir
 
 VERSION = 1.0
 
-include(../../common/common.pri)
-
 HEADERS += \
     jsondb-listmodel.h \
     jsondb-listmodel_p.h \
