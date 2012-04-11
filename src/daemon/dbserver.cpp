@@ -490,7 +490,7 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
     }
     quint32 partitionStateNumber = 0;
     if (partition)
-        partition->mainObjectTable()->stateNumber();
+        partitionStateNumber = partition->mainObjectTable()->stateNumber();
     else if (mDefaultPartition)
         partitionStateNumber =  mDefaultPartition->mainObjectTable()->stateNumber();
 
@@ -510,7 +510,7 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
 
         QString oldObjectType = oldObject.value(JsonDbString::kTypeStr).toString();
         QString objectType = object.value(JsonDbString::kTypeStr).toString();
-        quint32 stateNumber;
+        quint32 stateNumber = 0;
         if (partition) {
             JsonDbObjectTable *objectTable = partition->findObjectTable(objectType);
             stateNumber = objectTable->stateNumber();
