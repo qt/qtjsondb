@@ -89,6 +89,7 @@ private slots:
     void notificationTriggersView();
     void notificationTriggersMapReduce();
     void typeChangeEagerViewSource();
+    void invalid();
 };
 
 static const char dbfileprefix[] = "test-jsondb-watcher";
@@ -631,6 +632,31 @@ void TestQJsonDbWatcher::typeChangeEagerViewSource()
     QJsonDbRemoveRequest remove(toDelete);
     mConnection->send(&remove);
     waitForResponse(&remove);
+}
+
+void TestQJsonDbWatcher::invalid()
+{
+    // missing query
+    QJsonDbWatcher watcher;
+    watcher.setQuery(QStringLiteral(""));
+    mConnection->addWatcher(&watcher);
+    waitForError(&watcher, QJsonDbWatcher::MissingQuery);
+    mConnection->removeWatcher(&watcher);
+
+    // garbage query
+    QJsonDbWatcher watcher2;
+    watcher2.setQuery(QStringLiteral("not a valid query"));
+    mConnection->addWatcher(&watcher2);
+    waitForError(&watcher2, QJsonDbWatcher::MissingQuery);
+    mConnection->removeWatcher(&watcher2);
+
+    // non-existent partition
+    QJsonDbWatcher watcher3;
+    watcher3.setQuery(QStringLiteral("[?_type=\"Contact\"]"));
+    watcher3.setPartition(QStringLiteral("this.partition.does.not.exist"));
+    mConnection->addWatcher(&watcher3);
+    waitForError(&watcher3, QJsonDbWatcher::InvalidPartition);
+    mConnection->removeWatcher(&watcher3);
 }
 
 QTEST_MAIN(TestQJsonDbWatcher)

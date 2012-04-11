@@ -746,39 +746,58 @@ void DBServer::processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDb
     QJsonObject response;
     response.insert(JsonDbString::kIdStr, id);
 
-    JsonDbWriteResult res = partitionName == mEphemeralPartition->name() ?
-                mEphemeralPartition->updateObjects(owner, objects, mode) :
-                mPartitions.value(partitionName, mDefaultPartition)->updateObjects(owner, objects, mode);
+    JsonDbError::ErrorCode errorCode = JsonDbError::NoError;
+    QString errorMsg;
 
-    if (res.code != JsonDbError::NoError) {
-        QJsonObject error;
-        error.insert(JsonDbString::kCodeStr, res.code);
-        error.insert(JsonDbString::kMessageStr, res.message);
-        response.insert(JsonDbString::kErrorStr, error);
-        response.insert(JsonDbString::kResultStr, QJsonValue());
-    } else {
-        QJsonArray data;
-        foreach (const JsonDbObject &object, res.objectsWritten) {
-            QJsonObject written = object;
-            written.insert(JsonDbString::kUuidStr, object.uuid().toString());
-            written.insert(JsonDbString::kVersionStr, object.version());
-            data.append(written);
-
-            // handle notifications
-            if (object.type() == JsonDbString::kNotificationTypeStr) {
-                if (mNotificationMap.contains(object.uuid().toString()))
-                    removeNotification(object);
-                if (!object.isDeleted())
-                    createNotification(object, stream);
+    if (partitionName == mEphemeralPartition->name()) {
+        // validate any notification objects before sending them off to be created
+        foreach (const JsonDbObject &object, objects) {
+            if (object.type() == JsonDbString::kNotificationTypeStr && !object.isDeleted()) {
+                errorCode = validateNotification(object, errorMsg);
+                if (errorCode != JsonDbError::NoError)
+                    break;
             }
         }
+    }
 
-        QJsonObject result;
-        result.insert(JsonDbString::kDataStr, data);
-        result.insert(JsonDbString::kCountStr, data.count());
-        result.insert(JsonDbString::kStateNumberStr, static_cast<int>(res.state));
-        response.insert(JsonDbString::kResultStr, result);
-        response.insert(JsonDbString::kErrorStr, QJsonValue());
+    if (errorCode == JsonDbError::NoError) {
+        JsonDbWriteResult res = partitionName == mEphemeralPartition->name() ?
+                    mEphemeralPartition->updateObjects(owner, objects, mode) :
+                    mPartitions.value(partitionName, mDefaultPartition)->updateObjects(owner, objects, mode);
+        errorCode = res.code;
+        errorMsg = res.message;
+        if (errorCode == JsonDbError::NoError) {
+            QJsonArray data;
+            foreach (const JsonDbObject &object, res.objectsWritten) {
+                QJsonObject written = object;
+                written.insert(JsonDbString::kUuidStr, object.uuid().toString());
+                written.insert(JsonDbString::kVersionStr, object.version());
+                data.append(written);
+
+                // handle notifications
+                if (object.type() == JsonDbString::kNotificationTypeStr) {
+                    if (mNotificationMap.contains(object.uuid().toString()))
+                        removeNotification(object);
+                    if (!object.isDeleted())
+                        createNotification(object, stream);
+                }
+            }
+
+            QJsonObject result;
+            result.insert(JsonDbString::kDataStr, data);
+            result.insert(JsonDbString::kCountStr, data.count());
+            result.insert(JsonDbString::kStateNumberStr, static_cast<int>(res.state));
+            response.insert(JsonDbString::kResultStr, result);
+            response.insert(JsonDbString::kErrorStr, QJsonValue());
+        }
+    }
+
+    if (errorCode != JsonDbError::NoError) {
+        QJsonObject error;
+        error.insert(JsonDbString::kCodeStr, errorCode);
+        error.insert(JsonDbString::kMessageStr, errorMsg);
+        response.insert(JsonDbString::kErrorStr, error);
+        response.insert(JsonDbString::kResultStr, QJsonValue());
     }
 
     stream->send(response);
@@ -1055,6 +1074,29 @@ void DBServer::removeNotification(const JsonDbObject &object)
 
         delete n;
     }
+}
+
+JsonDbError::ErrorCode DBServer::validateNotification(const JsonDbObject &notificationDef, QString &message)
+{
+    message.clear();
+
+    QScopedPointer<JsonDbQuery> query(JsonDbQuery::parse(notificationDef.value(JsonDbString::kQueryStr).toString()));
+    if (!(query->queryTerms.size() || query->orderTerms.size())) {
+        message = QString::fromLatin1("Missing query: %1").arg(query->queryExplanation.join(QStringLiteral("\n")));
+        return JsonDbError::MissingQuery;
+    }
+
+    if (notificationDef.contains(JsonDbString::kPartitionStr) &&
+            notificationDef.value(JsonDbString::kPartitionStr).toString() != mEphemeralPartition->name()) {
+        QString partitionName = notificationDef.value(JsonDbString::kPartitionStr).toString();
+        JsonDbPartition *partition = findPartition(partitionName);
+        if (!partition) {
+            message = QString::fromLatin1("Invalid partition specified: %1").arg(partitionName);
+            return JsonDbError::InvalidPartition;
+        }
+    }
+
+    return JsonDbError::NoError;
 }
 
 void DBServer::notifyHistoricalChanges(JsonDbNotification *n)

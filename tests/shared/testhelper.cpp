@@ -326,6 +326,17 @@ void TestHelper::waitForStatus(QJsonDbWatcher *watcher, QJsonDbWatcher::Status s
     QVERIFY(mExpectedStatus == status);
 }
 
+void TestHelper::waitForError(QJsonDbWatcher *watcher, QJsonDbWatcher::ErrorCode error)
+{
+    mExpectedError = error;
+    connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+            this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+    blockWithTimeout();
+    disconnect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+               this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+    QVERIFY(mExpectedError = error);
+}
+
 bool TestHelper::dontLaunch()
 {
     static const bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
@@ -409,6 +420,8 @@ void TestHelper::watcherLastStateNumberChanged(int stateNumber)
 void TestHelper::watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode code, QString msg)
 {
     qWarning() << "Watcher error:" << code << msg;
+    if (code == mExpectedError)
+        mEventLoop.quit();
 }
 
 void TestHelper::timeout()

@@ -85,6 +85,8 @@ public:
                                          int lastStateChangedExpected = 0);
     void waitForStatus(QtJsonDb::QJsonDbWatcher *watcher,
                        QtJsonDb::QJsonDbWatcher::Status status);
+    void waitForError(QtJsonDb::QJsonDbWatcher *watcher,
+                      QtJsonDb::QJsonDbWatcher::ErrorCode error);
 
 protected:
     QProcess *mProcess;
@@ -118,6 +120,7 @@ private:
 
     int mRequestsPending;
     QtJsonDb::QJsonDbWatcher::Status mExpectedStatus;
+    QtJsonDb::QJsonDbWatcher::ErrorCode mExpectedError;
 };
 
 #endif // JSONDB_TESTHELPER_H
