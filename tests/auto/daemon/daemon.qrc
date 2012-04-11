@@ -1,6 +1,0 @@
-<RCC>
-    <qresource prefix="/daemon">
-        <file>json</file>
-        <file>schemas</file>
-    </qresource>
-</RCC>

@@ -60,22 +60,35 @@ Item {
         sortOrder:"[/firstName]"
         cacheSize:150
     }
+
+    function indexCreateCallback(error, response) {
+        console.log("Index Create callback #############");
+        if (error) {
+            console.log("Failed to create Index "+JSON.stringify(error));
+            return;
+        }
+        console.log("Index created");
+    }
+
     function createIndex()
     {
+        console.log("createIndex ***************");
         var indexDefinition = {
             "_type": "Index",
             "name": "firstName",
             "propertyName": "firstName",
             "propertyType": "string"
         };
-        nokiaPartition.create(indexDefinition);
-        nokiaPartition2.create(indexDefinition);
+        nokiaPartition.create(indexDefinition, indexCreateCallback);
+        nokiaPartition2.create(indexDefinition, indexCreateCallback);
+        console.log("createIndex ***************");
     }
     function partitionCreateCallback(error, response) {
         if (error) {
-            console.log("Failed to create Partitions");
+            console.log("Failed to create Partitions :"+JSON.stringify(error));
             return;
         }
+        console.log("Partition Create callback #############");
         nokiaPartition  = JsonDb.partition("com.nokia.shared", topLevelItem);
         nokiaPartition2  = JsonDb.partition("com.nokia.shared2", topLevelItem);
         createIndex();
@@ -83,6 +96,7 @@ Item {
     }
 
     function checkForPartitions(error, result) {
+        console.log("checkForPartitions");
         if (error) {
             console.log("Failed to list Partitions");
         } else {
@@ -114,9 +128,29 @@ Item {
             }
         }
     }
+    // Logs notifications of type "MyContacts" in partition "com.nokia.shared"
+    JsonDb.Partition {
+        name: "com.nokia.shared"
+        JsonDb.Notification {
+            query: '[?_type="MyContacts"]'
+            onNotification: {
+                switch (action) {
+                case JsonDb.Notification.Create :
+                    console.log("{_uuid :" + result._uuid + "} created");
+                    break;
+                case JsonDb.Notification.Update :
+                    console.log("{_uuid :" + result._uuid + "} was updated");
+                    break;
+                case JsonDb.Notification.Remove :
+                    console.log("{_uuid :" + result._uuid + "} was removed");
+                    break;
+                }
+            }
+        }
+    }
 
     Component.onCompleted: {
-        JsonDb.listPartitions(checkForPartitions, topLevelItem);
+        JsonDb.listPartitions(checkForPartitions);
     }
 
     Button {

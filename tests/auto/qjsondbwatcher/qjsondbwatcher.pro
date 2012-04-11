@@ -9,6 +9,6 @@ include($$PWD/../../shared/shared.pri)
 DEFINES += JSONDB_DAEMON_BASE=\\\"$$QT.jsondb.bins\\\"
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
-RESOURCES += ../daemon/daemon.qrc
+RESOURCES += ../partition/partition.qrc
 
 SOURCES += testqjsondbwatcher.cpp

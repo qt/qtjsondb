@@ -1,11 +1,13 @@
 [
  {
     "_type": "Index",
+    "objectType": "com.test.indextest",
     "propertyName": "test1",
     "propertyType": "string"
  },
  {
     "_type": "Index",
+    "objectType": "com.test.indextest",
     "propertyName": "test2.nested",
     "propertyType": "string"
  },

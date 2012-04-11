@@ -48,12 +48,11 @@
 #include <QTime>
 #include <QUuid>
 
-#include "json.h"
 #include "jsondbowner.h"
 #include "jsondbpartition.h"
 #include "jsondbquery.h"
-#include "jsondb-strings.h"
-#include "jsondb-error.h"
+#include "jsondbstrings.h"
+#include "jsondberrors.h"
 
 #include "../../shared/util.h"
 
@@ -71,7 +70,7 @@
          __result.error.toObject().value("message").toString().toLocal8Bit()); \
 }
 
-QT_USE_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 class TestJsonDbQueries: public QObject
 {
@@ -100,6 +99,7 @@ private slots:
     void querySortedByIndexName();
     void queryContains();
     void queryInvalid();
+    void queryRegExp();
 
 private:
     void removeDbFiles();
@@ -199,7 +199,8 @@ void TestJsonDbQueries::removeDbFiles()
 
 JsonDbQueryResult TestJsonDbQueries::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
 {
-    return mJsonDbPartition->queryObjects(owner, JsonDbQuery::parse(query, bindings));
+    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
+    return mJsonDbPartition->queryObjects(owner, parsedQuery.data());
 }
 
 void TestJsonDbQueries::initTestCase()
@@ -216,15 +217,7 @@ void TestJsonDbQueries::initTestCase()
     mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTestQueries"), mOwner, this);
     mJsonDbPartition->open();
 
-    QFile contactsFile(":/queries/dataset.json");
-    QVERIFY2(contactsFile.exists(), "Err: dataset.json doesn't exist!");
-
-    contactsFile.open(QIODevice::ReadOnly);
-    QByteArray json = contactsFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    QVERIFY2(ok, parser.errorString().toAscii());
-    QVariantList contactList = parser.result().toList();
+    QVariantList contactList = readJsonFile(":/queries/dataset.json").toArray().toVariantList();
     foreach (QVariant v, contactList) {
         JsonDbObject object(QJsonObject::fromVariantMap(v.toMap()));
         QString type = object.value("_type").toString();
@@ -381,14 +374,20 @@ void TestJsonDbQueries::queryQuotedProperties()
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
 
     queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][= \"eye-color\"]"));
-    // single values are returned in queryResult.values
-    QCOMPARE(queryResult.values.size(), mDataStats["num-red-eyes"].toInt());
-    QCOMPARE(queryResult.values.at(0).toString(), QString("red"));
+    // no longer supported
+    QCOMPARE(queryResult.data.size(), 0);
+    QVERIFY(queryResult.error.isObject());
+    QVERIFY(queryResult.error.toObject().contains(QLatin1String("code")));
+    QCOMPARE((int)queryResult.error.toObject().value(QLatin1String("code")).toDouble(),
+             (int)JsonDbError::MissingQuery);
 
-    queryResult = find(mOwner,  QLatin1String("[?\"eye-color\" = \"red\"][= [\"eye-color\", age ]]"));
-    // array values are returned in queryResult.values
-    QCOMPARE(queryResult.values.size(), mDataStats["num-red-eyes"].toInt());
-    QCOMPARE(queryResult.values.at(0).toArray().at(0).toString(), QString("red"));
+    queryResult = find(mOwner, QLatin1String("[?\"eye-color\" = \"red\"][= [\"eye-color\", age ]]"));
+    // no longer supported
+    QCOMPARE(queryResult.data.size(), 0);
+    QVERIFY(queryResult.error.isObject());
+    QVERIFY(queryResult.error.toObject().contains(QLatin1String("code")));
+    QCOMPARE((int)queryResult.error.toObject().value(QLatin1String("code")).toDouble(),
+             (int)JsonDbError::MissingQuery);
 
     queryResult = find(mOwner, QLatin1String("[?_type=\"dragon\"][/_type][?\"eye-color\" = \"red\"][= {\"color-of-eyes\": \"eye-color\" }]"));
     // object values are returned in queryResult.data
@@ -453,6 +452,19 @@ void TestJsonDbQueries::queryInvalid()
 {
     JsonDbQueryResult queryResult = find(mOwner, QLatin1String("foo"));
     QVERIFY(!queryResult.error.isNull());
+}
+
+void TestJsonDbQueries::queryRegExp()
+{
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name =~ \"/*ov*/w\" ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
+
+    QJsonObject bindings;
+    bindings.insert(QLatin1String("regexp"), QLatin1String("/*ov*/w"));
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name =~ %regexp ]"), bindings);
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
 }
 
 QTEST_MAIN(TestJsonDbQueries)

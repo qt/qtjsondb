@@ -73,6 +73,7 @@ public:
     void _q_onError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
     void handleNotification(quint32 stateNumber, QJsonDbWatcher::Action action, const QJsonObject &object);
+    void handleStateChange(quint32 stateNumber);
     void setStatus(QJsonDbWatcher::Status newStatus);
 
     QJsonDbWatcher *q_ptr;
@@ -81,6 +82,9 @@ public:
     QJsonDbWatcher::Actions actions;
     QString query;
     QString partition;
+    enum {
+        UnspecifiedInitialStateNumber = -1
+    };
     quint32 initialStateNumber;
     quint32 lastStateNumber;
 

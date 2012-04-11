@@ -268,8 +268,6 @@ void Client::onNotificationsAvailable(int)
             actionString = QStringLiteral("update"); break;
         case QtJsonDb::QJsonDbWatcher::Removed:
             actionString = QStringLiteral("remove"); break;
-        case QtJsonDb::QJsonDbWatcher::StateChanged:
-            actionString = QStringLiteral("stateChange"); break;
         case QtJsonDb::QJsonDbWatcher::All: break;
         }
 
@@ -390,6 +388,7 @@ void Client::aboutToRemove(void)
 
 void Client::onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
 {
+    Q_UNUSED(code);
     InputThread::print(message);
 }
 

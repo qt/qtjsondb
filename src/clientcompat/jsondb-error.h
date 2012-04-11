@@ -51,28 +51,33 @@ QT_BEGIN_NAMESPACE_JSONDB
 class JsonDbError {
 public:
     enum ErrorCode {
+        // common errors
         NoError = 0,
-        InvalidMessage           = 1,  // Unable to parse the query message
-        InvalidRequest           = 2,  // Request object doesn't contain correct elements
-        MissingObject            = 3,  // Invalid or missing "object" field
-        DatabaseError            = 4,  // Error directly from the database
-        MissingUUID              = 5,  // Missing id field
-        MissingType              = 6,  // Missing _type field
-        MissingQuery             = 7,  // Missing query field
-        InvalidLimit             = 8,  // Invalid limit field
-        InvalidOffset            = 9,  // Invalid offset field
-        MismatchedNotifyId       = 10, // Request to delete notify doesn't match existing notification
-        InvalidActions           = 11, // List of actions supplied to setNotification is invalid
-        UpdatingStaleVersion     = 12, // Updating stale version of object
-        OperationNotPermitted    = 13,
-        QuotaExceeded            = 14,
-        FailedSchemaValidation   = 15, // Invalid according to the schema
-        InvalidMap               = 16, // The Map definition is invalid
-        InvalidReduce            = 17, // The Reduce definition is invalid
-        InvalidSchemaOperation   = 18,
-        InvalidPartition         = 19,
-        InvalidIndexOperation    = 20,
-        InvalidType              = 21
+        InvalidRequest = 1,
+        OperationNotPermitted = 2,
+        InvalidPartition = 3,
+        DatabaseConnectionError = 4,
+
+        // read / notify errors
+        MissingQuery = 5,
+        InvalidMessage= 6,
+        InvalidLimit = 7,
+        InvalidOffset = 8,
+        InvalidStateNumber = 9,
+
+        // write errors
+        MissingObject = 10,
+        DatabaseError = 11,
+        MissingUUID = 12,
+        MissingType = 13,
+        UpdatingStaleVersion = 14,
+        QuotaExceeded = 15,
+        FailedSchemaValidation = 16,
+        InvalidMap = 17,
+        InvalidReduce = 18,
+        InvalidSchemaOperation = 19,
+        InvalidIndexOperation = 20,
+        InvalidType = 21
     };
 };
 

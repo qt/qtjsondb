@@ -5,7 +5,6 @@ CONFIG -= app_bundle
 CONFIG += testcase
 
 include($$PWD/../../shared/shared.pri)
-include($$PWD/../../../src/3rdparty/qjson/qjson.pri)
 
 DEFINES += JSONDB_DAEMON_BASE=\\\"$$QT.jsondb.bins\\\"
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
@@ -15,3 +14,6 @@ NSS_PREFIX = $$(NSS_PREFIX)
 DEFINES += NSS_PREFIX=\\\"$$NSS_PREFIX\\\"
 
 SOURCES += test-jsondb-client.cpp
+
+OTHER_FILES += \
+    partitions.json

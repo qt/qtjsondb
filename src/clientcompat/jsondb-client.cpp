@@ -41,7 +41,7 @@
 
 #include "jsondb-client.h"
 #include "jsondb-client_p.h"
-#include "jsondb-strings.h"
+#include "jsondb-strings_p.h"
 
 #include "jsondb-connection_p.h"
 
@@ -359,6 +359,8 @@ void JsonDbClientPrivate::_q_handleNotified(const QString &notifyUuid, const QVa
             type = JsonDbClient::NotifyUpdate;
         } else if (action == JsonDbString::kRemoveStr) {
             type = JsonDbClient::NotifyRemove;
+        } else if (action == QLatin1String("stateChange")) {
+            return;
         } else {
             Q_ASSERT(false);
             return;

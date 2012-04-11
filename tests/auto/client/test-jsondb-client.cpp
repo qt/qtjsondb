@@ -67,8 +67,6 @@
 #include "jsondb-object.h"
 #include "jsondb-error.h"
 
-#include "json.h"
-
 #include "util.h"
 #include "clientwrapper.h"
 
@@ -90,6 +88,8 @@ public:
 private slots:
     void initTestCase();
     void cleanupTestCase();
+    void init();
+    void cleanup();
 
     void connectionStatus();
 
@@ -248,7 +248,7 @@ void TestJsonDbClient::initTestCase()
         arg_list << "-enforce-access-control";
     arg_list << "-base-name";
     arg_list << QString::fromLatin1(dbfileprefix);
-    mProcess = launchJsonDbDaemonDetached(JSONDB_DAEMON_BASE, QString("testjsondb_%1").arg(getpid()), arg_list);
+    mProcess = launchJsonDbDaemonDetached(JSONDB_DAEMON_BASE, QString("testjsondb_%1").arg(getpid()), arg_list, __FILE__);
 #endif
 #if !defined(Q_OS_MAC)
     if (wasRoot) {
@@ -256,7 +256,7 @@ void TestJsonDbClient::initTestCase()
         JsonDbObject capa_obj;
         capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
         capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
-        capa_obj.insert(QLatin1String("partition"), QLatin1String(dbfileprefix) + QLatin1String(".System"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("default"));
         QVariantMap access_rules;
         QVariantMap rw_rule;
         rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
@@ -348,14 +348,7 @@ void TestJsonDbClient::initTestCase()
         waitForResponse1(id);
 
         // Add a schemaValidation tests object (must be done as root)
-        QFile schemaFile(findFile("create-test.json"));
-        schemaFile.open(QIODevice::ReadOnly);
-        QByteArray json = schemaFile.readAll();
-        schemaFile.close();
-        JsonReader parser;
-        bool ok = parser.parse(json);
-        QVERIFY2(ok, parser.errorString().toLocal8Bit());
-        QVariantMap schemaBody = parser.result().toMap();
+        QVariantMap schemaBody = readJsonFile(findFile("create-test.json")).toObject().toVariantMap();
         //qDebug() << "schemaBody" << schemaBody;
         QVariantMap schemaObject;
         schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
@@ -462,7 +455,6 @@ void TestJsonDbClient::initTestCase()
         }
     }
 #endif
-    connectToServer();
 }
 
 void TestJsonDbClient::cleanupTestCase()
@@ -514,6 +506,19 @@ void TestJsonDbClient::cleanupTestCase()
     }
     removeDbFiles();
 #endif
+}
+
+void TestJsonDbClient::init()
+{
+    connectToServer();
+}
+
+void TestJsonDbClient::cleanup()
+{
+    if (mClient) {
+        delete mClient;
+        mClient = NULL;
+    }
 }
 
 void TestJsonDbClient::connectionStatus()
@@ -672,15 +677,15 @@ void TestJsonDbClient::update()
         item[QLatin1String("name")] = QLatin1String("fail");
 
         id = mClient->update(item1);
-        // Should fail because of access control (error code 13)
-        waitForResponse2(id, 13);
+        // Should fail because of access control
+        waitForResponse2(id, JsonDbError::OperationNotPermitted);
 
         item1.insert(QLatin1String("_type"), QLatin1String("com.test.FooType"));
 
         id = mClient->update(item1);
-        // Should fail because of access control (error code 13)
+        // Should fail because of access control
         // The new _type is ok, but the old _type is not
-        waitForResponse2(id, 13);
+        waitForResponse2(id, JsonDbError::OperationNotPermitted);
     }
 }
 
@@ -785,14 +790,7 @@ void TestJsonDbClient::find()
 
 void TestJsonDbClient::index()
 {
-    QFile dataFile(":/json/client/index-test.json");
-    dataFile.open(QIODevice::ReadOnly);
-    QByteArray json = dataFile.readAll();
-    dataFile.close();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    QVERIFY2(ok, parser.errorString().toLocal8Bit());
-    QVariantList data = parser.result().toList();
+    QVariantList data = readJsonFile(":/json/client/index-test.json").toArray().toVariantList();
 
     int id = mClient->create(data);
     waitForResponse1(id);
@@ -1160,14 +1158,7 @@ void TestJsonDbClient::schemaValidation()
 {
     int id;
     if (!wasRoot) {
-        QFile schemaFile(findFile("create-test.json"));
-        schemaFile.open(QIODevice::ReadOnly);
-        QByteArray json = schemaFile.readAll();
-        schemaFile.close();
-        JsonReader parser;
-        bool ok = parser.parse(json);
-        QVERIFY2(ok, parser.errorString().toLocal8Bit());
-        QVariantMap schemaBody = parser.result().toMap();
+        QVariantMap schemaBody = readJsonFile(findFile("create-test.json")).toObject().toVariantMap();
         //qDebug() << "schemaBody" << schemaBody;
         QVariantMap schemaObject;
         schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
@@ -1307,17 +1298,11 @@ void TestJsonDbClient::notifyMultiple()
 
 void TestJsonDbClient::mapNotification()
 {
-    QFile jsonFile(":/json/auto/daemon/json/map-reduce.json");
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    QVERIFY(ok);
-
+    QVariantList list = readJsonFile(":/json/auto/partition/json/map-reduce.json").toArray().toVariantList();
     QList<QVariantMap> mapsReduces;
     QList<QVariantMap> schemas;
     QMap<QString, QVariantMap> toDelete;
-    waitForResponse1(mClient->create(parser.result().toList()));
+    waitForResponse1(mClient->create(list));
 
     QVariantList created = mData.toList();
     foreach (const QVariant &c, created) {
@@ -1406,9 +1391,6 @@ void TestJsonDbClient::changesSince()
     QVariantList results(data["changes"].toList());
     QCOMPARE(results.count(), 2);
 
-    JsonWriter writer;
-    //qDebug() << writer.toByteArray(results[0]);
-    //qDebug() << writer.toByteArray(results[1]);
     QVERIFY(results[0].toMap()["before"].toMap().isEmpty());
     QVERIFY(results[1].toMap()["before"].toMap().isEmpty());
 
@@ -1590,24 +1572,7 @@ void TestJsonDbClient::partition()
     const QString firstPartitionName = "com.example.autotest.Partition1";
     const QString secondPartitionName = "com.example.autotest.Partition2";
 
-    QVariantMap item;
-    item.insert(JsonDbString::kTypeStr, "Partition");
-    item.insert("name", firstPartitionName);
-    id = mClient->create(item);
-    waitForResponse1(id);
-    QVERIFY(mData.toMap().contains("_uuid"));
-    QVariant firstPartitionUuid = mData.toMap().value("_uuid");
-
-    item = QVariantMap();
-    item.insert(JsonDbString::kTypeStr, "Partition");
-    item.insert("name", secondPartitionName);
-    id = mClient->create(item);
-    waitForResponse1(id);
-    QVERIFY(mData.toMap().contains("_uuid"));
-    QVariant secondPartitionUuid = mData.toMap().value("_uuid");
-
-
-    item = QVariantMap();
+    QVariantMap item = QVariantMap();
     item.insert(JsonDbString::kTypeStr, "Foobar");
     item.insert("one", "one");
     id = mClient->create(item, firstPartitionName);
@@ -1829,7 +1794,7 @@ void TestJsonDbClient::sigstop()
     QStringList argList = QStringList() << "-sigstop";
     argList << QString::fromLatin1("sigstop.db");
 
-    QProcess *jsondb = launchJsonDbDaemon(JSONDB_DAEMON_BASE, QString("testjsondb_sigstop%1").arg(getpid()), argList);
+    QProcess *jsondb = launchJsonDbDaemon(JSONDB_DAEMON_BASE, QString("testjsondb_sigstop%1").arg(getpid()), argList, __FILE__);
     int status;
     ::waitpid(jsondb->pid(), &status, WUNTRACED);
     QVERIFY(WIFSTOPPED(status));

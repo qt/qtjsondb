@@ -53,9 +53,11 @@
 
 QT_BEGIN_HEADER
 
-QT_BEGIN_NAMESPACE_JSONDB
-
+QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 class JsonDbQuery;
+QT_END_NAMESPACE_JSONDB_PARTITION
+
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 class JsonDbEphemeralPartition : public QObject
 {
@@ -78,8 +80,6 @@ private:
     ObjectMap mObjects;
     QString mName;
 };
-
-QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 

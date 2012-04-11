@@ -44,7 +44,6 @@
 #include "qjsondbconnection_p.h"
 
 #include <QUuid>
-#include <QDebug>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -84,8 +83,6 @@ QJsonDbNotification::QJsonDbNotification(const QJsonObject &object, QJsonDbWatch
     longer matches the watcher query string, and the object contains
     the property \c{_deleted} with value \c{true}.
 
-    \li If the action() is QJsonDbWatcher::StateChanged, the object is empty.
-
     \endlist
 
     \sa QJsonDbObject
@@ -115,7 +112,7 @@ quint32 QJsonDbNotification::stateNumber() const
 
 QJsonDbWatcherPrivate::QJsonDbWatcherPrivate(QJsonDbWatcher *q)
     : q_ptr(q), status(QJsonDbWatcher::Inactive),
-      actions(QJsonDbWatcher::All), initialStateNumber(0), lastStateNumber(0)
+      actions(QJsonDbWatcher::All), initialStateNumber(QJsonDbWatcherPrivate::UnspecifiedInitialStateNumber), lastStateNumber(0)
 {
     uuid = QUuid::createUuid().toString();
 }
@@ -176,7 +173,6 @@ QJsonDbWatcherPrivate::QJsonDbWatcherPrivate(QJsonDbWatcher *q)
     \value Created Watches for objects to start matching the given query string.
     \value Updated Watches for modifications of objects matching the given query.
     \value Removed Watches for objects that stop matching the given query string.
-    \value StateChanged Watches for database state changes.
     \value All A convenience value that specifies to watch for all possible actions.
 */
 /*!
@@ -339,6 +335,8 @@ quint32 QJsonDbWatcher::initialStateNumber() const
     This property contains valid data only after watcher was successfully
     activated (i.e. the watcher state was changed to QJsonDbWatcher::Active).
 
+    The lastStateNumber will be changed after receiving all notifications for that state number.
+
     \sa lastStateNumberChanged(), status
 */
 quint32 QJsonDbWatcher::lastStateNumber() const
@@ -400,7 +398,7 @@ void QJsonDbWatcherPrivate::_q_onError(QtJsonDb::QJsonDbRequest::ErrorCode code,
 {
     Q_Q(QJsonDbWatcher);
     Q_UNUSED(code);
-    QJsonDbWatcher::ErrorCode error = QJsonDbWatcher::InvalidQuery; // ### TODO:
+    QJsonDbWatcher::ErrorCode error = static_cast<QJsonDbWatcher::ErrorCode>(code);
     emit q->error(error, message);
 }
 
@@ -410,13 +408,20 @@ void QJsonDbWatcherPrivate::handleNotification(quint32 stateNumber, QJsonDbWatch
     if (!actions.testFlag(action))
         return;
     Q_ASSERT(!object.isEmpty());
+    if (initialStateNumber == static_cast<quint32>(QJsonDbWatcherPrivate::UnspecifiedInitialStateNumber))
+        initialStateNumber = stateNumber;
+    QJsonDbNotification n(object, action, stateNumber);
+    notifications.append(n);
+    emit q->notificationsAvailable(notifications.size());
+}
+
+void QJsonDbWatcherPrivate::handleStateChange(quint32 stateNumber)
+{
+    Q_Q(QJsonDbWatcher);
     if (stateNumber != lastStateNumber) {
         lastStateNumber = stateNumber;
         emit q->lastStateNumberChanged(stateNumber);
     }
-    QJsonDbNotification n(object, action, stateNumber);
-    notifications.append(n);
-    emit q->notificationsAvailable(notifications.size());
 }
 
 /*!

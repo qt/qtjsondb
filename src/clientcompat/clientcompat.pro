@@ -14,7 +14,7 @@ QT = core network
 CONFIG += module create_prl
 MODULE_PRI = ../../modules/qt_jsondbcompat.pri
 
-include(../common/common.pri)
+include(../jsonstream/jsonstream.pri)
 
 HEADERS += qtjsondbcompatversion.h
 
@@ -37,6 +37,7 @@ SOURCES += \
     jsondb-connection.cpp \
     jsondb-query.cpp \
     jsondb-oneshot.cpp \
-    jsondb-notification.cpp
+    jsondb-notification.cpp \
+    jsondb-strings.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondbcompat.name

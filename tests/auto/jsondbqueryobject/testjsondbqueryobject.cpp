@@ -41,10 +41,9 @@
 
 #include <QtTest/QtTest>
 #include <QJSEngine>
+#include <QJSValueIterator>
 #include "testjsondbqueryobject.h"
 #include "../../shared/util.h"
-#include <QJSValueIterator>
-#include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-partition";
 
@@ -86,8 +85,9 @@ TestJsonDbQueryObject::~TestJsonDbQueryObject()
 
 void TestJsonDbQueryObject::timeout()
 {
-    ClientWrapper::timeout();
+    RequestWrapper::timeout();
     mTimedOut = true;
+    eventLoop1.quit();
 }
 
 void TestJsonDbQueryObject::deleteDbFiles()
@@ -110,25 +110,14 @@ void TestJsonDbQueryObject::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 
-    mClient = new JsonDbClient(this);
-    connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
-            this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
-    connect( mClient, SIGNAL(response(int, const QVariant&)),
-             this, SLOT(response(int, const QVariant&)));
-    connect( mClient, SIGNAL(error(int, int, const QString&)),
-             this, SLOT(error(int, int, const QString&)));
+    connection = new QJsonDbConnection();
+    connection->connectToServer();
 
     mPluginPath = findQMLPluginPath("QtJsonDb");
-
-    // Create the shared Partitions
-    QVariantMap item;
-    item.insert("_type", "Partition");
-    item.insert("name", "com.nokia.shared");
-    int id = mClient->create(item);
-    waitForResponse1(id);
-
+    if (mPluginPath.isEmpty())
+        qDebug() << "Couldn't find the plugin path for the plugin QtJsonDb";
 }
 
 ComponentData *TestJsonDbQueryObject::createComponent(const QString &qml)
@@ -201,14 +190,14 @@ void TestJsonDbQueryObject::errorSlot(const QVariantMap &newError)
     callbackError = true;
     callbackErrorCode = code;
     callbackErrorMessage = message;
-    mEventLoop2.quit();
+    eventLoop1.quit();
 }
 
 void TestJsonDbQueryObject::finishedSlot()
 {
     QMetaObject::invokeMethod(currentQmlElement, "takeResults", Qt::DirectConnection,
-                              Q_RETURN_ARG(QVariantList, cbData));
-    mEventLoop2.quit();
+                              Q_RETURN_ARG(QVariantList, callbackData));
+    eventLoop1.quit();
 }
 
 bool posLessThan(const QVariant &v1, const QVariant &v2)
@@ -230,13 +219,14 @@ void TestJsonDbQueryObject::singleObject()
 
     //Create an object
     QVariantMap item = createObject(__FUNCTION__).toMap();
-    mClient->create(item,  "com.nokia.shared");
+    create(item,  "com.nokia.shared");
     const QString expression("start();");
     QQmlExpression *expr;
     expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
-    waitForCallback2();
-    QCOMPARE(cbData.size(), 1);
+    callbackData.clear();
+    waitForCallback1();
+    QCOMPARE(callbackData.size(), 1);
     QCOMPARE(callbackError, false);
     delete expr;
     deleteComponent(queryObject);
@@ -252,7 +242,8 @@ void TestJsonDbQueryObject::multipleObjects()
     index.insert("_type", "Index");
     index.insert("propertyName", "pos");
     index.insert("propertyType", "number");
-    mClient->create(index, "com.nokia.shared");
+    int id = create(index, "com.nokia.shared");
+    waitForResponse1(id);
 
     const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
     queryObject->qmlElement->setProperty("query", queryString);
@@ -260,18 +251,19 @@ void TestJsonDbQueryObject::multipleObjects()
 
     //Create objects
     QVariantList items = createObjectList(__FUNCTION__, 10).toList();
-    mClient->create(QVariant(items),  "com.nokia.shared");
+    create(items,  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
     QQmlExpression *expr;
     expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
-    waitForCallback2();
+    callbackData.clear();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
-    QCOMPARE(cbData.size(), 10);
+    QCOMPARE(callbackData.size(), 10);
     for (int i = 0; i<10; i++) {
         QVariantMap item = items[i].toMap();
-        QVariantMap obj = cbData[i].toMap();
+        QVariantMap obj = callbackData[i].toMap();
         QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
     }
 
@@ -299,11 +291,13 @@ void TestJsonDbQueryObject::createQuery()
                      this, SLOT(errorSlot(QVariantMap)));
     //Create an object
     QVariantMap item = createObject(__FUNCTION__).toMap();
-    mClient->create(item,  "com.nokia.shared");
+    int id = create(item,  "com.nokia.shared");
+    waitForResponse1(id);
+
     QMetaObject::invokeMethod(currentQmlElement, "start", Qt::DirectConnection);
-    cbData.clear();
-    waitForCallback2();
-    QCOMPARE(cbData.size(), 1);
+    callbackData.clear();
+    waitForCallback1();
+    QCOMPARE(callbackData.size(), 1);
     QCOMPARE(callbackError, false);
     delete expr;
     deleteComponent(partition);
@@ -319,7 +313,8 @@ void TestJsonDbQueryObject::queryWithoutPartition()
     index.insert("_type", "Index");
     index.insert("propertyName", "pos");
     index.insert("propertyType", "number");
-    mClient->create(index);
+    int id = create(index);
+    waitForResponse1(id);
 
     const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
     queryObject->qmlElement->setProperty("query", queryString);
@@ -327,18 +322,19 @@ void TestJsonDbQueryObject::queryWithoutPartition()
 
     //Create objects
     QVariantList items = createObjectList(__FUNCTION__, 10).toList();
-    mClient->create(QVariant(items));
+    create(items);
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
     QQmlExpression *expr;
     expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
-    waitForCallback2();
+    callbackData.clear();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
-    QCOMPARE(cbData.size(), 10);
+    QCOMPARE(callbackData.size(), 10);
     for (int i = 0; i<10; i++) {
         QVariantMap item = items[i].toMap();
-        QVariantMap obj = cbData[i].toMap();
+        QVariantMap obj = callbackData[i].toMap();
         QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
     }
 
@@ -361,19 +357,20 @@ void TestJsonDbQueryObject::queryBinding()
     queryObject->qmlElement->setProperty("bindings", bindingMap);
     currentQmlElement = queryObject->qmlElement;
 
-    mClient->create(QVariant(items),  "com.nokia.shared");
+    create(items,  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
     QQmlExpression *expr;
     expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
-    waitForCallback2();
+    callbackData.clear();
+    waitForCallback1();
 
     QCOMPARE(callbackError, false);
-    QCOMPARE(cbData.size(), 1);
+    QCOMPARE(callbackData.size(), 1);
 
     QVariantMap item = items[0].toMap();
-    QVariantMap obj = cbData[0].toMap();
+    QVariantMap obj = callbackData[0].toMap();
     QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
     delete expr;
     deleteComponent(queryObject);
@@ -394,13 +391,14 @@ void TestJsonDbQueryObject::queryError()
     queryObject->qmlElement->setProperty("bindings", bindingMap);
     currentQmlElement = queryObject->qmlElement;
 
-    mClient->create(QVariant(items),  "com.nokia.shared");
+    create(items,  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
     QQmlExpression *expr;
     expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
-    waitForCallback2();
+    callbackData.clear();
+    waitForCallback1();
 
     QCOMPARE(callbackError, true);
     delete expr;
@@ -417,7 +415,8 @@ void TestJsonDbQueryObject::queryLimit()
     index.insert("_type", "Index");
     index.insert("propertyName", "pos");
     index.insert("propertyType", "number");
-    mClient->create(index, "com.nokia.shared");
+    int id = create(index, "com.nokia.shared");
+    waitForResponse1(id);
 
     const QString queryString = QString("[?_type = \""+QString( __FUNCTION__ )+"\"][/pos]");
     queryObject->qmlElement->setProperty("query", queryString);
@@ -426,25 +425,25 @@ void TestJsonDbQueryObject::queryLimit()
 
     //Create objects
     QVariantList items = createObjectList(__FUNCTION__, 10).toList();
-    mClient->create(QVariant(items),  "com.nokia.shared");
+    create(items,  "com.nokia.shared");
     qSort(items.begin(), items.end(), posLessThan);
     const QString expression("start();");
     QQmlExpression *expr;
     expr = new QQmlExpression(queryObject->engine->rootContext(), queryObject->qmlElement, expression);
     expr->evaluate();
-    waitForCallback2();
+    callbackData.clear();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
-    QCOMPARE(cbData.size(), 5);
+    QCOMPARE(callbackData.size(), 5);
     for (int i = 0; i<5; i++) {
         QVariantMap item = items[i].toMap();
-        QVariantMap obj = cbData[i].toMap();
+        QVariantMap obj = callbackData[i].toMap();
         QCOMPARE(obj.value("alphabet"), item.value("alphabet"));
     }
 
     delete expr;
     deleteComponent(queryObject);
 }
-
 
 QTEST_MAIN(TestJsonDbQueryObject)
 

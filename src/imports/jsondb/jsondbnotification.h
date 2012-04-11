@@ -48,7 +48,7 @@
 #include <QJSValue>
 #include <QQmlParserStatus>
 #include <QQmlListProperty>
-#include "jsondb-client.h"
+#include <QJsonDbWatcher>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -102,10 +102,9 @@ Q_SIGNALS:
 
 private Q_SLOTS:
     void partitionNameChanged(const QString &partitionName);
-    void dbNotified(const QString &notify_uuid, const QtAddOn::JsonDb::JsonDbNotification &_notification);
-    void dbNotifyReadyResponse(int id, const QVariant &result);
-    void dbNotifyErrorResponse(int id, int code, const QString &message);
-
+    void onNotificationsAvailable();
+    void onStatusChanged(QtJsonDb::QJsonDbWatcher::Status newStatus);
+    void onNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
 private:
     bool completed;
     QString queryString;
@@ -118,6 +117,7 @@ private:
     QString errorString;
     Status objectStatus;
     bool active;
+    QPointer<QJsonDbWatcher> watcher;
 
     void init();
     void clearError();

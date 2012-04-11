@@ -58,15 +58,18 @@ class QLocalServer;
 class QTcpServer;
 QT_END_NAMESPACE
 
-QT_BEGIN_NAMESPACE_JSONDB
-
 class JsonDbEphemeralPartition;
+
+using QtJsonDbJsonStream::JsonStream;
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 class DBServer : public QObject
 {
     Q_OBJECT
 public:
-    DBServer(const QString &fileName, const QString &baseName, QObject *parent = 0);
+    DBServer(const QString &searchPath, QObject *parent = 0);
+    ~DBServer();
+
     void setTcpServerPort(quint16 port) { mTcpServerPort = port; }
     quint16 tcpServerPort() const { return mTcpServerPort; }
 
@@ -89,11 +92,12 @@ protected slots:
     void receiveMessage(const QJsonObject &document);
     void handleConnectionError();
     void removeConnection();
+    void clearNotifications();
 
     void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
     void objectsUpdated(const JsonDbUpdateList &objects);
-    void viewUpdated(const QString &type);
-    void updateEagerViews(JsonDbPartition *partition, const QSet<QString> &viewTypes);
+    void updateEagerViews(JsonDbPartition *partition, const QSet<QString> eagerViewTypes, JsonDbUpdateList changeList);
+    void emitStateChanged(JsonDbPartition *partition);
 
 private:
     void objectUpdated(const QString &partitionName, quint32 stateNumber, JsonDbNotification *n, JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object);
@@ -113,19 +117,32 @@ private:
     void createNotification(const JsonDbObject &object, JsonStream *stream);
     void removeNotification(const JsonDbObject &object);
     void notifyHistoricalChanges(JsonDbNotification *n);
-    void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber);
+    void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber, int weight=1);
+    void updateEagerViewStateNumbers(JsonDbPartition *partition, quint32 partitionStateNumber);
 
     JsonDbPartition* findPartition(const QString &partitionName);
+    QList<QJsonObject> findPartitionDefinitions() const;
 
     JsonDbOwner *getOwner( JsonStream *stream);
     JsonDbOwner *createDummyOwner( JsonStream *stream);
+
 
     QHash<QString, JsonDbPartition *> mPartitions;
     JsonDbPartition *mDefaultPartition;
     JsonDbEphemeralPartition *mEphemeralPartition;
     QMap<QString, JsonDbNotification *> mNotificationMap;
     QMultiMap<QString, JsonDbNotification *> mKeyedNotifications;
-    QMap<QString,QSet<QString> > mEagerViewSourceTypes; // set of eager view types dependent on this source type
+    class EdgeCount {
+    public:
+        EdgeCount() : count(0){};
+        int count;
+        bool operator >(int val) const { return count > val; }
+        bool operator ==(int val) const { return count == val; }
+        EdgeCount &operator +=(int delta) { count += delta; if (count < 0) count = 0; return *this; }
+    };
+    typedef QHash<QString, EdgeCount>        ViewEdgeWeights;
+    typedef QHash<QString, ViewEdgeWeights>  WeightedSourceViewGraph;
+    QHash<QString, WeightedSourceViewGraph>  mEagerViewSourceGraph; // per partition graph with weighted edges from source to target types
     quint16                          mTcpServerPort;
     QLocalServer                    *mServer;
     QTcpServer                      *mTcpServer;
@@ -133,12 +150,8 @@ private:
     JsonDbOwner                     *mOwner;
     QMap<QIODevice*,JsonDbOwner*>    mOwners;
     QMap<QString,JsonStream *>       mNotifications; // maps notification Id to socket
-    QString mFilePath; // Directory where database files shall be stored
-    QString mBaseName; // Prefix to use in database file names
     bool mCompactOnClose;
 };
-
-QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 

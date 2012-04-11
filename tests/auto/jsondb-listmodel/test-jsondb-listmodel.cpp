@@ -48,7 +48,6 @@
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QDir>
-#include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-listmodel";
 ModelData::ModelData(): engine(0), component(0), model(0)
@@ -89,20 +88,6 @@ void TestJsonDbListModel::deleteDbFiles()
     }
 }
 
-QVariant TestJsonDbListModel::readJsonFile(const QString& filename)
-{
-    QString filepath = findFile(filename);
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << filepath << parser.errorString();
-    }
-    return parser.result();
-}
-
 void TestJsonDbListModel::connectListModel(JsonDbListModel *model)
 {
     connect(model, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(dataChanged(QModelIndex,QModelIndex)));
@@ -119,7 +104,7 @@ void TestJsonDbListModel::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 
     mClient = new JsonDbClient(this);
     connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
@@ -230,12 +215,13 @@ void TestJsonDbListModel::createItem()
     waitForExitOrTimeout();
     QCOMPARE(listModel->count(), 1);
 
+    mItemsCreated = 0;
     item.insert("_type", __FUNCTION__);
     item.insert("name", "Baker");
     id = mClient->create(item);
     waitForResponse1(id);
-
-    waitForExitOrTimeout();;
+    if (!mItemsCreated)
+        waitForExitOrTimeout();;
     QCOMPARE(listModel->count(), 2);
     deleteModel(listModel);
 }
@@ -382,10 +368,12 @@ void TestJsonDbListModel::deleteItem()
     waitForExitOrTimeout();
     QCOMPARE(listModel->rowCount(), 1);
 
+    mItemsCreated = 0;
     item.insert("name", "Baker");
     id = mClient->create(item);
     waitForResponse1(id);
-    waitForExitOrTimeout();
+    if (!mItemsCreated)
+        waitForExitOrTimeout();;
     QCOMPARE(listModel->rowCount(), 2);
 
     mWaitingForRowsRemoved = true;
@@ -677,7 +665,7 @@ void TestJsonDbListModel::totalRowCount()
 
 void TestJsonDbListModel::listProperty()
 {
-    QVariant jsonData = readJsonFile("list-objects.json");
+    QVariant jsonData = readJsonFile(findFile("list-objects.json")).toVariant();
     QVariantList itemList = jsonData.toList();
     int id = 0;
     for (int i = 0; i < itemList.count(); i++) {

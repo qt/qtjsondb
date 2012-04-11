@@ -18,6 +18,7 @@ INSTALLS += target qmldir
     qtPrepareTool(QMLPLUGINDUMP, qmlplugindump)
     QMLTYPESFILE = $$QT.jsondb.imports/$$TARGETPATH/plugin.qmltypes
     mac: !exists($$QMLPLUGINDUMP): QMLPLUGINDUMP = "$${QMLPLUGINDUMP}.app/Contents/MacOS/qmlplugindump"
+    unix:!mac: QMLPLUGINDUMP = "$${QMLPLUGINDUMP} -platform minimal"
     QMAKE_POST_LINK += LD_LIBRARY_PATH=$$QT.jsondb.libs $$QMLPLUGINDUMP QtAddOn.JsonDb 1.0 $$QT.jsondb.imports > $$QMLTYPESFILE
 
     qmltypes.files = $$QMLTYPESFILE
@@ -27,19 +28,15 @@ INSTALLS += target qmldir
 
 VERSION = 1.0
 
-include(../../common/common.pri)
-
 HEADERS += \
     jsondb-listmodel.h \
     jsondb-listmodel_p.h \
     jsondb-component.h \
     plugin.h
 
-HEADERS += $$QSONCONVERSION_HEADERS
-
 SOURCES += \
     jsondb-listmodel.cpp \
     jsondb-component.cpp \
     plugin.cpp
 
-SOURCES += $$QSONCONVERSION_SOURCES
+OTHER_FILES += jsondb.json

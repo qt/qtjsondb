@@ -70,6 +70,7 @@ public:
     static const QString kFindStr;
     static const QString kNameStr;
     static const QString kIdStr;
+    static const QString kIndexValueStr;
     static const QString kLengthStr;
     static const QString kLimitStr;
     static const QString kMapTypeStr;
@@ -116,6 +117,8 @@ public:
     static const QString kCaseSensitiveStr;
     static const QString kCasePreferenceStr;
     static const QString kDatabaseSchemaVersionStr;
+    static const QString kPathStr;
+    static const QString kDefaultStr;
 };
 
 QT_END_NAMESPACE_JSONDB

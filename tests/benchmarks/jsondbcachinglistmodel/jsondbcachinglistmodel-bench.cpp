@@ -41,11 +41,10 @@
 
 #include <QtTest/QtTest>
 #include <QJSEngine>
+#include <QQmlListReference>
 #include "jsondbcachinglistmodel-bench.h"
 
-#include "../../shared/util.h"
-#include <QQmlListReference>
-#include "json.h"
+#include "util.h"
 
 static const char dbfile[] = "dbFile-jsondb-cached-listmodel";
 ModelData::ModelData(): engine(0), component(0), model(0)
@@ -56,25 +55,26 @@ ModelData::~ModelData()
 {
     if (model)
         delete model;
-    if (partition1)
-        delete partition1;
-    if (partition2)
-        delete partition2;
-
     if (component)
         delete component;
-    if (partitionComponent1)
-        delete partitionComponent1;
-    if (partitionComponent2)
-        delete partitionComponent2;
-
     if (engine)
         delete engine;
 }
 
+const QString qmlProgram = QLatin1String(
+            "import QtQuick 2.0 \n"
+            "import QtJsonDb 1.0 as JsonDb \n"
+            "JsonDb.JsonDbCachingListModel {"
+                "signal callbackSignal(variant index, variant response);"
+                "id: contactsModel; cacheSize: 75;"
+                "partitions: ["
+                    "JsonDb.Partition {name: \"com.nokia.shared.1\"},"
+                    "JsonDb.Partition {name: \"com.nokia.shared.2\"}"
+                "]"
+            "}");
+
 
 JsonDbCachingListModelBench::JsonDbCachingListModelBench()
-    : mWaitingForNotification(false), mWaitingForDataChange(false), mWaitingForRowsRemoved(false)
 {
 }
 
@@ -97,20 +97,6 @@ void JsonDbCachingListModelBench::deleteDbFiles()
     }
 }
 
-QVariant JsonDbCachingListModelBench::readJsonFile(const QString& filename)
-{
-    QString filepath = findFile(filename);
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-        qDebug() << filepath << parser.errorString();
-    }
-    return parser.result();
-}
-
 void JsonDbCachingListModelBench::connectListModel(QAbstractListModel *model)
 {
     connect(model, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(dataChanged(QModelIndex,QModelIndex)));
@@ -129,29 +115,26 @@ void JsonDbCachingListModelBench::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 
-    mClient = new JsonDbClient(this);
-    connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
-            this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
-    connect( mClient, SIGNAL(response(int, const QVariant&)),
-             this, SLOT(response(int, const QVariant&)));
-    connect( mClient, SIGNAL(error(int, int, const QString&)),
-             this, SLOT(error(int, int, const QString&)));
+    connection = new QJsonDbConnection();
+    connection->connectToServer();
 
     mPluginPath = findQMLPluginPath("QtJsonDb");
+    if (mPluginPath.isEmpty())
+        qDebug() << "Couldn't find the plugin path for the plugin QtJsonDb";
 
     // Create the shared Partitions
     QVariantMap item;
     item.insert("_type", "Partition");
     item.insert("name", "com.nokia.shared.1");
-    int id = mClient->create(item);
+    int id = create(item);
     waitForResponse1(id);
 
     item.clear();
     item.insert("_type", "Partition");
     item.insert("name", "com.nokia.shared.2");
-    id = mClient->create(item);
+    id = create(item);
     waitForResponse1(id);
 
 }
@@ -167,36 +150,14 @@ QAbstractListModel *JsonDbCachingListModelBench::createModel()
         return 0;
     }
     newModel->component = new QQmlComponent(newModel->engine);
-    newModel->component->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
-                                 "JsonDb.JsonDbCachingListModel {signal callbackSignal(variant index, variant response); id: contactsModel; cacheSize: 200;}",
-                                 QUrl());
+    newModel->component->setData(qmlProgram.toLocal8Bit(), QUrl());
+
     newModel->model = newModel->component->create();
     if (newModel->component->isError())
         qDebug() << newModel->component->errors();
 
     QObject::connect(newModel->model, SIGNAL(callbackSignal(QVariant, QVariant)),
                          this, SLOT(callbackSlot(QVariant, QVariant)));
-
-    newModel->partitionComponent1 = new QQmlComponent(newModel->engine);
-    newModel->partitionComponent1->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
-                                           "JsonDb.Partition {name: \"com.nokia.shared.1\"}",
-                                           QUrl());
-    newModel->partition1 = newModel->partitionComponent1->create();
-    if (newModel->partitionComponent1->isError())
-        qDebug() << newModel->partitionComponent1->errors();
-
-
-    newModel->partitionComponent2 = new QQmlComponent(newModel->engine);
-    newModel->partitionComponent2->setData("import QtQuick 2.0\nimport QtJsonDb 1.0 as JsonDb \n"
-                                           "JsonDb.Partition {name: \"com.nokia.shared.2\"}",
-                                           QUrl());
-    newModel->partition2 = newModel->partitionComponent2->create();
-    if (newModel->partitionComponent2->isError())
-        qDebug() << newModel->partitionComponent2->errors();
-
-    QQmlListReference partitions(newModel->model, "partitions", newModel->engine);
-    partitions.append(newModel->partition1);
-    partitions.append(newModel->partition2);
 
     mModels.append(newModel);
     return (QAbstractListModel*)(newModel->model);
@@ -216,9 +177,9 @@ void JsonDbCachingListModelBench::deleteModel(QAbstractListModel *model)
 // Delete all the items of this type from JsonDb
 void JsonDbCachingListModelBench::deleteItems(const QString &type, const QString &partition)
 {
-    int id = mClient->query(QString("[?_type=\"%1\"]").arg(type), 0, -1, partition);
+    int id = query(QString("[?_type=\"%1\"]").arg(type), partition);
     waitForResponse1(id);
-    id = mClient->remove(mData.toMap().value("data"), partition);
+    id = remove(lastResult, partition);
     waitForResponse1(id);
 }
 
@@ -239,20 +200,26 @@ void JsonDbCachingListModelBench::callbackSlot(QVariant error, QVariant response
     callbackError = error.isValid();
     callbackMeta = response;
     callbackResponse = response.toMap().value("object");
-    mEventLoop.quit();
+    eventLoop1.quit();
 }
 
 void JsonDbCachingListModelBench::getIndex(int index)
 {
     mCallbackReceived = false;
 
-    const QString createString = QString("get(%1, function (error, response) {callbackSignal(error, response);});");
+    const QString createString = QString("get(%1, function (error, response) { callbackSignal(error, response);});");
     const QString getString = QString(createString).arg(index);
     QQmlExpression expr(mModels.last()->engine->rootContext(), mModels.last()->model, getString);
     expr.evaluate().toInt();
 
     if (!mCallbackReceived)
-        waitForCallback();
+        waitForCallback1();
+}
+
+QVariant JsonDbCachingListModelBench::getIndexRaw(QAbstractListModel *model, int index, int role)
+{
+    QVariant val =  model->data(model->index(index), role);
+    return val;
 }
 
 void JsonDbCachingListModelBench::createIndex(const QString &property, const QString &propertyType)
@@ -263,10 +230,10 @@ void JsonDbCachingListModelBench::createIndex(const QString &property, const QSt
     item.insert("propertyName", property);
     item.insert("propertyType", propertyType);
 
-    int id = mClient->create(item, "com.nokia.shared.1");
+    int id = create(item, "com.nokia.shared.1");
     waitForResponse1(id);
 
-    id = mClient->create(item, "com.nokia.shared.2");
+    id = create(item, "com.nokia.shared.2");
     waitForResponse1(id);
 }
 
@@ -274,12 +241,13 @@ void JsonDbCachingListModelBench::createIndex(const QString &property, const QSt
 // Populate model of 300 items.
 void JsonDbCachingListModelBench::ModelStartup()
 {
+    resetWaitFlags();
     QVariantMap item;
 
     for (int i=0; i < 300; i++) {
         item.insert("_type", __FUNCTION__);
         item.insert("name", QString("Arnie_%1").arg(i));
-        int id = mClient->create(item, "com.nokia.shared.1");
+        int id = create(item, "com.nokia.shared.1");
         waitForResponse1(id);
     }
 
@@ -297,9 +265,11 @@ void JsonDbCachingListModelBench::ModelStartup()
     QCOMPARE(listModel->rowCount(), 0);
 
     QBENCHMARK_ONCE {
-        waitForStateOrTimeout();
+        mWaitingForReset = true;
+        waitForExitOrTimeout();
     }
 
+    QCOMPARE(mWaitingForReset, false);
     QCOMPARE(listModel->rowCount(), 300);
 
     deleteItems(__FUNCTION__, "com.nokia.shared.1");
@@ -309,19 +279,20 @@ void JsonDbCachingListModelBench::ModelStartup()
 // Populate model of 300 items two partitions.
 void JsonDbCachingListModelBench::ModelStartupTwoPartitions()
 {
+    resetWaitFlags();
     QVariantMap item;
 
     for (int i=0; i < 300; i = i+2) {
         item.insert("_type", __FUNCTION__);
         item.insert("name", QString("Arnie_%1").arg(i));
-        int id = mClient->create(item, "com.nokia.shared.1");
+        int id = create(item, "com.nokia.shared.1");
         waitForResponse1(id);
     }
 
     for (int i=1; i < 300; i = i+2) {
         item.insert("_type", __FUNCTION__);
         item.insert("name", QString("Arnie_%1").arg(i));
-        int id = mClient->create(item, "com.nokia.shared.2");
+        int id = create(item, "com.nokia.shared.2");
         waitForResponse1(id);
     }
 
@@ -339,7 +310,8 @@ void JsonDbCachingListModelBench::ModelStartupTwoPartitions()
     QCOMPARE(listModel->rowCount(), 0);
 
     QBENCHMARK_ONCE {
-        waitForStateOrTimeout();
+        mWaitingForReset = true;
+        waitForExitOrTimeout();
     }
 
     QCOMPARE(listModel->rowCount(), 300);
@@ -353,12 +325,13 @@ void JsonDbCachingListModelBench::ModelStartupTwoPartitions()
 // Populate model of 300 items sorted.
 void JsonDbCachingListModelBench::ModelStartupSorted()
 {
+    resetWaitFlags();
     QVariantMap item;
 
     for (int i=0; i < 300; i++) {
         item.insert("_type", __FUNCTION__);
         item.insert("name", QString("Arnie_%1").arg(i));
-        int id = mClient->create(item, "com.nokia.shared.1");
+        int id = create(item, "com.nokia.shared.1");
         waitForResponse1(id);
     }
 
@@ -377,7 +350,8 @@ void JsonDbCachingListModelBench::ModelStartupSorted()
     QCOMPARE(listModel->rowCount(), 0);
 
     QBENCHMARK_ONCE {
-        waitForStateOrTimeout();
+        mWaitingForReset = true;
+        waitForExitOrTimeout();
     }
 
     QCOMPARE(listModel->rowCount(), 300);
@@ -389,11 +363,12 @@ void JsonDbCachingListModelBench::ModelStartupSorted()
 
 void JsonDbCachingListModelBench::getItemNotInCache()
 {
+    resetWaitFlags();
     QVariantMap item;
     for (int i=0; i < 300; i++) {
         item.insert("_type", __FUNCTION__);
         item.insert("name", QString("Arnie_%1").arg(i));
-        int id = mClient->create(item, "com.nokia.shared.1");
+        int id = create(item, "com.nokia.shared.1");
         waitForResponse1(id);
     }
 
@@ -411,9 +386,9 @@ void JsonDbCachingListModelBench::getItemNotInCache()
     // now start it working
     QCOMPARE(listModel->rowCount(), 0);
 
-    waitForStateOrTimeout();
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
     QCOMPARE(listModel->rowCount(), 300);
-
     // Now get some items so we know that index 20 is not in the cache
     getIndex(100);
     getIndex(151);
@@ -430,11 +405,12 @@ void JsonDbCachingListModelBench::getItemNotInCache()
 
 void JsonDbCachingListModelBench::deleteItem()
 {
+    resetWaitFlags();
     QVariantMap item;
     for (int i=0; i < 300; i++) {
         item.insert("_type", __FUNCTION__);
         item.insert("name", QString("Arnie_%1").arg(i));
-        int id = mClient->create(item, "com.nokia.shared.1");
+        int id = create(item, "com.nokia.shared.1");
         waitForResponse1(id);
     }
 
@@ -450,7 +426,8 @@ void JsonDbCachingListModelBench::deleteItem()
     connectListModel(listModel);
 
     // now start it working
-    waitForStateOrTimeout();
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
     QCOMPARE(listModel->rowCount(), 300);
 
     QVariantMap itemToRemove;
@@ -466,11 +443,13 @@ void JsonDbCachingListModelBench::deleteItem()
     getIndex(255);
 
     // Delete the item
-    mClient->remove(itemToRemove, "com.nokia.shared.1");
+    int id = remove(itemToRemove, "com.nokia.shared.1");
 
     QBENCHMARK_ONCE {
         waitForItemChanged(true);
     }
+    while (lastRequestId < id)
+        waitForResponse1(id);
 
     QCOMPARE(listModel->rowCount(), 299);
 
@@ -478,18 +457,77 @@ void JsonDbCachingListModelBench::deleteItem()
     deleteModel(listModel);
 }
 
+void JsonDbCachingListModelBench::flicking()
+{
+    resetWaitFlags();
+    QVariantList items;
+    QVariantMap item;
+    for (int i=0; i < 300; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Arnie_%1").arg(i));
+        items.append(item);
+    }
+    int id = create(items, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    items.clear();
+    for (int i=0; i < 300; i++) {
+        item.insert("_type", __FUNCTION__);
+        item.insert("name", QString("Bertta_%1").arg(i));
+        items.append(item);
+    }
+    id = create(items, "com.nokia.shared.2");
+    waitForResponse1(id);
+
+    createIndex("name", "string");
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+    listModel->setProperty("cacheSize", 75);
+    listModel->setProperty("sortOrder", "[/name]");
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
+    listModel->setProperty("roleNames", roleNames);
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    // now start it working
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(listModel->rowCount(), 600);
+
+    int noOfCacheMisses = 0;
+    mItemsUpdated = 0;
+    // simulate flicking through lhe list
+    for (int i = 0; i < 600; i++) {
+        QVariant nameVariant = getIndexRaw (listModel, i, 2);
+        if (nameVariant.isNull())
+            noOfCacheMisses++;
+        waitForMs(10, 6);
+    }
+
+    deleteItems(__FUNCTION__, "com.nokia.shared.1");
+    deleteItems(__FUNCTION__, "com.nokia.shared.2");
+    deleteModel(listModel);
+}
+
 
 void JsonDbCachingListModelBench::modelReset()
 {
-    mWaitingForReset = false;
-    mEventLoop2.exit(0);
+    if (mWaitingForReset) {
+        mWaitingForReset = false;
+        eventLoop1.exit(0);
+    }
 }
 
 void JsonDbCachingListModelBench::dataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)
 {
     Q_UNUSED(topLeft);
     Q_UNUSED(bottomRight);
-    mWaitingForDataChange = false;
+    mItemsUpdated++;
+    if (mWaitingForChanged) {
+        mWaitingForChanged = false;
+        eventLoop1.exit(0);
+    }
 }
 
 void JsonDbCachingListModelBench::rowsInserted(const QModelIndex &parent, int first, int last)
@@ -497,8 +535,11 @@ void JsonDbCachingListModelBench::rowsInserted(const QModelIndex &parent, int fi
     Q_UNUSED(parent);
     Q_UNUSED(first);
     Q_UNUSED(last);
-    mItemsCreated++;
-    mEventLoop2.exit(0);
+    mItemsCreated += last-first+1;
+    if (mWaitingForRowsInserted) {
+        mWaitingForRowsInserted = false;
+        eventLoop1.exit(0);
+    }
 }
 
 void JsonDbCachingListModelBench::rowsRemoved(const QModelIndex &parent, int first, int last)
@@ -506,7 +547,11 @@ void JsonDbCachingListModelBench::rowsRemoved(const QModelIndex &parent, int fir
     Q_UNUSED(parent);
     Q_UNUSED(first);
     Q_UNUSED(last);
-    mWaitingForRowsRemoved = false;
+    mItemsRemoved += last-first+1;
+    if (mWaitingForRemoved) {
+        mWaitingForRemoved = false;
+        eventLoop1.exit(0);
+    }
 }
 
 void JsonDbCachingListModelBench::rowsMoved( const QModelIndex &parent, int start, int end, const QModelIndex &destination, int row )
@@ -522,83 +567,143 @@ void JsonDbCachingListModelBench::stateChanged()
 {
     // only exit on ready state.
     QAbstractListModel *model = qobject_cast<QAbstractListModel *>(sender());
-    if (model->property("state") == 2) {
+    if (model->property("state").toInt() == 2 && mWaitingForStateChanged) {
         mWaitingForStateChanged = false;
-        mEventLoop2.exit(0);
+        eventLoop1.exit(0);
     }
 }
 
 void JsonDbCachingListModelBench::waitForItemsCreated(int items)
 {
-    mTimeoutCalled = false;
+    mTimedOut = false;
     QTimer timer;
     QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
-    QObject::connect(&timer, SIGNAL(timeout()), &mEventLoop2, SLOT(quit()));
-    timer.start(mClientTimeout);
-    mElapsedTimer.start();
+    timer.start(clientTimeout);
+    elapsedTimer.start();
 
-    mItemsCreated = 0;
-    while (mItemsCreated != items && !mTimeoutCalled)
-        mEventLoop2.processEvents(QEventLoop::AllEvents, mClientTimeout);
+    while (!mTimedOut && mItemsCreated != items) {
+        mWaitingForRowsInserted = true;
+        eventLoop1.exec(QEventLoop::AllEvents);
+    }
+    if (mTimedOut)
+        qDebug () << "waitForItemsCreated Timed out";
+}
+
+void JsonDbCachingListModelBench::waitForItemsUpdated(int items)
+{
+    mTimedOut = false;
+    QTimer timer;
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
+    timer.start(clientTimeout);
+    elapsedTimer.start();
+
+    while (!mTimedOut && mItemsUpdated != items) {
+        mWaitingForChanged = true;
+        eventLoop1.exec(QEventLoop::AllEvents);
+    }
+    if (mTimedOut)
+        qDebug () << "waitForItemsUpdated Timed out";
 }
 
 void JsonDbCachingListModelBench::waitForExitOrTimeout()
 {
-    mTimeoutCalled = false;
     QTimer timer;
     QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
-    QObject::connect(&timer, SIGNAL(timeout()), &mEventLoop2, SLOT(quit()));
-    timer.start(mClientTimeout);
-    mElapsedTimer.start();
-    mEventLoop2.exec(QEventLoop::AllEvents);
+    timer.start(clientTimeout);
+    elapsedTimer.start();
+    eventLoop1.exec(QEventLoop::AllEvents);
+}
+
+void JsonDbCachingListModelBench::waitForMs(int ms, int warningThreshold)
+{
+    QTimer timer;
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(silentTimeout()));
+    timer.start(ms);
+    qint64 elap;
+    QElapsedTimer elt;
+    elt.start();
+    eventLoop1.exec(QEventLoop::AllEvents);
+    if ((elap = elt.elapsed()) > ms+warningThreshold)
+        qDebug() << "Some event took more than " << warningThreshold << "ms" << "(" << elap-ms << "ms )";
 }
 
 void JsonDbCachingListModelBench::waitForStateOrTimeout()
 {
-    mTimeoutCalled = false;
+    mTimedOut = false;
     QTimer timer;
     QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
-    QObject::connect(&timer, SIGNAL(timeout()), &mEventLoop2, SLOT(quit()));
-    timer.start(mClientTimeout);
-    mElapsedTimer.start();
+    timer.start(clientTimeout);
+    elapsedTimer.start();
 
-    mWaitingForStateChanged = true;
-    while (mWaitingForStateChanged && !mTimeoutCalled)
-        mEventLoop2.processEvents(QEventLoop::AllEvents, mClientTimeout);
+    while (mWaitingForStateChanged && !mTimedOut) {
+        eventLoop1.exec(QEventLoop::AllEvents);
+    }
+    if (mTimedOut)
+        qDebug () << "waitForStateOrTimeout Timed out";
 }
 
 void JsonDbCachingListModelBench::timeout()
 {
-    ClientWrapper::timeout();
-    mTimeoutCalled = true;
+    qDebug () << "JsonDbCachingListModelBench::timeout()";
+    RequestWrapper::timeout();
     mTimedOut = true;
+    eventLoop1.quit();
+}
+
+void JsonDbCachingListModelBench::silentTimeout()
+{
+    eventLoop1.quit();
+}
+
+void JsonDbCachingListModelBench::resetWaitFlags()
+{
+    mItemsCreated  = 0;
+    mItemsUpdated = 0;
+    mItemsRemoved = 0;
+    mWaitingForStateChanged = false;
+    mWaitingForRowsInserted = false;
+    mWaitingForReset = false;
+    mWaitingForChanged = false;
+    mWaitingForRemoved = false;
 }
 
 void JsonDbCachingListModelBench::waitForItemChanged(bool waitForRemove)
 {
-    mTimeoutCalled = false;
+    mTimedOut = false;
     QTimer timer;
     QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout()));
-    QObject::connect(&timer, SIGNAL(timeout()), &mEventLoop2, SLOT(quit()));
-    timer.start(mClientTimeout);
-    mElapsedTimer.start();
+    timer.start(clientTimeout);
+    elapsedTimer.start();
 
-    mWaitingForRowsRemoved = true;
-    mWaitingForDataChange = true;
+    mWaitingForRemoved = true;
+    mWaitingForChanged = true;
     mItemsCreated = 0;
     mWaitingForReset = true;
+    mWaitingForStateChanged = true;
 
     bool waitMore = true;
-    while (waitMore && !mTimeoutCalled) {
-        if (!mWaitingForDataChange)
+    while (waitMore && !mTimedOut) {
+        if (!mWaitingForChanged) {
+            //qDebug() << "waitForItemChanged: mWaitingForChanged";
             break;
-        if (mItemsCreated)
+        }
+        if (!mWaitingForStateChanged) {
+            //qDebug() << "waitForItemChanged: mWaitingForStateChanged";
             break;
-        if (!mWaitingForReset)
+        }
+        if (mItemsCreated){
+            //qDebug() << "waitForItemChanged: mItemsCreated";
             break;
-        if (waitForRemove && !mWaitingForRowsRemoved)
+        }
+        if (!mWaitingForReset){
+            //qDebug() << "waitForItemChanged: mWaitingForReset";
             break;
-        mEventLoop2.processEvents(QEventLoop::AllEvents);
+        }
+        if (waitForRemove && !mWaitingForRemoved){
+            //qDebug() << "waitForItemChanged: mWaitingForRemoved";
+            break;
+        }
+        eventLoop1.exec(QEventLoop::AllEvents);
     }
 }
 QTEST_MAIN(JsonDbCachingListModelBench)

@@ -50,23 +50,6 @@
 #include <QQmlProperty>
 #include <QDir>
 
-#define waitForCallbackGeneric(eventloop) \
-{ \
-    QTimer timer; \
-    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout())); \
-    QObject::connect(&timer, SIGNAL(timeout()), &eventloop, SLOT(quit())); \
-    timer.start(mClientTimeout);                                       \
-    mElapsedTimer.start(); \
-    mTimedOut = false;\
-    callbackError = false; \
-    eventloop.exec(QEventLoop::AllEvents); \
-    QCOMPARE(false, mTimedOut); \
-}
-
-#define waitForCallback() waitForCallbackGeneric(mEventLoop)
-#define waitForCallback2() waitForCallbackGeneric(mEventLoop2)
-
-
 inline QVariant createObject(const QString &functionName)
 {
     static QStringList greekAlphabets;

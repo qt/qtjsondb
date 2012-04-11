@@ -41,10 +41,9 @@
 
 #include <QtTest/QtTest>
 #include <QJSEngine>
+#include <QJSValueIterator>
 #include "testjsondbpartition.h"
 #include "../../shared/util.h"
-#include <QJSValueIterator>
-#include "json.h"
 
 static const char dbfile[] = "dbFile-jsondb-partition";
 
@@ -69,8 +68,9 @@ TestJsonDbPartition::~TestJsonDbPartition()
 
 void TestJsonDbPartition::timeout()
 {
-    ClientWrapper::timeout();
+    RequestWrapper::timeout();
     mTimedOut = true;
+    eventLoop1.quit();
 }
 
 void TestJsonDbPartition::deleteDbFiles()
@@ -87,45 +87,20 @@ void TestJsonDbPartition::deleteDbFiles()
     }
 }
 
-QVariant TestJsonDbPartition::readJsonFile(const QString& filename)
-{
-    QString filepath = findFile(filename);
-    QFile jsonFile(filepath);
-    jsonFile.open(QIODevice::ReadOnly);
-    QByteArray json = jsonFile.readAll();
-    JsonReader parser;
-    bool ok = parser.parse(json);
-    if (!ok) {
-      qDebug() << filepath << parser.errorString();
-    }
-    return parser.result();
-}
-
 void TestJsonDbPartition::initTestCase()
 {
     // make sure there is no old db files.
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 
-    mClient = new JsonDbClient(this);
-    connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
-            this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
-    connect( mClient, SIGNAL(response(int, const QVariant&)),
-             this, SLOT(response(int, const QVariant&)));
-    connect( mClient, SIGNAL(error(int, int, const QString&)),
-             this, SLOT(error(int, int, const QString&)));
+    connection = new QJsonDbConnection();
+    connection->connectToServer();
 
     mPluginPath = findQMLPluginPath("QtJsonDb");
-
-    // Create the shared Partitions
-    QVariantMap item;
-    item.insert("_type", "Partition");
-    item.insert("name", "com.nokia.shared.1");
-    int id = mClient->create(item);
-    waitForResponse1(id);
-
+    if (mPluginPath.isEmpty())
+        qDebug() << "Couldn't find the plugin path for the plugin QtJsonDb";
 }
 
 ComponentData *TestJsonDbPartition::createComponent()
@@ -173,7 +148,7 @@ void TestJsonDbPartition::callbackSlot(QVariant error, QVariant response)
     callbackError = error.isValid();
     callbackMeta = response;
     callbackResponse = response.toMap().value("items").toList();
-    mEventLoop.quit();
+    eventLoop1.quit();
 }
 
 // JsonDb.Partition.create()
@@ -192,7 +167,7 @@ void TestJsonDbPartition::create()
     int id = 0;
     expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 1);
@@ -201,7 +176,7 @@ void TestJsonDbPartition::create()
     expression = QString(createString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 1);
@@ -210,7 +185,7 @@ void TestJsonDbPartition::create()
     expression = QString(createString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 5);
@@ -238,7 +213,7 @@ void TestJsonDbPartition::update()
     int id = 0;
     expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 1);
@@ -250,7 +225,7 @@ void TestJsonDbPartition::update()
     expression = QString(updateString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 1);
@@ -259,7 +234,7 @@ void TestJsonDbPartition::update()
     expression = QString(createString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 5);
@@ -275,7 +250,7 @@ void TestJsonDbPartition::update()
     expression = QString(updateString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 5);
@@ -303,17 +278,26 @@ void TestJsonDbPartition::remove()
     int id = 0;
     expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 1);
 
     //Remove this object
-    obj = callbackResponse.toList();
+    {
+        QVariantList newList;
+        QVariantList list = callbackResponse.toList();
+        for (int i = 0; i<list.count(); i++) {
+            QVariantMap objMap = list[i].toMap();
+            objMap.insert("_type", __FUNCTION__);
+            newList.append(objMap);
+        }
+        obj = newList;
+    }
     expression = QString(removeString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 1);
@@ -322,17 +306,26 @@ void TestJsonDbPartition::remove()
     expression = QString(createString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 5);
 
     //Remove all objects
-    obj = callbackResponse.toList();
+    {
+        QVariantList newList;
+        QVariantList list = callbackResponse.toList();
+        for (int i = 0; i<list.count(); i++) {
+            QVariantMap objMap = list[i].toMap();
+            objMap.insert("_type", __FUNCTION__);
+            newList.append(objMap);
+        }
+        obj = newList;
+    }
     expression = QString(removeString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 5);
@@ -359,7 +352,7 @@ void TestJsonDbPartition::find()
     int id = 0;
     expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 1);
@@ -368,7 +361,7 @@ void TestJsonDbPartition::find()
     expression = findString;
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 1);
@@ -377,7 +370,7 @@ void TestJsonDbPartition::find()
     expression = QString(createString).arg(objectString(QString(), obj));
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 5);
@@ -386,7 +379,7 @@ void TestJsonDbPartition::find()
     expression = findString;
     expr->setExpression(expression);
     id = expr->evaluate().toInt();
-    waitForCallback();
+    waitForCallback1();
     QCOMPARE(callbackError, false);
     QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
     QCOMPARE(callbackResponse.toList().size(), 6);

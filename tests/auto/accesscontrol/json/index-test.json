@@ -1,0 +1,25 @@
+[
+{
+  "_type": "Index",
+  "objectType": "Phone",
+  "name": "name",
+  "propertyName": "name",
+  "propertyType": "string"
+},
+{
+  "_type": "Index",
+  "name": "another",
+  "objectType": ["Phone", "Contact"],
+  "propertyName": "field",
+  "propertyType": "string",
+  "locale": "en_US",
+  "collation": "default",
+  "casePreference": "IgnoreCase"
+},
+{
+  "_type": "Index",
+  "name": "noObjectType",
+  "propertyName": "field",
+  "propertyType": "string"
+}
+]

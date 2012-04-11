@@ -1,0 +1,5 @@
+[
+  { "name" : "test-jsondb-client" },
+  { "name" : "com.example.autotest.Partition1" },
+  { "name" : "com.example.autotest.Partition2" }
+]

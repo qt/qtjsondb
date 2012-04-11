@@ -41,18 +41,16 @@
 
 #include "plugin.h"
 
-#include "jsondblistmodel.h"
-#include "jsondbsortinglistmodel.h"
 #include "jsondatabase.h"
 #include "jsondbpartition.h"
 #include "jsondbnotification.h"
 #include "jsondbqueryobject.h"
-#include "jsondbchangessinceobject.h"
+#include "jsondblistmodel.h"
+#include "jsondbsortinglistmodel.h"
 #include "jsondbcachinglistmodel.h"
 
 QT_USE_NAMESPACE_JSONDB
 
-Q_EXPORT_PLUGIN2(jsondbplugin, JsonDbPlugin)
 QQmlEngine *g_declEngine = 0;
 
 static QObject *jsondb_new_module_api_provider(QQmlEngine *engine, QJSEngine *scriptEngine)
@@ -74,11 +72,10 @@ void JsonDbPlugin::registerTypes(const char *uri)
 {
     Q_ASSERT(uri == QLatin1String("QtJsonDb"));
     qmlRegisterModuleApi(uri, 1, 0, jsondb_new_module_api_provider);
-    qmlRegisterType<JsonDbListModel>(uri, 1, 0, "JsonDbListModel");
-    qmlRegisterType<JsonDbSortingListModel>(uri, 1, 0, "JsonDbSortingListModel");
     qmlRegisterType<JsonDbPartition>(uri, 1, 0, "Partition");
     qmlRegisterType<JsonDbNotify>(uri, 1, 0, "Notification");
     qmlRegisterType<JsonDbQueryObject>(uri, 1, 0, "Query");
-    qmlRegisterType<JsonDbChangesSinceObject>(uri, 1, 0, "ChangesSince");
+    qmlRegisterType<JsonDbListModel>(uri, 1, 0, "JsonDbListModel");
+    qmlRegisterType<JsonDbSortingListModel>(uri, 1, 0, "JsonDbSortingListModel");
     qmlRegisterType<JsonDbCachingListModel>(uri, 1, 0, "JsonDbCachingListModel");
 }

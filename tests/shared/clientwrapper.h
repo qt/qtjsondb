@@ -45,6 +45,10 @@
 #include <QEventLoop>
 #include <QElapsedTimer>
 #include <QDebug>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonValue>
+#include <QJsonDocument>
 
 #include "jsondb-client.h"
 
@@ -81,7 +85,8 @@ QT_USE_NAMESPACE_JSONDB
         if ((result)->mNotificationId.isNull()) { \
             QVERIFY2(false, "we expected notification but did not get it :("); \
         } else { \
-            QString data = JsonWriter().toString((result)->mNotifications.last().mObject); \
+            QJsonValue value = QJsonValue::fromVariant((result)->mNotifications.last().mObject); \
+            QString data = QString::fromUtf8(value.isArray() ? QJsonDocument(value.toArray()).toJson() : QJsonDocument(value.toObject()).toJson()); \
             QByteArray ba = QString("we didn't expect notification but got it. %1").arg(data).toLatin1(); \
             QVERIFY2(false, ba.constData()); \
         } \
@@ -95,6 +100,22 @@ QT_USE_NAMESPACE_JSONDB
 #define waitForResponse2(id, code) waitForResponse(mEventLoop, this, id, code, QVariant(), 0)
 #define waitForResponse3(id, code, notificationId) waitForResponse(mEventLoop, this, id, code, notificationId, 0)
 #define waitForResponse4(id, code, notificationId, count) waitForResponse(mEventLoop, this, id, code, notificationId, count)
+
+#define waitForCallbackGeneric(eventloop) \
+{ \
+    QTimer timer; \
+    QObject::connect(&timer, SIGNAL(timeout()), this, SLOT(timeout())); \
+    QObject::connect(&timer, SIGNAL(timeout()), &eventloop, SLOT(quit())); \
+    timer.start(mClientTimeout);                                       \
+    mElapsedTimer.start(); \
+    mTimedOut = false;\
+    callbackError = false; \
+    eventloop.exec(QEventLoop::AllEvents); \
+    QCOMPARE(false, mTimedOut); \
+}
+
+#define waitForCallback() waitForCallbackGeneric(mEventLoop)
+#define waitForCallback2() waitForCallbackGeneric(mEventLoop2)
 
 class JsonDbTestNotification
 {

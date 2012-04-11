@@ -167,13 +167,27 @@ QList<QJsonObject> QJsonDbRequest::takeResults(int amount)
 }
 
 /*!
-    \fn bool QJsonDbRequest::isActive() const
-
     Returns true if the request is active, i.e. in either QJsonDbRequest::Queued
     or QJsonDbRequest::Sent or QJsonDbRequest::Receiving state.
 
     \sa status
 */
+bool QJsonDbRequest::isActive() const
+{
+    switch (status()) {
+    case QJsonDbRequest::Queued:
+    case QJsonDbRequest::Sent:
+    case QJsonDbRequest::Receiving:
+        return true;
+    case QJsonDbRequest::Inactive:
+    case QJsonDbRequest::Canceled:
+    case QJsonDbRequest::Finished:
+    case QJsonDbRequest::Error:
+        return false;
+    }
+    return false;
+}
+
 /*!
     \fn void QJsonDbRequest::started()
 

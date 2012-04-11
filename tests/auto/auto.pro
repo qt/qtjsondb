@@ -1,7 +1,7 @@
 TEMPLATE = subdirs
 SUBDIRS = \
     client \
-    daemon \
+    partition \
     accesscontrol \
     qbtree \
     jsondb-listmodel \
@@ -11,8 +11,9 @@ SUBDIRS = \
     jsondbpartition \
     jsondbnotification \
     jsondbqueryobject \
-    jsondbchangessinceobject \
     queries \
+    qjsondbrequest \
     qjsondbwatcher \
+    qjsondbflushrequest \
     jsonstream \
     hbtree

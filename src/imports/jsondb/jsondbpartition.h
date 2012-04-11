@@ -49,8 +49,8 @@
 #include <QJSValue>
 #include <QJSEngine>
 #include <QQmlListProperty>
-
-#include "jsondb-client.h"
+#include <QJsonDbConnection>
+#include <QJsonDbWriteRequest>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -58,7 +58,6 @@ class JsonDatabase;
 class JsonDbNotify;
 class JsonDbPartitionPrivate;
 class JsonDbQueryObject;
-class JsonDbChangesSinceObject;
 
 class JsonDbPartition: public QObject
 {
@@ -89,8 +88,6 @@ public:
 
     Q_INVOKABLE JsonDbQueryObject* createQuery(const QString &query, int limit, QVariantMap bindings);
 
-    Q_INVOKABLE JsonDbChangesSinceObject* createChangesSince(int stateNumber, const QStringList &types);
-
     QString name() const;
     void setName(const QString &partitionName);
 
@@ -105,32 +102,29 @@ private:
     QString _name;
     QString _file;
     QString _uuid;
-    JsonDbClient jsonDb;
 
-    QMap<int, QJSValue> createCallbacks;
-    QMap<int, QJSValue> updateCallbacks;
-    QMap<int, QJSValue> removeCallbacks;
-    QMap<QString, QPointer<JsonDbNotify> > notifications;
+    QList<QPointer<QJsonDbWatcher> > watchers;
     QList<QObject*> childQMLElements;
     QMap<JsonDbQueryObject*, QJSValue> findCallbacks;
     QMap<JsonDbQueryObject*, int> findIds;
 
+    QMap<QJsonDbWriteRequest*, QJSValue> writeCallbacks;
     void updateNotification(JsonDbNotify *notify);
     void removeNotification(JsonDbNotify *notify);
 
-    void call(QMap<int, QJSValue> &callbacks, int id, const QVariant &result);
-    void callErrorCallback(QMap<int, QJSValue> &callbacks, int id, int code, const QString &message);
+    void call(QMap<QJsonDbWriteRequest*, QJSValue> &callbacks, QJsonDbWriteRequest *request);
+    void callErrorCallback(QMap<QJsonDbWriteRequest*, QJSValue> &callbacks, QJsonDbWriteRequest *request,
+                           QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
 private Q_SLOTS:
-    void dbResponse(int id, const QVariant &result);
-    void dbErrorResponse(int id, int code, const QString &message);
     void queryFinished();
     void queryStatusChanged();
+    void requestFinished();
+    void requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
     friend class JsonDatabase;
     friend class JsonDbNotify;
     friend class JsonDbQueryObject;
-    friend class JsonDbChangesSinceObject;
 };
 
 QT_END_NAMESPACE_JSONDB

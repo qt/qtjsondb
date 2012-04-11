@@ -39,13 +39,14 @@
 **
 ****************************************************************************/
 
-#include "jsondb-strings.h"
+#include "jsondb-strings_p.h"
 #include "jsondb-error.h"
 #include "jsondb-oneshot_p.h"
 #include "jsondb-connection_p.h"
 #include "jsondb-connection_p_p.h"
 
 #include "qjsonobject.h"
+#include "qjsonarray.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 

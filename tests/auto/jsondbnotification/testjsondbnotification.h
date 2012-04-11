@@ -41,23 +41,9 @@
 #ifndef TESTJSONDBNOTIFICATION_H
 #define TESTJSONDBNOTIFICATION_H
 
-#include <QCoreApplication>
-#include <QList>
-#include <QTest>
-#include <QFile>
-#include <QProcess>
-#include <QEventLoop>
-#include <QDebug>
-#include <QLocalSocket>
-#include <QTimer>
-#include <QJSValue>
-
-#include <jsondb-client.h>
-#include <jsondb-error.h>
-
 #include <QAbstractItemModel>
-#include "clientwrapper.h"
-#include "../../shared/qmltestutil.h"
+#include "requestwrapper.h"
+#include "qmltestutil.h"
 
 QT_USE_NAMESPACE_JSONDB
 
@@ -67,7 +53,7 @@ struct CallbackData {
     QVariantMap result;
 };
 
-class TestJsonDbNotification: public ClientWrapper
+class TestJsonDbNotification: public RequestWrapper
 {
     Q_OBJECT
 public:
@@ -91,8 +77,9 @@ public slots:
     void notificationSlot(QVariant result, int action, int stateNumber);
     void errorSlot(int code, const QString &message);
     void notificationSlot2(QJSValue result, Actions action, int stateNumber);
+    void statusChangedSlot2();
 
-protected slots:
+public:
     void timeout();
 
 private:
@@ -105,12 +92,10 @@ private:
     QStringList mNotificationsReceived;
     QList<ComponentData*> mComponents;
     QString mPluginPath;
+
+    // Response values
     bool mTimedOut;
-    bool callbackError;
-    int callbackErrorCode;
-    QString callbackErrorMessage;
-    QList<CallbackData> cbData;
-    QEventLoop mEventLoop2;
+    QList<CallbackData> callbackData;
 };
 
 #endif

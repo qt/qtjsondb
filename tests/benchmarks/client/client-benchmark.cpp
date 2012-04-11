@@ -42,7 +42,6 @@
 #include <QtTest/QtTest>
 #include "client-benchmark.h"
 #include "private/jsondb-connection_p.h"
-#include <json.h>
 
 #include "util.h"
 
@@ -93,20 +92,17 @@ void TestJson::initTestCase()
 #ifndef DONT_START_SERVER
     removeDbFiles();
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 #endif
 
     connectToServer();
 
     QByteArray friendJson("{\"type\": \"object\", \"properties\": {\"name\": {\"type\": \"string\", \"indexed\": true}}}");
 
-    JsonReader reader;
-
     // Create schemas for the items
-    reader.parse(friendJson);
     QVariantMap friendSchema;
     friendSchema.insert("name", "Friends");
-    friendSchema.insert("schema", reader.result());
+    friendSchema.insert("schema", QJsonDocument::fromJson(friendJson).object().toVariantMap());
     friendSchema.insert("_type", "_schemaType");
     int id = mClient->create(friendSchema);
     waitForResponse1(id);
@@ -271,7 +267,6 @@ void TestJson::queryThousandItems_data()
 {
     QTest::addColumn<QString>("queryString");
     QTest::newRow("Friends") << QString("[?_type=\"Friends\"]");
-    QTest::newRow("Friends[=_uuid]") << QString("[?_type=\"Friends\"][=_uuid]");
     QTest::newRow("Friends[={_uuid:_uuid}]") << QString("[?_type=\"Friends\"][={_uuid:_uuid}]");
 }
 

@@ -1,17 +1,20 @@
 TEMPLATE = app
 TARGET = tst_jsondbnotification
 DEPENDPATH += .
-INCLUDEPATH += .
+INCLUDEPATH += . ../../shared/
 
-QT = core network testlib gui qml jsondbcompat-private
+QT = core network testlib gui qml jsondb
 CONFIG -= app_bundle
 CONFIG += testcase
 
 include($$PWD/../../shared/shared.pri)
-include($$PWD/../../../src/3rdparty/qjson/qjson.pri)
 
 DEFINES += JSONDB_DAEMON_BASE=\\\"$$QT.jsondb.bins\\\"
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
-HEADERS += testjsondbnotification.h
+HEADERS += testjsondbnotification.h \
+           $$PWD/../../shared/requestwrapper.h
 SOURCES += testjsondbnotification.cpp
+
+OTHER_FILES += \
+    partitions.json

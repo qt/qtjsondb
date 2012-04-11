@@ -48,7 +48,7 @@
 #include <QJSValue>
 #include <QQmlParserStatus>
 #include <QQmlListProperty>
-#include "jsondb-client.h"
+#include <QJsonDbReadRequest>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -106,7 +106,7 @@ Q_SIGNALS:
     void errorChanged(const QVariantMap &newError);
 
 private Q_SLOTS:
-    void setError(QtAddOn::JsonDb::JsonDbError::ErrorCode code, const QString& message);
+    void setError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString & message);
     void setReadyStatus();
 
 private:
@@ -116,11 +116,11 @@ private:
     QVariantList results;
     QPointer<JsonDbPartition> partitionObject;
     QPointer<JsonDbPartition> defaultPartitionObject;
-    QPointer<JsonDbQuery> jsondbQuery;
     int errorCode;
     QString errorString;
     Status objectStatus;
     QVariantMap queryBindings;
+    QPointer<QJsonDbReadRequest> readRequest;
 
     void clearError();
     inline bool parametersReady();

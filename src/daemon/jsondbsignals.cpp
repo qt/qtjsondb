@@ -119,5 +119,3 @@ void JsonDbSignals::handleSig()
     }
     mNotifier->setEnabled(true);
 }
-
-

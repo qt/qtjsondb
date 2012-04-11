@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "jsondbpartitionglobal.h"
 #include "jsondbsettings.h"
 #include "jsondbsignals.h"
 #include "dbserver.h"
@@ -60,11 +61,7 @@
 
 QString progname;
 
-QT_BEGIN_NAMESPACE_JSONDB
-
-QT_END_NAMESPACE_JSONDB
-
-QT_USE_NAMESPACE_JSONDB
+QT_USE_NAMESPACE_JSONDB_PARTITION
 
 /***************************************************************************/
 
@@ -113,8 +110,6 @@ static void usage()
 {
     cout << "Usage: " << qPrintable(progname) << " [OPTIONS] [FILENAME]" << endl
          << endl
-         << "     -dbdir              Directory to use for database files. $HOME/.jsondb is the default." << endl
-         << "     -base-name          Basename/prefix to be used in database files. Username of the process is the default." << endl
 #ifdef Q_OS_LINUX
          << "     -daemon             Run as a daemon process" << endl
          << "     -sigstop            Send SIGSTOP to self when ready to notify upstart" << endl
@@ -164,10 +159,8 @@ int main(int argc, char * argv[])
     QCoreApplication::setOrganizationDomain("nrcc.noklab.com");
     QCoreApplication::setApplicationName("jsondb");
     QCoreApplication::setApplicationVersion("1.0");
-    QString arguments;
     QString pidFileName;
-    QString baseName;
-    QString filePath;
+    QString searchPath;
     quint16 port = 0;
     bool clear = false;
     rlim_t limit = 0;
@@ -227,9 +220,11 @@ int main(int argc, char * argv[])
         } else if (arg == "-clear") {
             clear = true;
         } else if (arg == "-base-name") {
-            baseName = args.takeFirst();
+            args.removeAt(0);
+            qWarning() << QLatin1String("The -base-name argument is no longer supported");
         } else if (arg == "-dbdir") {
-            filePath = args.takeFirst();
+            args.removeAt(0);
+            qWarning() << QLatin1String("The -dbdir argument is no longer supported");
         } else if (arg == "-log-file") {
             logFileName = args.takeFirst();
         } else {
@@ -252,14 +247,8 @@ int main(int argc, char * argv[])
 
     // FIXME: we should either support passing in the file or not
     // missing dbdir and base-name with the file name is just bad
-    if (args.size() == 1) {
-        if (filePath.isEmpty()) {
-            filePath = args.takeFirst();
-        } else {
-            qCritical() << "Cannot specify the file name in combination with -dbdir";
-            usage();
-        }
-    }
+    if (args.size() == 1)
+        searchPath = args.takeFirst();
 
     if (!args.isEmpty())
         usage();
@@ -274,7 +263,7 @@ int main(int argc, char * argv[])
         qInstallMsgHandler(logMessageOutput);
     }
 
-    DBServer server(filePath, baseName);
+    DBServer server(searchPath);
     if (port)
         server.setTcpServerPort(port);
     JsonDbSignals handler;

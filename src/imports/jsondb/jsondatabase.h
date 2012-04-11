@@ -45,7 +45,9 @@
 #include <QObject>
 #include <QJSValue>
 #include <QPointer>
-#include "jsondb-client.h"
+#include <QMap>
+#include <QJsonDbConnection>
+#include <QJsonDbReadRequest>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -61,14 +63,15 @@ public:
     Q_INVOKABLE JsonDbPartition* partition(const QString &partitionName);
     Q_INVOKABLE void listPartitions(const QJSValue &callback);
     Q_INVOKABLE QString uuidFromString(const QString &identifier);
+    static QJsonDbConnection& sharedConnection();
 
 private Q_SLOTS:
-    void dbResponse(int id, const QVariant &result);
-    void dbErrorResponse(int id, int code, const QString &message);
+    void onQueryFinished();
+    void onQueryError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
 private:
-    QMap<int, QJSValue> listCallbacks;
-    JsonDbClient jsonDb;
+    QMap<QJsonDbReadRequest*, QJSValue> listCallbacks;
+    static QPointer<QJsonDbConnection> connection;
 };
 
 QT_END_NAMESPACE_JSONDB

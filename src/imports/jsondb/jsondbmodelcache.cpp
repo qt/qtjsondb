@@ -62,7 +62,7 @@ bool ModelPage::hasIndex(int pos)
     return (pos >= index && pos < (index+count));
 }
 
-QVariantMap ModelPage::value(const QString &key)
+QJsonObject ModelPage::value(const QString &key)
 {
     counter = ++ModelCache::currentCounter;
     return objects.value(key);
@@ -74,7 +74,7 @@ bool ModelPage::hasValue(const QString &key)
     return objects.contains(key);
 }
 
-bool ModelPage::insert(int pos, const QString &key, const QVariantMap &value)
+bool ModelPage::insert(int pos, const QString &key, const QJsonObject &value)
 {
     // allow adding a consecutive item
     if (pos >= index && pos <= (index+count)) {
@@ -86,7 +86,7 @@ bool ModelPage::insert(int pos, const QString &key, const QVariantMap &value)
     return false;
 }
 
-bool ModelPage::update(const QString &key, const QVariantMap &value)
+bool ModelPage::update(const QString &key, const QJsonObject &value)
 {
     bool ret = (objects.remove(key) >= 1);
     if (ret) {
@@ -139,9 +139,10 @@ int ModelCache::findPage(int pos)
     return -1;
 }
 
-QVariantMap ModelCache::valueAtPage(int page, const QString &key)
+QJsonObject ModelCache::valueAtPage(int page, const QString &key)
 {
     Q_ASSERT(page >= 0 && page < pages.count());
+    QJsonObject o = pages[page]->value(key);
     return pages[page]->value(key);
 }
 
@@ -163,7 +164,7 @@ void ModelCache::splitPage(int page, const JsonDbModelIndexType &objectUuids)
     for (int i = halfPage->index; i < halfPage->index+halfPage->count; i++) {
         // transfer the items to the new page
         const QString &key = (begin+i).value();
-        const QVariantMap &value = pages[page]->value(key);
+        const QJsonObject &value = pages[page]->value(key);
         halfPage->objects.insert(key, value);
         pages[page]->objects.remove(key);
     }
@@ -171,7 +172,7 @@ void ModelCache::splitPage(int page, const JsonDbModelIndexType &objectUuids)
     pages.append(halfPage);
 }
 
-bool ModelCache::insert(int pos, const QString &key, const QVariantMap &value,
+bool ModelCache::insert(int pos, const QString &key, const QJsonObject &value,
                         const JsonDbModelIndexType &objectUuids)
 {
     if (!pages.count()) {
@@ -218,7 +219,7 @@ int ModelCache::count()
     return items;
 }
 
-bool ModelCache::update(const QString &key, const QVariantMap &value)
+bool ModelCache::update(const QString &key, const QJsonObject &value)
 {
     for (int i = 0; i < pages.count(); i++) {
         if (pages[i]->update(key, value))
@@ -296,7 +297,11 @@ void ModelCache::addObjects(int index, const JsonDbModelIndexType &objectUuids,
         newPage->index = j;
         for (; j < index+count && j < maxIndexForPage; j++) {
             const QString &key = (begin+j).value();
-            const QVariantMap& value = objects.value(key);
+            const QJsonObject& value = objects.value(key);
+#ifdef JSONDB_LISTMODEL_DEBUG
+            if (value.isEmpty()) // Could be an assert instead?
+                qDebug() << "##################Empty value###############" << key;
+#endif
             newPage->objects.insert(key, value);
         }
         newPage->count = newPage->objects.count();

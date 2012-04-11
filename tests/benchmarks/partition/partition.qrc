@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/partition">
+        <file alias="json">../../auto/partition/json</file>
+        <file alias="schemas">../../auto/partition/schemas</file>
+    </qresource>
+</RCC>
