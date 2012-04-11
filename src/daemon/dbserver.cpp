@@ -127,11 +127,9 @@ DBServer::~DBServer()
 void DBServer::clearNotifications()
 {
     QMapIterator<QString,JsonDbNotification*> mi(mNotificationMap);
-    while (mi.hasNext()) {
-        delete mi.value();
-        mi.next();
-    }
-    delete mi.value();
+    while (mi.hasNext())
+        delete mi.next().value();
+
     mNotificationMap.clear();
     mNotifications.clear();
     mKeyedNotifications.clear();
