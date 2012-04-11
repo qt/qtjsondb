@@ -1387,11 +1387,6 @@ quint16 HBtreePrivate::collectHistory(NodePage *page)
             if (canCollect || it->syncId > lastSyncedId_) {
                 HBTREE_DEBUG("marking" << *it << "as collectible. Last sync =" << lastSyncedId_);
                 collectiblePages_.insert(it->pageNumber);
-                Page *cached = cacheFind(it->pageNumber);
-                if (cached) {
-                    HBTREE_ASSERT(!cached->dirty)(*cached);
-                    cacheDelete(it->pageNumber);
-                }
                 numRemoved++;
                 it = page->history.erase(it);
                 continue;
