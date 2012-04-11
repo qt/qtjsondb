@@ -140,10 +140,6 @@ private:
     void storageQuotas();
 };
 
-#ifndef DONT_START_SERVER
-static const char dbfileprefix[] = "test-jsondb-client";
-#endif
-
 class Handler : public QObject
 {
     Q_OBJECT
@@ -246,8 +242,6 @@ void TestJsonDbClient::initTestCase()
                             << "-validate-schemas");
     if (wasRoot)
         arg_list << "-enforce-access-control";
-    arg_list << "-base-name";
-    arg_list << QString::fromLatin1(dbfileprefix);
     mProcess = launchJsonDbDaemonDetached(JSONDB_DAEMON_BASE, QString("testjsondb_%1").arg(getpid()), arg_list, __FILE__);
 #endif
 #if !defined(Q_OS_MAC)
@@ -256,7 +250,7 @@ void TestJsonDbClient::initTestCase()
         JsonDbObject capa_obj;
         capa_obj.insert(QLatin1String("_type"), QLatin1String("Capability"));
         capa_obj.insert(QLatin1String("name"), QLatin1String("User"));
-        capa_obj.insert(QLatin1String("partition"), QLatin1String("default"));
+        capa_obj.insert(QLatin1String("partition"), QLatin1String("test-jsondb-client"));
         QVariantMap access_rules;
         QVariantMap rw_rule;
         rw_rule.insert(QLatin1String("read"), (QStringList() << QLatin1String("[*]")));
