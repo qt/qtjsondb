@@ -110,10 +110,10 @@ bool HBtreePrivate::open(int fd)
         return false;
     fd_ = fd;
 
-    QByteArray binaryData(HBTREE_DEFAULT_PAGE_SIZE, (char)0);
+    pageBuffer_.resize(HBTREE_DEFAULT_PAGE_SIZE);
 
     // Read spec page
-    int rc = pread(fd_, (void *)binaryData.data(), HBTREE_DEFAULT_PAGE_SIZE, 0);
+    int rc = pread(fd_, (void *)pageBuffer_.data(), HBTREE_DEFAULT_PAGE_SIZE, 0);
     q->stats_.reads++;
 
     if (rc != HBTREE_DEFAULT_PAGE_SIZE) {
@@ -159,7 +159,7 @@ bool HBtreePrivate::open(int fd)
             return false;
         }
     } else {
-        if (!readSpec(binaryData)) {
+        if (!readSpec(pageBuffer_)) {
             HBTREE_ERROR("failed to read spec information");
             return false;
         }
@@ -281,15 +281,15 @@ bool HBtreePrivate::writeSpec()
     spec.keySize = 255;
     spec.pageSize = sb.st_blksize > HBTREE_DEFAULT_PAGE_SIZE ? sb.st_blksize : HBTREE_DEFAULT_PAGE_SIZE;
 
-    QByteArray ba(spec.pageSize, (char)0);
+    pageBuffer_.fill((char)0, spec.pageSize);
 
     PageInfo info(PageInfo::Spec, 0);
-    memcpy(ba.data(), &info, sizeof(PageInfo));
-    memcpy(ba.data() + sizeof(PageInfo), &spec, sizeof(Spec));
+    memcpy(pageBuffer_.data(), &info, sizeof(PageInfo));
+    memcpy(pageBuffer_.data() + sizeof(PageInfo), &spec, sizeof(Spec));
 
     memcpy(&spec_, &spec, sizeof(Spec));
 
-    if (!writePage(&ba)) {
+    if (!writePage(&pageBuffer_)) {
         spec_ = Spec();
         return false;
     }
@@ -447,7 +447,7 @@ bool HBtreePrivate::writeMarker(HBtreePrivate::MarkerPage *page)
     if (useOverflow)
         mp.meta.flags |= MarkerPage::DataOnOverflow;
 
-    QByteArray buffer = QByteArray(spec_.pageSize, (char)0);
+    QByteArray buffer(spec_.pageSize, (char)0);
 
     if (mp.info.hasPayload()) {
         QByteArray extra;
@@ -472,12 +472,12 @@ bool HBtreePrivate::writeMarker(HBtreePrivate::MarkerPage *page)
             PageMap::const_iterator it = dirtyPages_.constBegin();
             while (it != dirtyPages_.constEnd()) {
                 HBTREE_ASSERT(it.value()->info.type == PageInfo::Overflow)(*it.value())(mp);
-                QByteArray ba = serializePage(*it.value());
-                if (ba.isEmpty()) {
+                pageBuffer_ = serializePage(*it.value());
+                if (pageBuffer_.isEmpty()) {
                     HBTREE_DEBUG("failed to serialize" << mp.info);
                     return false;
                 }
-                if (!writePage(&ba)) {
+                if (!writePage(&pageBuffer_)) {
                     HBTREE_DEBUG("failed to write" << mp.info);
                     return false;
                 }
@@ -509,23 +509,23 @@ bool HBtreePrivate::readMarker(quint32 pgno, HBtreePrivate::MarkerPage *markerOu
     HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE)(pgno);
     HBTREE_ASSERT(pgno == 1 || pgno == 2)(pgno);
 
-    QByteArray buffer = readPage(pgno);
+    pageBuffer_ = readPage(pgno);
 
-    if (buffer.isEmpty()) {
+    if (pageBuffer_.isEmpty()) {
         HBTREE_DEBUG("failed to read marker" << pgno);
         return false;
     }
 
     MarkerPage &mp = *markerOut;
-    memcpy(&mp.info, buffer.constData(), sizeof(PageInfo));
-    memcpy(&mp.meta, buffer.constData() + sizeof(PageInfo), sizeof(MarkerPage::Meta));
+    memcpy(&mp.info, pageBuffer_.constData(), sizeof(PageInfo));
+    memcpy(&mp.meta, pageBuffer_.constData() + sizeof(PageInfo), sizeof(MarkerPage::Meta));
 
-    const char *ptr = buffer.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta);
+    const char *ptr = pageBuffer_.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta);
     QByteArray overflowData;
     if (mp.meta.flags & MarkerPage::DataOnOverflow) {
         HBTREE_ASSERT(mp.info.hasPayload())(mp);
         NodeHeader node;
-        memcpy(&node, buffer.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta), sizeof(NodeHeader));
+        memcpy(&node, pageBuffer_.constData() + sizeof(PageInfo) + sizeof(MarkerPage::Meta), sizeof(NodeHeader));
         mp.overflowPage = node.context.overflowPage;
         getOverflowData(node.context.overflowPage, &overflowData);
         ptr = overflowData.constData();
@@ -604,14 +604,14 @@ QByteArray HBtreePrivate::serializeNodePage(const HBtreePrivate::NodePage &page)
 
     HBTREE_DEBUG("serializing" << page.info);
 
-    QByteArray buffer = QByteArray(spec_.pageSize, (char)0);
+    pageBuffer_.fill((char)0, spec_.pageSize);
 
-    serializePageInfo(page.info, &buffer);
-    memcpy(buffer.data() + sizeof(PageInfo), &page.meta, sizeof(NodePage::Meta));
+    serializePageInfo(page.info, &pageBuffer_);
+    memcpy(pageBuffer_.data() + sizeof(PageInfo), &page.meta, sizeof(NodePage::Meta));
 
     size_t offset = sizeof(PageInfo) + sizeof(NodePage::Meta);
     foreach (const HistoryNode &hn, page.history) {
-        memcpy(buffer.data() + offset, &hn, sizeof(HistoryNode));
+        memcpy(pageBuffer_.data() + offset, &hn, sizeof(HistoryNode));
         offset += sizeof(HistoryNode);
     }
 
@@ -619,8 +619,8 @@ QByteArray HBtreePrivate::serializeNodePage(const HBtreePrivate::NodePage &page)
 
     if (page.info.hasPayload()) {
         int i = 0;
-        quint16 *indices = (quint16 *)(buffer.data() + offset);
-        char *upperPtr = buffer.data() + buffer.size();
+        quint16 *indices = (quint16 *)(pageBuffer_.data() + offset);
+        char *upperPtr = pageBuffer_.data() + pageBuffer_.size();
         Node it = page.nodes.constBegin();
         while (it != page.nodes.constEnd()) {
             const NodeKey &key = it.key();
@@ -640,7 +640,7 @@ QByteArray HBtreePrivate::serializeNodePage(const HBtreePrivate::NodePage &page)
             memcpy(upperPtr, &node, sizeof(NodeHeader));
             memcpy(upperPtr + sizeof(NodeHeader), key.data.constData(), key.data.size());
             memcpy(upperPtr + sizeof(NodeHeader) + key.data.size(), value.data.constData(), value.data.size());
-            quint16 upperOffset = (quint16)((buffer.data() + buffer.size()) - upperPtr);
+            quint16 upperOffset = (quint16)((pageBuffer_.data() + pageBuffer_.size()) - upperPtr);
             indices[i++] = upperOffset;
             HBTREE_VERBOSE("serialized node" << i << "from [" << key<< "," << value << "]"
                            << "@offset" << upperOffset << "to" << node);
@@ -648,7 +648,7 @@ QByteArray HBtreePrivate::serializeNodePage(const HBtreePrivate::NodePage &page)
         }
     }
 
-    return buffer;
+    return pageBuffer_;
 }
 
 HBtreePrivate::NodePage::Meta HBtreePrivate::deserializeNodePageMeta(const QByteArray &buffer) const
@@ -687,18 +687,18 @@ QByteArray HBtreePrivate::serializeOverflowPage(const HBtreePrivate::OverflowPag
 
     HBTREE_DEBUG("serializing" << page.info);
 
-    QByteArray buffer = QByteArray(spec_.pageSize, (char)0);
-    serializePageInfo(page.info, &buffer);
+    pageBuffer_.fill((char)0, spec_.pageSize);
+    serializePageInfo(page.info, &pageBuffer_);
     NodeHeader node;
     node.flags = 0;
     node.keySize = page.data.size();
     node.context.overflowPage = page.nextPage;
-    memcpy(buffer.data() + sizeof(PageInfo), &node, sizeof(NodeHeader));
-    memcpy(buffer.data() + sizeof(PageInfo) + sizeof(NodeHeader), page.data.constData(), page.data.size());
+    memcpy(pageBuffer_.data() + sizeof(PageInfo), &node, sizeof(NodeHeader));
+    memcpy(pageBuffer_.data() + sizeof(PageInfo) + sizeof(NodeHeader), page.data.constData(), page.data.size());
 
     HBTREE_VERBOSE("serialized" << page);
 
-    return buffer;
+    return pageBuffer_;
 }
 
 // ######################################################################
@@ -707,7 +707,7 @@ QByteArray HBtreePrivate::serializeOverflowPage(const HBtreePrivate::OverflowPag
 
 QByteArray HBtreePrivate::readPage(quint32 pageNumber)
 {
-    QByteArray buffer = QByteArray(spec_.pageSize, Qt::Uninitialized);
+    pageBuffer_.resize(spec_.pageSize);
 
     const off_t offset = pageNumber * spec_.pageSize;
     if (lseek(fd_, offset, SEEK_SET) != offset) {
@@ -715,13 +715,13 @@ QByteArray HBtreePrivate::readPage(quint32 pageNumber)
         return QByteArray();
     }
 
-    ssize_t rc = read(fd_, (void *)buffer.data(), spec_.pageSize);
+    ssize_t rc = read(fd_, (void *)pageBuffer_.data(), spec_.pageSize);
     if (rc != spec_.pageSize) {
         HBTREE_DEBUG("failed to read @" << offset << "for page" << pageNumber << "- rc:" << rc);
         return QByteArray();
     }
 
-    PageInfo pageInfo = deserializePageInfo(buffer);
+    PageInfo pageInfo = deserializePageInfo(pageBuffer_);
 
     if (pageInfo.number != pageNumber) {
         HBTREE_DEBUG("page number does not match. expected" << pageNumber << "got" << pageInfo.number);
@@ -729,7 +729,7 @@ QByteArray HBtreePrivate::readPage(quint32 pageNumber)
         return QByteArray();
     }
 
-    quint32 crc = calculateChecksum(buffer);
+    quint32 crc = calculateChecksum(pageBuffer_);
     if (pageInfo.checksum != crc) {
         HBTREE_DEBUG("checksum does not match. expected" << pageInfo.checksum << "got" << crc);
         marker_.meta.flags |= MarkerPage::Corrupted;
@@ -741,7 +741,7 @@ QByteArray HBtreePrivate::readPage(quint32 pageNumber)
     const Q_Q(HBtree);
     const_cast<HBtree*>(q)->stats_.reads++;
 
-    return buffer;
+    return pageBuffer_;
 }
 
 bool HBtreePrivate::writePage(QByteArray *buffer) const
@@ -889,8 +889,8 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
     PageMap::iterator it = dirtyPages_.begin();
     while (it != dirtyPages_.constEnd()) {
         HBTREE_ASSERT(verifyIntegrity(it.value()))(*it.value());
-        QByteArray ba = serializePage(*it.value());
-        if (!writePage(&ba))
+        pageBuffer_ = serializePage(*it.value());
+        if (!writePage(&pageBuffer_))
             return false;
         it.value()->dirty = false;
 

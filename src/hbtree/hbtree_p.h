@@ -395,6 +395,7 @@ public:
     QSet<quint32> residueHistory_;
     QList<Page *> lru_;
     bool cursorDisrupted_;
+    mutable QByteArray pageBuffer_;
 
     bool verifyIntegrity(const Page *pPage) const;
 };
