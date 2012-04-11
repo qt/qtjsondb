@@ -15,3 +15,9 @@ DEFINES += SRCDIR=\\\"$$PWD/\\\"
 HEADERS += jsondbcachinglistmodel-bench.h \
             $$PWD/../../shared/requestwrapper.h
 SOURCES += jsondbcachinglistmodel-bench.cpp
+
+OTHER_FILES += partitions.json
+
+data.files = $$OTHER_FILES
+data.path = $$[QT_INSTALL_TESTS]/$$TARGET
+INSTALLS += data

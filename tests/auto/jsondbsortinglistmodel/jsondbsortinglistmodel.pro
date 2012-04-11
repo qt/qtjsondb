@@ -18,3 +18,7 @@ SOURCES += testjsondbsortinglistmodel.cpp
 
 OTHER_FILES += \
     partitions.json
+
+data.files = $$OTHER_FILES
+data.path = $$[QT_INSTALL_TESTS]/$$TARGET
+INSTALLS += data

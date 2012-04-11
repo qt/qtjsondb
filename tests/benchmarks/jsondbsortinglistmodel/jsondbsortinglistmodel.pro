@@ -15,3 +15,9 @@ DEFINES += SRCDIR=\\\"$$PWD/\\\"
 HEADERS += jsondbsortinglistmodel-bench.h \
             $$PWD/../../shared/requestwrapper.h
 SOURCES += jsondbsortinglistmodel-bench.cpp
+
+OTHER_FILES += partitions.json
+
+data.files = $$OTHER_FILES
+data.path = $$[QT_INSTALL_TESTS]/$$TARGET
+INSTALLS += data
