@@ -1775,19 +1775,6 @@ void JsonDbPartition::updateSchemaIndexes(const QString &schemaName, QJsonObject
     for (int i = 0; i < keys.size(); i++) {
         const QString &k = keys[i];
         QJsonObject propertyInfo = properties.value(k).toObject();
-        if (propertyInfo.contains(QStringLiteral("indexed"))) {
-            QString propertyType = (propertyInfo.contains(QStringLiteral("type")) ?
-                                        propertyInfo.value(QStringLiteral("type")).toString() :
-                                        QStringLiteral("string"));
-            QStringList kpath = path;
-            kpath << k;
-            QString propertyName = kpath.join(QStringLiteral("."));
-            JsonDbIndexSpec indexSpec;
-            indexSpec.name = propertyName;
-            indexSpec.propertyName = propertyName;
-            indexSpec.propertyType = propertyType;
-            addIndex(indexSpec);
-        }
         if (propertyInfo.contains(QStringLiteral("properties")))
             updateSchemaIndexes(schemaName, propertyInfo, path + (QStringList() << k));
     }
