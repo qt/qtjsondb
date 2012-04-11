@@ -107,14 +107,25 @@ DBServer::DBServer(const QString &searchPath, QObject *parent) :
     // make the user-specified path (or PWD) the first in the search path, then and
     // the /etc one the last
     QStringList searchPaths = jsondbSettings->configSearchPath();
+
     if (searchPath.isEmpty())
         searchPaths.prepend(QDir::currentPath());
-    else if (!searchPaths.contains(searchPath))
+    else
         searchPaths.prepend(searchPath);
 
     if (!searchPaths.contains(QLatin1String("/etc/jsondb")))
         searchPaths.append(QLatin1String("/etc/jsondb"));
-    jsondbSettings->setConfigSearchPath(searchPaths);
+
+    // get the unique set of paths and use QDir to ensure
+    // that we have the canonical form of the path
+    QStringList uniquePaths;
+    foreach (const QString &path, searchPaths) {
+        QString canonicalPath = QDir(path).canonicalPath();
+        if (!(canonicalPath.isEmpty() || uniquePaths.contains(canonicalPath)))
+            uniquePaths.append(canonicalPath);
+    }
+
+    jsondbSettings->setConfigSearchPath(uniquePaths);
 
     mOwner->setAllowAll(true);
 }
