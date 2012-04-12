@@ -963,12 +963,6 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
         view = mViews[typeNames.toList()[0]];
         table = view->objectTable();
     }
-    if (!indexedQueryTermCount && !indexCandidate.isEmpty()) {
-            if (jsondbSettings->debug())
-                qDebug() << "adding index" << indexCandidate;
-            //TODO: remove this
-            table->addIndexOnProperty(indexCandidate);
-    }
 
     for (int i = 0; i < orderTerms.size(); i++) {
         const OrderTerm &orderTerm = orderTerms[i];

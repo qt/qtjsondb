@@ -194,7 +194,6 @@ private slots:
     void updateSchema();
     void orQuery_data();
     void orQuery();
-    void unindexedFind();
     void find1();
     void find2();
     void findFields();
@@ -2975,34 +2974,6 @@ void TestPartition::updateSchema()
 
     result = remove(mOwner, schemaObject);
     verifyGoodResult(result);
-}
-
-void TestPartition::unindexedFind()
-{
-    JsonDbObject item;
-    item.insert("_type", QLatin1String("unindexedFind"));
-    item.insert("subject", QString("Programming Languages"));
-    item.insert("bar", 10);
-    JsonDbWriteResult createResult = create(mOwner, item);
-    verifyGoodResult(createResult);
-
-    QJsonObject request;
-    // need to pass a string value for bar in the query because auto-
-    // generated indexes are always of type "string"
-    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?bar=\"10\"]"));
-    int extraneous = 0;
-    JsonDbObjectList data = queryResult.data;
-    for (int i = 0; i < data.size(); ++i) {
-        QJsonObject map = data.at(i);
-        if (!map.contains("bar") || (map.value("bar").toDouble() != 10)) {
-            extraneous++;
-        }
-    }
-
-    verifyGoodQueryResult(queryResult);
-    QVERIFY((queryResult.data.size() >= 1) && !extraneous);
-    mJsonDbPartition->removeIndex("bar");
-    remove(mOwner, item);
 }
 
 void TestPartition::find1()
