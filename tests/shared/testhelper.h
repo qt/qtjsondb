@@ -77,15 +77,15 @@ public:
 
     void removeDbFiles(const QStringList &additionalFiles = QStringList());
 
-    void waitForResponse(QtJsonDb::QJsonDbRequest *request);
-    void waitForResponse(QList<QtJsonDb::QJsonDbRequest*> requests);
-    void waitForResponseAndNotifications(QtJsonDb::QJsonDbRequest *request,
+    bool waitForResponse(QtJsonDb::QJsonDbRequest *request);
+    bool waitForResponse(QList<QtJsonDb::QJsonDbRequest*> requests);
+    bool waitForResponseAndNotifications(QtJsonDb::QJsonDbRequest *request,
                                          QtJsonDb::QJsonDbWatcher *watcher,
                                          int notificationsExpected,
                                          int lastStateChangedExpected = 0);
-    void waitForStatus(QtJsonDb::QJsonDbWatcher *watcher,
+    bool waitForStatus(QtJsonDb::QJsonDbWatcher *watcher,
                        QtJsonDb::QJsonDbWatcher::Status status);
-    void waitForError(QtJsonDb::QJsonDbWatcher *watcher,
+    bool waitForError(QtJsonDb::QJsonDbWatcher *watcher,
                       QtJsonDb::QJsonDbWatcher::ErrorCode error);
 
 protected:
@@ -119,7 +119,9 @@ private:
     void blockWithTimeout();
 
     int mRequestsPending;
+    QtJsonDb::QJsonDbWatcher::Status mReceivedStatus;
     QtJsonDb::QJsonDbWatcher::Status mExpectedStatus;
+    QtJsonDb::QJsonDbWatcher::ErrorCode mReceivedError;
     QtJsonDb::QJsonDbWatcher::ErrorCode mExpectedError;
 };
 

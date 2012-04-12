@@ -229,7 +229,7 @@ void TestHelper::removeDbFiles(const QStringList &additionalFiles)
         QFile::remove(fileName);
 }
 
-void TestHelper::waitForResponse(QJsonDbRequest *request)
+bool TestHelper::waitForResponse(QJsonDbRequest *request)
 {
     mRequestsPending = 1;
     mNotificationsExpected = 0;
@@ -244,10 +244,11 @@ void TestHelper::waitForResponse(QJsonDbRequest *request)
     disconnect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
     disconnect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
-    QVERIFY(!mRequestsPending);
+
+    return !mRequestsPending;
 }
 
-void TestHelper::waitForResponse(QList<QJsonDbRequest *> requests)
+bool TestHelper::waitForResponse(QList<QJsonDbRequest *> requests)
 {
     mRequestsPending = requests.count();
     mNotificationsExpected = 0;
@@ -266,10 +267,11 @@ void TestHelper::waitForResponse(QList<QJsonDbRequest *> requests)
         disconnect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                    this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
     }
-    QVERIFY(!mRequestsPending);
+
+    return !mRequestsPending;
 }
 
-void TestHelper::waitForResponseAndNotifications(QJsonDbRequest *request,
+bool TestHelper::waitForResponseAndNotifications(QJsonDbRequest *request,
                                                  QJsonDbWatcher *watcher,
                                                  int notificationsExpected,
                                                  int lastStateChangedExpected)
@@ -309,24 +311,29 @@ void TestHelper::waitForResponseAndNotifications(QJsonDbRequest *request,
     disconnect(watcher, SIGNAL(lastStateNumberChanged(int)),
             this, SLOT(watcherLastStateNumberChanged(int)));
 
-    QVERIFY(!mRequestsPending && mNotificationsReceived >= mNotificationsExpected
-            && mLastStateChangedReceived >= mLastStateChangedExpected);
+    bool res = !mRequestsPending && mNotificationsReceived >= mNotificationsExpected
+            && mLastStateChangedReceived >= mLastStateChangedExpected;
 
     mNotificationsExpected = 0;
+
+    return res;
 }
 
-void TestHelper::waitForStatus(QJsonDbWatcher *watcher, QJsonDbWatcher::Status status)
+bool TestHelper::waitForStatus(QJsonDbWatcher *watcher, QJsonDbWatcher::Status status)
 {
+    mReceivedError = QJsonDbWatcher::NoError;
+    mReceivedStatus = watcher->status();
     mExpectedStatus = status;
     connect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
             this, SLOT(watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
     blockWithTimeout();
     disconnect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
                this, SLOT(watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
-    QVERIFY(mExpectedStatus == status);
+
+    return mReceivedStatus == status;
 }
 
-void TestHelper::waitForError(QJsonDbWatcher *watcher, QJsonDbWatcher::ErrorCode error)
+bool TestHelper::waitForError(QJsonDbWatcher *watcher, QJsonDbWatcher::ErrorCode error)
 {
     mExpectedError = error;
     connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
@@ -334,7 +341,8 @@ void TestHelper::waitForError(QJsonDbWatcher *watcher, QJsonDbWatcher::ErrorCode
     blockWithTimeout();
     disconnect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
                this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
-    QVERIFY(mExpectedError = error);
+
+    return mReceivedError == error;
 }
 
 bool TestHelper::dontLaunch()
@@ -404,6 +412,7 @@ void TestHelper::watcherNotificationsAvailable(int count)
 
 void TestHelper::watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status status)
 {
+    mReceivedStatus = status;
     if (status == mExpectedStatus)
         mEventLoop.quit();
 }
@@ -420,6 +429,7 @@ void TestHelper::watcherLastStateNumberChanged(int stateNumber)
 void TestHelper::watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode code, QString msg)
 {
     qWarning() << "Watcher error:" << code << msg;
+    mReceivedError = code;
     if (code == mExpectedError)
         mEventLoop.quit();
 }

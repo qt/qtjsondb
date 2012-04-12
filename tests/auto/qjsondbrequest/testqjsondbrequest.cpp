@@ -112,7 +112,7 @@ void TestQJsonDbRequest::modifyPartitions()
     partitionQuery.bindValue(QLatin1String("type"), QLatin1String("Partition"));
 
     mConnection->send(&partitionQuery);
-    waitForResponse(&partitionQuery);
+    QVERIFY(waitForResponse(&partitionQuery));
 
     QList<QJsonObject> results = partitionQuery.takeResults();
     QCOMPARE(results.count(), 1);
@@ -135,11 +135,11 @@ void TestQJsonDbRequest::modifyPartitions()
 
     // send the daemon a SIGHUP to get it to reload the partitions
     kill(mProcess->pid(), SIGHUP);
-    waitForResponseAndNotifications(0, &watcher, 2);
+    QVERIFY(waitForResponseAndNotifications(0, &watcher, 2));
 
     // query for the new partitions
     mConnection->send(&partitionQuery);
-    waitForResponse(&partitionQuery);
+    QVERIFY(waitForResponse(&partitionQuery));
 
     results = partitionQuery.takeResults();
     QCOMPARE(results.count(), 3);
@@ -152,12 +152,12 @@ void TestQJsonDbRequest::modifyPartitions()
     toWrite.insert(QLatin1String("_type"), QLatin1String("TestObject"));
     writeRequest.setObjects(QList<QJsonObject>() << toWrite);
     mConnection->send(&writeRequest);
-    waitForResponse(&writeRequest);
+    QVERIFY(waitForResponse(&writeRequest));
     QVERIFY(!mRequestErrors.contains(&writeRequest));
 
     QJsonDbReadObjectRequest readRequest(testUuid);
     mConnection->send(&readRequest);
-    waitForResponse(&readRequest);
+    QVERIFY(waitForResponse(&readRequest));
     QVERIFY(!mRequestErrors.contains(&readRequest));
     results = readRequest.takeResults();
     QCOMPARE(results.count(), 1);
@@ -168,11 +168,11 @@ void TestQJsonDbRequest::modifyPartitions()
 
     // send the daemon a SIGHUP to get it to unload the partitions
     kill(mProcess->pid(), SIGHUP);
-    waitForResponseAndNotifications(0, &watcher, 2);
+    QVERIFY(waitForResponseAndNotifications(0, &watcher, 2));
 
     // verify that we're back to just the origin partition
     mConnection->send(&partitionQuery);
-    waitForResponse(&partitionQuery);
+    QVERIFY(waitForResponse(&partitionQuery));
 
     results = partitionQuery.takeResults();
     QCOMPARE(results.count(), 1);
@@ -184,7 +184,7 @@ void TestQJsonDbRequest::modifyPartitions()
     failingRequest.setPartition(QLatin1String("com.qt-project.test1"));
     failingRequest.setQuery(QLatin1String("[*]"));
     mConnection->send(&failingRequest);
-    waitForResponse(&failingRequest);
+    QVERIFY(waitForResponse(&failingRequest));
 
     QVERIFY(mRequestErrors.contains(&failingRequest));
     QCOMPARE(mRequestErrors[&failingRequest], QJsonDbRequest::InvalidPartition);
