@@ -160,10 +160,10 @@ void ModelCache::splitPage(int page, const JsonDbModelIndexType &objectUuids)
     halfPage->index = pages[page]->index+pages[page]->count/2;
     halfPage->count = count-(halfPage->index-pages[page]->index);
     pages[page]->count = count-halfPage->count;
-    JsonDbModelIndexType::const_iterator begin = objectUuids.constBegin();
-    for (int i = halfPage->index; i < halfPage->index+halfPage->count; i++) {
+    JsonDbModelIndexType::const_iterator itr = objectUuids.constBegin() + halfPage->index;
+    for (int i = halfPage->index; i < halfPage->index+halfPage->count; i++, itr++) {
         // transfer the items to the new page
-        const QString &key = (begin+i).value();
+        const QString &key = itr.value();
         const QJsonObject &value = pages[page]->value(key);
         halfPage->objects.insert(key, value);
         pages[page]->objects.remove(key);
@@ -295,8 +295,9 @@ void ModelCache::addObjects(int index, const JsonDbModelIndexType &objectUuids,
         int maxIndexForPage = j + pageSize;
         ModelPage *newPage = new ModelPage();
         newPage->index = j;
-        for (; j < index+count && j < maxIndexForPage; j++) {
-            const QString &key = (begin+j).value();
+        JsonDbModelIndexType::const_iterator itr = begin+j;
+        for (; j < index+count && j < maxIndexForPage; j++, itr++) {
+            const QString &key = itr.value();
             const QJsonObject& value = objects.value(key);
 #ifdef JSONDB_LISTMODEL_DEBUG
             if (value.isEmpty()) // Could be an assert instead?

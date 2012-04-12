@@ -131,6 +131,7 @@ public:
     SortingKey(int partitionIndex, const QVariantMap &object, const QList<bool> &directions, const QList<QStringList> &paths, const SortIndexSpec &spec = SortIndexSpec());
     SortingKey(int partitionIndex, const QVariantList &object, const QList<bool> &directions, const SortIndexSpec &spec = SortIndexSpec());
     SortingKey(int partitionIndex, const QByteArray &uuid, const QVariantList &object, const QList<bool> &directions, const SortIndexSpec &spec = SortIndexSpec());
+    SortingKey(int partitionIndex, const QByteArray &uuid, const QVariant &value, bool direction, const SortIndexSpec &spec);
     SortingKey(const SortingKey&);
     SortingKey() {}
     int partitionIndex() const;
@@ -175,6 +176,22 @@ public:
         for (int i=0; i<count; i++) {
             values[i] = objectKeys[i];
         }
+        if (spec.type == SortIndexSpec::UUID)
+            values[0] = QUuid(objectKeys[0].toString()).toRfc4122();
+    }
+    SortingKeyPrivate(int index, const QByteArray &objectUuid, bool direction, const QVariant &objectKey, const SortIndexSpec &spec)
+        :uuid(objectUuid), directions(0), values(0), count(0), partitionIndex(index), indexSpec(spec)
+    {
+        count = 1;
+        directions = new bool[1];
+        directions[0] = direction;
+        values = new QVariant[1];
+        // Perf improvement
+        // Change uuid to RFC4122/ByteArray already here
+        // To speed up comparisons
+        if (spec.type == SortIndexSpec::UUID)
+            values[0] = QUuid(objectKey.toString()).toRfc4122();
+        else values[0] = objectKey;
     }
     ~SortingKeyPrivate()
     {

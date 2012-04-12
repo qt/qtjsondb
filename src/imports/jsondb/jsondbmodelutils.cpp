@@ -65,6 +65,11 @@ SortingKey::SortingKey(int partitionIndex, const QByteArray &uuid, const QVarian
     d = new SortingKeyPrivate(partitionIndex, uuid, directions, object, spec);
 }
 
+SortingKey::SortingKey(int partitionIndex, const QByteArray &uuid, const QVariant &value, bool direction, const SortIndexSpec &spec)
+{
+    d = new SortingKeyPrivate(partitionIndex, uuid, direction, value, spec);
+}
+
 SortingKey::SortingKey(const SortingKey &other)
     :d(other.d)
 {
@@ -93,8 +98,8 @@ static int equalWithSpec(const QVariant& lhs, const QVariant& rhs, const SortInd
         Qt::CaseSensitivity cs = spec.caseSensitive ? Qt::CaseSensitive :Qt::CaseInsensitive;
         return QString::compare(lhs.toString(), rhs.toString(), cs);
     } else if (spec.type == SortIndexSpec::UUID) {
-        QByteArray lhsUuid = QUuid(lhs.toString()).toRfc4122();
-        QByteArray rhsUuid = QUuid(lhs.toString()).toRfc4122();
+        QByteArray lhsUuid = lhs.toByteArray();
+        QByteArray rhsUuid = rhs.toByteArray();
         return memcmp(lhsUuid.constData(), rhsUuid.constData(), qMin(lhsUuid.size(), rhsUuid.size()));
     }
     return -1;

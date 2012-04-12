@@ -266,9 +266,8 @@ void JsonDbCachingListModelPrivate::createObjectRequests(int startIndex, int max
     qDebug()<<"startIndex"<<startIndex<<" maxItems "<<maxItems;
 #endif
     JsonDbModelIndexNSize *indexNSizes = new JsonDbModelIndexNSize[partitionObjects.count()] ;
-    JsonDbModelIndexType::const_iterator begin = objectUuids.constBegin();
-    for (int i = startIndex; i < startIndex+maxItems; i++) {
-        JsonDbModelIndexType::const_iterator itr =  begin+i;
+    JsonDbModelIndexType::const_iterator itr = objectUuids.constBegin()+startIndex;
+    for (int i = startIndex; i < startIndex+maxItems; i++, itr++) {
         const SortingKey &key = itr.key();
         int index = key.partitionIndex();
         if (indexNSizes[index].index == -1) {
@@ -367,14 +366,12 @@ void JsonDbCachingListModelPrivate::fillKeys(const QList<QJsonObject> &items, in
     r.lastSize = items.size();
     for (int i = 0; i < r.lastSize; i++) {
         const QJsonObject &item = items.at(i);
-        const QString &uuid = item.value(QLatin1String("_uuid")).toString();
-        QVariantList vl;
-        vl.append(uuid);
-        vl.append(item.value(QLatin1String("_indexValue")).toVariant());
-        SortingKey key(partitionIndex, vl, QList<bool>() << ascendingOrder,  partitionIndexDetails[partitionIndex].spec);
-        objectUuids.insert(key, uuid);
-        partitionObjectUuids[partitionIndex].insert(key, uuid);
-        objectSortValues.insert(uuid, key);
+        QString uuidStr = item.value(QLatin1String("_uuid")).toString();
+        QByteArray uuid = QUuid(uuidStr).toRfc4122();
+        SortingKey key(partitionIndex, uuid, item.value(QLatin1String("_indexValue")).toVariant(), ascendingOrder,  partitionIndexDetails[partitionIndex].spec);
+        objectUuids.insert(key, uuidStr);
+        partitionObjectUuids[partitionIndex].insert(key, uuidStr);
+        objectSortValues.insert(uuidStr, key);
 
     }
     // Check if requests from different partitions returned
