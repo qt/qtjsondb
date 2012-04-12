@@ -47,9 +47,6 @@ Item {
     height: 300
 
     JsonDb.Partition {
-        id: systemPartition
-    }
-    JsonDb.Partition {
         id: nokiaPartition
         name: "com.nokia.shared"
     }
@@ -60,20 +57,33 @@ Item {
         roleNames: ["firstName", "lastName", "_uuid"]
         limit: 40
     }
-    function partitionCreateCallback(error, response) {
+
+    function checkForPartitions(error, result) {
         if (error) {
-            console.log(JSON.stringify(error));
+            console.log("Failed to list Partitions");
+        } else {
+            var sharedPartitionAvialable = false;
+            // result is an array of objects describing the know partitions
+            for (var i = 0; i < result.length; i++) {
+                if (result[i].name === "com.nokia.shared") {
+                    sharedPartitionAvialable = true;
+                    break;
+                }
+            }
+            if (!sharedPartitionAvialable) {
+                console.log("!!!!!!! No valid partition found !!!!!!!!!!!");
+                console.log("Error : Partition for this example is not available");
+                console.log("Run jsondb daemon in examples/declarative directory to load partiions.json");
+            } else {
+                contacts.partition = nokiaPartition;
+            }
         }
-        console.log("Partition Created id = "+response.id +" count = "+response.items.length);
-        for (var i = 0; i < response.items.length; i++) {
-            console.log("response._uuid = "+response.items[i]._uuid +" ._version = "+response.items[i]._version);
-        }
-        contacts.partition = nokiaPartition;
     }
 
     Component.onCompleted: {
-        systemPartition.create({_type :"Partition", name :"com.nokia.shared"}, partitionCreateCallback)
+        JsonDb.listPartitions(checkForPartitions);
     }
+
     Button {
         id: buttonAdd
         anchors.top: parent.top

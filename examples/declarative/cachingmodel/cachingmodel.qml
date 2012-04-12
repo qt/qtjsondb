@@ -52,7 +52,6 @@ Item {
     JsonDb.Partition {
         id: systemPartition
     }
-    // NOTE: Expect API changes
     JsonDb.JsonDbCachingListModel {
         id: contacts
         query: '[?_type="MyContacts"]'
@@ -62,17 +61,14 @@ Item {
     }
 
     function indexCreateCallback(error, response) {
-        console.log("Index Create callback #############");
         if (error) {
             console.log("Failed to create Index "+JSON.stringify(error));
             return;
         }
-        console.log("Index created");
     }
 
     function createIndex()
     {
-        console.log("createIndex ***************");
         var indexDefinition = {
             "_type": "Index",
             "name": "firstName",
@@ -81,53 +77,32 @@ Item {
         };
         nokiaPartition.create(indexDefinition, indexCreateCallback);
         nokiaPartition2.create(indexDefinition, indexCreateCallback);
-        console.log("createIndex ***************");
-    }
-    function partitionCreateCallback(error, response) {
-        if (error) {
-            console.log("Failed to create Partitions :"+JSON.stringify(error));
-            return;
-        }
-        console.log("Partition Create callback #############");
-        nokiaPartition  = JsonDb.partition("com.nokia.shared", topLevelItem);
-        nokiaPartition2  = JsonDb.partition("com.nokia.shared2", topLevelItem);
-        createIndex();
-        contacts.partitions = [nokiaPartition, nokiaPartition2];
     }
 
     function checkForPartitions(error, result) {
-        console.log("checkForPartitions");
         if (error) {
             console.log("Failed to list Partitions");
         } else {
+            var validPartitions = 0;
             // result is an array of objects describing the know partitions
-            var foundNokiaPartition = false;
-            var foundNokiaPartition2 = false;
             for (var i = 0; i < result.length; i++) {
-                console.log("["+i+"] : "+ result[i].name);
-                if (result[i].name === "com.nokia.shared") {
-                    foundNokiaPartition = true;
-                } else if (result[i].name === "com.nokia.shared2") {
-                    foundNokiaPartition2 = true;
+                if (result[i].name === "com.nokia.shared" || result[i].name === "com.nokia.shared2") {
+                    validPartitions++;
                 }
             }
-            var partitionList = new Array();
-            var idx = 0;
-            if (!foundNokiaPartition) {
-                partitionList[idx] = {_type :"Partition", name :"com.nokia.shared"};
-                idx++;
-            }
-            if (!foundNokiaPartition2) {
-                partitionList[idx] = {_type :"Partition", name :"com.nokia.shared2"};
-                idx++;
-            }
-            if (idx>0) {
-                systemPartition.create(partitionList, partitionCreateCallback);
+            if (validPartitions != 2) {
+                console.log("!!!!!!! No valid partitions found !!!!!!!!!!!");
+                console.log("Error : Partitions for this example are not available");
+                console.log("Run jsondb daemon in examples/declarative directory to load partiions.json");
             } else {
-                partitionCreateCallback(undefined, {});
+                nokiaPartition  = JsonDb.partition("com.nokia.shared");
+                nokiaPartition2  = JsonDb.partition("com.nokia.shared2");
+                createIndex();
+                contacts.partitions = [nokiaPartition, nokiaPartition2];
             }
         }
     }
+
     // Logs notifications of type "MyContacts" in partition "com.nokia.shared"
     JsonDb.Partition {
         name: "com.nokia.shared"

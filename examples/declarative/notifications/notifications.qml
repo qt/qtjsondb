@@ -112,50 +112,31 @@ Item {
         }
     }
 
-    function partitionCreateCallback(error, response) {
-        if (error) {
-            console.log("Error " + error.code+ " " + error.message);
-            return;
-        }
-        nokiaPartition  = JsonDb.partition("com.nokia.shared", topLevelItem);
-        nokiaPartition2  = JsonDb.partition("com.nokia.shared2", topLevelItem);
-        contacts.partitions = [nokiaPartition, nokiaPartition2];
-        // Watch for MyContact objects in 'com.nokia.shared2'
-        var createNotification = nokiaPartition2.createNotification('[?_type="MyContacts"]', topLevelItem);
-        createNotification.notification.connect(onNotification);
-        // Set log area title
-        logRect.title = "Notifications  from: " + nokiaPartition.name;
-        logRect2.title = "Notifications  from: " + nokiaPartition2.name;
-    }
-
     function checkForPartitions(error, result) {
         if (error) {
             console.log("Failed to list Partitions");
         } else {
+            var validPartitions = 0;
             // result is an array of objects describing the know partitions
-            var foundNokiaPartition = false;
-            var foundNokiaPartition2 = false;
             for (var i = 0; i < result.length; i++) {
-                if (result[i].name === "com.nokia.shared") {
-                    foundNokiaPartition = true;
-                } else if (result[i].name === "com.nokia.shared2") {
-                    foundNokiaPartition2 = true;
+                if (result[i].name === "com.nokia.shared" || result[i].name === "com.nokia.shared2") {
+                    validPartitions++;
                 }
             }
-            var partitionList = new Array();
-            var idx = 0;
-            if (!foundNokiaPartition) {
-                partitionList[idx] = {_type :"Partition", name :"com.nokia.shared"};
-                idx++;
-            }
-            if (!foundNokiaPartition2) {
-                partitionList[idx] = {_type :"Partition", name :"com.nokia.shared2"};
-                idx++;
-            }
-            if (idx>0) {
-                systemPartition.create(partitionList, partitionCreateCallback);
+            if (validPartitions != 2) {
+                console.log("!!!!!!! No valid partitions found !!!!!!!!!!!");
+                console.log("Error : Partitions for this example are not available");
+                console.log("Run jsondb daemon in examples/declarative directory to load partiions.json");
             } else {
-                partitionCreateCallback(undefined, {});
+                nokiaPartition  = JsonDb.partition("com.nokia.shared", topLevelItem);
+                nokiaPartition2  = JsonDb.partition("com.nokia.shared2", topLevelItem);
+                contacts.partitions = [nokiaPartition, nokiaPartition2];
+                // Watch for MyContact objects in 'com.nokia.shared2'
+                var createNotification = nokiaPartition2.createNotification('[?_type="MyContacts"]', topLevelItem);
+                createNotification.notification.connect(onNotification);
+                // Set log area title
+                logRect.title = "Notifications  from: " + nokiaPartition.name;
+                logRect2.title = "Notifications  from: " + nokiaPartition2.name;
             }
         }
     }
