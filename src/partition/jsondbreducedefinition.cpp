@@ -308,7 +308,6 @@ bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, Json
         QVector<QJSValue> functions;
         // check for script errors
         compileFunctions(scriptEngine, reduce, functions, message);
-        scriptEngine->collectGarbage();
     }
     return message.isEmpty();
 }

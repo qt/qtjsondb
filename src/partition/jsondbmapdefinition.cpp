@@ -461,7 +461,6 @@ bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPart
         QJSEngine *scriptEngine = JsonDbScriptEngine::scriptEngine();
         QMap<QString,QJSValue> mapFunctions;
         compileMapFunctions(scriptEngine, map, 0, mapFunctions, message);
-        scriptEngine->collectGarbage();
     }
 
     return message.isEmpty();

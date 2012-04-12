@@ -330,7 +330,6 @@ void JsonDbView::updateView(quint32 desiredStateNumber, JsonDbUpdateList *result
     }
     mViewStateNumber = partitionStateNumber;
     mUpdating = false;
-    JsonDbScriptEngine::scriptEngine()->collectGarbage();
     if (inTransaction)
         mViewObjectTable->commit(partitionStateNumber);
     if (jsondbSettings->verbose())
@@ -372,7 +371,6 @@ void JsonDbView::updateEagerView(const JsonDbUpdateList &objectsUpdated, JsonDbU
     updateViewOnChanges(objectsUpdated, processedDefinitionUuids, resultingChanges);
 
     // end transaction
-    JsonDbScriptEngine::scriptEngine()->collectGarbage();
     mViewObjectTable->commit(partitionStateNumber);
     mViewStateNumber = partitionStateNumber;
 
