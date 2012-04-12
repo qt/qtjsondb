@@ -51,15 +51,12 @@
 #include "jsondbpartitionglobal.h"
 #include "jsondbobject.h"
 #include "jsondbobjectkey.h"
+#include "jsondbbtree.h"
 
 QT_BEGIN_HEADER
 
-class QBtreeCursor;
-class QBtreeTxn;
-
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-class JsonDbManagedBtree;
 class JsonDbObjectTable;
 class JsonDbOwner;
 class JsonDbPartition;
@@ -117,9 +114,10 @@ protected:
 protected:
     JsonDbPartition *mPartition;
     JsonDbObjectTable   *mObjectTable;
-    JsonDbManagedBtree *mBdbIndex;
-    QBtreeTxn *mTxn;
-    QBtreeCursor  *mCursor;
+    JsonDbBtree *mBdbIndex;
+    bool isOwnTransaction;
+    JsonDbBtree::Transaction *mTxn;
+    JsonDbBtree::Cursor *mCursor;
     const JsonDbOwner *mOwner;
     QJsonValue      mMin, mMax;
     QSet<QString> mTypeNames;

@@ -49,7 +49,7 @@
 #include <QTime>
 #include <QUuid>
 
-#include "jsondbmanagedbtree.h"
+#include "jsondbbtree.h"
 #include "jsondbobjecttable.h"
 #include "jsondbpartition.h"
 #include "jsondbindex.h"
@@ -230,7 +230,6 @@ private slots:
     void indexCollation();
     void indexCaseSensitive();
     void indexCasePreference();
-    void managedBtree();
 
     void settings();
 
@@ -4202,66 +4201,6 @@ void TestPartition::indexCasePreference()
 #else
     QSKIP("This test requires NO_COLLATION_SUPPORT is not defined!");
 #endif
-}
-
-void TestPartition::managedBtree()
-{
-    const char mdbname[] = "tst_qmanagedbtree.db";
-    const int numtags = 3;
-    const QByteArray k1("foo");
-    const QByteArray k2("bar");
-    const QByteArray k3("baz");
-
-    QFile::remove(mdbname);
-    QScopedPointer<JsonDbManagedBtree> mdb(new JsonDbManagedBtree);
-    if (!mdb->open(mdbname))
-        Q_ASSERT(false);
-
-    for (int i = 0; i < numtags; ++i) {
-        char c = 'a' + i;
-        QByteArray value(&c, 1);
-
-        JsonDbManagedBtreeTxn txn1 = mdb->beginWrite();
-        JsonDbManagedBtreeTxn txn2 = mdb->beginWrite();
-        JsonDbManagedBtreeTxn txn3 = mdb->beginWrite();
-        QVERIFY(txn1 && txn2 && txn3);
-
-        QVERIFY(txn1.put(k1, value));
-        QVERIFY(txn2.put(k2, value));
-        QVERIFY(txn3.put(k3, value));
-
-        QVERIFY(txn1.commit(i));
-        QVERIFY(!txn1 && !txn2 && !txn3);
-    }
-
-    for (int i = 0; i < numtags; ++i) {
-        QByteArray value;
-
-        JsonDbManagedBtreeTxn txn1 = mdb->beginRead(i);
-        JsonDbManagedBtreeTxn txn2 = mdb->beginRead(i);
-        JsonDbManagedBtreeTxn txn3 = mdb->beginRead(i);
-        QVERIFY(txn1 && txn2 && txn3);
-
-        QVERIFY(txn1.get(k1, &value));
-        QCOMPARE(*(char*)value.constData(), char('a' + i));
-        QVERIFY(txn2.get(k2, &value));
-        QCOMPARE(*(char*)value.constData(), char('a' + i));
-        QVERIFY(txn3.get(k3, &value));
-        QCOMPARE(*(char*)value.constData(), char('a' + i));
-
-        QCOMPARE(txn1.txn(), txn2.txn());
-        QCOMPARE(txn2.txn(), txn3.txn());
-
-        txn1.abort();
-        QVERIFY(!txn1 && txn2 && txn3);
-        txn2.abort();
-        QVERIFY(!txn1 && !txn2 && txn3);
-        txn3.abort();
-        QVERIFY(!txn1 && !txn2 && !txn3);
-    }
-
-    mdb->close();
-    QFile::remove(mdbname);
 }
 
 void TestPartition::settings()

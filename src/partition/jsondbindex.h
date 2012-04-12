@@ -55,14 +55,13 @@
 
 #include "jsondbpartitionglobal.h"
 #include "jsondbobjectkey.h"
-#include "jsondbmanagedbtreetxn.h"
+#include "jsondbbtree.h"
 #include "jsondbcollator.h"
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-class JsonDbManagedBtree;
 class JsonDbPartition;
 class JsonDbObjectTable;
 
@@ -81,7 +80,7 @@ public:
     QString propertyType() const { return mPropertyType; }
     QStringList objectType() const { return mObjectType; }
 
-    JsonDbManagedBtree *bdb();
+    JsonDbBtree *bdb();
 
     bool setPropertyFunction(const QString &propertyFunction);
     void indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
@@ -90,7 +89,7 @@ public:
 
     quint32 stateNumber() const;
 
-    JsonDbManagedBtreeTxn begin();
+    JsonDbBtree::Transaction *begin();
     bool commit(quint32);
     bool abort();
     bool clearData();
@@ -126,11 +125,10 @@ private:
     JsonDbCollator mCollator;
 #endif
     quint32 mStateNumber;
-    QScopedPointer<JsonDbManagedBtree> mBdb;
+    QScopedPointer<JsonDbBtree> mBdb;
     QJSEngine *mScriptEngine;
     QJSValue   mPropertyFunction;
     QList<QJsonValue> mFieldValues;
-    JsonDbManagedBtreeTxn mWriteTxn;
     quint32 mCacheSize;
 };
 

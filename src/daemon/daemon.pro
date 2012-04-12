@@ -11,6 +11,10 @@ QT = core network qml jsondbpartition
 
 mac:CONFIG -= app_bundle
 
+# HACK, remove when jsondbpartition separates private api from public api
+include(../3rdparty/btree/btree.pri)
+include(../hbtree/hbtree.pri)
+
 HEADERS += \
     $$PWD/dbserver.h \
     $$PWD/jsondbephemeralpartition.h \

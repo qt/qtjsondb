@@ -15,6 +15,7 @@ CONFIG += module create_prl
 MODULE_PRI = ../../modules/qt_jsondbpartition.pri
 
 include(../3rdparty/btree/btree.pri)
+include(../hbtree/hbtree.pri)
 
 RESOURCES = jsondb.qrc
 
@@ -31,8 +32,7 @@ HEADERS += \
     jsondbnotification.h \
     jsondbobjectkey.h \
     jsondbobjecttable.h \
-    jsondbmanagedbtree.h \
-    jsondbmanagedbtreetxn.h \
+    jsondbbtree.h \
     jsondbobjecttypes_impl_p.h \
     jsondbobjecttypes_p.h \
     jsondbreducedefinition.h \
@@ -60,8 +60,7 @@ SOURCES += \
     jsondbmapdefinition.cpp \
     jsondbnotification.cpp \
     jsondbobjecttable.cpp \
-    jsondbmanagedbtree.cpp \
-    jsondbmanagedbtreetxn.cpp \
+    jsondbbtree.cpp \
     jsondbreducedefinition.cpp \
     jsondbscriptengine.cpp \
     jsondbsettings.cpp \

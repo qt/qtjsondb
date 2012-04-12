@@ -65,7 +65,7 @@
 #include "jsondbindex.h"
 #include "jsondbindexquery.h"
 #include "jsondbobjecttable.h"
-#include "jsondbmanagedbtree.h"
+#include "jsondbbtree.h"
 #include "jsondbsettings.h"
 #include "jsondbview.h"
 #include "jsondbschemamanager_impl_p.h"
@@ -386,8 +386,20 @@ void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue, Objec
     memcpyFieldValue(vt, fieldValue, data+4, fvSize);
     objectKey = qFromBigEndian<ObjectKey>((const uchar *)&data[4+fvSize]);
 }
-int forwardKeyCmp(const char *aptr, size_t asiz, const char *bptr, size_t bsiz, void *)
+int forwardKeyCmp(const QByteArray &ab, const QByteArray &bb)
 {
+    const char *aptr = ab.constData();
+    size_t asiz = ab.size();
+    const char *bptr = bb.constData();
+    size_t bsiz = bb.size();
+
+    if (!bsiz && !asiz)
+        return 0;
+    if (!bsiz)
+        return 1;
+    if (!asiz)
+        return -1;
+
     int rv = 0;
     QJsonValue::Type avt = (QJsonValue::Type)qFromBigEndian<quint32>((const uchar *)&aptr[0]);
     QJsonValue::Type bvt = (QJsonValue::Type)qFromBigEndian<quint32>((const uchar *)&bptr[0]);
@@ -1391,7 +1403,7 @@ bool JsonDbPartition::compact()
     return result;
 }
 
-struct JsonDbStat JsonDbPartition::stat() const
+JsonDbStat JsonDbPartition::stat() const
 {
     JsonDbStat result;
     for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();

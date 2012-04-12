@@ -136,7 +136,7 @@ int                      btree_compact(struct btree *bt);
 int                      btree_revert(struct btree *bt);
 int                      btree_rollback(struct btree *bt);
 
-void                     btree_set_cmp(struct btree *bt, bt_cmp_func cmp);
+void                     btree_set_cmp(struct btree *bt, bt_cmp_func cmp, void *context);
 
 int                      btree_cmp(struct btree *bt, const struct btval *a,
                                    const struct btval *b);

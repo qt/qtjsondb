@@ -50,7 +50,7 @@
 #include "jsondbstrings.h"
 #include "jsondbproxy.h"
 #include "jsondbindex.h"
-#include "jsondbmanagedbtree.h"
+#include "jsondbbtree.h"
 #include "jsondbsettings.h"
 #include "jsondbobjecttable.h"
 #include "jsondbscriptengine.h"
@@ -152,8 +152,9 @@ public:
     bool prev();
 
 private:
-    QBtreeTxn *mTxn;
-    QBtreeCursor mCursor;
+    bool isOwnTransaction;
+    JsonDbBtree::Transaction *mTxn;
+    JsonDbBtree::Cursor mCursor;
     JsonDbIndex *mIndex;
 
     JsonDbIndexCursor(const JsonDbIndexCursor&);
@@ -229,17 +230,17 @@ bool JsonDbIndex::open()
     if (mPropertyName == JsonDbString::kUuidStr)
         return true;
 
-    mBdb.reset(new JsonDbManagedBtree());
+    mBdb.reset(new JsonDbBtree());
 
     if (mCacheSize)
         mBdb->setCacheSize(mCacheSize);
 
-    if (!mBdb->open(mFileName)) {
+    if (!mBdb->open(mFileName, JsonDbBtree::Default)) {
         qCritical() << "mBdb->open" << mBdb->errorMessage();
         return false;
     }
 
-    mBdb->btree()->setCmpFunc(forwardKeyCmp);
+    mBdb->setCompareFunction(forwardKeyCmp);
 
     mStateNumber = mBdb->tag();
     if (jsondbSettings->debug() && jsondbSettings->verbose())
@@ -303,7 +304,7 @@ QString JsonDbIndex::determineName(const JsonDbObject &index)
     return indexName;
 }
 
-JsonDbManagedBtree *JsonDbIndex::bdb()
+JsonDbBtree *JsonDbIndex::bdb()
 {
     if (!mBdb)
         open();
@@ -377,10 +378,9 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
     bool ok;
     if (!mBdb)
         open();
-    bool inTransaction = mBdb->isWriteTxnActive();
-    if (!inTransaction)
+    if (!mBdb->isWriting())
         mObjectTable->begin(this);
-    JsonDbManagedBtreeTxn txn = mBdb->existingWriteTxn();
+    JsonDbBtree::Transaction *txn = mBdb->writeTransaction();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
         fieldValue = makeFieldValue(fieldValue, mPropertyType);
@@ -394,7 +394,7 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
                      << "forwardIndex" << "key" << forwardKey.toHex()
                      << "forwardIndex" << "value" << forwardValue.toHex()
                      << object;
-        ok = txn.put(forwardKey, forwardValue);
+        ok = txn->put(forwardKey, forwardValue);
         if (!ok) qCritical() << __FUNCTION__ << "putting fowardIndex" << mBdb->errorMessage();
     }
     if (jsondbSettings->debug() && (stateNumber < mStateNumber))
@@ -417,10 +417,9 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
     QList<QJsonValue> fieldValues = indexValues(object);
     if (!fieldValues.size())
         return;
-    bool inTransaction = mBdb->isWriteTxnActive();
-    if (!inTransaction)
+    if (!mBdb->isWriting())
         mObjectTable->begin(this);
-    JsonDbManagedBtreeTxn txn = mBdb->existingWriteTxn();
+    JsonDbBtree::Transaction *txn = mBdb->writeTransaction();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
         fieldValue = makeFieldValue(fieldValue, mPropertyType);
@@ -429,7 +428,7 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
         if (jsondbSettings->debug())
             qDebug() << "deindexing" << objectKey << mPropertyName << fieldValue;
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
-        if (!txn.remove(forwardKey)) {
+        if (!txn->remove(forwardKey)) {
             qDebug() << "deindexing failed" << objectKey << mPropertyName << fieldValue << object << forwardKey.toHex();
         }
     }
@@ -445,22 +444,22 @@ quint32 JsonDbIndex::stateNumber() const
     return mStateNumber;
 }
 
-JsonDbManagedBtreeTxn JsonDbIndex::begin()
+JsonDbBtree::Transaction *JsonDbIndex::begin()
 {
     if (!mBdb)
         open();
-    return mWriteTxn = mBdb->beginWrite();
+    return mBdb->beginWrite();
 }
 bool JsonDbIndex::commit(quint32 stateNumber)
 {
-    if (mBdb->isWriteTxnActive())
-        return mWriteTxn.commit(stateNumber);
+    if (mBdb->isWriting())
+        mBdb->writeTransaction()->commit(stateNumber);
     return false;
 }
 bool JsonDbIndex::abort()
 {
-    if (mBdb->isWriteTxnActive())
-        mWriteTxn.abort();
+    if (mBdb->isWriting())
+        mBdb->writeTransaction()->abort();
     return true;
 }
 bool JsonDbIndex::clearData()
@@ -475,8 +474,9 @@ void JsonDbIndex::checkIndex()
 
     qDebug() << "checkIndex" << mPropertyName;
     int countf = 0;
-    QBtreeTxn *txnf = mBdb.data()->btree()->beginRead();
-    QBtreeCursor cursorf(txnf);
+    bool isInTransaction = mBdb.data()->btree()->writeTransaction();
+    JsonDbBtree::Transaction *txnf = mBdb.data()->btree()->writeTransaction() ? mBdb.data()->btree()->writeTransaction() : mBdb.data()->btree()->beginWrite();
+    JsonDbBtree::Cursor cursorf(txnf);
     bool ok = cursorf.first();
     if (ok) {
         countf++;
@@ -495,19 +495,21 @@ void JsonDbIndex::checkIndex()
             outkey1 = outkey2;
         }
     }
-    txnf->abort();
+    if (!isInTransaction)
+        txnf->abort();
 
     qDebug() << "checkIndex" << mPropertyName << "reversed";
     // now check other direction
     int countr = 0;
-    QBtreeTxn *txnr = mBdb.data()->btree()->beginRead();
-    QBtreeCursor cursorr(txnr);
+    isInTransaction = mBdb.data()->btree()->writeTransaction();
+    JsonDbBtree::Transaction *txnr = mBdb.data()->btree()->writeTransaction() ? mBdb.data()->btree()->writeTransaction() : mBdb.data()->btree()->beginWrite();
+    JsonDbBtree::Cursor cursorr(txnr);
     ok = cursorr.last();
     if (ok) {
         countr++;
         QByteArray outkey1;
         ok = cursorr.current(&outkey1, 0);
-        while (cursorr.prev()) {
+        while (cursorr.previous()) {
             countr++;
             QByteArray outkey2;
             cursorr.current(&outkey2, 0);
@@ -520,7 +522,8 @@ void JsonDbIndex::checkIndex()
             outkey1 = outkey2;
         }
     }
-    txnr->abort();
+    if (!isInTransaction)
+        txnr->abort();
     qDebug() << "checkIndex" << mPropertyName << "done" << countf << countr << "entries checked";
 
 }
@@ -532,15 +535,17 @@ void JsonDbIndex::setCacheSize(quint32 cacheSize)
         mBdb->setCacheSize(cacheSize);
 }
 
-JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index) :
-    mTxn(index->bdb()->btree()->beginRead()),
-    mCursor(mTxn)
+JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index)
+    : isOwnTransaction(!index->bdb()->writeTransaction()),
+      mTxn(isOwnTransaction ? index->bdb()->beginWrite() : index->bdb()->writeTransaction()),
+      mCursor(mTxn)
 {
 }
 
 JsonDbIndexCursor::~JsonDbIndexCursor()
 {
-    mTxn->abort();
+    if (isOwnTransaction)
+        mTxn->abort();
 }
 
 bool JsonDbIndexCursor::seek(const QJsonValue &value)
@@ -595,7 +600,7 @@ bool JsonDbIndexCursor::next()
 
 bool JsonDbIndexCursor::prev()
 {
-    return mCursor.prev();
+    return mCursor.previous();
 }
 
 #include "moc_jsondbindex.cpp"

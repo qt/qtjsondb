@@ -17,6 +17,10 @@ unix:!mac:contains(QT_CONFIG,icu) {
     DEFINES += NO_COLLATION_SUPPORT
 }
 
+# HACK, remove when jsondbpartition separates private api from public api
+include(../../../src/3rdparty/btree/btree.pri)
+include(../../../src/hbtree/hbtree.pri)
+
 SOURCES += \
     testpartition.cpp \
 

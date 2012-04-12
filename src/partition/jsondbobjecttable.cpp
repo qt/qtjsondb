@@ -47,7 +47,7 @@
 #include "jsondbobjecttable.h"
 #include "jsondbindex.h"
 #include "jsondbstrings.h"
-#include "jsondbmanagedbtree.h"
+#include "jsondbbtree.h"
 #include "jsondbobject.h"
 #include "jsondbsettings.h"
 #include "qbtree.h"
@@ -75,7 +75,7 @@ JsonDbObjectTable::JsonDbObjectTable(JsonDbPartition *partition) :
   , mPartition(partition)
   , mBdb(0)
 {
-    mBdb = new JsonDbManagedBtree();
+    mBdb = new JsonDbBtree();
 }
 
 JsonDbObjectTable::~JsonDbObjectTable()
@@ -84,7 +84,7 @@ JsonDbObjectTable::~JsonDbObjectTable()
     mBdb = 0;
 }
 
-bool JsonDbObjectTable::open(const QString&fileName)
+bool JsonDbObjectTable::open(const QString &fileName)
 {
     mFilename = fileName;
 #if 0
@@ -111,31 +111,30 @@ void JsonDbObjectTable::close()
 
 bool JsonDbObjectTable::begin()
 {
-    Q_ASSERT(!mWriteTxn);
-    mWriteTxn = mBdb->beginWrite();
+    Q_ASSERT(!mBdb->isWriting());
     Q_ASSERT(mBdbTransactions.isEmpty());
-    return mWriteTxn;
+    return mBdb->beginWrite() != NULL;
 }
 
 void JsonDbObjectTable::begin(JsonDbIndex *index)
 {
-    if (!index->bdb()->isWriteTxnActive())
+    if (!index->bdb()->isWriting())
         mBdbTransactions.append(index->begin());
 }
 
 bool JsonDbObjectTable::commit(quint32 tag)
 {
-    Q_ASSERT(mWriteTxn);
+    Q_ASSERT(mBdb->isWriting());
     //qDebug() << "ObjectTable::commit" << tag << mFilename;
 
     QByteArray baStateKey(5, 0);
     makeStateKey(baStateKey, tag);
-    bool ok = mWriteTxn.put(baStateKey, mStateChanges);
+    bool ok = mBdb->writeTransaction()->put(baStateKey, mStateChanges);
     if (!ok)
         qDebug() << "putting statekey ok" << ok << "baStateKey" << baStateKey.toHex();
     for (int i = 0; i < mStateObjectChanges.size(); ++i) {
         JsonDbObject object = mStateObjectChanges.at(i);
-        bool ok = mWriteTxn.put(baStateKey + object.uuid().toRfc4122(), object.toBinaryData());
+        bool ok = mBdb->writeTransaction()->put(baStateKey + object.uuid().toRfc4122(), object.toBinaryData());
         if (!ok) {
             qDebug() << "putting state object ok" << ok << "baStateKey" << baStateKey.toHex()
                      << "object" << object;
@@ -146,26 +145,26 @@ bool JsonDbObjectTable::commit(quint32 tag)
     mStateNumber = tag;
 
     for (int i = 0; i < mBdbTransactions.size(); i++) {
-        JsonDbManagedBtreeTxn txn = mBdbTransactions.at(i);
-        if (!txn.commit(tag)) {
-            qCritical() << __FILE__ << __LINE__ << txn.btree()->errorMessage();
+        JsonDbBtree::Transaction *txn = mBdbTransactions.at(i);
+        if (!txn->commit(tag)) {
+            qCritical() << __FILE__ << __LINE__ << txn->btree()->errorMessage();
         }
     }
     mBdbTransactions.clear();
-    return mWriteTxn.commit(tag);
+    return mBdb->writeTransaction()->commit(tag);
 }
 
 bool JsonDbObjectTable::abort()
 {
-    Q_ASSERT(mWriteTxn);
+    Q_ASSERT(mBdb->isWriting());
     mStateChanges.clear();
     mStateObjectChanges.clear();
     for (int i = 0; i < mBdbTransactions.size(); i++) {
-        JsonDbManagedBtreeTxn txn = mBdbTransactions.at(i);
-        txn.abort();
+        JsonDbBtree::Transaction *txn = mBdbTransactions.at(i);
+        txn->abort();
     }
     mBdbTransactions.clear();
-    mWriteTxn.abort();
+    mBdb->writeTransaction()->abort();
     return true;
 }
 
@@ -187,7 +186,7 @@ bool JsonDbObjectTable::compact()
 void JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
 {
     if (flags & SyncObjectTable)
-        mBdb->btree()->sync();
+        mBdb->sync();
 
     if (flags & SyncIndexes) {
         foreach (const IndexSpec &spec, mIndexes.values()) {
@@ -198,7 +197,7 @@ void JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
                     index->begin();
                     index->commit(mStateNumber);
                 }
-                spec.index->bdb()->btree()->sync();
+                spec.index->bdb()->sync();
             }
         }
     }
@@ -212,14 +211,14 @@ JsonDbStat JsonDbObjectTable::stat() const
          ++it) {
         const IndexSpec &indexSpec = it.value();
         if (indexSpec.index->bdb()) {
-            QBtree::Stat stat = indexSpec.index->bdb()->btree() ?
-                        indexSpec.index->bdb()->btree()->stat() :
-                        QBtree::Stat();
+            JsonDbBtree::Stat stat = indexSpec.index->bdb()->btree() ?
+                        indexSpec.index->bdb()->stats() :
+                        JsonDbBtree::Stat();
             result += JsonDbStat(stat.reads, stat.hits, stat.writes);
         }
         // _uuid index does not have bdb() because it is actually the object table itself
     }
-    QBtree::Stat stat = mBdb->btree() ? mBdb->btree()->stat() : QBtree::Stat();
+    JsonDbBtree::Stat stat = mBdb->btree() ? mBdb->btree()->stats() : JsonDbBtree::Stat();
     result += JsonDbStat(stat.reads, stat.hits, stat.writes);
     return result;
 }
@@ -331,8 +330,8 @@ bool JsonDbObjectTable::removeIndex(const QString &indexName)
 
     if (spec->index) {
         if (spec->index->bdb()
-            && spec->index->bdb()->isWriteTxnActive()) { // Incase index is removed via Jdb::remove( _type=Index )
-            mBdbTransactions.remove(mBdbTransactions.indexOf(spec->index->bdb()->existingWriteTxn()));
+            && spec->index->bdb()->isWriting()) { // Incase index is removed via Jdb::remove( _type=Index )
+            mBdbTransactions.remove(mBdbTransactions.indexOf(spec->index->bdb()->writeTransaction()));
             spec->index->abort();
         }
         spec->index->close();
@@ -357,15 +356,11 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringLi
 
     IndexSpec &indexSpec = mIndexes[indexName];
     JsonDbIndex *index = indexSpec.index;
-    bool inTransaction = index->bdb()->isWriteTxnActive();
-    bool inObjectTableTransaction = mBdb->isWriteTxnActive();
-    QBtreeTxn *bdbTxn = 0;
-    if (!inObjectTableTransaction)
-         bdbTxn = mBdb->btree()->beginRead();
-    else
-         bdbTxn = const_cast<QBtreeTxn *>(mBdb->existingWriteTxn().txn());
-    QBtreeCursor cursor(bdbTxn);
-    if (!inTransaction)
+    bool isInIndexTransaction = index->bdb()->writeTransaction();
+    bool isInObjectTableTransaction = mBdb->writeTransaction();
+    JsonDbBtree::Transaction *bdbTxn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
+    JsonDbBtree::Cursor cursor(bdbTxn);
+    if (!isInIndexTransaction)
         index->begin();
     for (bool ok = cursor.first(); ok; ok = cursor.next()) {
         QByteArray baKey, baObject;
@@ -381,9 +376,9 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringLi
         if (!fieldValue.isNull())
             index->indexObject(objectKey, object, stateNumber);
     }
-    if (!inTransaction)
+    if (!isInIndexTransaction)
         index->commit(stateNumber);
-    if (!inObjectTableTransaction)
+    if (!isInObjectTableTransaction)
         bdbTxn->abort();
     if (jsondbSettings->verbose())
         qDebug() << "} reindexObjects";
@@ -396,7 +391,7 @@ void JsonDbObjectTable::indexObject(const ObjectKey &objectKey, JsonDbObject obj
     for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
          it != mIndexes.end();
          ++it) {
-        Q_ASSERT(mWriteTxn);
+        Q_ASSERT(mBdb->isWriting());
         const IndexSpec &indexSpec = it.value();
         if (indexSpec.propertyName == JsonDbString::kUuidStr)
             continue;
@@ -414,7 +409,7 @@ void JsonDbObjectTable::deindexObject(const ObjectKey &objectKey, JsonDbObject o
     for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
          it != mIndexes.end();
          ++it) {
-        Q_ASSERT(mWriteTxn);
+        Q_ASSERT(mBdb->isWriting());
         const IndexSpec &indexSpec = it.value();
         if (jsondbSettings->debug())
             qDebug() << "ObjectTable::deindexObject" << indexSpec.propertyName;
@@ -433,10 +428,10 @@ void JsonDbObjectTable::updateIndex(JsonDbIndex *index)
         return;
     JsonDbUpdateList changeList;
     changesSince(indexStateNumber, QSet<QString>(), &changeList);
-    bool inTransaction = mBdb->isWriteTxnActive();
+    bool inTransaction = mBdb->isWriting();
     if (!inTransaction)
         index->begin();
-    else if (!index->bdb()->isWriteTxnActive()) {
+    else if (!index->bdb()->isWriting()) {
         index->begin();
         mBdbTransactions.append(index->begin());
     }
@@ -510,8 +505,9 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     }
 
     if (!mIndexes.contains(keyName) && (keyName == JsonDbString::kTypeStr)) {
-        QBtreeTxn *txn = mBdb->btree()->beginRead();
-        QBtreeCursor cursor(txn);
+        bool isInTransaction = mBdb->writeTransaction();
+        JsonDbBtree::Transaction *txn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
+        JsonDbBtree::Cursor cursor(txn);
         for (bool ok = cursor.first(); ok; ok = cursor.next()) {
             QByteArray baKey, baObject;
             ok = cursor.current(&baKey, &baObject);
@@ -524,7 +520,8 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
                 continue;
             objectList.append(object);
         }
-        txn->abort();
+        if (!isInTransaction)
+            txn->abort();
         result.data = objectList;
         return result;
     }
@@ -534,13 +531,9 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     //fprintf(stderr, "getObject bdb=%p\n", indexSpec->index->bdb());
     if (indexSpec->lazy)
         updateIndex(indexSpec->index);
-    QBtreeTxn *txn;
-    bool activeWriteTransaction = indexSpec->index->bdb()->isWriteTxnActive();
-    if (activeWriteTransaction)
-        txn = const_cast<QBtreeTxn *>(indexSpec->index->bdb()->existingWriteTxn().txn());
-    else
-        txn = indexSpec->index->bdb()->btree()->beginRead();
-    QBtreeCursor cursor(txn);
+    bool isInTransaction = indexSpec->index->bdb()->writeTransaction();
+    JsonDbBtree::Transaction *txn = indexSpec->index->bdb()->writeTransaction() ? indexSpec->index->bdb()->writeTransaction() : indexSpec->index->bdb()->beginWrite();
+    JsonDbBtree::Cursor cursor(txn);
     if (cursor.seekRange(forwardKey)) {
         do {
             QByteArray checkKey;
@@ -571,7 +564,7 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
             }
         } while (cursor.next());
     }
-    if (!activeWriteTransaction)
+    if (!isInTransaction)
         txn->abort();
 
     result.data = objectList;
@@ -602,8 +595,9 @@ quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,Json
     QElapsedTimer timer;
     if (jsondbSettings->performanceLog())
         timer.start();
-    QBtreeTxn *txn = mBdb->btree()->beginRead();
-    QBtreeCursor cursor(txn);
+    bool inTransaction = mBdb->writeTransaction();
+    JsonDbBtree::Transaction *txn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
+    JsonDbBtree::Cursor cursor(txn);
     QByteArray baStateKey(5, 0);
     makeStateKey(baStateKey, stateNumber);
 
@@ -666,7 +660,8 @@ quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,Json
         } while (cursor.next());
     }
     *changes = changeMap;
-    txn->abort();
+    if (!inTransaction)
+        txn->abort();
 
     if (jsondbSettings->performanceLog())
         qDebug() << "changesSince" << mFilename << timer.elapsed() << "ms";

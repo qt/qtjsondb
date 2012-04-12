@@ -15,4 +15,5 @@ SUBDIRS = \
     qjsondbrequest \
     qjsondbwatcher \
     qjsondbflushrequest \
-    jsonstream
+    jsonstream \
+    hbtree

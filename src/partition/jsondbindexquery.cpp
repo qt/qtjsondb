@@ -41,7 +41,6 @@
 
 #include "jsondbindex.h"
 #include "jsondbindexquery.h"
-#include "jsondbmanagedbtree.h"
 #include "jsondbobjecttable.h"
 #include "jsondbpartition.h"
 #include "jsondbsettings.h"
@@ -86,27 +85,23 @@ JsonDbIndexQuery::JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable
 {
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->indexSpec(propertyName)->index->bdb();
-        mTxn = mBdbIndex->btree()->beginRead();
-        mCursor = new QBtreeCursor(mTxn);
+        isOwnTransaction = !mBdbIndex->writeTransaction();
+        mTxn = isOwnTransaction ? mBdbIndex->beginWrite() : mBdbIndex->writeTransaction();
+        mCursor = new JsonDbBtree::Cursor(mTxn);
     } else {
-        mTxn = table->bdb()->btree()->beginRead();
-        mCursor = new QBtreeCursor(mTxn);
+        isOwnTransaction = !table->bdb()->writeTransaction();
+        mTxn = isOwnTransaction ? table->bdb()->beginWrite() : table->bdb()->writeTransaction();
+        mCursor = new JsonDbBtree::Cursor(mTxn);
     }
 }
 JsonDbIndexQuery::~JsonDbIndexQuery()
 {
-    if (mResidualQuery) {
-        delete mResidualQuery;
-        mResidualQuery = 0;
-    }
-    if (mTxn && mCursor) {
+    delete mResidualQuery;
+    if (isOwnTransaction)
         mTxn->abort();
-        delete mCursor;
-        mCursor = 0;
-    }
-    for (int i = 0; i < mQueryConstraints.size(); i++) {
+    delete mCursor;
+    for (int i = 0; i < mQueryConstraints.size(); i++)
         delete mQueryConstraints[i];
-    }
 }
 
 QString JsonDbIndexQuery::partition() const
@@ -176,7 +171,7 @@ bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
 
 bool JsonDbIndexQuery::seekToNext(QJsonValue &fieldValue)
 {
-    bool ok = mAscending ? mCursor->next() : mCursor->prev();
+    bool ok = mAscending ? mCursor->next() : mCursor->previous();
     if (ok) {
         QByteArray baKey;
         mCursor->current(&baKey, 0);
@@ -230,7 +225,7 @@ bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue)
         if (mAscending)
             ok = mCursor->next();
         else
-            ok = mCursor->prev();
+            ok = mCursor->previous();
     }
     if (ok) {
         QUuid quuid(QUuid::fromRfc4122(baKey));
@@ -242,7 +237,7 @@ bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue)
 
 bool JsonDbUuidQuery::seekToNext(QJsonValue &fieldValue)
 {
-    bool ok = mAscending ? mCursor->next() : mCursor->prev();
+    bool ok = mAscending ? mCursor->next() : mCursor->previous();
     QByteArray baKey;
     while (ok) {
         mCursor->current(&baKey, 0);
@@ -251,7 +246,7 @@ bool JsonDbUuidQuery::seekToNext(QJsonValue &fieldValue)
         if (mAscending)
             ok = mCursor->next();
         else
-            ok = mCursor->prev();
+            ok = mCursor->previous();
     }
     if (ok) {
         QUuid quuid(QUuid::fromRfc4122(baKey));
