@@ -2839,7 +2839,7 @@ HBtreeTransaction *HBtree::writeTransaction() const
 
 QString HBtree::errorMessage() const
 {
-    return QString("huzzah wazzah!");
+    return QString(QLatin1String("huzzah wazzah!"));
 }
 
 bool HBtree::commit(HBtreeTransaction *transaction, quint64 tag)
@@ -2947,7 +2947,7 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::MarkerPage &p)
     dbg.nospace() << p.info;
     dbg.nospace() << " meta => ["
                   << "root:" << (p.meta.root == HBtreePrivate::PageInfo::INVALID_PAGE
-                                 ? "Invalid" : QString::number(p.meta.root))
+                                 ? QLatin1String("Invalid") : QString::number(p.meta.root))
                   << ", "
                   << "commitId:" << p.meta.revision
                   << ", "
