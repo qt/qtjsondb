@@ -78,7 +78,7 @@ public:
     static JsonDbIndexQuery *indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                                   const QString &propertyName, const QString &propertyType,
                                   const JsonDbOwner *owner, bool ascending = true);
-    ~JsonDbIndexQuery();
+    virtual ~JsonDbIndexQuery();
 
     JsonDbObjectTable *objectTable() const { return mObjectTable; }
     QString partition() const;
