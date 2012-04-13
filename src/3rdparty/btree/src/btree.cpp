@@ -617,7 +617,7 @@ btree_read_page(struct btree *bt, pgno_t pgno, struct page *page)
         } else if (rc != (ssize_t)bt->head.psize) {
                 if (rc > 0)
                         errno = EINVAL;
-                fprintf(stderr, "%s:%d: short pread rc=%Zd psize=%d\n",
+                fprintf(stderr, "%s:%d: short pread rc=%zd psize=%d\n",
                         __FUNCTION__, __LINE__, rc, bt->head.psize);
                 DPRINTF("read: %s", strerror(errno));
                 return BT_FAIL;
@@ -3573,7 +3573,7 @@ btree_txn_put(struct btree *bt, struct btree_txn *txn,
         }
 
         if (key->size == 0 || key->size > MAXKEYSIZE) {
-                fprintf(stderr, "%s:%d: bad key size %Zu (MAXKEYSIZE %d)\n",
+                fprintf(stderr, "%s:%d: bad key size %zu (MAXKEYSIZE %d)\n",
                         __FUNCTION__, __LINE__, key->size, MAXKEYSIZE);
                 errno = EINVAL;
                 return BT_FAIL;
