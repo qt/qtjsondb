@@ -644,7 +644,11 @@ QList<QString> OrQueryTerm::findUnindexablePropertyNames() const
     foreach (const QueryTerm &term, mTerms) {
         const QString propertyName = term.propertyName();
         const QString op = term.op();
-        if (op == QLatin1String("notExists") && !unindexablePropertyNames.contains(propertyName))
+        // notExists is unindexable because there would be no value to index
+        // contains is unindexable because JsonDbIndex does not support array values
+        if ((op == QLatin1String("notExists")
+             || op == QLatin1String("contains"))
+             && !unindexablePropertyNames.contains(propertyName))
             unindexablePropertyNames.append(propertyName);
     }
     return unindexablePropertyNames;

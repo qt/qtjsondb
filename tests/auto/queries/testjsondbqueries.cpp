@@ -446,6 +446,19 @@ void TestJsonDbQueries::queryContains()
     QVERIFY(!queryResult.error.isNull());
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  \"spike\", \"rover\" ] ]"));
     QVERIFY(!queryResult.error.isNull());
+
+    // verify it works on an indexed property
+    JsonDbObject index;
+    index.insert("_type", QString("Index"));
+    index.insert("indexName", QString("friends"));
+    index.insert("propertyName", QString("friends"));
+    verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
+
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains \"spike\" ][/friends]"));
+    QVERIFY(queryResult.error.isNull());
+    // contains is an unindexable query constraint, so it uses _type instead of friends
+    QCOMPARE(queryResult.sortKeys.toArray().at(0).toString(), QLatin1String("_type"));
+    QCOMPARE(queryResult.data.count(), 1);
 }
 
 void TestJsonDbQueries::queryInvalid()

@@ -216,14 +216,6 @@ public:
 private:
     QJsonArray mList;
 };
-class QueryConstraintContains: public QueryConstraint {
-public:
-    QueryConstraintContains(const QJsonValue &v) { mValue = v;}
-    inline bool sparseMatchPossible() const { return true; }
-    inline bool matches(const QJsonValue &v) { return v.toArray().contains(mValue); }
-private:
-    QJsonValue mValue;
-};
 class QueryConstraintStartsWith: public QueryConstraint {
 public:
     QueryConstraintStartsWith(const QString &v) { mValue = v;}

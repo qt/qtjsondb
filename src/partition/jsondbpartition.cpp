@@ -868,8 +868,6 @@ void JsonDbPartition::compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const Que
             indexQuery->addConstraint(new QueryConstraintIn(queryTerm.value()));
     } else if (op == QLatin1String("notIn")) {
         indexQuery->addConstraint(new QueryConstraintNotIn(queryTerm.value()));
-    } else if (op == QLatin1String("in")) {
-        indexQuery->addConstraint(new QueryConstraintContains(queryTerm.value()));
     } else if (op == QLatin1String("startsWith")) {
         indexQuery->addConstraint(new QueryConstraintStartsWith(queryTerm.value().toString()));
     }
