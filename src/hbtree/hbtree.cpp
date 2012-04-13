@@ -230,6 +230,7 @@ void HBtreePrivate::close(bool doSync)
         marker_ = MarkerPage(0);
         synced_ = MarkerPage(0);
         cursorDisrupted_ = false;
+        spec_ = Spec();
     }
 }
 
