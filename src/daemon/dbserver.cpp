@@ -1256,6 +1256,7 @@ QList<QJsonObject> DBServer::findPartitionDefinitions() const
             partitionFile.open(QFile::ReadOnly);
 
             QJsonArray partitionList = QJsonDocument::fromJson(partitionFile.readAll()).array();
+            partitionFile.close();
             if (partitionList.isEmpty())
                 continue;
 

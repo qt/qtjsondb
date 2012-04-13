@@ -305,5 +305,8 @@ int main(int argc, char * argv[])
     if (sigstop)
         ::kill(::getpid(), SIGSTOP);
 #endif
-    return app.exec();
+    int result = app.exec();
+    fclose(logstream);
+    logstream = NULL;
+    return result;
 }

@@ -1873,6 +1873,7 @@ void JsonDbPartition::initSchemas()
             schemaFile.open(QIODevice::ReadOnly);
             QJsonParseError error;
             QJsonDocument doc = QJsonDocument::fromJson(schemaFile.readAll(), &error);
+            schemaFile.close();
             if (doc.isNull()) {
                 qWarning() << "Parsing " << schemaName << " schema" << error.error;
                 return;
@@ -1899,6 +1900,7 @@ void JsonDbPartition::initSchemas()
         capabilityFile.open(QIODevice::ReadOnly);
         QJsonParseError error;
         QJsonDocument doc = QJsonDocument::fromJson(capabilityFile.readAll(), &error);
+        capabilityFile.close();
         if (doc.isNull()) {
             qWarning() << "Parsing " << capabilityName << " capability" << error.error;
             return;
