@@ -60,6 +60,8 @@ public:
     qint64 size() const;
     qint64 offset() const { return p->m_offset; }
     void setOffset(qint64 offset) { p->m_offset = offset; }
+    void fastForward(qint64 bytes) { p->m_offset+=bytes; }
+    void rewind(qint64 bytes) { p->m_offset-=bytes; }
     bool close();
     bool truncate() const { return p->m_truncate; }
 };

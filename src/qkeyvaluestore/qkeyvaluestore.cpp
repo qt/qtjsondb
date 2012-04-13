@@ -164,17 +164,22 @@ int QKeyValueStorePrivate::open()
         m_state = Ready;
         return 0;
     }
-    // We need to examine the btree file and see if we have a valid btree.
-    quint64 btreeTimestamp = checkTreeContents();
-    // Now, let's check the file contents.
+    // Let's check the journal file contents.
     quint64 dataTimestamp = checkFileContents();
-    /*
-     * 0 is not a valid timestamp... well it is if the journal was started
-     * exactly on the epoch but that is very unlikely.
-     */
-    if ((0 == dataTimestamp) || (0 == btreeTimestamp) || (dataTimestamp != btreeTimestamp)) {
-        // Well, we need to rebuild the btree.
+    // If the journal check returns 0, then we need to rebuild everything.
+    if (0 == dataTimestamp) {
         rebuildBTree();
+    } else {
+        // We need to examine the btree file and see if we have a valid btree.
+        quint64 btreeTimestamp = checkTreeContents();
+        /*
+         * 0 is not a valid timestamp... well it is if the journal was started
+         * exactly on the epoch but that is very unlikely.
+         */
+        if (dataTimestamp != btreeTimestamp) {
+            // Well, we need to rebuild the btree.
+            rebuildBTree();
+        }
     }
     m_state = Ready;
     return 0;
@@ -213,17 +218,24 @@ bool QKeyValueStorePrivate::compact()
     quint32 numberOfElements = m_offsets.count();
     // We walk the tree and copy elements to the new file.
     QKeyValueStoreFile *file = new QKeyValueStoreFile(m_name + ".dat.cpt", true);
-    if (!file->open()) {
+    if (!file->open())
         return false;
-    }
     if (file->write(&numberOfElements, sizeof(quint32)) != sizeof(quint32))
         return false;
     QMap<QByteArray, qint64>::iterator i;
     for (i = m_offsets.begin(); i != m_offsets.end(); ++i) {
-        qint64 offset = i.value();
         // Retrieve the current data
         int readBytes = 0, writeBytes = 0;
-        m_file->setOffset(offset);
+        qint64 offset = i.value();
+        // We need to read the offset to the start of the record too
+        quint32 offsetToStart = 0;
+        m_file->setOffset(offset - sizeof(quint32));
+        readBytes = m_file->read((void *)&offsetToStart, sizeof(quint32));
+        if (readBytes < 0)
+            return false;
+        if ((quint32)readBytes < sizeof(quint32))
+            return false;
+        m_file->rewind(offsetToStart);
         quint32 rawRecoveredKeySize = 0, rawValueSize = 0;
         char *rawRecoveredKey = 0, *rawValue = 0;
         // Read the key
@@ -233,9 +245,7 @@ bool QKeyValueStorePrivate::compact()
         if ((quint32)readBytes < sizeof(quint32))
             return false;
         QByteArray recoveredKey;
-        if ((quint32)recoveredKey.capacity() < rawRecoveredKeySize) {
-            recoveredKey.resize(rawRecoveredKeySize);
-        }
+        recoveredKey.resize(rawRecoveredKeySize);
         rawRecoveredKey = recoveredKey.data();
         readBytes = m_file->read((void *)rawRecoveredKey, rawRecoveredKeySize);
         if (readBytes < 0)
@@ -249,6 +259,8 @@ bool QKeyValueStorePrivate::compact()
             return false;
         if ((quint32)readBytes < sizeof(quint8))
             return false;
+        // Hope over the offset
+        m_file->fastForward(sizeof(quint32));
         // Read the value
         readBytes = m_file->read((void *)&rawValueSize, sizeof(quint32));
         if (readBytes < 0)
@@ -256,9 +268,7 @@ bool QKeyValueStorePrivate::compact()
         if ((quint32)readBytes < sizeof(quint32))
             return false;
         QByteArray value;
-        if ((quint32)value.capacity() < rawValueSize) {
-            value.resize(rawValueSize);
-        }
+        value.resize(rawValueSize);
         rawValue = value.data();
         readBytes = m_file->read((void *)rawValue, rawValueSize);
         if (readBytes < 0)
@@ -272,12 +282,8 @@ bool QKeyValueStorePrivate::compact()
             return false;
         if ((quint32)readBytes < sizeof(quint32))
             return false;
-        // Check that the data is valid
-        if (hash != qHash(recoveredKey + value)) {
-            return false;
-        }
         // First fix the offset
-        i.value() = file->size();
+        i.value() = file->size() + offsetToStart;
         // Now write the key
         writeBytes = file->write(&rawRecoveredKeySize, sizeof(quint32));
         if (writeBytes < 0)
@@ -287,6 +293,10 @@ bool QKeyValueStorePrivate::compact()
             return false;
         // Write the operation
         writeBytes = file->write(&operation, sizeof(quint8));
+        if (writeBytes < 0)
+            return false;
+        // Write the offset to start
+        writeBytes = file->write(&offsetToStart, sizeof(quint32));
         if (writeBytes < 0)
             return false;
         // Write the value
@@ -311,6 +321,7 @@ bool QKeyValueStorePrivate::compact()
     QFile::remove(m_name + ".dat");
     QFile::copy(m_name + ".dat.cpt", m_name + ".dat");
     QFile::remove(m_name + ".dat.cpt");
+    QFile::remove(m_name + ".old");
     delete m_file;
     delete file;
     m_file = new QKeyValueStoreFile(m_name + ".dat", false);
@@ -456,6 +467,7 @@ int QKeyValueStorePrivate::rebuildBTree()
     while (found < count) {
         char *rawKey = 0, *rawValue = 0;
         quint32 rawKeySize = 0, rawValueSize = 0;
+        quint32 offsetToStart = 0;
         quint8 operation = 0;
         quint32 hash = 0xFFFFFFFF;
         qint64 offset = 0;
@@ -466,6 +478,7 @@ int QKeyValueStorePrivate::rebuildBTree()
         rawKey = key.data();
         m_file->read((void *)rawKey, rawKeySize);
         m_file->read((void *)&operation, sizeof(quint8));
+        m_file->read((void *)&offsetToStart, sizeof(quint32));
         m_file->read((void *)&rawValueSize, sizeof(quint32));
         QByteArray value;
         value.resize(rawValueSize);
@@ -477,7 +490,7 @@ int QKeyValueStorePrivate::rebuildBTree()
         switch (operation) {
         case QKeyValueStoreEntry::Add:
             computedHash = qHash(key + value);
-            m_offsets[key] = offset;
+            m_offsets[key] = offset + offsetToStart;
             break;
         case QKeyValueStoreEntry::Remove:
             computedHash = qHash(key);
@@ -622,9 +635,7 @@ quint64 QKeyValueStorePrivate::checkTreeContents()
             return 0;
         }
         QByteArray key;
-        if ((quint32)key.capacity() < rawKeySize) {
-            key.resize(rawKeySize);
-        }
+        key.resize(rawKeySize);
         rawKey = key.data();
         result = btree.read((void *)rawKey, rawKeySize);
         if (result <= 0) {

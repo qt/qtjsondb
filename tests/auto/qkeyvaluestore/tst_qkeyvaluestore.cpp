@@ -354,6 +354,8 @@ void QKeyValueStoreTest::autoSync()
         stream >> key;
         quint8 operation = 0;
         stream >> operation;
+        quint32 offsetToStart = 0;
+        stream >> offsetToStart;
         QByteArray value;
         stream >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -455,6 +457,8 @@ void QKeyValueStoreTest::manualSync()
         stream >> key;
         quint8 operation = 0;
         stream >> operation;
+        quint32 offsetToStart = 0;
+        stream >> offsetToStart;
         QByteArray value;
         stream >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -565,6 +569,8 @@ void QKeyValueStoreTest::compactionAfterRemove()
             addOperations++;
         else
             removeOperations++;
+        quint32 offsetToStart = 0;
+        stream1 >> offsetToStart;
         QByteArray value;
         stream1 >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -606,6 +612,8 @@ void QKeyValueStoreTest::compactionAfterRemove()
             addOperations++;
         else
             removeOperations++;
+        quint32 offsetToStart = 0;
+        stream2 >> offsetToStart;
         QByteArray value;
         stream2 >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -680,6 +688,8 @@ void QKeyValueStoreTest::compactionAfterPut()
             addOperations++;
         else
             removeOperations++;
+        quint32 offsetToStart = 0;
+        stream1 >> offsetToStart;
         QByteArray value;
         stream1 >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -721,6 +731,8 @@ void QKeyValueStoreTest::compactionAfterPut()
             addOperations++;
         else
             removeOperations++;
+        quint32 offsetToStart = 0;
+        stream2 >> offsetToStart;
         QByteArray value;
         stream2 >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -796,6 +808,8 @@ void QKeyValueStoreTest::compactionAutoTrigger()
             addOperations++;
         else
             removeOperations++;
+        quint32 offsetToStart = 0;
+        stream1 >> offsetToStart;
         QByteArray value;
         stream1 >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -873,6 +887,8 @@ void QKeyValueStoreTest::compactionContinuation()
             addOperations++;
         else
             removeOperations++;
+        quint32 offsetToStart = 0;
+        stream1 >> offsetToStart;
         QByteArray value;
         stream1 >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -931,6 +947,8 @@ void QKeyValueStoreTest::compactionContinuation()
             addOperations++;
         else
             removeOperations++;
+        quint32 offsetToStart = 0;
+        stream2 >> offsetToStart;
         QByteArray value;
         stream2 >> value;
         quint32 hash = 0xFFFFFFFF;
@@ -1035,7 +1053,7 @@ void QKeyValueStoreTest::buildBTreeFromScratch()
         baseKey.append(number);
         QByteArray key = baseKey.toAscii();
         QVERIFY(writeTxn->put(key, value));
-        QVERIFY(writeTxn->commit(100));
+        QVERIFY(writeTxn->commit(i));
     }
     // Now we close the file
     QVERIFY(storage.close());

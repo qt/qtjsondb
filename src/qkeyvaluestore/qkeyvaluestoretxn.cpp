@@ -210,58 +210,21 @@ bool QKeyValueStoreTxnPrivate::get(const QByteArray &key, QByteArray *value)
         // This is an impossible situation, if offset == 0 then it should be in the incomming queue.
         return false;
     }
+    quint32 rawValueSize = 0;
+    char *rawValue = 0;
     m_store->m_file->setOffset(offset);
-    quint32 rawRecoveredKeySize = 0, rawValueSize = 0;
-    char *rawRecoveredKey = 0, *rawValue = 0;
-    readBytes = m_store->m_file->read((void *)&rawRecoveredKeySize, sizeof(quint32));
-    if (readBytes < 0)
-        return false;
-    if ((quint32)readBytes < sizeof(quint32))
-        return false;
-    QByteArray recoveredKey;
-    if ((quint32)recoveredKey.capacity() < rawRecoveredKeySize) {
-        recoveredKey.resize(rawRecoveredKeySize);
-    }
-    rawRecoveredKey = recoveredKey.data();
-    readBytes = m_store->m_file->read((void *)rawRecoveredKey, rawRecoveredKeySize);
-    if (readBytes < 0)
-        return false;
-    if ((quint32)readBytes < rawRecoveredKeySize)
-        return false;
-    quint8 operation = 0;
-    readBytes = m_store->m_file->read((void *)&operation, sizeof(quint8));
-    if (readBytes < 0)
-        return false;
-    if ((quint32)readBytes < sizeof(quint8))
-        return false;
     readBytes = m_store->m_file->read((void *)&rawValueSize, sizeof(quint32));
     if (readBytes < 0)
         return false;
     if ((quint32)readBytes < sizeof(quint32))
         return false;
-    if ((quint32)value->capacity() < rawValueSize) {
-        value->resize(rawValueSize);
-    }
+    value->resize(rawValueSize);
     rawValue = value->data();
     readBytes = m_store->m_file->read((void *)rawValue, rawValueSize);
     if (readBytes < 0)
         return false;
     if ((quint32)readBytes < rawValueSize)
         return false;
-    quint32 hash = 0;
-    readBytes = m_store->m_file->read((void *)&hash, sizeof(quint32));
-    if (readBytes < 0)
-        return false;
-    if ((quint32)readBytes < sizeof(quint32))
-        return false;
-    // Do we have the right data?
-    if (recoveredKey != key) {
-        return false;
-    }
-    // Check that the data is valid
-    if (hash != qHash(recoveredKey + *value)) {
-        return false;
-    }
     return true;
 }
 
@@ -281,11 +244,13 @@ bool QKeyValueStoreTxnPrivate::commit(quint32 tag)
         quint32 valueSize = value.size();
         quint8 operation = entry->operation();
         quint32 hash = entry->hash();
+        quint32 offsetToStart = sizeof(quint32) + keySize + sizeof(quint8) + sizeof(quint32);
         char *valueData = value.data();
-        entry->setOffset(m_store->m_file->size());
         m_store->m_file->write((void *)&keySize, sizeof(quint32));
         m_store->m_file->write((void *)key.constData(), keySize);
         m_store->m_file->write((void *)&operation, sizeof(quint8));
+        m_store->m_file->write((void *)&offsetToStart, sizeof(quint32));
+        entry->setOffset(m_store->m_file->size());
         m_store->m_file->write((void *)&valueSize, sizeof(quint32));
         m_store->m_file->write((void *)valueData, valueSize);
         m_store->m_file->write((void *)&hash, sizeof(quint32));

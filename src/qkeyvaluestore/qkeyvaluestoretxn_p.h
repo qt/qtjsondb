@@ -74,7 +74,7 @@ public:
      * keep track of the changes.
      */
     // We need this in order to preserve the state.
-    QMap<QByteArray, qint64> m_offsets;
+    QMap<QByteArray, QKeyValueStorePrivate::fileOffsets> m_offsets;
 #else
     // Since we modified the QMap directly we need to mark it.
     bool m_localModifications;
