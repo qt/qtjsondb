@@ -341,7 +341,7 @@ HBtreePrivate::Page *HBtreePrivate::deserializePage(const QByteArray &buffer, Pa
         static_cast<OverflowPage &>(*page) = deserializeOverflowPage(buffer);
         break;
     default:
-        HBTREE_ASSERT(0)(pageType).message("unknown page type");
+        HBTREE_ASSERT(0)(pageType).message(QStringLiteral("unknown page type"));
         return 0;
     }
     return page;
@@ -382,7 +382,7 @@ HBtreePrivate::Page *HBtreePrivate::newDeserializePage(const QByteArray &buffer)
             break;
         case PageInfo::Marker:
         case PageInfo::Spec:
-            HBTREE_ASSERT(0)(pi).message("unknown type");
+            HBTREE_ASSERT(0)(pi).message(QStringLiteral("unknown type"));
             return 0;
     }
     if (!deserializePage(buffer, page)) {
@@ -994,7 +994,7 @@ quint32 HBtreePrivate::calculateChecksum(const QByteArray &buffer) const
                        + sizeof(HBtreePrivate::NodeHeader)
                        + info.lowerOffset));
     } else {
-        HBTREE_ASSERT(0).message("unknown page type");
+        HBTREE_ASSERT(0).message(QStringLiteral("unknown page type"));
         HBTREE_ERROR("unknown page type");
         return 0;
     }
@@ -1232,7 +1232,7 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
         case PageInfo::Spec:
         case PageInfo::Unknown:
         default:
-            HBTREE_ASSERT(0).message("unknown type");
+            HBTREE_ASSERT(0).message(QStringLiteral("unknown type"));
             return 0;
     }
 
@@ -1700,7 +1700,7 @@ void HBtreePrivate::deletePage(HBtreePrivate::Page *page) const
         delete static_cast<NodePage *>(page);
         break;
     default:
-        HBTREE_ASSERT(0)(*page).message("unknown page type");
+        HBTREE_ASSERT(0)(*page).message(QStringLiteral("unknown page type"));
     }
 }
 
@@ -1717,7 +1717,7 @@ void HBtreePrivate::destructPage(HBtreePrivate::Page *page) const
         static_cast<NodePage *>(page)->~NodePage();
         break;
     default:
-        HBTREE_ASSERT(0)(*page).message("unknown page type");
+        HBTREE_ASSERT(0)(*page).message(QStringLiteral("unknown page type"));
     }
 }
 
@@ -1756,7 +1756,7 @@ quint16 HBtreePrivate::headerSize(const Page *page) const
     case HBtreePrivate::PageInfo::Overflow:
         return sizeof(HBtreePrivate::PageInfo) + sizeof(HBtreePrivate::NodeHeader);
     default:
-        HBTREE_ASSERT(0)(*page).message("unhandled page type");
+        HBTREE_ASSERT(0)(*page).message(QStringLiteral("unhandled page type"));
     }
     return 0;
 }
@@ -1946,7 +1946,7 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
             splitIndex++;
         }
     } else {
-        HBTREE_ASSERT(0)(copy).message("what are you splitting??");
+        HBTREE_ASSERT(0)(copy).message(QStringLiteral("what are you splitting??"));
         HBTREE_DEBUG("splitting unknown page type" << copy);
         return false;
     }
@@ -1965,7 +1965,7 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
             return false;
         } else {
             if (right->parent != left->parent) {
-                HBTREE_ASSERT(0).message("parents not the same. What happened?");
+                HBTREE_ASSERT(0).message(QStringLiteral("parents not the same. What happened?"));
                 return false;
                 // TODO: Original btree does something here...
                 // WHAAAAAT ISSSSS IIIITTTTTTT?????
@@ -2332,7 +2332,7 @@ void HBtreePrivate::dumpPage(HBtreePrivate::NodePage *page, int depth)
         qDebug() << tabs << page->nodes;
         break;
     default:
-        HBTREE_ASSERT(0)(page->info).message("unknown type");
+        HBTREE_ASSERT(0)(page->info).message(QStringLiteral("unknown type"));
     }
 }
 
@@ -2431,7 +2431,7 @@ bool HBtreePrivate::cursorNext(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
                 ok = true;
             } else {
                 // This should never happen if rebalancing is working properly
-                HBTREE_ASSERT(0)(*right)(node)(*page).message("what up?");
+                HBTREE_ASSERT(0)(*right)(node)(*page).message(QStringLiteral("what up?"));
             }
         }
     }
@@ -2508,7 +2508,7 @@ bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
                 ok = true;
             } else {
                 // This should never happen if rebalancing is working properly
-                HBTREE_ASSERT(0)(*left)(node)(*page).message("what up?");
+                HBTREE_ASSERT(0)(*left)(node)(*page).message(QStringLiteral("what up?"));
                 ok = false;
             }
         }
@@ -2598,7 +2598,7 @@ bool HBtreePrivate::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const 
         ok = cursorLast(cursor, &keyOut, &valueOut);
         break;
     default:
-        HBTREE_ASSERT(0)(op)(key).message("Not a valid cursor op");
+        HBTREE_ASSERT(0)(op)(key).message(QStringLiteral("Not a valid cursor op"));
         ok = false;
     }
 
@@ -2630,7 +2630,7 @@ void HBtreePrivate::copy(const Page &src, Page *dst)
         *static_cast<MarkerPage *>(dst) = static_cast<const MarkerPage &>(src);
         break;
     default:
-        HBTREE_ASSERT(0).message("what are you doing bub?");
+        HBTREE_ASSERT(0).message(QStringLiteral("what are you doing bub?"));
         return;
     }
     dst->info.number = pgno;
@@ -2834,7 +2834,7 @@ HBtreeTransaction *HBtree::writeTransaction() const
 
 QString HBtree::errorMessage() const
 {
-    return QString(QLatin1String("huzzah wazzah!"));
+    return QStringLiteral("huzzah wazzah!");
 }
 
 bool HBtree::commit(HBtreeTransaction *transaction, quint64 tag)
@@ -2902,22 +2902,22 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::PageInfo &pi)
     QString pageStr;
     switch (pi.type) {
     case HBtreePrivate::PageInfo::Branch:
-        pageStr = QLatin1Literal("Branch");
+        pageStr = QStringLiteral("Branch");
         break;
     case HBtreePrivate::PageInfo::Marker:
-        pageStr = QLatin1Literal("Marker");
+        pageStr = QStringLiteral("Marker");
         break;
     case HBtreePrivate::PageInfo::Leaf:
-        pageStr = QLatin1Literal("Leaf");
+        pageStr = QStringLiteral("Leaf");
         break;
     case HBtreePrivate::PageInfo::Spec:
-        pageStr = QLatin1Literal("Spec");
+        pageStr = QStringLiteral("Spec");
         break;
     case HBtreePrivate::PageInfo::Overflow:
-        pageStr = QLatin1Literal("Overflow");
+        pageStr = QStringLiteral("Overflow");
         break;
     default:
-        pageStr = QLatin1Literal("Unknown");
+        pageStr = QStringLiteral("Unknown");
         break;
     }
 
@@ -2942,7 +2942,7 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::MarkerPage &p)
     dbg.nospace() << p.info;
     dbg.nospace() << " meta => ["
                   << "root:" << (p.meta.root == HBtreePrivate::PageInfo::INVALID_PAGE
-                                 ? QLatin1String("Invalid") : QString::number(p.meta.root))
+                                 ? QStringLiteral("Invalid") : QString::number(p.meta.root))
                   << ", "
                   << "commitId:" << p.meta.revision
                   << ", "
