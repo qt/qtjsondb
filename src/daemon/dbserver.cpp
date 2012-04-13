@@ -104,17 +104,16 @@ DBServer::DBServer(const QString &searchPath, QObject *parent) :
     qRegisterMetaType<QSet<QString> >("QSet<QString>");
     qRegisterMetaType<JsonDbUpdateList>("JsonDbUpdateList");
 
-    // make the user-specified path (or PWD) the first in the search path, then and
-    // the /etc one the last
-    QStringList searchPaths = jsondbSettings->configSearchPath();
-
-    if (searchPath.isEmpty())
-        searchPaths.prepend(QDir::currentPath());
+    // If a search path has been provided, then search that for partitions.json files
+    // Otherwise search whatever's been specified in JSONDB_CONFIG_SEARCH_PATH
+    // Otherwise search the CWD and /etc/jsondb
+    QStringList searchPaths;
+    if (!searchPath.isEmpty())
+        searchPaths << searchPath;
+    else if (!jsondbSettings->configSearchPath().isEmpty())
+        searchPaths << jsondbSettings->configSearchPath();
     else
-        searchPaths.prepend(searchPath);
-
-    if (!searchPaths.contains(QLatin1String("/etc/jsondb")))
-        searchPaths.append(QLatin1String("/etc/jsondb"));
+        searchPaths << QDir::currentPath() << QStringLiteral("/etc/jsondb");
 
     // get the unique set of paths and use QDir to ensure
     // that we have the canonical form of the path
@@ -1271,6 +1270,9 @@ QList<QJsonObject> DBServer::findPartitionDefinitions() const
                 }
             }
         }
+
+        if (!partitions.isEmpty())
+            break;
     }
 
     // if no partitions are specified just make a partition in the current working

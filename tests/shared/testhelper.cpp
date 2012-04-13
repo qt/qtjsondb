@@ -84,7 +84,12 @@ QJsonDocument TestHelper::readJsonFile(const QString &filename, QJsonParseError 
 
 void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &args, const char *sourceFile)
 {
-    qputenv("JSONDB_CONFIG_SEARCH_PATH", QFileInfo(QString::fromUtf8(sourceFile)).dir().absolutePath().toUtf8());
+    QStringList partitionPath;
+    QFileInfo partitionsFile(QFINDTESTDATA("partitions.json"));
+    partitionPath << partitionsFile.absolutePath()
+                  << QFileInfo(QString::fromLatin1(sourceFile)).absolutePath()
+                  << QCoreApplication::applicationDirPath();
+    qputenv("JSONDB_CONFIG_SEARCH_PATH", partitionPath.join(QStringLiteral(":")).toUtf8());
 
     if (dontLaunch())
         return;
@@ -140,7 +145,12 @@ void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &
 
 inline qint64 TestHelper::launchJsonDbDaemonDetached(const QString &basename, const QStringList &args, const char *sourceFile)
 {
-    qputenv("JSONDB_CONFIG_SEARCH_PATH", QFileInfo(QString::fromUtf8(sourceFile)).dir().absolutePath().toUtf8());
+    QStringList partitionPath;
+    QFileInfo partitionsFile(QFINDTESTDATA("partitions.json"));
+    partitionPath << partitionsFile.absolutePath()
+                  << QFileInfo(QString::fromLatin1(sourceFile)).absolutePath()
+                  << QCoreApplication::applicationDirPath();
+    qputenv("JSONDB_CONFIG_SEARCH_PATH", partitionPath.join(QStringLiteral(":")).toUtf8());
 
     if (dontLaunch())
         return 0;

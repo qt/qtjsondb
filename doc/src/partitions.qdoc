@@ -48,12 +48,13 @@ form \c partitions*.json. JSON DB searches a series of directories looking for
 such files and the search order is defined as follows:
 
 \list
-\li If a directory is passed as the final argument to the JSON DB binary (jsondb)
-then this location is searched first. If no argument is specified, the current
-working directory is searched.
-\li If the JSONDB_CONFIG_SEARCH_PATH environment variable points to a colon-separated
-list of directories, these are searched next.
-\li Finally, /etc/jsondb is searched.
+\li If -config-path <PATH> is passed as an argument to the JSON DB binary
+(jsondb) then this location is searched.
+\li If the above argument is not provided, JSON DB searches the colon-separated
+list of directories specified by the JSONDB_CONFIG_SEARCH_PATH environment variable
+if it's defined.
+\li If neither of these above options are used, the current working directory and
+/etc/jsondb are searched.
 \endlist
 
 The partition definition files consist of an array of objects which define the

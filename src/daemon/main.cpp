@@ -108,13 +108,14 @@ using namespace std;
 
 static void usage()
 {
-    cout << "Usage: " << qPrintable(progname) << " [OPTIONS] [FILENAME]" << endl
+    cout << "Usage: " << qPrintable(progname) << " [OPTIONS]" << endl
          << endl
 #ifdef Q_OS_LINUX
          << "     -daemon             Run as a daemon process" << endl
          << "     -sigstop            Send SIGSTOP to self when ready to notify upstart" << endl
 #endif
          << "     -tcpPort port       Specify a TCP port to listen on" << endl
+         << "     -config-path path   Specify the path to search for partitions.json files"
 #ifndef QT_NO_DEBUG_OUTPUT
          << "     -debug" << endl
          << "     -debug-recovery" << endl
@@ -183,6 +184,10 @@ int main(int argc, char * argv[])
             if (!args.size())
                 usage();
             port = args.takeFirst().toInt();
+        } else if (arg == "-config-path") {
+            if (!args.size())
+                usage();
+            searchPath = args.takeFirst();
         } else if (arg == "-limit") {
             if (!args.size())
                 usage();
@@ -245,10 +250,10 @@ int main(int argc, char * argv[])
         pidFile.close();
     }
 
-    // FIXME: we should either support passing in the file or not
-    // missing dbdir and base-name with the file name is just bad
+    // FIXME: we should eventually make this trailing argument an error
     if (args.size() == 1)
-        searchPath = args.takeFirst();
+        qDebug().nospace() << QStringLiteral("Passing the database directory as a trailing argument is no longer supported (")
+                           << args.takeFirst() << QStringLiteral(")");
 
     if (!args.isEmpty())
         usage();

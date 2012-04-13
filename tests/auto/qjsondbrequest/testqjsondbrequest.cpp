@@ -50,7 +50,9 @@
 #include <QJsonDocument>
 #include <QProcess>
 #include <QTest>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 
 #include <signal.h>
 
@@ -130,7 +132,8 @@ void TestQJsonDbRequest::modifyPartitions()
     defs.append(def1);
     defs.append(def2);
 
-    QFile partitionsFile(QLatin1String("partitions-test.json"));
+    // ensure that the new file is written to the directory as the main partitions.json
+    QFile partitionsFile(QFileInfo(QFINDTESTDATA("partitions.json")).absoluteDir().absoluteFilePath(QLatin1String("partitions-test.json")));
     partitionsFile.open(QFile::WriteOnly);
     partitionsFile.write(QJsonDocument(defs).toJson());
     partitionsFile.close();

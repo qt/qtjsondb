@@ -94,7 +94,12 @@ inline QJsonValue readJsonFile(const QString &filename, QJsonParseError *error =
 
 inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketName, const QStringList &args, const char *sourceFile)
 {
-    qputenv("JSONDB_CONFIG_SEARCH_PATH", QFileInfo(QString::fromUtf8(sourceFile)).dir().absolutePath().toUtf8());
+    QStringList partitionPath;
+    QFileInfo partitionsFile(QFINDTESTDATA("partitions.json"));
+    partitionPath << partitionsFile.absolutePath()
+                  << QFileInfo(QString::fromLatin1(sourceFile)).absolutePath()
+                  << QCoreApplication::applicationDirPath();
+    qputenv("JSONDB_CONFIG_SEARCH_PATH", partitionPath.join(QStringLiteral(":")).toUtf8());
 
     static bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
     static bool useValgrind = qgetenv("AUTOTEST_VALGRIND_JSONDB").toInt() == 1;
@@ -139,7 +144,12 @@ inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketNam
 
 inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &socketName, const QStringList &args, const char *sourceFile)
 {
-    qputenv("JSONDB_CONFIG_SEARCH_PATH", QFileInfo(QString::fromUtf8(sourceFile)).dir().absolutePath().toUtf8());
+    QStringList partitionPath;
+    QFileInfo partitionsFile(QFINDTESTDATA("partitions.json"));
+    partitionPath << partitionsFile.absolutePath()
+                  << QFileInfo(QString::fromLatin1(sourceFile)).absolutePath()
+                  << QCoreApplication::applicationDirPath();
+    qputenv("JSONDB_CONFIG_SEARCH_PATH", partitionPath.join(QStringLiteral(":")).toUtf8());
 
     static bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
     static bool useValgrind = qgetenv("AUTOTEST_VALGRIND_JSONDB").toInt() == 1;
