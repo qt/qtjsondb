@@ -279,7 +279,7 @@ bool HBtreePrivate::writeSpec()
     Spec spec;
     spec.version = HBTREE_VERSION;
     spec.keySize = 255;
-    spec.pageSize = sb.st_blksize > HBTREE_DEFAULT_PAGE_SIZE ? sb.st_blksize : HBTREE_DEFAULT_PAGE_SIZE;
+    spec.pageSize = spec_.pageSize ? spec_.pageSize : (sb.st_blksize > HBTREE_DEFAULT_PAGE_SIZE ? sb.st_blksize : HBTREE_DEFAULT_PAGE_SIZE);
 
     pageBuffer_.fill((char)0, spec.pageSize);
 
