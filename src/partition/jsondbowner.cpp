@@ -243,6 +243,9 @@ bool JsonDbOwner::_setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *par
         qWarning() << Q_FUNC_INFO << "Wrong number of security objects found." << securityObjects.size();
         return false;
     }
+#else
+    Q_UNUSED(pwd);
+    Q_UNUSED(partition);
 #endif
     return true;
 }
@@ -262,6 +265,8 @@ bool JsonDbOwner::setOwnerCapabilities(QString username, JsonDbPartition *partit
     }
     return _setOwnerCapabilities (pwd, partition);
 #else
+    Q_UNUSED(username);
+    Q_UNUSED(partition);
     setAllowAll(true);
     return true;
 #endif
@@ -282,6 +287,8 @@ bool JsonDbOwner::setOwnerCapabilities(uid_t uid, JsonDbPartition *partition)
     }
     return _setOwnerCapabilities (pwd, partition);
 #else
+    Q_UNUSED(uid);
+    Q_UNUSED(partition);
     setAllowAll(true);
     return true;
 #endif

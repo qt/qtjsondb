@@ -364,8 +364,8 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringLi
         index->begin();
     for (bool ok = cursor.first(); ok; ok = cursor.next()) {
         QByteArray baKey, baObject;
-        bool rok = cursor.current(&baKey, &baObject);
-        Q_ASSERT(rok);
+        if (!cursor.current(&baKey, &baObject))
+            Q_ASSERT(false);
         if (baKey.size() != 16) // state key is 5 bytes, or history key is 5 + 16 bytes
             continue;
         ObjectKey objectKey(baKey);
