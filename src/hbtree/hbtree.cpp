@@ -144,11 +144,6 @@ bool HBtreePrivate::open(int fd)
                 return false;
             }
 
-            if (fsync(fd_) != 0) {
-                HBTREE_DEBUG("failed to sync markers");
-                return false;
-            }
-
             marker_ = synced0;
             synced_ = synced0;
 
