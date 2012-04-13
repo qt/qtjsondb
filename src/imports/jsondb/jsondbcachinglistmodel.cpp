@@ -67,6 +67,7 @@ JsonDbCachingListModelPrivate::JsonDbCachingListModelPrivate(JsonDbCachingListMo
     , cacheSize(-1)
     , state(JsonDbCachingListModel::None)
     , errorCode(0)
+    , lastQueriedIndex(-1)
 {
     setCacheParams(INT_MAX/10);
 }
@@ -118,6 +119,8 @@ void JsonDbCachingListModelPrivate::addItem(const QJsonObject &item, int partiti
     QMap<SortingKey, QString>::const_iterator end = objectUuids.constEnd();
     QMap<SortingKey, QString>::const_iterator i = objectUuids.upperBound(key);
     int index = iterator_position(begin, end, i);
+    if (index <= lastQueriedIndex)
+        lastQueriedIndex++;
 
     q->beginInsertRows(parent, index, index);
     objectUuids.insert(key, uuid);
@@ -147,6 +150,10 @@ void JsonDbCachingListModelPrivate::deleteItem(const QJsonObject &item, int part
             partitionObjectUuids[partitionIndex].remove(key);
             objectUuids.remove(key);
             objectSortValues.remove(uuid);
+            if (index == lastQueriedIndex)
+                lastQueriedIndex = -1;
+            else if (index < lastQueriedIndex)
+                lastQueriedIndex--;
             q->endRemoveRows();
             emit q->rowCountChanged(objectUuids.count());
         }
@@ -169,6 +176,8 @@ void JsonDbCachingListModelPrivate::updateItem(const QJsonObject &item, int part
         QMap<SortingKey, QString>::const_iterator end = objectUuids.constEnd();
         QMap<SortingKey, QString>::const_iterator oldPos = objectUuids.constFind(key);
         int oldIndex = iterator_position(begin, end, oldPos);
+        if (oldIndex == lastQueriedIndex) // Cached object has changed
+            lastQueriedIndex = -1;
         // keys are same, modify the object
         if (key == newKey) {
             objectCache.update(uuid, item);
@@ -180,6 +189,10 @@ void JsonDbCachingListModelPrivate::updateItem(const QJsonObject &item, int part
         QMap<SortingKey, QString>::const_iterator newPos = objectUuids.upperBound(newKey);
         int newIndex = iterator_position(begin, end, newPos);
         if ((newIndex != oldIndex) && (newIndex != oldIndex+1)) {
+            if (oldIndex < lastQueriedIndex && newIndex > lastQueriedIndex)
+                lastQueriedIndex--;
+            else if (oldIndex > lastQueriedIndex && newIndex <= lastQueriedIndex)
+                lastQueriedIndex++;
             q->beginMoveRows(parent, oldIndex, oldIndex, parent, newIndex);
             objectUuids.remove(key);
             partitionObjectUuids[partitionIndex].remove(key);
@@ -504,6 +517,7 @@ void JsonDbCachingListModelPrivate::fillData(const QList<QJsonObject> &items, in
 void JsonDbCachingListModelPrivate::reset()
 {
     Q_Q(JsonDbCachingListModel);
+    lastQueriedIndex = -1;
     q->beginResetModel();
     clearNotifications();
     for (int i = 0; i < partitionObjectDetails.count(); i++) {
@@ -767,20 +781,22 @@ int JsonDbCachingListModelPrivate::indexOfWatcher(QJsonDbWatcher *watcher)
     return -1;
 }
 
-QVariant JsonDbCachingListModelPrivate::getItem(int index)
+QJsonObject JsonDbCachingListModelPrivate::getJsonObject(int index)
 {
+    if (index == lastQueriedIndex)
+        return lastQueriedObject;
     if (index < 0 || index >= objectUuids.size()) {
 #ifdef JSONDB_LISTMODEL_DEBUG
         qDebug() << "getItem" << index << "size  " << objectUuids.size();
 #endif
-        return QVariant();
+        return QJsonObject();
     }
     int page = objectCache.findPage(index);
     if (page == -1) {
         if (!cacheMiss.contains(index))
             cacheMiss.append(index);
         requestPageContaining(index);
-        return QVariant();
+        return QJsonObject();
     }
 
     QMap<SortingKey, QString>::const_iterator begin = objectUuids.constBegin();
@@ -800,20 +816,25 @@ QVariant JsonDbCachingListModelPrivate::getItem(int index)
         }
         if (!cacheMiss.contains(index))
             cacheMiss.append(index);
-        return QVariant();
+        return QJsonObject();
     }
     if (state == JsonDbCachingListModel::Ready) // Pre-fetch only, if in Ready state
         prefetchNearbyPages(index);
-    return QVariant(objectCache.valueAtPage(page, uuid).toVariantMap());
+    QJsonObject ret = objectCache.valueAtPage(page, uuid);
+    lastQueriedIndex = index;
+    lastQueriedObject = ret;
+    return ret;
+}
+
+QVariant JsonDbCachingListModelPrivate::getItem(int index)
+{
+    return QVariant(getJsonObject(index).toVariantMap());
 }
 
 QVariant JsonDbCachingListModelPrivate::getItem(int index, int role)
 {
-    QVariant val = getItem(index);
-    if (val.isValid()) {
-        return lookupProperty(val.toMap(), properties[role]);
-    }
-    return val;
+    QJsonObject obj = getJsonObject(index);
+    return lookupJsonProperty(obj, properties[role]).toVariant();
 }
 
 void JsonDbCachingListModelPrivate::queueGetCallback(int index, const QJSValue &callback)

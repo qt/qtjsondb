@@ -214,6 +214,7 @@ template <typename T> int iterator_position(T &begin, T &end, T &value)
 }
 
 QVariant lookupProperty(QVariantMap object, const QStringList &path);
+QJsonValue lookupJsonProperty(QJsonObject object, const QStringList &path);
 QString removeArrayOperator(QString propertyName);
 QList<QJsonObject> qvariantlist_to_qjsonobject_list(const QVariantList &list);
 QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list);

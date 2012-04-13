@@ -111,6 +111,7 @@ private:
     void waitForIndexChanged();
     QStringList getOrderValues(QAbstractListModel *listModel);
     QVariant getIndex(QAbstractListModel *model, int index, int role);
+    QVariant getProperty(QAbstractListModel *model, int index, const QByteArray &roleName);
     void createIndex(const QString &property, const QString &propertyType);
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);

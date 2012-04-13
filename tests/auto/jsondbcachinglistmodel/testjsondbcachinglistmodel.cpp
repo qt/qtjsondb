@@ -178,6 +178,22 @@ QVariant TestJsonDbCachingListModel::getIndex(QAbstractListModel *model, int ind
     return val;
 }
 
+QVariant TestJsonDbCachingListModel::getProperty(QAbstractListModel *model, int index, const QByteArray &roleName)
+{
+    mWaitingForIndexChanged = true;
+    mWaitingForChanged = false;
+    mIndexWaited = index;
+    QHash<int, QByteArray> roleNames;
+    roleNames = model->roleNames();
+    int roleIndex = roleNames.key(roleName);
+    QVariant val =  model->data(model->index(index), roleIndex);
+    while (!val.isValid()) {
+        waitForIndexChanged();
+        val = model->data(model->index(index), roleIndex);
+    }
+    return val;
+}
+
 int indexOf(QObject* object, const QString &uuid)
 {
     int retVal;
@@ -373,8 +389,11 @@ void TestJsonDbCachingListModel::deleteItem()
 
     QAbstractListModel *listModel = createModel();
     if (!listModel) return;
-    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name");
-    listModel->setProperty("roleNames", roleNames);
+    QVariantMap roleNamesMap;
+    roleNamesMap.insert("n", "name");
+    roleNamesMap.insert("u", "_uuid");
+    roleNamesMap.insert("t", "_type");
+    listModel->setProperty("roleNames", roleNamesMap);
     listModel->setProperty("sortOrder", "[/name]");
     listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     connectListModel(listModel);
@@ -413,9 +432,9 @@ void TestJsonDbCachingListModel::deleteItem()
     QCOMPARE(mWaitingForRemoved, false);
 
     QCOMPARE(listModel->rowCount(), 1);
-    QVariant val = getIndex(listModel, 0, 0);
+    QVariant val = getProperty(listModel, 0, "t");
     QCOMPARE(val.toString(), QLatin1String(__FUNCTION__));
-    val = getIndex(listModel, 0, 2);
+    val = getProperty(listModel, 0, "n");
     QCOMPARE(val.toString(), QLatin1String("Charlie"));
     deleteModel(listModel);
 }
@@ -1062,6 +1081,80 @@ void TestJsonDbCachingListModel::listProperty()
     featuresDesc = getIndex(listModel, 1, 2);
     QCOMPARE(featuresDesc.toString(), QLatin1String("Gmail account provider"));
     features = getIndex(listModel, 1, 3);
+    QCOMPARE(features.toString(), QLatin1String("share"));
+
+    deleteModel(listModel);
+
+    // Check that list properties also work with role maps
+    listModel = createModel();
+    if (!listModel)
+        return;
+
+    createIndex("features.0.properties.0.description", "string");
+
+    connectListModel(listModel);
+    type = itemList[0].toMap()["_type"].toString();
+    listModel->setProperty("sortOrder", "[/features.0.properties.0.description]");
+    QVariantMap roleNamesMap;
+    roleNamesMap.insert("f2", "features.0.feature");
+    roleNamesMap.insert("f1", "features.0.properties.0.description");
+    roleNamesMap.insert("u", "_uuid");
+    roleNamesMap.insert("t", "_type");
+    listModel->setProperty("roleNames", roleNamesMap);
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(type));
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    QCOMPARE(listModel->rowCount(), itemList.count());
+    _type = getProperty(listModel, 0, "t");
+    QCOMPARE(_type.toString(), type);
+    featuresDesc = getProperty(listModel, 0, "f1");
+    QCOMPARE(featuresDesc.toString(), QLatin1String("Facebook account provider"));
+    features = getProperty(listModel, 0, "f2");
+    QCOMPARE(features.toString(), QLatin1String("provide Facebook"));
+
+    _type = getProperty(listModel, 1, "t");
+    QCOMPARE(_type.toString(), type);
+    featuresDesc = getProperty(listModel, 1, "f1");
+    QCOMPARE(featuresDesc.toString(), QLatin1String("Gmail account provider"));
+    features = getProperty(listModel, 1, "f2");
+    QCOMPARE(features.toString(), QLatin1String("provide Gmail"));
+
+    deleteModel(listModel);
+
+    listModel = createModel();
+    if (!listModel)
+        return;
+    connectListModel(listModel);
+    type = itemList[0].toMap()["_type"].toString();
+    listModel->setProperty("sortOrder", "[/features.0.properties.0.description]");
+    roleNamesMap.clear();
+    roleNamesMap.insert("f2", "features[0].supported[0]");
+    roleNamesMap.insert("f1", "features[0].properties[0].description");
+    roleNamesMap.insert("u", "_uuid");
+    roleNamesMap.insert("t", "_type");
+    listModel->setProperty("roleNames", roleNamesMap);
+    listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(type));
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    QCOMPARE(listModel->rowCount(), itemList.count());
+    _type = getProperty(listModel, 0, "t");
+    QCOMPARE(_type.toString(), type);
+    featuresDesc = getProperty(listModel, 0, "f1");
+    QCOMPARE(featuresDesc.toString(), QLatin1String("Facebook account provider"));
+    features = getProperty(listModel, 0, "f2");
+    QCOMPARE(features.toString(), QLatin1String("share"));
+
+    _type = getProperty(listModel, 1, "t");
+    QCOMPARE(_type.toString(), type);
+    featuresDesc = getProperty(listModel, 1, "f1");
+    QCOMPARE(featuresDesc.toString(), QLatin1String("Gmail account provider"));
+    features = getProperty(listModel, 1, "f2");
     QCOMPARE(features.toString(), QLatin1String("share"));
 
     deleteModel(listModel);

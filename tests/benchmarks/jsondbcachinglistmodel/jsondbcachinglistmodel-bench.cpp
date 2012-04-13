@@ -499,11 +499,17 @@ void JsonDbCachingListModelBench::flicking()
     mItemsUpdated = 0;
     // simulate flicking through lhe list
     for (int i = 0; i < 600; i++) {
+        QVariant uuidVariant = getIndexRaw (listModel, i, 0);
+        QVariant typeVariant = getIndexRaw (listModel, i, 1);
         QVariant nameVariant = getIndexRaw (listModel, i, 2);
-        if (nameVariant.isNull())
+        if (nameVariant.isNull() &&
+                typeVariant.isNull() &&
+                uuidVariant.isNull())
             noOfCacheMisses++;
         waitForMs(10, 6);
     }
+    if (noOfCacheMisses)
+        qDebug() << "No. of cache misses: " << noOfCacheMisses;
 
     deleteItems(__FUNCTION__, "com.nokia.shared.1");
     deleteItems(__FUNCTION__, "com.nokia.shared.2");

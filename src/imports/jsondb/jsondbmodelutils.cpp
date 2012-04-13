@@ -41,6 +41,8 @@
 
 #include "jsondbmodelutils.h"
 #include <qdebug.h>
+#include <QJsonValue>
+#include <QJsonArray>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -196,6 +198,57 @@ QVariant lookupProperty(QVariantMap object, const QStringList &path)
     }
     const QString &key = path.last();
     // get the last part from the list
+    if (!objectList.isEmpty()) {
+        bool ok = false;
+        int index = key.toInt(&ok);
+        if (ok && (index >= 0) && (objectList.count() > index)) {
+            return objectList.at(index);
+        }
+    }
+    // if the last part is in a map
+    return object.value(key);
+}
+
+QJsonValue lookupJsonProperty(QJsonObject object, const QStringList &path)
+{
+    if (!path.size()) {
+        return QJsonValue();
+    }
+    QJsonObject emptyObject;
+    QJsonArray emptyList;
+    QJsonArray objectList;
+    for (int i = 0; i < path.size() - 1; i++) {
+        const QString &key = path.at(i);
+        // this part of the property is a list
+        if (!objectList.isEmpty()) {
+            bool ok = false;
+            int index = key.toInt(&ok);
+            if (ok && (index >= 0) && (objectList.count() > index)) {
+                if (objectList.at(index).type() == QJsonValue::Array) {
+                    objectList = objectList.at(index).toArray();
+                    object = emptyObject;
+                } else  {
+                    object = objectList.at(index).toObject();
+                    objectList = emptyList;
+                }
+                continue;
+            }
+        }
+        // this part is a map
+        if (object.contains(key)) {
+            if (object.value(key).type() == QJsonValue::Array) {
+                objectList = object.value(key).toArray();
+                object = emptyObject;
+            } else  {
+                object = object.value(key).toObject();
+                objectList = emptyList;
+            }
+        } else {
+            return QJsonValue();
+        }
+    }
+    const QString &key = path.last();
+    // get the last part from the array
     if (!objectList.isEmpty()) {
         bool ok = false;
         int index = key.toInt(&ok);

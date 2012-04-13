@@ -53,6 +53,7 @@
 #include <QJsonObject>
 
 #include "jsondatabase.h"
+#include "jsondbcachinglistmodel.h"
 #include "jsondbmodelutils.h"
 #include "jsondbmodelcache.h"
 
@@ -123,6 +124,13 @@ public:
     int errorCode;
     QString errorString;
 
+    // data() is often called for each role in same index in a row
+    // caching the last found object speeds this pattern quite a bit
+    // as some time is spent on finding the object from cache
+    // Note that this needs to be cleared on data changes
+    int lastQueriedIndex;
+    QJsonObject lastQueriedObject;
+
 public:
     JsonDbCachingListModelPrivate(JsonDbCachingListModel *q);
     ~JsonDbCachingListModelPrivate();
@@ -164,6 +172,7 @@ public:
 
     void appendPartition(JsonDbPartition *v);
     void clearPartitions();
+    QJsonObject getJsonObject(int index);
     QVariant getItem(int index);
     QVariant getItem(int index, int role);
     void queueGetCallback(int index, const QJSValue &callback);
