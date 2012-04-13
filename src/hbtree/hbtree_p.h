@@ -97,7 +97,7 @@ public:
     // Defines the constants of the btree
     struct Spec {
         Spec()
-            : version(0), pageSize(), keySize(0), overflowThreshold(1000), pageFillThreshold(25)
+            : version(0), pageSize(0), keySize(0), overflowThreshold(1000), pageFillThreshold(25)
         {}
         quint32 version;
         quint16 pageSize;

@@ -236,10 +236,11 @@ void HBtreePrivate::close(bool doSync)
 
 bool HBtreePrivate::readSpec(const QByteArray &binaryData)
 {
+    QByteArray buffer = binaryData;
     PageInfo info;
     Spec spec;
-    memcpy(&info, binaryData.constData(), sizeof(PageInfo));
-    memcpy(&spec, binaryData.constData() + sizeof(PageInfo), sizeof(Spec));
+    memcpy(&info, buffer.constData(), sizeof(PageInfo));
+    memcpy(&spec, buffer.constData() + sizeof(PageInfo), sizeof(Spec));
 
     if (info.type != PageInfo::Spec) {
         HBTREE_DEBUG("spec type mismatch. Expected" << PageInfo::Spec << "got" << info);
@@ -258,7 +259,19 @@ bool HBtreePrivate::readSpec(const QByteArray &binaryData)
 
     memcpy(&spec_, &spec, sizeof(Spec));
 
-    quint32 crc = calculateChecksum(binaryData);
+    // If page size is not equal to default page size, then we need to read in the
+    // real page size at this time for the checksum to work properly
+    if (buffer.size() < spec.pageSize) {
+        buffer = QByteArray(spec.pageSize, Qt::Uninitialized);
+        int rc = pread(fd_, (void *)buffer.data(), spec.pageSize, 0);
+
+        if (rc != spec.pageSize) {
+            HBTREE_DEBUG("failed to read" << spec.pageSize << "bytes for spec page. Spec:" << spec);
+            return false;
+        }
+    }
+
+    quint32 crc = calculateChecksum(buffer);
     if (crc != info.checksum) {
         HBTREE_DEBUG("spec checksum mismatch. Expected" << info.checksum << "got" << crc);
         spec_ = Spec();
