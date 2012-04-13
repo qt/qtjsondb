@@ -73,7 +73,7 @@ public:
     void setCacheSize(int size) { Q_UNUSED(size); }
     int cacheSize() const { return 0; }
     typedef int (*CompareFunction)(const QByteArray &, const QByteArray &);
-    void setCompareFunction(CompareFunction cmp) { Q_UNUSED(cmp); Q_ASSERT(false); }
+    void setCompareFunction(CompareFunction cmp) { Q_UNUSED(cmp); }
 
     quint32 syncThreshold() const { return p->m_syncThreshold; }
     void setSyncThreshold(quint32 threshold);
