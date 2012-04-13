@@ -122,36 +122,39 @@ void JsonDbObjectTable::begin(JsonDbIndex *index)
         mBdbTransactions.append(index->begin());
 }
 
-bool JsonDbObjectTable::commit(quint32 tag)
+bool JsonDbObjectTable::commit(quint32 stateNumber)
 {
     Q_ASSERT(mBdb->isWriting());
-    //qDebug() << "ObjectTable::commit" << tag << mFilename;
 
     QByteArray baStateKey(5, 0);
-    makeStateKey(baStateKey, tag);
+    makeStateKey(baStateKey, stateNumber);
     bool ok = mBdb->writeTransaction()->put(baStateKey, mStateChanges);
     if (!ok)
         qDebug() << "putting statekey ok" << ok << "baStateKey" << baStateKey.toHex();
     for (int i = 0; i < mStateObjectChanges.size(); ++i) {
-        JsonDbObject object = mStateObjectChanges.at(i);
-        bool ok = mBdb->writeTransaction()->put(baStateKey + object.uuid().toRfc4122(), object.toBinaryData());
-        if (!ok) {
-            qDebug() << "putting state object ok" << ok << "baStateKey" << baStateKey.toHex()
-                     << "object" << object;
+        const JsonDbUpdate &change = mStateObjectChanges.at(i);
+        const JsonDbObject &oldObject = change.oldObject;
+        if (!oldObject.isEmpty()) {
+            bool ok = mBdb->writeTransaction()->put(baStateKey + oldObject.uuid().toRfc4122(), oldObject.toBinaryData());
+            if (!ok)
+                qDebug() << "putting state object ok" << ok << "baStateKey" << baStateKey.toHex()
+                         << "object" << oldObject;
         }
+        if (mChangeCache.size())
+            mChangeCache.insert(stateNumber, change);
     }
     mStateChanges.clear();
     mStateObjectChanges.clear();
-    mStateNumber = tag;
+    mStateNumber = stateNumber;
 
     for (int i = 0; i < mBdbTransactions.size(); i++) {
         JsonDbBtree::Transaction *txn = mBdbTransactions.at(i);
-        if (!txn->commit(tag)) {
+        if (!txn->commit(stateNumber)) {
             qCritical() << __FILE__ << __LINE__ << txn->btree()->errorMessage();
         }
     }
     mBdbTransactions.clear();
-    return mBdb->writeTransaction()->commit(tag);
+    return mBdb->writeTransaction()->commit(stateNumber);
 }
 
 bool JsonDbObjectTable::abort()
@@ -236,6 +239,7 @@ void JsonDbObjectTable::flushCaches()
         indexSpec.index->bdb()->setCacheSize(1);
         indexSpec.index->bdb()->setCacheSize(jsondbSettings->cacheSize());
     }
+    mChangeCache.clear();
 }
 
 IndexSpec *JsonDbObjectTable::indexSpec(const QString &indexName)
@@ -581,87 +585,102 @@ quint32 JsonDbObjectTable::storeStateChange(const ObjectKey &key, const JsonDbUp
 
     qToBigEndian(key, data);
     qToBigEndian<quint32>(change.action, data+16);
-    if (!change.oldObject.isEmpty())
-        mStateObjectChanges.append(change.oldObject);
+    mStateObjectChanges.append(change);
     return stateNumber;
 }
 
-quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, QMap<ObjectKey,JsonDbUpdate> *changes)
+quint32 JsonDbObjectTable::changesSince(quint32 startingStateNumber, QMap<ObjectKey,JsonDbUpdate> *changes)
 {
     if (!changes)
         return -1;
-    stateNumber = qMax(quint32(1), stateNumber+1);
+    startingStateNumber = qMax(quint32(1), startingStateNumber+1);
 
     QElapsedTimer timer;
     if (jsondbSettings->performanceLog())
         timer.start();
-    bool inTransaction = mBdb->writeTransaction();
-    JsonDbBtree::Transaction *txn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
-    JsonDbBtree::Cursor cursor(txn);
-    QByteArray baStateKey(5, 0);
-    makeStateKey(baStateKey, stateNumber);
+
+    // read in the changes we need
+    if (!mChangeCache.contains(startingStateNumber)) {
+        quint32 stateNumber = startingStateNumber;
+        bool inTransaction = mBdb->writeTransaction();
+        JsonDbBtree::Transaction *txn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
+        JsonDbBtree::Cursor cursor(txn);
+        QByteArray baStateKey(5, 0);
+        makeStateKey(baStateKey, stateNumber);
+        if (cursor.seekRange(baStateKey)) {
+            do {
+                QByteArray baObject;
+                bool ok = cursor.current(&baStateKey, &baObject);
+                if (!ok)
+                    break;
+
+                if (!isStateKey(baStateKey))
+                    continue;
+                stateNumber = qFromBigEndian<quint32>((const uchar *)baStateKey.constData());
+                // stop if we've already fetched this state number
+                if (mChangeCache.contains(stateNumber))
+                    break;
+
+                if (baObject.size() % 20 != 0) {
+                    qWarning() << __FUNCTION__ << __LINE__ << "state size must be a multiplier 20"
+                               << baObject.size() << baObject.toHex();
+                    continue;
+                }
+
+                for (int i = 0; i < baObject.size() / 20; ++i) {
+                    const uchar *data = (const uchar *)baObject.constData() + i*20;
+                    ObjectKey objectKey = qFromBigEndian<ObjectKey>(data);
+                    QByteArray baObjectKey(objectKey.key.toRfc4122());
+                    quint32 action = qFromBigEndian<quint32>(data + 16);
+                    QByteArray baValue;
+                    QJsonObject oldObject;
+                    if ((action != JsonDbNotification::Create)
+                        && mBdb->getOne(baStateKey + baObjectKey, &baValue)) {
+                        oldObject = QJsonDocument::fromBinaryData(baValue).object();
+                        Q_ASSERT(objectKey == ObjectKey(oldObject.value(JsonDbString::kUuidStr).toString()));
+                    }
+                    QJsonObject newObject;
+                    mBdb->getOne(baObjectKey, &baValue);
+                    newObject = QJsonDocument::fromBinaryData(baValue).object();
+                    if (jsondbSettings->debug())
+                        qDebug() << "change" << action << endl << oldObject << endl << newObject;
+
+                    JsonDbUpdate change(oldObject, newObject, JsonDbNotification::Action(action));
+                    mChangeCache.insert(stateNumber, change);
+                }
+            } while (cursor.next());
+        }
+        if (!inTransaction)
+            txn->abort();
+    }
 
     QMap<ObjectKey,JsonDbUpdate> changeMap; // collect one change per uuid
+    for (QMultiMap<quint32,JsonDbUpdate>::const_iterator it = mChangeCache.lowerBound(startingStateNumber);
+         it != mChangeCache.end(); ++it) {
+        const JsonDbUpdate &change = it.value();
+        JsonDbNotification::Action action = change.action;
+        const JsonDbObject newObject = change.newObject;
+        ObjectKey objectKey(newObject.uuid());
 
-    if (cursor.seekRange(baStateKey)) {
-        do {
-            QByteArray baObject;
-            bool ok = cursor.current(&baStateKey, &baObject);
-            if (!ok)
-                break;
-
-            if (!isStateKey(baStateKey))
-                continue;
-            stateNumber = qFromBigEndian<quint32>((const uchar *)baStateKey.constData());
-
-            if (baObject.size() % 20 != 0) {
-                qWarning() << __FUNCTION__ << __LINE__ << "state size must be a multiplier 20"
-                           << baObject.size() << baObject.toHex();
-                continue;
+        if (changeMap.contains(objectKey)) {
+            JsonDbUpdate oldChange = changeMap.value(objectKey);
+            // create followed by delete cancels out
+            JsonDbNotification::Action newAction = JsonDbNotification::Action(action);
+            JsonDbNotification::Action oldAction = oldChange.action;
+            if ((oldAction == JsonDbNotification::Create)
+                && (newAction == JsonDbNotification::Delete)) {
+                changeMap.remove(objectKey);
+            } else {
+                if ((oldAction == JsonDbNotification::Delete)
+                    && (newAction == JsonDbNotification::Create))
+                    oldChange.action = JsonDbNotification::Update;
+                changeMap.insert(objectKey, oldChange);
             }
-
-            for (int i = 0; i < baObject.size() / 20; ++i) {
-                const uchar *data = (const uchar *)baObject.constData() + i*20;
-                ObjectKey objectKey = qFromBigEndian<ObjectKey>(data);
-                QByteArray baObjectKey(objectKey.key.toRfc4122());
-                quint32 action = qFromBigEndian<quint32>(data + 16);
-                QByteArray baValue;
-                QJsonObject oldObject;
-                if ((action != JsonDbNotification::Create)
-                    && mBdb->getOne(baStateKey + baObjectKey, &baValue)) {
-                    oldObject = QJsonDocument::fromBinaryData(baValue).object();
-                    Q_ASSERT(objectKey == ObjectKey(oldObject.value(JsonDbString::kUuidStr).toString()));
-                }
-                QJsonObject newObject;
-                mBdb->getOne(baObjectKey, &baValue);
-                newObject = QJsonDocument::fromBinaryData(baValue).object();
-                if (jsondbSettings->debug())
-                    qDebug() << "change" << action << endl << oldObject << endl << newObject;
-
-                JsonDbUpdate change(oldObject, newObject, JsonDbNotification::Action(action));
-                if (changeMap.contains(objectKey)) {
-                    JsonDbUpdate oldChange = changeMap.value(objectKey);
-                    // create followed by delete cancels out
-                    JsonDbNotification::Action newAction = JsonDbNotification::Action(action);
-                    JsonDbNotification::Action oldAction = oldChange.action;
-                    if ((oldAction == JsonDbNotification::Create)
-                        && (newAction == JsonDbNotification::Delete)) {
-                        changeMap.remove(objectKey);
-                    } else {
-                        if ((oldAction == JsonDbNotification::Delete)
-                            && (newAction == JsonDbNotification::Create))
-                            oldChange.action = JsonDbNotification::Update;
-                        changeMap.insert(objectKey, oldChange);
-                    }
-                } else {
-                    changeMap.insert(objectKey, change);
-                }
-           }
-        } while (cursor.next());
+        } else {
+            changeMap.insert(objectKey, change);
+        }
     }
     *changes = changeMap;
-    if (!inTransaction)
-        txn->abort();
 
     if (jsondbSettings->performanceLog())
         qDebug() << "changesSince" << mFilename << timer.elapsed() << "ms";

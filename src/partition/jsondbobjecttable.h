@@ -78,6 +78,8 @@ inline QDebug &operator<<(QDebug &qdb, const JsonDbUpdate &oc)
     }
     if (oc.action != JsonDbNotification::Create)
         qdb.nospace() << ", oldObject = " << oc.oldObject;
+    if (oc.action != JsonDbNotification::Delete)
+        qdb.nospace() << ", newObject = " << oc.newObject;
     qdb.nospace() << ")";
     return qdb;
 }
@@ -161,9 +163,11 @@ private:
 
     quint32 mStateNumber;
 
+    QMultiMap<quint32,JsonDbUpdate> mChangeCache;
+
     // intermediate state changes until the commit is called
     QByteArray mStateChanges;
-    QList<JsonDbObject> mStateObjectChanges;
+    QList<JsonDbUpdate> mStateObjectChanges;
 };
 
 void makeStateKey(QByteArray &baStateKey, quint32 stateNumber);
