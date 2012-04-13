@@ -71,7 +71,7 @@ void JsonDbPlugin::initializeEngine(QQmlEngine *engine, const char *uri)
 void JsonDbPlugin::registerTypes(const char *uri)
 {
     Q_ASSERT(uri == QLatin1String("QtJsonDb"));
-    qmlRegisterModuleApi(uri, 1, 0, jsondb_new_module_api_provider);
+    qmlRegisterModuleApi<JsonDatabase>(uri, 1, 0, jsondb_new_module_api_provider);
     qmlRegisterType<JsonDbPartition>(uri, 1, 0, "Partition");
     qmlRegisterType<JsonDbNotify>(uri, 1, 0, "Notification");
     qmlRegisterType<JsonDbQueryObject>(uri, 1, 0, "Query");
