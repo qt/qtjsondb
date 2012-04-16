@@ -1,3 +1,7 @@
+load(configure)
+qtCompileTest(icu)
+qtCompileTest(libedit)
+
 TEMPLATE = subdirs
 
 module_qtjsondb_src.subdir = src

@@ -70,7 +70,7 @@ SOURCES += \
     jsondbquerytokenizer.cpp \
     jsondbqueryparser.cpp
 
-contains(config_test_icu, yes) {
+config_icu {
     LIBS += -licuuc -licui18n
 } else {
     DEFINES += NO_COLLATION_SUPPORT
