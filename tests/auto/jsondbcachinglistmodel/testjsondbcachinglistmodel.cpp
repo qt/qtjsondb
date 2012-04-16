@@ -78,6 +78,7 @@ TestJsonDbCachingListModel::TestJsonDbCachingListModel()
 
 TestJsonDbCachingListModel::~TestJsonDbCachingListModel()
 {
+    connection = 0;
 }
 
 void TestJsonDbCachingListModel::deleteDbFiles()
@@ -114,7 +115,7 @@ void TestJsonDbCachingListModel::initTestCase()
     QString socketName = QString("testjsondb_%1").arg(getpid());
     mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
 
-    connection = new QJsonDbConnection();
+    connection = QJsonDbConnection::defaultConnection();
     connection->connectToServer();
 
     mPluginPath = findQMLPluginPath("QtJsonDb");
