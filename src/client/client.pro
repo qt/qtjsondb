@@ -7,7 +7,6 @@ load(qt_module_config)
 
 DESTDIR = $$QT.jsondb.libs
 VERSION = $$QT.jsondb.VERSION
-DEFINES += QT_JSONDB_LIB
 
 QT = core network qml jsondbpartition
 
