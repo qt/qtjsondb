@@ -54,9 +54,6 @@
 #include "jsondbsettings.h"
 #include "jsondbobjecttable.h"
 #include "jsondbscriptengine.h"
-#include "qbtree.h"
-#include "qbtreecursor.h"
-#include "qbtreetxn.h"
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
