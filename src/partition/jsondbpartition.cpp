@@ -167,42 +167,7 @@ bool JsonDbPartition::open()
         qCritical() << "JsonDbPartition::open()" << "Unable to recover database";
         return false;
     }
-
     mIsOpen = true;
-    bool rebuildingDatabaseMetadata = false;
-
-    QString partitionId;
-    GetObjectsResult getObjectsResult = mObjectTable->getObjects(JsonDbString::kTypeStr, QJsonValue(JsonDbString::kDbidTypeStr),
-                                                                 JsonDbString::kDbidTypeStr);
-    if (getObjectsResult.data.size()) {
-        QJsonObject object = getObjectsResult.data.at(0);
-        partitionId = object.value(QStringLiteral("id")).toString();
-        QString partitionName = object.value(QStringLiteral("name")).toString();
-        if (partitionName != mPartitionName || !object.contains(JsonDbString::kDatabaseSchemaVersionStr)
-            || object.value(JsonDbString::kDatabaseSchemaVersionStr).toString() != gDatabaseSchemaVersion) {
-            if (jsondbSettings->verbose())
-                qDebug() << "Rebuilding database metadata";
-            rebuildingDatabaseMetadata = true;
-        }
-    }
-
-    if (partitionId.isEmpty() || rebuildingDatabaseMetadata) {
-        if (partitionId.isEmpty())
-            partitionId = QUuid::createUuid().toString();
-
-        QByteArray baKey(4, 0);
-        qToBigEndian(0, (uchar *)baKey.data());
-
-        JsonDbObject object;
-        object.insert(JsonDbString::kTypeStr, JsonDbString::kDbidTypeStr);
-        object.insert(QLatin1String("id"), partitionId);
-        object.insert(QLatin1String("name"), mPartitionName);
-        object.insert(JsonDbString::kDatabaseSchemaVersionStr, gDatabaseSchemaVersion);
-        JsonDbWriteResult result = updateObject(mDefaultOwner, object, Replace);
-        Q_ASSERT(result.code == JsonDbError::NoError);
-    }
-    if (jsondbSettings->verbose())
-        qDebug() << "partition" << mPartitionName << "id" << partitionId;
 
     initSchemas();
     initIndexes();
@@ -1937,8 +1902,11 @@ void JsonDbPartition::initSchemas()
             updateObject(mDefaultOwner, schemaObject, Replace);
         }
     }
-    {
+    const QString capabilityNameIndexUuid = QStringLiteral("{7853c8fb-cf23-453f-b9c4-804c6a0a38c6}");
+    JsonDbObject capabilityNameIndex;
+    if (!getObject(capabilityNameIndexUuid, capabilityNameIndex)) {
         JsonDbObject nameIndex;
+        nameIndex.insert(JsonDbString::kUuidStr, capabilityNameIndexUuid);
         nameIndex.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
         nameIndex.insert(JsonDbString::kNameStr, QLatin1String("capabilityName"));
         nameIndex.insert(JsonDbString::kPropertyNameStr, QLatin1String("name"));
