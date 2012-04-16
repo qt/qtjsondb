@@ -97,6 +97,8 @@ void TestQJsonDbRequest::cleanup()
 
 void TestQJsonDbRequest::modifyPartitions()
 {
+    QFile::remove("partitions-test.json");
+
     // create a notification on Partitions
     QJsonDbWatcher watcher;
     watcher.setPartition(QLatin1String("Ephemeral"));
