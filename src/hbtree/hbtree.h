@@ -133,6 +133,7 @@ public:
 
     bool open();
     void close();
+    bool isOpen() const;
 
     bool open(OpenMode mode) { setOpenMode(mode); return open(); }
 

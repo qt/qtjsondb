@@ -240,6 +240,7 @@ private slots:
     void typeChangeReduceSource();
     void typeChangeSchema();
 
+    void updateListWithIndex();
     void addBigIndex();
 
 private:
@@ -3385,15 +3386,9 @@ void TestPartition::orderedFind2()
     QStringList disorderedNames = names;
     qSort(disorderedNames.begin(), disorderedNames.end(), qGreater<QString>());
     if (order == "/") {
-        if (!(names == orderedNames)
-                || !(names != disorderedNames))
-            mJsonDbPartition->checkIndex(field);
         QVERIFY(names == orderedNames);
         QVERIFY(names != disorderedNames);
     } else {
-        if (!(names != orderedNames)
-                || !(names == disorderedNames))
-            mJsonDbPartition->checkIndex(field);
         QVERIFY(names != orderedNames);
         QVERIFY(names == disorderedNames);
     }
@@ -4716,6 +4711,64 @@ void TestPartition::typeChangeSchema()
     verifyGoodResult(remove(mOwner, test));
     verifyGoodResult(remove(mOwner, schema));
     jsondbSettings->setValidateSchemas(currentValidateSchemas);
+}
+
+void TestPartition::updateListWithIndex()
+{
+    JsonDbObject zed;
+    {
+        QList<JsonDbObject> list;
+        JsonDbObject index;
+        index.insert(JsonDbString::kUuidStr, QLatin1String("{a2f52c25-810f-4162-ad1f-6e3409f9eb6a}"));
+        index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+        index.insert(JsonDbString::kNameStr, QLatin1String("updateListWithIndex"));
+        index.insert(JsonDbString::kPropertyNameStr, QLatin1String("foobar"));
+        index.insert(JsonDbString::kPropertyTypeStr, QLatin1String("string"));
+        list.append(index);
+        JsonDbObject item;
+        item.insert(JsonDbString::kUuidStr, QLatin1String("{9f0f3b84-d101-45b5-9291-a0d0498add72}"));
+        item.insert(JsonDbString::kTypeStr, QLatin1String("updateListWithIndex"));
+        item.insert(QLatin1String("foobar"), QLatin1String("Malin"));
+        list.append(item);
+        zed.insert(JsonDbString::kTypeStr, QLatin1String("updateListWithIndex"));
+        zed.insert(JsonDbString::kUuidStr, QLatin1String("{c3c416f9-ab0b-4813-ab4f-8833025b320b}"));
+        zed.insert(QLatin1String("foobar"), QLatin1String("Zed"));
+        list.append(zed);
+
+        JsonDbWriteResult result = mJsonDbPartition->updateObjects(mOwner, list);
+        verifyGoodResult(result);
+        QCOMPARE(result.objectsWritten.count(), 3);
+
+        JsonDbQueryResult findResult = find(mOwner, QLatin1String("[?_type=\"updateListWithIndex\"][/updateListWithIndex]"));
+        QCOMPARE(findResult.data.size(), 2);
+        QCOMPARE(findResult.data.at(0).value(QLatin1String("foobar")).toString(), QLatin1String("Malin"));
+        QCOMPARE(findResult.data.at(1).value(QLatin1String("foobar")).toString(), QLatin1String("Zed"));
+        zed = findResult.data.at(1);
+    }
+
+    mJsonDbPartition->closeIndexes();
+
+    // create one more object and update an existing one
+    {
+        QList<JsonDbObject> list;
+        zed.insert(QLatin1String("foobar"), QLatin1String("Bob"));
+        list.append(zed);
+        JsonDbObject item;
+        item.insert(JsonDbString::kUuidStr, QLatin1String("{a7056c76-5921-4eb3-8487-ef697ea75899}"));
+        item.insert(JsonDbString::kTypeStr, QLatin1String("updateListWithIndex"));
+        item.insert(QLatin1String("foobar"), QLatin1String("Darla"));
+        list.append(item);
+
+        JsonDbWriteResult result = mJsonDbPartition->updateObjects(mOwner, list);
+        verifyGoodResult(result);
+        QCOMPARE(result.objectsWritten.count(), 2);
+
+        JsonDbQueryResult findResult = find(mOwner, QLatin1String("[?_type=\"updateListWithIndex\"][/updateListWithIndex]"));
+        QCOMPARE(findResult.data.size(), 3);
+        QCOMPARE(findResult.data.at(0).value(QLatin1String("foobar")).toString(), QLatin1String("Bob"));
+        QCOMPARE(findResult.data.at(1).value(QLatin1String("foobar")).toString(), QLatin1String("Darla"));
+        QCOMPARE(findResult.data.at(2).value(QLatin1String("foobar")).toString(), QLatin1String("Malin"));
+    }
 }
 
 void TestPartition::addBigIndex()

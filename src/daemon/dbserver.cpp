@@ -147,6 +147,7 @@ void DBServer::sigHUP()
         qDebug() << "SIGHUP received";
     loadPartitions();
     reduceMemoryUsage();
+    closeIndexes();
 }
 
 void DBServer::sigTerm()
@@ -358,6 +359,12 @@ void DBServer::reduceMemoryUsage()
 {
     foreach (JsonDbPartition *partition, mPartitions.values())
         partition->flushCaches();
+}
+
+void DBServer::closeIndexes()
+{
+    foreach (JsonDbPartition *partition, mPartitions.values())
+        partition->closeIndexes();
 }
 
 JsonDbStat DBServer::stat() const

@@ -24,6 +24,7 @@ HEADERS += \
     jsondbowner.h \
     jsondbproxy.h \
     jsondbindex.h \
+    jsondbindex_p.h \
     jsondbobject.h \
     jsondbpartition.h \
     jsondbquery.h \

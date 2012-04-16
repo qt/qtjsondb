@@ -2816,6 +2816,12 @@ void HBtree::close()
     d->close();
 }
 
+bool HBtree::isOpen() const
+{
+    Q_D(const HBtree);
+    return d->fd_ != -1;
+}
+
 size_t HBtree::size() const
 {
     Q_D(const HBtree);
@@ -2838,7 +2844,8 @@ bool HBtree::clearData()
 {
     Q_D(HBtree);
     d->close(false);
-    QFile::remove(d->fileName_);
+    if (QFile::exists(d->fileName_))
+        QFile::remove(d->fileName_);
     return open();
 }
 

@@ -98,6 +98,11 @@ void QBtree::close()
     }
 }
 
+bool QBtree::isOpen() const
+{
+    return mBtree != 0;
+}
+
 QBtreeTxn *QBtree::begin(QBtree::TxnFlag flag)
 {
     Q_ASSERT(mBtree);

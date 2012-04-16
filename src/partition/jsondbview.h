@@ -80,6 +80,7 @@ public:
     void updateEagerView(const JsonDbUpdateList &objectsUpdated, JsonDbUpdateList *resultingChanges);
     void updateViewStateNumber(quint32 partitionStateNumber);
     void reduceMemoryUsage();
+    void closeIndexes();
 
     bool isActive() const;
 

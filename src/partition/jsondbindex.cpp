@@ -47,9 +47,11 @@
 #include <QDir>
 #include <QLocale>
 
+#include "jsondbindex.h"
+#include "jsondbindex_p.h"
+
 #include "jsondbstrings.h"
 #include "jsondbproxy.h"
-#include "jsondbindex.h"
 #include "jsondbbtree.h"
 #include "jsondbsettings.h"
 #include "jsondbobjecttable.h"
@@ -58,6 +60,23 @@
 #include "jsondbutils_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
+
+JsonDbIndexPrivate::JsonDbIndexPrivate(JsonDbIndex *q)
+    : q_ptr(q)
+    , mObjectTable(0)
+    , mScriptEngine(0)
+    , mCacheSize(0)
+{
+}
+
+JsonDbIndexPrivate::~JsonDbIndexPrivate()
+{
+}
+
+QString JsonDbIndexPrivate::fileName() const
+{
+    return QString::fromLatin1("%1/%2-%3-Index.db").arg(mPath).arg(mBaseName).arg(mSpec.name);
+}
 
 static const int collationStringsCount = 13;
 static const char * const collationStrings[collationStringsCount] = {
@@ -134,107 +153,96 @@ QString _q_bytesToHexString(const QByteArray &ba)
     return result;
 }
 
-JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
-                         const QString &propertyType, const QStringList &objectType, const QString &locale, const QString &collation,
-                         const QString &casePreference, Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable)
-    : QObject(objectTable)
-    , mObjectTable(objectTable)
-    , mIndexName(indexName)
-    , mPropertyName(propertyName)
-    , mPath(propertyName.split('.'))
-    , mPropertyType(propertyType)
-    , mObjectType(objectType)
-    , mLocale(locale)
-    , mCollation(collation)
-    , mCasePreference(casePreference)
-    , mCaseSensitivity(caseSensitivity)
-#ifndef NO_COLLATION_SUPPORT
-    , mCollator(JsonDbCollator(QLocale(locale), _q_correctCollationString(collation)))
-#endif
-    , mStateNumber(0)
-    , mBdb(0)
-    , mScriptEngine(0)
-    , mCacheSize(0)
+JsonDbIndex::JsonDbIndex(const QString &fileName, JsonDbObjectTable *objectTable)
+    : QObject(objectTable), d_ptr(new JsonDbIndexPrivate(this))
 {
+    Q_D(JsonDbIndex);
+    d->mObjectTable = objectTable;
+
     QFileInfo fi(fileName);
     QString dirName = fi.dir().path();
-    QString baseName = fi.fileName();
-    if (baseName.endsWith(QStringLiteral(".db")))
-        baseName.chop(3);
-    mFileName = QString::fromLatin1("%1/%2-%3-Index.db").arg(dirName).arg(baseName).arg(indexName);
-#ifndef NO_COLLATION_SUPPORT
-    mCollator.setCasePreference(_q_correctCasePreferenceString(mCasePreference));
-#endif
+    d->mPath = dirName;
+    d->mBaseName = fi.fileName();
+    if (d->mBaseName.endsWith(QLatin1String(".db")))
+        d->mBaseName.chop(3);
 }
 
 JsonDbIndex::~JsonDbIndex()
 {
-    if (mBdb) {
-        close();
-        mBdb.reset();
+    close();
+}
+
+void JsonDbIndex::setIndexSpec(const IndexSpec &spec)
+{
+    Q_D(JsonDbIndex);
+    d->mSpec = spec;
+
+    d->mPropertyNamePath = spec.propertyName.split(QLatin1Char('.'));
+#ifndef NO_COLLATION_SUPPORT
+    d->mCollator = JsonDbCollator(QLocale(spec.locale), _q_correctCollationString(spec.collation));
+    d->mCollator.setCasePreference(_q_correctCasePreferenceString(d->mSpec.casePreference));
+#endif
+
+    if (spec.propertyName.isEmpty() && !spec.propertyFunction.isEmpty()) {
+        if (!d->mScriptEngine)
+            d->mScriptEngine = JsonDbScriptEngine::scriptEngine();
+
+        // for "emit"
+        JsonDbJoinProxy *mapProxy = new JsonDbJoinProxy(0, 0, this);
+        connect(mapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
+                this, SLOT(propertyValueEmitted(QJSValue)));
+        QString proxyName(QString::fromLatin1("_jsondbIndexProxy%1").arg(d->mSpec.name));
+        proxyName.replace(QLatin1Char('.'), QLatin1Char('$'));
+        d->mScriptEngine->globalObject().setProperty(proxyName, d->mScriptEngine->newQObject(mapProxy));
+
+        QString script(QString::fromLatin1("(function() { var jsondb={emit: %2.create, lookup: %2.lookup }; var fcn = (%1); return fcn})()")
+                       .arg(spec.propertyFunction).arg(proxyName));
+        d->mPropertyFunction = d->mScriptEngine->evaluate(script);
+        if (d->mPropertyFunction.isError() || !d->mPropertyFunction.isCallable())
+            qDebug() << "Unable to parse index value function: " << d->mPropertyFunction.toString();
     }
 }
 
-bool JsonDbIndex::setPropertyFunction(const QString &propertyFunction)
+const IndexSpec &JsonDbIndex::indexSpec() const
 {
-    if (!mScriptEngine)
-        mScriptEngine = JsonDbScriptEngine::scriptEngine();
-
-    // for "emit"
-    JsonDbJoinProxy *mapProxy = new JsonDbJoinProxy(0, 0, this);
-    connect(mapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
-            this, SLOT(propertyValueEmitted(QJSValue)));
-    QString proxyName(QString::fromLatin1("_jsondbIndexProxy%1").arg(mIndexName));
-    proxyName.replace(QLatin1Char('.'), QLatin1Char('$'));
-    mScriptEngine->globalObject().setProperty(proxyName, mScriptEngine->newQObject(mapProxy));
-
-    QString script(QString::fromLatin1("(function() { var jsondb={emit: %2.create, lookup: %2.lookup }; var fcn = (%1); return fcn})()")
-                   .arg(propertyFunction).arg(proxyName));
-    mPropertyFunction = mScriptEngine->evaluate(script);
-    if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
-        qDebug() << "Unable to parse index value function: " << mPropertyFunction.toString();
-        return false;
-    }
-
-   return true;
+    Q_D(const JsonDbIndex);
+    return d->mSpec;
 }
 
 bool JsonDbIndex::open()
 {
-    if (mPropertyName == JsonDbString::kUuidStr)
+    Q_D(JsonDbIndex);
+    if (d->mSpec.propertyName == JsonDbString::kUuidStr)
         return true;
 
-    mBdb.reset(new JsonDbBtree());
+    if (d->mCacheSize)
+        d->mBdb.setCacheSize(d->mCacheSize);
 
-    if (mCacheSize)
-        mBdb->setCacheSize(mCacheSize);
-
-    if (!mBdb->open(mFileName, JsonDbBtree::Default)) {
-        qCritical() << "mBdb->open" << mBdb->errorMessage();
+    d->mBdb.setFileName(d->fileName());
+    if (!d->mBdb.open(JsonDbBtree::Default)) {
+        qCritical() << "mBdb.open" << d->mBdb.errorMessage();
         return false;
     }
 
-    mBdb->setCompareFunction(forwardKeyCmp);
+    d->mBdb.setCompareFunction(forwardKeyCmp);
 
-    mStateNumber = mBdb->tag();
     if (jsondbSettings->debug() && jsondbSettings->verbose())
-        qDebug() << "JsonDbIndex::open" << mStateNumber << mFileName;
+        qDebug() << "JsonDbIndex::open" << d->mBdb.tag() << d->mBdb.fileName();
     return true;
 }
 
 void JsonDbIndex::close()
 {
-    if (mBdb)
-        mBdb->close();
+    Q_D(JsonDbIndex);
+    d->mBdb.close();
 }
 
-/*!
-  Returns true if the index's btree file exists.
-*/
-bool JsonDbIndex::exists() const
+bool JsonDbIndex::isOpen() const
 {
-    QFile file(mFileName);
-    return file.exists();
+    Q_D(const JsonDbIndex);
+    if (d->mSpec.propertyName == JsonDbString::kUuidStr)
+        return true;
+    return d->mBdb.isOpen();
 }
 
 bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex, QString &message)
@@ -280,25 +288,29 @@ QString JsonDbIndex::determineName(const JsonDbObject &index)
 
 JsonDbBtree *JsonDbIndex::bdb()
 {
-    if (!mBdb)
+    Q_D(JsonDbIndex);
+    if (d->mSpec.propertyName == JsonDbString::kUuidStr)
+        return 0;
+    if (!d->mBdb.isOpen())
         open();
-    return mBdb.data();
+    return &d->mBdb;
 }
 
 QJsonValue JsonDbIndex::indexValue(const QJsonValue &v)
 {
+    Q_D(JsonDbIndex);
     if (!v.isString())
         return v;
 
     QJsonValue result;
-    if (mCaseSensitivity == Qt::CaseInsensitive)
+    if (d->mSpec.caseSensitivity == Qt::CaseInsensitive)
         result = v.toString().toLower();
     else
         result = v;
 
 #ifndef NO_COLLATION_SUPPORT
-    if (!mCollation.isEmpty() && !mLocale.isEmpty())
-        result = _q_bytesToHexString(mCollator.sortKey(v.toString()));
+    if (!d->mSpec.collation.isEmpty() && !d->mSpec.locale.isEmpty())
+        result = _q_bytesToHexString(d->mCollator.sortKey(v.toString()));
 #endif
 
     return result;
@@ -306,42 +318,45 @@ QJsonValue JsonDbIndex::indexValue(const QJsonValue &v)
 
 QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 {
-    mFieldValues.clear();
-    if (!mScriptEngine) {
-        int size = mPath.size();
-        if (mPath[size-1] == QLatin1Char('*')) {
-            QJsonValue v = object.propertyLookup(mPath.mid(0, size-1));
+    Q_D(JsonDbIndex);
+    d->mFieldValues.clear();
+    if (!d->mScriptEngine) {
+        int size = d->mPropertyNamePath.size();
+        if (d->mPropertyNamePath.at(size-1) == QLatin1Char('*')) {
+            QJsonValue v = object.propertyLookup(d->mPropertyNamePath.mid(0, size-1));
             QJsonArray array = v.toArray();
-            mFieldValues.reserve(array.size());
+            d->mFieldValues.reserve(array.size());
             for (int i = 0; i < array.size(); ++i) {
-                mFieldValues.append(indexValue(array.at(i)));
+                d->mFieldValues.append(indexValue(array.at(i)));
             }
         } else {
-            QJsonValue v = object.propertyLookup(mPath);
+            QJsonValue v = object.propertyLookup(d->mPropertyNamePath);
             if (!v.isUndefined()) {
-                mFieldValues.append(indexValue(v));
+                d->mFieldValues.append(indexValue(v));
             }
         }
     } else {
         QJSValueList args;
-        args << mScriptEngine->toScriptValue(object.toVariantMap());
-        mPropertyFunction.call(args);
+        args << d->mScriptEngine->toScriptValue(object.toVariantMap());
+        d->mPropertyFunction.call(args);
     }
-    return mFieldValues;
+    return d->mFieldValues;
 }
 
 void JsonDbIndex::propertyValueEmitted(QJSValue value)
 {
+    Q_D(JsonDbIndex);
     if (!value.isUndefined())
-        mFieldValues.append(mScriptEngine->fromScriptValue<QJsonValue>(value));
+        d->mFieldValues.append(d->mScriptEngine->fromScriptValue<QJsonValue>(value));
 }
 
-void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber)
+void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 objectStateNumber)
 {
-    if (mPropertyName == JsonDbString::kUuidStr)
+    Q_D(JsonDbIndex);
+    if (d->mSpec.propertyName == JsonDbString::kUuidStr)
         return;
 
-    if (!mObjectType.isEmpty() && !mObjectType.contains(object.value(JsonDbString::kTypeStr).toString()))
+    if (!d->mSpec.objectType.isEmpty() && !d->mSpec.objectType.contains(object.value(JsonDbString::kTypeStr).toString()))
         return;
 
     Q_ASSERT(!object.contains(JsonDbString::kDeletedStr)
@@ -350,66 +365,66 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
     if (!fieldValues.size())
         return;
     bool ok;
-    if (!mBdb)
+    if (!d->mBdb.isOpen())
         open();
-    if (!mBdb->isWriting())
-        mObjectTable->begin(this);
-    JsonDbBtree::Transaction *txn = mBdb->writeTransaction();
+    if (!d->mBdb.isWriting())
+        d->mObjectTable->begin(this);
+    JsonDbBtree::Transaction *txn = d->mBdb.writeTransaction();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
-        fieldValue = makeFieldValue(fieldValue, mPropertyType);
+        fieldValue = makeFieldValue(fieldValue, d->mSpec.propertyType);
         if (fieldValue.isUndefined())
             continue;
-        truncateFieldValue(&fieldValue, mPropertyType);
+        truncateFieldValue(&fieldValue, d->mSpec.propertyType);
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
         QByteArray forwardValue(makeForwardValue(objectKey));
 
         if (jsondbSettings->debug())
-            qDebug() << "indexing" << objectKey << mPropertyName << fieldValue
+            qDebug() << "indexing" << objectKey << d->mSpec.propertyName << fieldValue
                      << "forwardIndex" << "key" << forwardKey.toHex()
                      << "forwardIndex" << "value" << forwardValue.toHex()
                      << object;
         ok = txn->put(forwardKey, forwardValue);
-        if (!ok) qCritical() << __FUNCTION__ << "putting fowardIndex" << mBdb->errorMessage();
+        if (!ok) qCritical() << __FUNCTION__ << "putting fowardIndex" << d->mBdb.errorMessage();
     }
-    if (jsondbSettings->debug() && (stateNumber < mStateNumber))
-        qDebug() << "JsonDbIndex::indexObject" << "stale update" << stateNumber << mStateNumber << mFileName;
-    mStateNumber = qMax(stateNumber, mStateNumber);
+    if (jsondbSettings->debug() && (objectStateNumber < stateNumber()))
+        qDebug() << "JsonDbIndex::indexObject" << "stale update" << objectStateNumber << stateNumber() << d->mBdb.fileName();
 
 #ifdef CHECK_INDEX_ORDERING
     checkIndex()
 #endif
 }
 
-void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber)
+void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 objectStateNumber)
 {
-    if (mPropertyName == JsonDbString::kUuidStr)
+    Q_D(JsonDbIndex);
+    if (d->mSpec.propertyName == JsonDbString::kUuidStr)
         return;
-    if (!mObjectType.isEmpty() && !mObjectType.contains(object.value(JsonDbString::kTypeStr).toString()))
+    if (!d->mSpec.objectType.isEmpty() && !d->mSpec.objectType.contains(object.value(JsonDbString::kTypeStr).toString()))
         return;
-    if (!mBdb)
+    if (!d->mBdb.isOpen())
         open();
     QList<QJsonValue> fieldValues = indexValues(object);
     if (!fieldValues.size())
         return;
-    if (!mBdb->isWriting())
-        mObjectTable->begin(this);
-    JsonDbBtree::Transaction *txn = mBdb->writeTransaction();
+    if (!d->mBdb.isWriting())
+        d->mObjectTable->begin(this);
+    JsonDbBtree::Transaction *txn = d->mBdb.writeTransaction();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
-        fieldValue = makeFieldValue(fieldValue, mPropertyType);
+        fieldValue = makeFieldValue(fieldValue, d->mSpec.propertyType);
         if (fieldValue.isUndefined())
             continue;
-        truncateFieldValue(&fieldValue, mPropertyType);
+        truncateFieldValue(&fieldValue, d->mSpec.propertyType);
         if (jsondbSettings->debug())
-            qDebug() << "deindexing" << objectKey << mPropertyName << fieldValue;
+            qDebug() << "deindexing" << objectKey << d->mSpec.propertyName << fieldValue;
         QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
         if (!txn->remove(forwardKey)) {
-            qDebug() << "deindexing failed" << objectKey << mPropertyName << fieldValue << object << forwardKey.toHex();
+            qDebug() << "deindexing failed" << objectKey << d->mSpec.propertyName << fieldValue << object << forwardKey.toHex();
         }
     }
-    if (jsondbSettings->verbose() && (stateNumber < mStateNumber))
-        qDebug() << "JsonDbIndex::deindexObject" << "stale update" << stateNumber << mStateNumber << mFileName;
+    if (jsondbSettings->verbose() && (objectStateNumber < stateNumber()))
+        qDebug() << "JsonDbIndex::deindexObject" << "stale update" << objectStateNumber << stateNumber() << d->mBdb.fileName();
 #ifdef CHECK_INDEX_ORDERING
     checkIndex();
 #endif
@@ -417,98 +432,47 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
 
 quint32 JsonDbIndex::stateNumber() const
 {
-    return mStateNumber;
+    Q_D(const JsonDbIndex);
+    if (!d->mBdb.isOpen()) {
+        JsonDbIndex *that = const_cast<JsonDbIndex *>(this);
+        that->open();
+    }
+    return d->mBdb.tag();
 }
 
 JsonDbBtree::Transaction *JsonDbIndex::begin()
 {
-    if (!mBdb)
+    Q_D(JsonDbIndex);
+    if (!d->mBdb.isOpen())
         open();
-    return mBdb->beginWrite();
+    return d->mBdb.beginWrite();
 }
 bool JsonDbIndex::commit(quint32 stateNumber)
 {
-    if (mBdb->isWriting())
-        return mBdb->writeTransaction()->commit(stateNumber);
+    Q_D(JsonDbIndex);
+    if (d->mBdb.isWriting())
+        return d->mBdb.writeTransaction()->commit(stateNumber);
     return false;
 }
 bool JsonDbIndex::abort()
 {
-    if (mBdb->isWriting())
-        mBdb->writeTransaction()->abort();
+    Q_D(JsonDbIndex);
+    if (d->mBdb.isWriting())
+        d->mBdb.writeTransaction()->abort();
     return true;
 }
 bool JsonDbIndex::clearData()
 {
-    return mBdb->clearData();
-}
-
-void JsonDbIndex::checkIndex()
-{
-    if (mPropertyName == JsonDbString::kUuidStr)
-        return;
-
-    qDebug() << "checkIndex" << mPropertyName;
-    int countf = 0;
-    bool isInTransaction = mBdb.data()->btree()->writeTransaction();
-    JsonDbBtree::Transaction *txnf = mBdb.data()->btree()->writeTransaction() ? mBdb.data()->btree()->writeTransaction() : mBdb.data()->btree()->beginWrite();
-    JsonDbBtree::Cursor cursorf(txnf);
-    bool ok = cursorf.first();
-    if (ok) {
-        countf++;
-        QByteArray outkey1;
-        ok = cursorf.current(&outkey1, 0);
-        while (cursorf.next()) {
-            countf++;
-            QByteArray outkey2;
-            cursorf.current(&outkey2, 0);
-            //qDebug() << outkey1.toHex() << outkey2.toHex();
-            if (memcmp(outkey1.constData(), outkey2.constData(), outkey1.size()) >= 0) {
-                qDebug() << "out of order index" << mPropertyName << endl
-                         << outkey1.toHex() << endl
-                         << outkey2.toHex() << endl;
-            }
-            outkey1 = outkey2;
-        }
-    }
-    if (!isInTransaction)
-        txnf->abort();
-
-    qDebug() << "checkIndex" << mPropertyName << "reversed";
-    // now check other direction
-    int countr = 0;
-    isInTransaction = mBdb.data()->btree()->writeTransaction();
-    JsonDbBtree::Transaction *txnr = mBdb.data()->btree()->writeTransaction() ? mBdb.data()->btree()->writeTransaction() : mBdb.data()->btree()->beginWrite();
-    JsonDbBtree::Cursor cursorr(txnr);
-    ok = cursorr.last();
-    if (ok) {
-        countr++;
-        QByteArray outkey1;
-        ok = cursorr.current(&outkey1, 0);
-        while (cursorr.previous()) {
-            countr++;
-            QByteArray outkey2;
-            cursorr.current(&outkey2, 0);
-            //qDebug() << outkey1.toHex() << outkey2.toHex();
-            if (memcmp(outkey1.constData(), outkey2.constData(), outkey1.size()) <= 0) {
-                qDebug() << "reverse walk: out of order index" << mPropertyName << endl
-                         << outkey1.toHex() << endl
-                         << outkey2.toHex() << endl;
-            }
-            outkey1 = outkey2;
-        }
-    }
-    if (!isInTransaction)
-        txnr->abort();
-    qDebug() << "checkIndex" << mPropertyName << "done" << countf << countr << "entries checked";
-
+    Q_D(JsonDbIndex);
+    d->mBdb.setFileName(d->fileName());
+    return d->mBdb.clearData();
 }
 
 void JsonDbIndex::setCacheSize(quint32 cacheSize)
 {
-    mCacheSize = cacheSize;
-    if (mBdb)
-        mBdb->setCacheSize(cacheSize);
+    Q_D(JsonDbIndex);
+    d->mCacheSize = cacheSize;
+    d->mBdb.setCacheSize(cacheSize);
 }
 
 #include "moc_jsondbindex.cpp"

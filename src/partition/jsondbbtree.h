@@ -85,8 +85,12 @@ public:
     JsonDbBtree();
     ~JsonDbBtree();
 
-    bool open(const QString &filename, OpenFlags flags = Default);
+    void setFileName(const QString &filename);
+    QString fileName() const;
+
+    bool open(OpenFlags flags = Default);
     void close();
+    bool isOpen() const;
 
     Transaction *beginRead()
     { Q_ASSERT(mBtree); return mBtree->beginRead(); }
@@ -102,8 +106,6 @@ public:
     QString errorMessage() const
     { Q_ASSERT(mBtree); return mBtree->errorMessage(); }
 
-    QString fileName() const
-    { Q_ASSERT(mBtree); return mBtree->fileName(); }
     quint64 count() const
     { Q_ASSERT(mBtree); return mBtree->count(); }
     quint32 tag() const

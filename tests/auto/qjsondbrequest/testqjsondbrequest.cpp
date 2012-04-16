@@ -86,6 +86,7 @@ private slots:
     void cleanup();
 
     void modifyPartitions();
+    void closeIndexes();
     void removablePartition();
     void readRequest_data();
     void readRequest();
@@ -239,6 +240,65 @@ void TestQJsonDbRequest::modifyPartitions()
 
     mConnection->removeWatcher(&watcher);
     waitForStatus(&watcher, QJsonDbWatcher::Inactive);
+}
+
+void TestQJsonDbRequest::closeIndexes()
+{
+    {
+        QList<QJsonObject> objects;
+        QJsonDbObject object;
+        object.setUuid(QJsonDbObject::createUuid());
+        object.insert(QLatin1String("_type"), QLatin1String("duck"));
+        object.insert(QLatin1String("foobar"), QLatin1String("bazinga"));
+        objects.append(object);
+        QJsonDbWriteRequest writeRequest;
+        writeRequest.setObjects(objects);
+        mConnection->send(&writeRequest);
+        waitForResponse(&writeRequest);
+        QVERIFY(!mRequestErrors.contains(&writeRequest));
+    }
+
+    {
+        // create 1000 indexes
+        QList<QJsonObject> indexes;
+        for (int i = 0; i < 1000; ++i) {
+            QJsonDbObject index;
+            index.setUuid(QJsonDbObject::createUuid());
+            index.insert(QLatin1String("_type"), QLatin1String("Index"));
+            index.insert(QLatin1String("name"), QString(QLatin1String("closeIndexesTest%1")).arg(i));
+            index.insert(QLatin1String("propertyName"), QLatin1String("foobar"));
+            index.insert(QLatin1String("propertyType"), QLatin1String("string"));
+            indexes.append(index);
+        }
+        QJsonDbWriteRequest writeRequest;
+        writeRequest.setObjects(indexes);
+        mConnection->send(&writeRequest);
+        waitForResponse(&writeRequest);
+        QVERIFY(!mRequestErrors.contains(&writeRequest));
+    }
+
+    // query on one of the indexes
+    {
+        QJsonDbReadRequest readRequest;
+        readRequest.setQuery(QLatin1String("[?_type=\"duck\"][/closeIndexesTest666]"));
+        mConnection->send(&readRequest);
+        waitForResponse(&readRequest);
+        QList<QJsonObject> results = readRequest.takeResults();
+        QCOMPARE(results.count(), 1);
+    }
+
+    // close indexes
+    kill(mProcess->pid(), SIGHUP);
+
+    // query again
+    {
+        QJsonDbReadRequest readRequest;
+        readRequest.setQuery(QLatin1String("[?_type=\"duck\"][/closeIndexesTest666]"));
+        mConnection->send(&readRequest);
+        waitForResponse(&readRequest);
+        QList<QJsonObject> results = readRequest.takeResults();
+        QCOMPARE(results.count(), 1);
+    }
 }
 
 void TestQJsonDbRequest::removablePartition()

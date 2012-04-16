@@ -94,7 +94,8 @@ bool JsonDbObjectTable::open(const QString &fileName)
     }
 #endif
     mBdb->setCacheSize(jsondbSettings->cacheSize());
-    if (!mBdb->open(mFilename)) {
+    mBdb->setFileName(mFilename);
+    if (!mBdb->open()) {
         qCritical() << "mBdb->open" << mBdb->errorMessage();
         return false;
     }
@@ -248,6 +249,15 @@ void JsonDbObjectTable::flushCaches()
     mChangeCache.clear();
 }
 
+void JsonDbObjectTable::closeIndexes()
+{
+    QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin(), e = mIndexes.end();
+    for (; it != e; ++it) {
+        const IndexSpec &indexSpec = it.value();
+        indexSpec.index->close();
+    }
+}
+
 IndexSpec *JsonDbObjectTable::indexSpec(const QString &indexName)
 {
     //qDebug() << "ObjectTable::indexSpec" << propertyName << mFilename << (mIndexes.contains(propertyName) ? "exists" : "missing") << (long)this << mIndexes.keys();
@@ -276,12 +286,10 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
 
     //if (gVerbose) qDebug() << "ObjectTable::addIndex" << propertyName << mFilename;
 
-    QStringList path = propertyName.split('.');
-
     IndexSpec &indexSpec = mIndexes[name];
     indexSpec.name = name;
     indexSpec.propertyName = propertyName;
-    indexSpec.path = path;
+    indexSpec.propertyFunction = propertyFunction;
     indexSpec.propertyType = propertyType;
     indexSpec.locale = locale;
     indexSpec.collation = collation;
@@ -289,11 +297,9 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     indexSpec.caseSensitivity = caseSensitivity;
     indexSpec.objectType = objectTypes;
     indexSpec.lazy = false; //lazy;
-    indexSpec.index = new JsonDbIndex(mFilename, name, propertyName, propertyType, objectTypes, locale, collation, casePreference, caseSensitivity, this);
-    if (!propertyFunction.isEmpty() && propertyName.isEmpty()) // propertyName takes precedence
-        indexSpec.index->setPropertyFunction(propertyFunction);
+    indexSpec.index = new JsonDbIndex(mFilename, this);
+    indexSpec.index->setIndexSpec(indexSpec);
     indexSpec.index->setCacheSize(jsondbSettings->cacheSize());
-    bool indexExists = indexSpec.index->exists();
     indexSpec.index->open();
 
     QJsonObject indexObject;
@@ -314,16 +320,12 @@ bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &proper
     Q_ASSERT(!name.isEmpty());
     Q_ASSERT(mIndexes.contains(name));
 
-    QByteArray baIndexObject;
-    bool needsReindexing = !indexExists;
-    if (indexExists && (indexSpec.index->stateNumber() != mStateNumber)) {
-        needsReindexing = true;
+    if (indexSpec.index->stateNumber() == 0 || indexSpec.index->stateNumber() != mStateNumber) {
         if (jsondbSettings->verbose())
             qDebug() << "Index" << name << "stateNumber" << indexSpec.index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing" << "clearing";
         indexSpec.index->clearData();
+        reindexObjects(name, stateNumber());
     }
-    if (needsReindexing)
-        reindexObjects(name, path, stateNumber());
 
     return true;
 }
@@ -354,7 +356,7 @@ bool JsonDbObjectTable::removeIndex(const QString &indexName)
     return true;
 }
 
-void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringList &path, quint32 stateNumber)
+void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNumber)
 {
     Q_ASSERT(mIndexes.contains(indexName));
 
@@ -382,7 +384,7 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, const QStringLi
         JsonDbObject object = QJsonDocument::fromBinaryData(baObject).object();
         if (object.value(JsonDbString::kDeletedStr).toBool())
             continue;
-        QJsonValue fieldValue = object.propertyLookup(path);
+        QJsonValue fieldValue = object.propertyLookup(indexSpec.propertyName);
         if (!fieldValue.isNull())
             index->indexObject(objectKey, object, stateNumber);
     }

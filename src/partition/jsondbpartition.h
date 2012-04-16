@@ -114,6 +114,7 @@ public:
 
     void initIndexes();
     void flushCaches();
+    void closeIndexes();
     bool addIndex(const QString &indexName,
                   const QString &propertyName,
                   const QString &propertyType = QStringLiteral("string"),
@@ -150,7 +151,6 @@ public:
     inline void setName(const QString &name) { mPartitionName = name; }
     inline JsonDbOwner *defaultOwner() { return mDefaultOwner; }
 
-    void checkIndex(const QString &propertyName);
     bool compact();
     JsonDbStat stat() const;
 

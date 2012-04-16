@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_INDEX_H
-#define JSONDB_INDEX_H
+#ifndef JSONDB_INDEX_P_H
+#define JSONDB_INDEX_P_H
 
 #include <QObject>
 #include <QJSEngine>
@@ -51,86 +51,46 @@
 #include <qjsonobject.h>
 #include <qjsonvalue.h>
 
-#include "jsondbobject.h"
-
 #include "jsondbpartitionglobal.h"
-#include "jsondbobjectkey.h"
+#include "jsondbobject.h"
 #include "jsondbbtree.h"
+#include "jsondbcollator.h"
+#include "jsondbindex.h"
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-class JsonDbPartition;
+class JsonDbIndex;
 class JsonDbObjectTable;
-class IndexSpec;
 
-class JsonDbIndexPrivate;
-class Q_JSONDB_PARTITION_EXPORT JsonDbIndex : public QObject
+class JsonDbIndexPrivate
 {
-    Q_OBJECT
+    Q_DECLARE_PUBLIC(JsonDbIndex)
 public:
-    JsonDbIndex(const QString &fileName, JsonDbObjectTable *objectTable);
-    ~JsonDbIndex();
+    JsonDbIndexPrivate(JsonDbIndex *q);
+    ~JsonDbIndexPrivate();
 
-    void setIndexSpec(const IndexSpec &);
-    const IndexSpec &indexSpec() const;
+    JsonDbIndex *q_ptr;
+    IndexSpec mSpec;
+    JsonDbObjectTable *mObjectTable;
+    QString mPath;
+    QString mBaseName;
+    QStringList mPropertyNamePath;
+#ifndef NO_COLLATION_SUPPORT
+    JsonDbCollator mCollator;
+#endif
+    JsonDbBtree mBdb;
+    QJSEngine *mScriptEngine;
+    QJSValue   mPropertyFunction;
+    QList<QJsonValue> mFieldValues;
+    quint32 mCacheSize;
 
-    JsonDbBtree *bdb();
-
-    void indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
-    void deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
-    QList<QJsonValue> indexValues(JsonDbObject &object);
-
-    quint32 stateNumber() const;
-
-    JsonDbBtree::Transaction *begin();
-    bool commit(quint32);
-    bool abort();
-    bool clearData();
-
-    void setCacheSize(quint32 cacheSize);
-    bool open();
-    void close();
-    bool isOpen() const;
-
-    static bool validateIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex, QString &message);
-    static QString determineName(const JsonDbObject &index);
-
-private:
-    QJsonValue indexValue(const QJsonValue &v);
-
-private slots:
-    void propertyValueEmitted(QJSValue);
-
-private:
-    Q_DECLARE_PRIVATE(JsonDbIndex)
-    Q_DISABLE_COPY(JsonDbIndex)
-    QScopedPointer<JsonDbIndexPrivate> d_ptr;
-};
-
-class IndexSpec
-{
-public:
-    QString name;
-    QString propertyName;
-    QString propertyFunction;
-    QString propertyType;
-    QString locale;
-    QString collation;
-    QString casePreference;
-    Qt::CaseSensitivity caseSensitivity;
-    QStringList objectType;
-    bool    lazy;
-    QPointer<JsonDbIndex> index;
-
-    inline IndexSpec()
-        : caseSensitivity(Qt::CaseSensitive), lazy(false)
-    { }
+    QString fileName() const;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION
 
 QT_END_HEADER
 
-#endif // JSONDB_INDEX_H
+#endif // JSONDB_INDEX_P_H

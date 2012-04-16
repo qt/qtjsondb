@@ -110,6 +110,7 @@ public:
 
     bool open();
     void close();
+    bool isOpen() const;
 
     bool open(quint32 flags)
     { setFlags(QFlag(flags)); return open(); }

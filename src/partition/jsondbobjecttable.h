@@ -113,6 +113,7 @@ public:
 
     JsonDbStat stat() const;
     void flushCaches();
+    void closeIndexes();
 
     quint32 stateNumber() const { return mStateNumber; }
     quint32 storeStateChange(const ObjectKey &key, const JsonDbUpdate &stateChange);
@@ -139,7 +140,7 @@ public:
     { return addIndex(propertyName, propertyName, propertyType,
                       objectType.isEmpty() ? QStringList() : (QStringList() << objectType)); }
     bool removeIndex(const QString &indexName);
-    void reindexObjects(const QString &indexName, const QStringList &path, quint32 stateNumber);
+    void reindexObjects(const QString &indexName, quint32 stateNumber);
     void indexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
     void deindexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
     void updateIndex(JsonDbIndex *index);    

@@ -725,6 +725,15 @@ void JsonDbPartition::flushCaches()
         it.value()->reduceMemoryUsage();
 }
 
+void JsonDbPartition::closeIndexes()
+{
+    mObjectTable->closeIndexes();
+    QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin(), e = mViews.end();
+    for (; it != e; ++it) {
+        it.value()->closeIndexes();
+    }
+}
+
 void JsonDbPartition::initIndexes()
 {
     QByteArray baPropertyName;
@@ -810,7 +819,7 @@ void JsonDbPartition::checkIndexConsistency(JsonDbObjectTable *objectTable, Json
     quint32 indexStateNumber = index->bdb()->tag();
     quint32 objectStateNumber = objectTable->stateNumber();
     if (indexStateNumber > objectTable->stateNumber()) {
-        qCritical() << "reverting index" << index->propertyName() << indexStateNumber << objectStateNumber;
+        qCritical() << "reverting index" << index->indexSpec().propertyName << indexStateNumber << objectStateNumber;
         while (indexStateNumber > objectTable->stateNumber()) {
             int rc = index->bdb()->rollback();
             quint32 newIndexStateNumber = index->bdb()->tag();
@@ -1424,13 +1433,6 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 JsonDbWriteResult JsonDbPartition::updateObject(const JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode, JsonDbUpdateList *changeList)
 {
     return updateObjects(owner, JsonDbObjectList() << object, mode, changeList);
-}
-
-void JsonDbPartition::checkIndex(const QString &propertyName)
-{
-// TODO
-    if (mObjectTable->indexSpec(propertyName))
-        mObjectTable->indexSpec(propertyName)->index->checkIndex();
 }
 
 bool JsonDbPartition::compact()

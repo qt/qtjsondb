@@ -62,9 +62,18 @@ JsonDbBtree::~JsonDbBtree()
     delete mBtree;
 }
 
-bool JsonDbBtree::open(const QString &filename, OpenFlags flags)
+void JsonDbBtree::setFileName(const QString &filename)
 {
     mBtree->setFileName(filename);
+}
+
+QString JsonDbBtree::fileName() const
+{
+    return mBtree->fileName();
+}
+
+bool JsonDbBtree::open(OpenFlags flags)
+{
 #ifdef JSONDB_USE_HBTREE
     HBtree::OpenMode mode = HBtree::ReadWrite;
     if (flags & ReadOnly)
@@ -82,7 +91,13 @@ bool JsonDbBtree::open(const QString &filename, OpenFlags flags)
 void JsonDbBtree::close()
 {
     Q_ASSERT(mBtree);
-    mBtree->close();
+    if (mBtree->isOpen())
+        mBtree->close();
+}
+
+bool JsonDbBtree::isOpen() const
+{
+    return mBtree->isOpen();
 }
 
 bool JsonDbBtree::putOne(const QByteArray &key, const QByteArray &value)
@@ -125,9 +140,13 @@ bool JsonDbBtree::clearData()
 #ifdef JSONDB_USE_HBTREE
     return mBtree->clearData();
 #else
-    close();
-    QFile::remove(mBtree->fileName());
-    return mBtree->open();
+    QString fileName = mBtree->fileName();
+    if (QFile::exists(fileName)) {
+        close();
+        QFile::remove(fileName);
+        return mBtree->open();
+    }
+    return true;
 #endif
 }
 

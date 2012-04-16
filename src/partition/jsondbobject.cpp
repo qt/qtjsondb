@@ -577,7 +577,7 @@ bool JsonDbObject::operator <(const JsonDbObject &other) const
 
 QJsonValue JsonDbObject::propertyLookup(const QString &path) const
 {
-    return propertyLookup(path.split('.'));
+    return propertyLookup(path.split(QLatin1Char('.')));
 }
 
 QJsonValue JsonDbObject::propertyLookup(const QStringList &path) const

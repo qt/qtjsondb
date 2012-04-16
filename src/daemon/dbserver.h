@@ -104,6 +104,7 @@ private:
 
     bool loadPartitions();
     void reduceMemoryUsage();
+    void closeIndexes();
     JsonDbStat stat() const;
 
     void processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode, const QString &partitionName, int id);

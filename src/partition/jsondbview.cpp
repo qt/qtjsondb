@@ -520,6 +520,11 @@ void JsonDbView::reduceMemoryUsage()
         it.value()->releaseScriptEngine();
 }
 
+void JsonDbView::closeIndexes()
+{
+    mViewObjectTable->closeIndexes();
+}
+
 bool JsonDbView::isActive() const
 {
     foreach (JsonDbMapDefinition *mapDef, mMapDefinitions) {
