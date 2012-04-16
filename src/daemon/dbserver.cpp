@@ -63,19 +63,8 @@ QT_USE_NAMESPACE_JSONDB_PARTITION
 
 static const int gReadBufferSize = 65536;
 
-static QJsonObject createError( JsonDbError::ErrorCode code, const QString& message )
-{
-    QJsonObject map;
-    map.insert(JsonDbString::kResultStr, QJsonValue());
-    QJsonObject errormap;
-    errormap.insert(JsonDbString::kCodeStr, (int)code);
-    errormap.insert(JsonDbString::kMessageStr, message);
-    map.insert( JsonDbString::kErrorStr, errormap );
-    return map;
-}
-
-static void sendError( JsonStream *stream, JsonDbError::ErrorCode code,
-                       const QString& message, int id )
+void DBServer::sendError( JsonStream *stream, JsonDbError::ErrorCode code,
+                          const QString& message, int id )
 {
     QJsonObject map;
     map.insert( JsonDbString::kResultStr, QJsonValue());
@@ -85,9 +74,16 @@ static void sendError( JsonStream *stream, JsonDbError::ErrorCode code,
     map.insert( JsonDbString::kErrorStr, errormap );
     map.insert( JsonDbString::kIdStr, id );
 
-    if (jsondbSettings->debug())
-        qDebug() << "Sending error" << map;
     stream->send(map);
+
+    QString processName;
+    if (jsondbSettings->verboseErrors()) {
+        if (mOwners.contains(stream->device())) {
+            OwnerInfo &ownerInfo = mOwners[stream->device()];
+            qDebug() << "Error for pid" << ownerInfo.pid << ownerInfo.processName << "error.code" << code << message;
+        } else
+            qDebug() << "Client error" << map;
+    }
 }
 
 DBServer::DBServer(const QString &searchPath, QObject *parent) :
@@ -386,11 +382,13 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
     if (!(jsondbSettings->enforceAccessControl() || mOwners.contains(stream->device()))) {
         // We are not enforcing policies here, allow requests
         // from all applications.
-        mOwners[device] = createDummyOwner(stream);
+        mOwners[device].owner = createDummyOwner(stream);
     }
 
+    // now capture pid and process name
+    // and owner if we are enforcing policies
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
-    if (!mOwners.contains(device)) {
+    if (!mOwners.contains(device) || !mOwners.value(device).pid) {
         ucred peercred;
         socklen_t peercredlen = sizeof peercred;
         int s = 0;
@@ -411,10 +409,21 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
             return 0;
         }
 
-        QScopedPointer<JsonDbOwner> owner(new JsonDbOwner(this));
-        if (owner->setOwnerCapabilities (peercred.uid, mDefaultPartition))
-            mOwners[stream->device()] = owner.take();
-        else return 0;
+        OwnerInfo &ownerInfo = mOwners[stream->device()];
+        ownerInfo.pid = peercred.pid;
+        QFile cmdline(QString("/proc/%2/cmdline").arg(peercred.pid));
+        if (cmdline.open(QIODevice::ReadOnly)) {
+            QByteArray rawProcessName = cmdline.readAll();
+            rawProcessName.replace(0, ' ');
+            ownerInfo.processName = QString::fromLatin1(rawProcessName);
+        }
+
+        if (jsondbSettings->enforceAccessControl()) {
+            QScopedPointer<JsonDbOwner> owner(new JsonDbOwner(this));
+            if (owner->setOwnerCapabilities (peercred.uid, mDefaultPartition))
+                ownerInfo.owner = owner.take();
+            else return 0;
+        }
     }
 #else
     // security hole
@@ -425,11 +434,11 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
         owner->setDomain("unknown app domain");
         owner->setAllowAll(true);
         owner->setStorageQuota(-1);
-        mOwners[device] = owner;
+        mOwners[device].owner = owner;
     }
 #endif
-    Q_ASSERT(mOwners[device]);
-    return mOwners[device];
+    Q_ASSERT(mOwners[device].owner);
+    return mOwners[device].owner;
 }
 
 /*!
@@ -441,22 +450,22 @@ JsonDbOwner *DBServer::createDummyOwner( JsonStream *stream)
     if (jsondbSettings->enforceAccessControl())
         return 0;
 
-    JsonDbOwner *owner = mOwners.value(stream->device());
+    JsonDbOwner *owner = mOwners.value(stream->device()).owner;
     if (owner)
         return owner;
 
     owner = new JsonDbOwner(this);
     owner->setOwnerId(QString("unknown app"));
     owner->setDomain(QString("unknown domain"));
-    mOwners[stream->device()] = owner;
+    mOwners[stream->device()].owner = owner;
 
-    return mOwners[stream->device()];
+    return owner;
 }
 
 void DBServer::notified(const QString &notificationId, quint32 stateNumber, const QJsonObject &object, const QString &action)
 {
     if (jsondbSettings->debug())
-        qDebug() << "notificationId" << notificationId << "object" << object;
+        qDebug() << "notificationId" << notificationId << "object" << object << "action" << action;
     JsonStream *stream = mNotifications.value(notificationId);
     // if the notified signal() is delivered after the notification has been deleted,
     // then there is no stream to send to
@@ -805,11 +814,8 @@ void DBServer::processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDb
     }
 
     if (errorCode != JsonDbError::NoError) {
-        QJsonObject error;
-        error.insert(JsonDbString::kCodeStr, errorCode);
-        error.insert(JsonDbString::kMessageStr, errorMsg);
-        response.insert(JsonDbString::kErrorStr, error);
-        response.insert(JsonDbString::kResultStr, QJsonValue());
+        sendError(stream, errorCode, errorMsg, id);
+        return;
     }
 
     stream->send(response);
@@ -818,9 +824,7 @@ void DBServer::processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDb
 void DBServer::processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id)
 {
     if (object.type() != QJsonValue::Object) {
-        QJsonObject errorResponse = createError(JsonDbError::InvalidRequest, "Invalid read request");
-        errorResponse.insert(JsonDbString::kIdStr, id);
-        stream->send(errorResponse);
+        sendError(stream, JsonDbError::InvalidRequest, "Invalid read request", id);
         return;
     }
 
@@ -834,18 +838,23 @@ void DBServer::processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonVa
     int limit = request.contains(JsonDbString::kLimitStr) ? request.value(JsonDbString::kLimitStr).toDouble() : -1;
     int offset = request.value(JsonDbString::kOffsetStr).toDouble();
 
-    if (limit < -1)
-        response = createError(JsonDbError::InvalidLimit, "Invalid limit");
-    else if (offset < 0)
-        response = createError(JsonDbError::InvalidOffset, "Invalid offset");
-    else if (query.isEmpty())
-        response = createError(JsonDbError::MissingQuery, "Missing query string");
+    JsonDbError::ErrorCode errorCode = JsonDbError::NoError;
+    QLatin1String errorMessage("");
+
+    if (limit < -1) {
+        errorCode = JsonDbError::InvalidLimit;
+        errorMessage = QLatin1String("Invalid limit");
+    } else if (offset < 0) {
+        errorCode = JsonDbError::InvalidOffset;
+        errorMessage = QLatin1String("Invalid offset");
+    } else if (query.isEmpty()) {
+        errorCode = JsonDbError::MissingQuery;
+        errorMessage = QLatin1String("Missing query string");
+    }
 
     // response should only contain the id at this point
-    if (response.contains(JsonDbString::kErrorStr)) {
-        response.insert(JsonDbString::kIdStr, id);
-        response.insert(JsonDbString::kResultStr, QJsonValue());
-        stream->send(response);
+    if (errorCode != JsonDbError::NoError) {
+        sendError(stream, errorCode, errorMessage, id);
         return;
     }
 
@@ -858,8 +867,11 @@ void DBServer::processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonVa
         debugQuery(parsedQuery.data(), limit, offset, queryResult);
 
     if (queryResult.error.type() != QJsonValue::Null) {
-        response.insert(JsonDbString::kErrorStr, queryResult.error);
-        response.insert(JsonDbString::kResultStr, QJsonValue());
+        sendError(stream,
+                  static_cast<JsonDbError::ErrorCode>(queryResult.error.toObject().value(JsonDbString::kCodeStr).toDouble()),
+                  queryResult.error.toObject().value(JsonDbString::kMessageStr).toString(),
+                  id);
+        return;
     } else {
         QJsonObject result;
         QJsonArray data;
@@ -898,7 +910,8 @@ void DBServer::processChangesSince(JsonStream *stream, JsonDbOwner *owner, const
         JsonDbPartition *partition = mPartitions.value(partitionName, mDefaultPartition);
         result = partition->changesSince(stateNumber, limitTypes);
      } else {
-        result = createError(JsonDbError::InvalidRequest, "Invalid changes since request");
+        sendError(stream, JsonDbError::InvalidRequest, "Invalid changes since request", id);
+        return;
     }
 
     result.insert( JsonDbString::kIdStr, id );
@@ -1449,7 +1462,7 @@ void DBServer::handleConnectionError()
 void DBServer::removeConnection()
 {
     QIODevice *connection = qobject_cast<QIODevice *>(sender());
-    JsonDbOwner *owner = mOwners[connection];
+    JsonDbOwner *owner = mOwners[connection].owner;
     QMutableMapIterator<QString, JsonStream *> iter(mNotifications);
     while (iter.hasNext()) {
         iter.next();
@@ -1472,7 +1485,7 @@ void DBServer::removeConnection()
         mConnections.remove(connection);
     }
     if (mOwners.contains(connection)) {
-        JsonDbOwner *owner = mOwners.value(connection);
+        JsonDbOwner *owner = mOwners.value(connection).owner;
         if (owner)
             owner->deleteLater();
         mOwners.remove(connection);

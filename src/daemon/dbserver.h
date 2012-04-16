@@ -127,7 +127,8 @@ private:
 
     JsonDbOwner *getOwner( JsonStream *stream);
     JsonDbOwner *createDummyOwner( JsonStream *stream);
-
+    void sendError( JsonStream *stream, JsonDbError::ErrorCode code,
+                    const QString& message, int id );
 
     QHash<QString, JsonDbPartition *> mPartitions;
     JsonDbPartition *mDefaultPartition;
@@ -150,7 +151,16 @@ private:
     QTcpServer                      *mTcpServer;
     QMap<QIODevice*,JsonStream *>    mConnections;
     JsonDbOwner                     *mOwner;
-    QMap<QIODevice*,JsonDbOwner*>    mOwners;
+
+    // per connection owner info
+    class OwnerInfo {
+    public:
+        OwnerInfo() : owner(0), pid(0) {};
+        JsonDbOwner *owner;
+        int          pid;
+        QString      processName;
+    };
+    QMap<QIODevice*,OwnerInfo>       mOwners;
     QMap<QString,JsonStream *>       mNotifications; // maps notification Id to socket
     bool mCompactOnClose;
 };

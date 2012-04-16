@@ -392,6 +392,8 @@ void JsonDbMapDefinition::setError(const QString &errorMsg)
 {
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
+    if (jsondbSettings->verboseErrors())
+        qDebug() << "Error in Map definition" << mTargetType << errorMsg;
     if (mPartition)
         mPartition->updateObject(mOwner, mDefinition, JsonDbPartition::Replace);
 }

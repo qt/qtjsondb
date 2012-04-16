@@ -122,6 +122,7 @@ static void usage()
          << "     -performance-log    Print timings of database operations" << endl
 #endif
          << "     -verbose" << endl
+         << "     -verbose-errors     Print client errors" << endl
          << "     -clear              Clear the database on startup" << endl
          << "     -pid pidfilename" << endl
          << "     -compact-on-exit    Compact database before exiting" << endl
@@ -204,6 +205,8 @@ int main(int argc, char * argv[])
             jsondbSettings->setDebug(true);
         } else if (arg == "-verbose") {
             jsondbSettings->setVerbose(true);
+        } else if (arg == "-verbose-errors") {
+            jsondbSettings->setVerboseErrors(true);
         } else if (arg == "-performance-log") {
             jsondbSettings->setPerformanceLog(true);
 #endif

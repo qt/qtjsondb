@@ -270,6 +270,8 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
 {
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
+    if (jsondbSettings->verboseErrors())
+        qDebug() << "Error in Reduce definition" << mTargetType << errorMsg;
     if (mPartition)
         mPartition->updateObject(mOwner, mDefinition, JsonDbPartition::Replace);
 }
