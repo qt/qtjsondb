@@ -73,7 +73,7 @@ Item {
             if (!sharedPartitionAvialable) {
                 console.log("!!!!!!! No valid partition found !!!!!!!!!!!");
                 console.log("Error : Partition for this example is not available");
-                console.log("Run jsondb daemon in examples/declarative directory to load partiions.json");
+                console.log("Run jsondb daemon in examples/declarative directory to load partions.json");
             } else {
                 contacts.partition = nokiaPartition;
             }

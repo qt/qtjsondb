@@ -73,7 +73,7 @@ Item {
             if (validPartitions != 2) {
                 console.log("!!!!!!! No valid partitions found !!!!!!!!!!!");
                 console.log("Error : Partitions for this example are not available");
-                console.log("Run jsondb daemon in examples/declarative directory to load partiions.json");
+                console.log("Run jsondb daemon in examples/declarative directory to load partions.json");
             } else {
                 nokiaPartition  = JsonDb.partition("com.nokia.shared");
                 nokiaPartition2  = JsonDb.partition("com.nokia.shared2");

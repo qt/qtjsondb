@@ -135,37 +135,25 @@ Rectangle {
         }
     }
 
-    function partitionCreateCallback(error, response) {
-        if (error) {
-            console.log("Failed to create Partitions:" + JSON.stringify(error));
-            return;
-        }
-        sharedPartition  = JsonDb.partition("com.nokia.Shared");
-        normalQuery.partition = sharedPartition;
-    }
-
     function checkForPartitions(error, result) {
         if (error) {
             console.log("Failed to list Partitions:" + JSON.stringify(error));
         } else {
+            var sharedPartitionAvialable = false;
             // result is an array of objects describing the know partitions
-            var foundNokiaPartition = false;
             for (var i = 0; i < result.length; i++) {
-                console.log("["+i+"] : "+ result[i].name);
-                if (result[i].name === "com.nokia.Shared") {
-                    foundNokiaPartition = true;
-                    sharedPartition  = JsonDb.partition("com.nokia.Shared");
-                    normalQuery.partition = sharedPartition;
+                if (result[i].name === "com.nokia.shared") {
+                    sharedPartitionAvialable = true;
+                    break;
                 }
             }
-            var partitionList = new Array();
-            var idx = 0;
-            if (!foundNokiaPartition) {
-                partitionList[idx] = {_type :"Partition", name :"com.nokia.Shared"};
-                idx++;
-            }
-            if (idx>0) {
-                systemPartition.create(partitionList, partitionCreateCallback);
+            if (!sharedPartitionAvialable) {
+                console.log("!!!!!!! No valid partition found !!!!!!!!!!!");
+                console.log("Error : Partition for this example is not available");
+                console.log("Run jsondb daemon in examples/declarative directory to load partions.json");
+            } else {
+                sharedPartition  = JsonDb.partition("com.nokia.shared");
+                normalQuery.partition = sharedPartition;
             }
         }
     }
