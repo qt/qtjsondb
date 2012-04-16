@@ -122,9 +122,13 @@ bool JsonDbBtree::removeOne(const QByteArray &key)
 bool JsonDbBtree::clearData()
 {
     Q_ASSERT(isWriting() == false);
+#ifdef JSONDB_USE_HBTREE
+    return mBtree->clearData();
+#else
     close();
     QFile::remove(mBtree->fileName());
     return mBtree->open();
+#endif
 }
 
 bool JsonDbBtree::compact()

@@ -557,6 +557,7 @@ private slots:
     void deleteAlotNoSyncReopen_data();
     void deleteAlotNoSyncReopen();
     void customBlockSize();
+    void clearData();
 
 private:
     void setTestData(QList<int> itemCounts, QList<int> keySizes, QList<int> dataSizes, bool addCmpBool = false, bool addRandBool = false, bool addPreviousBool = false);
@@ -2634,6 +2635,34 @@ void TestHBtree::customBlockSize()
     QVERIFY(txn);
     QCOMPARE(txn->get(QByteArray("foo")), QByteArray("bar"));
     txn->abort();
+}
+
+void TestHBtree::clearData()
+{
+    int numItems = 100;
+
+    for (int i = 0; i < numItems; ++i) {
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(transaction);
+        QVERIFY(transaction->put(QByteArray::number(i), QByteArray::number(i)));
+        QVERIFY(transaction->commit(i));
+    }
+
+    for (int i = 0; i < numItems; ++i) {
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
+        QVERIFY(transaction);
+        QCOMPARE(transaction->get(QByteArray::number(i)), QByteArray::number(i));
+        transaction->abort();
+    }
+
+    QVERIFY(db->clearData());
+
+    for (int i = 0; i < numItems; ++i) {
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
+        QVERIFY(transaction);
+        QCOMPARE(transaction->get(QByteArray::number(i)), QByteArray());
+        transaction->abort();
+    }
 }
 
 QTEST_MAIN(TestHBtree)

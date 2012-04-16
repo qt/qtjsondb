@@ -45,6 +45,7 @@
 #include <QDebug>
 #include <QByteArray>
 #include <QScopedPointer>
+#include <QFile>
 
 #include "hbtreetransaction.h"
 #include "hbtreecursor.h"
@@ -138,6 +139,7 @@ public:
     size_t size() const;
     bool sync();
     bool rollback();
+    bool clearData();
 
     HBtreeTransaction *beginTransaction(HBtreeTransaction::Type type);
 

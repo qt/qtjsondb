@@ -2808,6 +2808,14 @@ bool HBtree::rollback()
     return d->rollback();
 }
 
+bool HBtree::clearData()
+{
+    Q_D(HBtree);
+    d->close(false);
+    QFile::remove(d->fileName_);
+    return open();
+}
+
 HBtreeTransaction *HBtree::beginTransaction(HBtreeTransaction::Type type)
 {
     Q_D(HBtree);
