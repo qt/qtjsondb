@@ -96,6 +96,7 @@ private slots:
     void updateRequest();
     void privatePartition();
     void invalidPrivatePartition();
+    void removeRequest();
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
@@ -704,6 +705,76 @@ void TestQJsonDbRequest::invalidPrivatePartition()
     waitForResponse(&write);
     QVERIFY(mRequestErrors.contains(&write));
     QCOMPARE(mRequestErrors[&write], QJsonDbRequest::InvalidPartition);
+}
+
+/*!
+    Check if removing an object works and throws errors if it doesn't work.
+*/
+void TestQJsonDbRequest::removeRequest()
+{
+    QVERIFY(mConnection);
+
+    // -- write some objects
+    QObject parent;
+    writeTestObject(&parent, QStringLiteral("removeTest"), 0);
+    writeTestObject(&parent, QStringLiteral("removeTest"), 1);
+    writeTestObject(&parent, QStringLiteral("removeTest"), 2);
+    writeTestObject(&parent, QStringLiteral("removeTest"), 3);
+
+    // -- read the objects
+    QJsonDbReadRequest req2(QString("[?_type=\"removeTest\"]"));
+    mConnection->send(&req2);
+    QVERIFY(waitForResponse(&req2));
+
+    QList<QJsonObject> results = req2.takeResults();
+    QCOMPARE(results.count(), 4);
+
+    QJsonDbRemoveRequest req3(results);
+
+    // try to delete one object
+    req3.setObjects(QList<QJsonObject>() << results[0] );
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QCOMPARE(req3.takeResults().size(), 1);
+    QCOMPARE(req3.status(), QJsonDbRequest::Finished);
+
+    // try to delete an object again. It's a replay, not an error?
+    req3.setObjects(QList<QJsonObject>() << results[0] );
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(!mRequestErrors.contains(&req3));
+    QCOMPARE(req3.status(), QJsonDbRequest::Finished);
+
+
+    QJsonObject obj;
+    obj.insert(typeStr(), QJsonValue(QStringLiteral("removeTest")));
+
+    // try to delete an object without uuid
+    QJsonDbRemoveRequest req4(QList<QJsonObject>() << obj);
+    mConnection->send(&req4);
+    QVERIFY(waitForResponse(&req4));
+    QVERIFY(mRequestErrors.contains(&req4));
+    QCOMPARE(req4.status(), QJsonDbRequest::Error);
+    QCOMPARE(mRequestErrors.value(&req4), QJsonDbRequest::MissingUUID);
+
+    // try to delete no objects
+    req3.setObjects(QList<QJsonObject>());
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(mRequestErrors.contains(&req3));
+    QCOMPARE(req3.status(), QJsonDbRequest::Error);
+    QCOMPARE(mRequestErrors.value(&req3), QJsonDbRequest::MissingObject);
+
+    // try to delete an object without type
+    obj.remove(typeStr());
+    obj.insert(uuidStr(), results[0].value(uuidStr()));
+    req3.setObjects(QList<QJsonObject>() << obj);
+    mConnection->send(&req3);
+    QVERIFY(waitForResponse(&req3));
+    QVERIFY(mRequestErrors.contains(&req3));
+    QCOMPARE(req3.status(), QJsonDbRequest::Error);
+    QCOMPARE(mRequestErrors.value(&req3), QJsonDbRequest::MissingType);
+
 }
 
 QTEST_MAIN(TestQJsonDbRequest)
