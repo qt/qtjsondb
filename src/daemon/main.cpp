@@ -306,7 +306,10 @@ int main(int argc, char * argv[])
         ::kill(::getpid(), SIGSTOP);
 #endif
     int result = app.exec();
-    fclose(logstream);
-    logstream = NULL;
+
+    if (logstream) {
+        fclose(logstream);
+        logstream = NULL;
+    }
     return result;
 }
