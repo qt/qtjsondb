@@ -46,10 +46,10 @@
 #include <QByteArray>
 #include <QMap>
 
-#include "qkeyvaluestoretxn.h"
 #include "qkeyvaluestore_p.h"
-#include "qkeyvaluestorecursor.h"
 
+class QKeyValueStoreTxn;
+class QKeyValueStoreCursor;
 class QKeyValueStore {
     QKeyValueStorePrivate *p;
 public:

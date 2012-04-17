@@ -42,11 +42,10 @@
 #ifndef QKEYVALUESTORECURSOR_H
 #define QKEYVALUESTORECURSOR_H
 
-#include "qkeyvaluestore.h"
-#include "qkeyvaluestoretxn.h"
 #include "qkeyvaluestorecursor_p.h"
 
 class QKeyValueStore;
+class QKeyValueStoreTxn;
 class QKeyValueStoreCursor
 {
     QKeyValueStoreCursorPrivate *p;
@@ -56,6 +55,11 @@ public:
 
     QKeyValueStoreCursor(const QKeyValueStoreCursor &other);
     QKeyValueStoreCursor &operator=(const QKeyValueStoreCursor &other);
+
+    enum CursorMatchPolicy {
+        EqualOrLess,
+        EqualOrGreater
+    };
 
     bool current(QByteArray *baKey, QByteArray *baValue) const;
 
@@ -69,7 +73,8 @@ public:
     bool previous();
 
     bool seek(const QByteArray &baKey);
-    bool seekRange(const QByteArray &baKey);
+    bool seekRange(const QByteArray &baKey,
+                   CursorMatchPolicy direction = EqualOrGreater);
 };
 
 #endif // QKEYVALUESTORECURSOR_H

@@ -72,7 +72,7 @@ bool QKeyValueStoreCursor::next()
 
 bool QKeyValueStoreCursor::previous()
 {
-    return p->prev();
+    return p->previous();
 }
 
 bool QKeyValueStoreCursor::current(QByteArray *baKey, QByteArray *baValue) const
@@ -85,9 +85,10 @@ bool QKeyValueStoreCursor::seek(const QByteArray &baKey)
     return p->seek(baKey);
 }
 
-bool QKeyValueStoreCursor::seekRange(const QByteArray &baKey)
+bool QKeyValueStoreCursor::seekRange(const QByteArray &baKey,
+                                     CursorMatchPolicy direction)
 {
-    return p->seekRange(baKey);
+    return p->seekRange(baKey, (QKeyValueStoreCursorPrivate::CursorMatchPolicy)direction);
 }
 
 /*
@@ -108,13 +109,9 @@ bool QKeyValueStoreCursor::seekRange(const QByteArray &baKey)
 // Joao's hack to get a const element
 template <class T> const T &const_(const T &t) { return t; }
 QKeyValueStoreCursorPrivate::QKeyValueStoreCursorPrivate(QKeyValueStoreTxn *txn) :
+    m_state(Uninitialized),
     m_txn(txn)
 {
-    if (TXN_OFFSETS.isEmpty())
-        return;
-    m_cursor = TXN_OFFSETS.constBegin();
-    // Load the corresponding key
-    m_key = m_cursor.key();
 }
 
 QKeyValueStoreCursorPrivate::~QKeyValueStoreCursorPrivate()
@@ -129,6 +126,13 @@ bool QKeyValueStoreCursorPrivate::first()
     m_cursor = TXN_OFFSETS.constBegin();
     // Load the corresponding key
     m_key = m_cursor.key();
+    // We use the transaction to find the item
+
+    if (!m_txn->get(m_key, &m_value)) {
+        m_state = NotFound;
+        return false;
+    }
+    m_state = Found;
     return true;
 }
 
@@ -141,33 +145,57 @@ bool QKeyValueStoreCursorPrivate::last()
     m_cursor--;
     // Load the corresponding key
     m_key = m_cursor.key();
+    // We use the transaction to find the item
+    if (!m_txn->get(m_key, &m_value)) {
+        m_state = NotFound;
+        return false;
+    }
+    m_state = Found;
     return true;
 }
 
 bool QKeyValueStoreCursorPrivate::next()
 {
+    if (m_state == Uninitialized)
+        return false;
     if (TXN_OFFSETS.isEmpty())
         return false;
     m_cursor++;
     if (m_cursor == TXN_OFFSETS.constEnd()) {
-        m_cursor--;
+        m_state = NotFound;
         return false;
     }
     // Load the corresponding key
     m_key = m_cursor.key();
+    // We use the transaction to find the item
+    if (!m_txn->get(m_key, &m_value)) {
+        m_state = NotFound;
+        return false;
+    }
+    m_state = Found;
     return true;
 }
 
-bool QKeyValueStoreCursorPrivate::prev()
+bool QKeyValueStoreCursorPrivate::previous()
 {
+    if (m_state == Uninitialized)
+        return false;
     if (TXN_OFFSETS.isEmpty())
         return false;
-    if (m_cursor == TXN_OFFSETS.constBegin())
+    if (m_cursor == TXN_OFFSETS.constBegin()) {
+        m_state = NotFound;
         return false;
+    }
     // Move to the right position
     m_cursor--;
     // Load the corresponding key
     m_key = m_cursor.key();
+    // We use the transaction to find the item
+    if (!m_txn->get(m_key, &m_value)) {
+        m_state = NotFound;
+        return false;
+    }
+    m_state = Found;
     return true;
 }
 
@@ -176,35 +204,67 @@ bool QKeyValueStoreCursorPrivate::prev()
  */
 bool QKeyValueStoreCursorPrivate::current(QByteArray *baKey, QByteArray *baValue) const
 {
+    if (m_state != Found)
+        return false;
     if (TXN_OFFSETS.isEmpty())
         return false;
     if (baKey)
         *baKey = m_key;
-    // We use the transaction to find the item
-    if (baValue) {
-        if (!m_txn->get(m_key, baValue))
-            return false;
-        m_value = *baValue;
-    }
+    if (baValue)
+        *baValue = m_value;
     return true;
 }
 
+/*
+ * Both seek and seekRange are stateless, so we create new iterators for them.
+ * This means that we cannot do lazy loading of values, but instead we need
+ * to retrieve the values at once.
+ */
 bool QKeyValueStoreCursorPrivate::seek(const QByteArray &baKey)
 {
+    m_state = NotFound;
     if (TXN_OFFSETS.contains(baKey)) {
         m_cursor = const_(TXN_OFFSETS).find(baKey);
-    } else {
+        m_key = m_cursor.key();
+        // We use the transaction to find the item
+        if (!m_txn->get(m_key, &m_value))
+            return false;
+    } else
         return false;
-    }
-    m_key = m_cursor.key();
+    m_state = Found;
     return true;
 }
 
-bool QKeyValueStoreCursorPrivate::seekRange(const QByteArray &baKey)
+bool QKeyValueStoreCursorPrivate::seekRange(const QByteArray &baKey,
+                                            CursorMatchPolicy direction)
 {
+    m_state = NotFound;
     m_cursor = const_(TXN_OFFSETS).lowerBound(baKey);
-    if (m_cursor == TXN_OFFSETS.constEnd())
-        return false;
+    switch (direction) {
+    case EqualOrLess:
+        /*
+         * If we are located at the first element, then it must be an exact
+         * match. Otherwise we have gone to the first element because the
+         * element was not present.
+         */
+        if ((m_cursor == TXN_OFFSETS.constBegin()) && (m_cursor.key() != baKey))
+            return false;
+        /*
+         * If it was a direct match we don't need to rewind :-)
+         */
+        if (m_cursor.key() != baKey)
+            m_cursor--;
+        break;
+    case EqualOrGreater:
+    default:
+        if (m_cursor == TXN_OFFSETS.constEnd())
+            return false;
+        break;
+    }
     m_key = m_cursor.key();
+    // We use the transaction to find the item
+    if (!m_txn->get(m_key, &m_value))
+        return false;
+    m_state = Found;
     return true;
 }

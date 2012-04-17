@@ -51,7 +51,6 @@
 #include <QDebug>
 
 #include "qkeyvaluestoreentry.h"
-#include "qkeyvaluestoretxn.h"
 #include "qkeyvaluestorefile.h"
 
 class QKeyValueStore;

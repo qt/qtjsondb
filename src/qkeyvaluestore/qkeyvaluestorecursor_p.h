@@ -57,13 +57,24 @@ public:
     bool first();
     bool last();
     bool next();
-    bool prev();
+    bool previous();
     bool current(QByteArray *baKey, QByteArray *baValue) const;
     bool seek(const QByteArray &baKey);
-    bool seekRange(const QByteArray &baKey);
+    enum CursorMatchPolicy {
+        EqualOrLess,
+        EqualOrGreater
+    };
+    enum CursorState {
+        Uninitialized,
+        Found,
+        NotFound
+    };
+    CursorState m_state;
+    bool seekRange(const QByteArray &baKey,
+            CursorMatchPolicy direction = EqualOrGreater);
 
     QByteArray m_key;
-    mutable QByteArray m_value;
+    QByteArray m_value;
     QKeyValueStoreTxn *m_txn;
     QMap<QByteArray, qint64>::const_iterator m_cursor;
     QKeyValueStore *m_store;

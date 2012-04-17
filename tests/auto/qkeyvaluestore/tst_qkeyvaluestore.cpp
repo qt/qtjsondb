@@ -85,6 +85,7 @@ private Q_SLOTS:
     void buildBTreeFromKnownState();
     void cursorSanityCheck();
     void cursorAscendingOrder();
+    void cursorDescendingOrder();
     void cursorSeek();
     void cursorSeekRange();
     void fileSanityCheck();
@@ -1149,6 +1150,7 @@ void QKeyValueStoreTest::cursorSanityCheck()
     // Now we have 100 items, let's use the cursor and iterate over the first and the last.
     QKeyValueStoreCursor *cursor = new QKeyValueStoreCursor(writeTxn);
     // At this point the cursor should be pointing to the first item
+    QVERIFY(cursor->first());
     QByteArray firstElementKey("key-0");
     QByteArray lastElementKey("key-99");
     QByteArray recoveredKey;
@@ -1199,6 +1201,7 @@ void QKeyValueStoreTest::cursorAscendingOrder()
     }
     // Now we have 100 items, let's use the cursor and iterate over them
     QKeyValueStoreCursor *cursor = new QKeyValueStoreCursor(writeTxn);
+    QVERIFY(cursor->first());
     // At this point the cursor should be pointing to the first item
     for (int i = 0; i < 10; i++) {
         QString number;
@@ -1225,6 +1228,71 @@ void QKeyValueStoreTest::cursorAscendingOrder()
             QCOMPARE(recoveredValue, value);
         }
     }
+    removeTemporaryFiles();
+}
+
+/*
+ * This is a funny test, descending order means ascending in a string kind of way.
+ * Therefore the keys are ordered as follows:
+ * key-99
+ * key-98
+ * ...
+ * key-20
+ * key-2
+ * ...
+ * key-11
+ * key-10
+ * key-1
+ * key-0
+ */
+void QKeyValueStoreTest::cursorDescendingOrder()
+{
+    removeTemporaryFiles();
+    QKeyValueStore storage(m_dbName);
+    QVERIFY(storage.open());
+    QByteArray value("012345678901234");
+    QKeyValueStoreTxn *writeTxn = storage.beginWrite();
+    for (int i = 0; i < 100; i++) {
+        QVERIFY2(writeTxn, "writeTxn is NULL");
+        QString number;
+        number.setNum(i);
+        QString baseKey("key-");
+        baseKey.append(number);
+        QByteArray key = baseKey.toAscii();
+        QVERIFY(writeTxn->put(key, value));
+    }
+    // Now we have 100 items, let's use the cursor and iterate over them
+    QKeyValueStoreCursor *cursor = new QKeyValueStoreCursor(writeTxn);
+    QVERIFY(cursor->last());
+    // At this point the cursor should be pointing to the last item
+    QByteArray recoveredKey;
+    QByteArray recoveredValue;
+    QByteArray key;
+    for (int i = 9; i > 0; i--) {
+        QString number;
+        number.setNum(i);
+        QString baseKey("key-");
+        baseKey.append(number);
+        for (int j = 9; j >= 0; j--, cursor->previous()) {
+            QString baseKey2(baseKey);
+            QString number2;
+            number2.setNum(j);
+            baseKey2.append(number2);
+            key = baseKey2.toAscii();
+            QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
+            QCOMPARE(recoveredKey, key);
+            QCOMPARE(recoveredValue, value);
+        }
+        QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
+        key = baseKey.toAscii();
+        QCOMPARE(recoveredKey, key);
+        QCOMPARE(recoveredValue, value);
+        QVERIFY(cursor->previous());
+    }
+    QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
+    key = "key-0";
+    QCOMPARE(recoveredKey, key);
+    QCOMPARE(recoveredValue, value);
     removeTemporaryFiles();
 }
 
@@ -1270,7 +1338,7 @@ void QKeyValueStoreTest::cursorSeek()
 
 /*
  * seek and seekRange are similar. The difference is on the "not found"
- * reply. While seeks returns false, seekRange can return an element.
+ * reply. While seeks returns false, seekRange might return an element.
  */
 void QKeyValueStoreTest::cursorSeekRange()
 {
@@ -1279,29 +1347,41 @@ void QKeyValueStoreTest::cursorSeekRange()
     QVERIFY(storage.open());
     QByteArray value("012345678901234");
     QKeyValueStoreTxn *writeTxn = storage.beginWrite();
-    for (int i = 0; i < 100; i++) {
+    for (int i = 1; i < 100; i++) {
         QVERIFY2(writeTxn, "writeTxn is NULL");
         QString number;
-        number.setNum(i);
+        // Only even numbers
+        number.setNum(i * 2);
         QString baseKey("key-");
         baseKey.append(number);
         QByteArray key = baseKey.toAscii();
         QVERIFY(writeTxn->put(key, value));
     }
     // Now we have 100 items, let's use the cursor and iterate over them.
+    // We do this first using the default EqualOrGreater policy.
     QKeyValueStoreCursor *cursor = new QKeyValueStoreCursor(writeTxn);
+    QVERIFY(cursor->first());
     // At this point the cursor should be pointing to the first item
     // First let's try seeking a known element
-    QByteArray key55("key-55");
+    QByteArray key54("key-54");
     QByteArray recoveredKey;
     QByteArray recoveredValue;
-    QVERIFY(cursor->seekRange(key55));
+    QVERIFY(cursor->seekRange(key54));
     QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
-    QCOMPARE(recoveredKey, key55);
+    QCOMPARE(recoveredKey, key54);
     QCOMPARE(recoveredValue, value);
     // Now let's try an unknown element
     QByteArray key999("key-999");
     QVERIFY2(!cursor->seekRange(key999), "We have an unknown element on the array (999)");
+    // Now let's try an element that does not exist but that will return a
+    // greater element
+    QByteArray key41("key-41");
+    QByteArray key42("key-42");
+    QVERIFY(cursor->seekRange(key41));
+    // It should return 42
+    QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
+    QCOMPARE(recoveredKey, key42);
+    QCOMPARE(recoveredValue, value);
     // And let's finish with a new known element
     QByteArray key10("key-10");
     QVERIFY(cursor->seekRange(key10));
@@ -1310,11 +1390,95 @@ void QKeyValueStoreTest::cursorSeekRange()
     QCOMPARE(recoveredValue, value);
     // Now we try elements that are not found but have a greater than
     QByteArray key101("key-101");
-    QByteArray key101greater("key-11");
+    QByteArray key101greater("key-102");
     QVERIFY(cursor->seekRange(key101));
     QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
     QCOMPARE(recoveredKey, key101greater);
     QCOMPARE(recoveredValue, value);
+    // Now, let's try the EqualOrLess policy.
+    QByteArray key52("key-52");
+    QVERIFY(cursor->seekRange(key52, QKeyValueStoreCursor::EqualOrLess));
+    QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
+    QCOMPARE(recoveredKey, key52);
+    QCOMPARE(recoveredValue, value);
+    QByteArray key50("key-50");
+    QByteArray key51("key-51");
+    QVERIFY(cursor->seekRange(key51, QKeyValueStoreCursor::EqualOrLess));
+    QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
+    QCOMPARE(recoveredKey, key50);
+    QCOMPARE(recoveredValue, value);
+    // Try an element smaller than the first element
+    QByteArray key1("key-1");
+    QVERIFY2(!cursor->seekRange(key1, QKeyValueStoreCursor::EqualOrLess), "We have an unknown element on the array (1)");
+    // Try an element larger than the first but smaller than the second, we
+    // should get the first element.
+    QByteArray key2Space("key-2 ");
+    QByteArray key2("key-2");
+    QVERIFY(cursor->seekRange(key2Space, QKeyValueStoreCursor::EqualOrLess));
+    QVERIFY(cursor->current(&recoveredKey, &recoveredValue));
+    QCOMPARE(recoveredKey, key2);
+    QCOMPARE(recoveredValue, value);
+    // Finally we will try a simple loop
+    // EqualOrGreater first
+    int index = 0;
+    int elements = 0;
+    QByteArray key90("key-90");
+    for (index = 90, cursor->seekRange(key90);
+         cursor->current(&recoveredKey, &recoveredValue);
+         cursor->next(), index+=2) {
+        QString number;
+        // Only even numbers
+        number.setNum(index);
+        QString baseKey("key-");
+        baseKey.append(number);
+        QByteArray key = baseKey.toAscii();
+        QCOMPARE(key, recoveredKey);
+        elements++;
+    }
+    QCOMPARE(elements, 5);
+    elements = 0;
+    QByteArray key99("key-99");
+    for (index = 99, cursor->seekRange(key99);
+         cursor->current(&recoveredKey, &recoveredValue);
+         cursor->next(), index+=2) {
+        QString number;
+        // Only even numbers
+        number.setNum(index);
+        QString baseKey("key-");
+        baseKey.append(number);
+        QByteArray key = baseKey.toAscii();
+        QCOMPARE(key, recoveredKey);
+        elements++;
+    }
+    // EqualOrLess now
+    for (index = 10, cursor->seekRange(key10, QKeyValueStoreCursor::EqualOrLess);
+         cursor->current(&recoveredKey, &recoveredValue);
+         cursor->previous(), index-=2) {
+        QString number;
+        // Only even numbers
+        number.setNum(index);
+        QString baseKey("key-");
+        baseKey.append(number);
+        QByteArray key = baseKey.toAscii();
+        QCOMPARE(key, recoveredKey);
+        elements++;
+    }
+    QCOMPARE(elements, 1);
+    elements = 0;
+    for (index = 1, cursor->seekRange(key1, QKeyValueStoreCursor::EqualOrLess);
+         cursor->current(&recoveredKey, &recoveredValue);
+         cursor->previous(), index-=2) {
+        QString number;
+        // Only even numbers
+        number.setNum(index);
+        QString baseKey("key-");
+        baseKey.append(number);
+        QByteArray key = baseKey.toAscii();
+        QCOMPARE(key, recoveredKey);
+        elements++;
+    }
+    QCOMPARE(elements, 0);
+
     // Done
     removeTemporaryFiles();
 }
