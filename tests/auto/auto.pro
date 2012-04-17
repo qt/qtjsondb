@@ -16,4 +16,5 @@ SUBDIRS = \
     qjsondbwatcher \
     qjsondbflushrequest \
     jsonstream \
-    hbtree
+    hbtree \
+    headersclean
