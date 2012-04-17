@@ -1320,7 +1320,7 @@ quint32 HBtreePrivate::putDataOnOverflow(const QByteArray &value)
         OverflowPage *overflowPage = static_cast<OverflowPage *>(newPage(PageInfo::Overflow));
         if (overflowPageNumber == PageInfo::INVALID_PAGE)
             overflowPageNumber = overflowPage->info.number;
-        quint32 sizeToPut = qMin((quint16)(value.size() - sizePut), capacity(overflowPage));
+        int sizeToPut = qMin((value.size() - sizePut), (int)capacity(overflowPage));
         HBTREE_DEBUG("putting" << sizeToPut << "bytes @ offset" << sizePut);
         overflowPage->data.resize(sizeToPut);
         memcpy(overflowPage->data.data(), value.constData() + sizePut, sizeToPut);
