@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_WRITE_REQUEST_P_H
-#define JSONDB_WRITE_REQUEST_P_H
+#ifndef QJSONDB_WRITE_REQUEST_P_H
+#define QJSONDB_WRITE_REQUEST_P_H
 
 //
 //  W A R N I N G
@@ -80,4 +80,4 @@ public:
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // JSONDB_WRITE_REQUEST_P_H
+#endif // QJSONDB_WRITE_REQUEST_P_H

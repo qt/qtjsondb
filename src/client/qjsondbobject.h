@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_OBJECT_H
-#define JSONDB_OBJECT_H
+#ifndef QJSONDB_OBJECT_H
+#define QJSONDB_OBJECT_H
 
 #include <QtCore/QJsonObject>
 #include <QtCore/QUuid>
@@ -80,4 +80,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif // JSONDB_OBJECT_H
+#endif // QJSONDB_OBJECT_H

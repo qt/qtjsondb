@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_CONNECTION_H
-#define JSONDB_CONNECTION_H
+#ifndef QJSONDB_CONNECTION_H
+#define QJSONDB_CONNECTION_H
 
 #include <QtCore/QObject>
 
@@ -126,4 +126,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif // JSONDB_CONNECTION_H
+#endif // QJSONDB_CONNECTION_H

@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_FLUSH_REQUEST_P_H
-#define JSONDB_FLUSH_REQUEST_P_H
+#ifndef QJSONDB_FLUSH_REQUEST_P_H
+#define QJSONDB_FLUSH_REQUEST_P_H
 
 #include <QtCore/QObject>
 #include <QtCore/QJsonObject>
@@ -78,4 +78,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif // JSONDB_FLUSH_REQUEST_P_H
+#endif // QJSONDB_FLUSH_REQUEST_P_H

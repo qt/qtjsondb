@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_GLOBAL_H
-#define JSONDB_GLOBAL_H
+#ifndef QJSONDB_GLOBAL_H
+#define QJSONDB_GLOBAL_H
 
 #include "QtCore/qglobal.h"
 
@@ -68,4 +68,4 @@
 QT_BEGIN_NAMESPACE_JSONDB
 QT_END_NAMESPACE_JSONDB
 
-#endif // JSONDB_GLOBAL_H
+#endif // QJSONDB_GLOBAL_H

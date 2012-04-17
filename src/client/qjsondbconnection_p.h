@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_CONNECTION_P_H
-#define JSONDB_CONNECTION_P_H
+#ifndef QJSONDB_CONNECTION_P_H
+#define QJSONDB_CONNECTION_P_H
 
 //
 //  W A R N I N G
@@ -114,4 +114,4 @@ public:
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // JSONDB_CONNECTION_P_H
+#endif // QJSONDB_CONNECTION_P_H

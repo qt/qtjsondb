@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_REQUEST_H
-#define JSONDB_REQUEST_H
+#ifndef QJSONDB_REQUEST_H
+#define QJSONDB_REQUEST_H
 
 #include <QtCore/QObject>
 #include <QtCore/QJsonObject>
@@ -128,4 +128,4 @@ QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
 
-#endif // JSONDB_REQUEST_H
+#endif // QJSONDB_REQUEST_H

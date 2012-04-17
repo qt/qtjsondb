@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_STRINGS_P_H
-#define JSONDB_STRINGS_P_H
+#ifndef QJSONDB_STRINGS_P_H
+#define QJSONDB_STRINGS_P_H
 
 //
 //  W A R N I N G
@@ -125,4 +125,4 @@ public:
 } // namespace JsonDbStrings
 QT_END_NAMESPACE_JSONDB
 
-#endif // JSONDB_STRINGS_P_H
+#endif // QJSONDB_STRINGS_P_H
