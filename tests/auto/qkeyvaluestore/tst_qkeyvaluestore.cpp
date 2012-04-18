@@ -94,6 +94,7 @@ private Q_SLOTS:
     void fileOffset();
     void fileSync();
     void fileTruncate();
+    void fileStoreAndLoad();
 #if 0
 #endif
 };
@@ -123,9 +124,7 @@ void QKeyValueStoreTest::sanityCheck()
 {
     removeTemporaryFiles();
     QKeyValueStore storage(m_dbName);
-    bool test = false;
-    test = storage.open();
-    QCOMPARE(test, true);
+    QVERIFY(storage.open());
 
     QKeyValueStoreTxn *readTxn = storage.beginRead();
     QVERIFY2(readTxn, "Read txn is NULL");
@@ -135,8 +134,7 @@ void QKeyValueStoreTest::sanityCheck()
     delete readTxn;
     delete writeTxn;
 
-    test = storage.close();
-    QCOMPARE(test, true);
+    QVERIFY(storage.close());
     removeTemporaryFiles();
 }
 
@@ -147,9 +145,7 @@ void QKeyValueStoreTest::storeAndLoad()
 {
     removeTemporaryFiles();
     QKeyValueStore storage(m_dbName);
-    bool test = false;
-    test = storage.open();
-    QCOMPARE(test, true);
+    QVERIFY(storage.open());
 
     // Set the sync threshold very low
     storage.setSyncThreshold(5);
@@ -160,22 +156,18 @@ void QKeyValueStoreTest::storeAndLoad()
     // Create a write transaction
     QKeyValueStoreTxn *writeTxn = storage.beginWrite();
     QVERIFY2(writeTxn, "Write txn is NULL");
-    test = writeTxn->put(key, value);
-    QCOMPARE(test, true);
-    test = writeTxn->commit(100);
-    QCOMPARE(test, true);
+    QVERIFY(writeTxn->put(key, value));
+    QVERIFY(writeTxn->commit(100));
 
     // Create a read transaction
     QKeyValueStoreTxn *readTxn = storage.beginRead();
     QVERIFY2(readTxn, "Read txn is NULL");
     QByteArray retrievedValue;
-    test = readTxn->get(key, &retrievedValue);
-    QCOMPARE(test, true);
+    QVERIFY(readTxn->get(key, &retrievedValue));
     QCOMPARE(value, retrievedValue);
     delete readTxn;
 
-    test = storage.close();
-    QCOMPARE(test, true);
+    QVERIFY(storage.close());
     removeTemporaryFiles();
 }
 
@@ -1084,9 +1076,7 @@ void QKeyValueStoreTest::buildBTreeFromKnownState()
 {
     removeTemporaryFiles();
     QKeyValueStore storage(m_dbName);
-    bool test = false;
-    test = storage.open();
-    QCOMPARE(test, true);
+    QVERIFY(storage.open());
     QByteArray value("012345678901234");
     for (int i = 0; i < 100; i++) {
         QKeyValueStoreTxn *writeTxn = storage.beginWrite();
@@ -1096,31 +1086,27 @@ void QKeyValueStoreTest::buildBTreeFromKnownState()
         QString baseKey("key-");
         baseKey.append(number);
         QByteArray key = baseKey.toAscii();
-        test = writeTxn->put(key, value);
-        QCOMPARE(test, true);
-        test = writeTxn->commit(100);
-        QCOMPARE(test, true);
+        QVERIFY(writeTxn->put(key, value));
+        QVERIFY(writeTxn->commit(i));
     }
     // At this time we only have two markers.
     QFile::copy(m_tree, m_treeCopy);
     // Now we close the file
-    test = storage.close();
+    QVERIFY(storage.close());
     // Remove the file
     QFile::remove(m_tree);
     QFile::rename(m_treeCopy, m_tree);
 
     // Now create a new storage and see if it builds the tree.
     QKeyValueStore storage2(m_dbName);
-    test = storage2.open();
-    QCOMPARE(test, true);
+    QVERIFY(storage2.open());
     QKeyValueStoreTxn *readTxn = storage2.beginRead();
     QVERIFY2(readTxn, "readTxn is NULL");
     QByteArray getKey("key-89");
     QByteArray getValue;
-    test = readTxn->get(getKey, &getValue);
-    QCOMPARE(test, true);
+    QVERIFY(readTxn->get(getKey, &getValue));
     QCOMPARE(getValue, value);
-    storage2.close();
+    QVERIFY(storage2.close());
     removeTemporaryFiles();
 }
 
@@ -1131,9 +1117,7 @@ void QKeyValueStoreTest::cursorSanityCheck()
 {
     removeTemporaryFiles();
     QKeyValueStore storage(m_dbName);
-    bool test = false;
-    test = storage.open();
-    QCOMPARE(test, true);
+    QVERIFY(storage.open());
     QByteArray value("012345678901234");
     QKeyValueStoreTxn *writeTxn = storage.beginWrite();
     for (int i = 0; i < 100; i++) {
@@ -1143,9 +1127,7 @@ void QKeyValueStoreTest::cursorSanityCheck()
         QString baseKey("key-");
         baseKey.append(number);
         QByteArray key = baseKey.toAscii();
-        test = writeTxn->put(key, value);
-        QCOMPARE(test, true);
-        QCOMPARE(test, true);
+        QVERIFY(writeTxn->put(key, value));
     }
     // Now we have 100 items, let's use the cursor and iterate over the first and the last.
     QKeyValueStoreCursor *cursor = new QKeyValueStoreCursor(writeTxn);
@@ -1616,6 +1598,29 @@ void QKeyValueStoreTest::fileTruncate()
     QVERIFY(file2.open());
     QCOMPARE(file2.size(), (qint64)0);
     QVERIFY(file2.close());
+    removeTemporaryFiles();
+}
+
+/*
+ * Create a file, write some data into it and then read it.
+ */
+void QKeyValueStoreTest::fileStoreAndLoad()
+{
+    removeTemporaryFiles();
+    QKeyValueStoreFile file("db.dat");
+    QVERIFY(file.open());
+    QCOMPARE(file.size(), (qint64)0);
+    // Write something to the file.
+    QCOMPARE(file.write(testString, testStringSize), (qint32)testStringSize);
+    QCOMPARE(file.size(), (qint64)testStringSize);
+    // Now read it back
+    char buffer[15];
+    QCOMPARE(file.read(buffer, testStringSize), (qint32)testStringSize);
+    QByteArray written(testString, testStringSize);
+    QByteArray got(buffer, testStringSize);
+    QCOMPARE(written, got);
+    // Done
+    QVERIFY(file.close());
     removeTemporaryFiles();
 }
 
