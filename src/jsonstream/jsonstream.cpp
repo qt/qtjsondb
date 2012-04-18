@@ -71,7 +71,7 @@ QIODevice *JsonStream::device() const
 /** Set the device used by the JsonStream.
     The stream does not take ownership of the device.
 */
-void JsonStream::setDevice(QIODevice *device)
+void JsonStream::setDevice(QIODevice *device, bool queued)
 {
     if (mDevice) {
         disconnect(mDevice, SIGNAL(readyRead()), this, SLOT(deviceReadyRead()));
@@ -80,7 +80,7 @@ void JsonStream::setDevice(QIODevice *device)
     }
     mDevice = device;
     if (mDevice) {
-        connect(mDevice, SIGNAL(readyRead()), this, SLOT(deviceReadyRead()));
+        connect(mDevice, SIGNAL(readyRead()), this, SLOT(deviceReadyRead()), queued ? Qt::QueuedConnection : Qt::DirectConnection);
         connect(mDevice, SIGNAL(bytesWritten(qint64)), this, SLOT(deviceBytesWritten(qint64)));
         connect(mDevice, SIGNAL(aboutToClose()), this, SIGNAL(aboutToClose()));
     }

@@ -69,7 +69,7 @@ public:
     explicit JsonStream(QObject *parent = 0);
 
     QIODevice *device() const;
-    void setDevice(QIODevice *device);
+    void setDevice(QIODevice *device, bool queued = false);
 
     bool send(const QJsonObject &document);
 
