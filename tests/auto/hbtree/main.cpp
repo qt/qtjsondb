@@ -1425,8 +1425,9 @@ void TestHBtree::cursorEqualOrGreaterMatch()
 
     QMap<QByteArray, QByteArray> keyValues;
 
-    for (int i = 0; i < numItems; ++i) {
-        QByteArray key = QByteArray::number(i);
+    // Subtract 3 to leave some room to check for keys that are not equal or greater
+    for (int i = 0; i < numItems - 3; ++i) {
+        QByteArray key = QByteArray::number(i * 2);
         QByteArray value = key + QByteArray('-', valueSize - key.size());
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
@@ -1467,7 +1468,7 @@ void TestHBtree::cursorEqualOrLessMatch()
 
     QMap<QByteArray, QByteArray> keyValues;
 
-    // start at 3 so that we can leave room for checking when there is no key equal or less
+    // Start at 3 so that we can leave room for checking when there is no key equal or less
     for (int i = 3; i < numItems; ++i) {
         QByteArray key = QByteArray::number(i * 2);
         QByteArray value = key + QByteArray('-', valueSize - key.size());
