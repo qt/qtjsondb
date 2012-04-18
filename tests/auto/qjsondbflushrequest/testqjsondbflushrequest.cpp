@@ -40,8 +40,14 @@
  ****************************************************************************/
 
 #include "qjsondbconnection.h"
+#include "qjsondbobject.h"
+#include "qjsondbreadrequest.h"
+#include "qjsondbwriterequest.h"
+#include "private/qjsondbflushrequest_p.h"
+
 #include "testhelper.h"
 
+#include <QDebug>
 #include <QTest>
 
 QT_USE_NAMESPACE_JSONDB
@@ -57,6 +63,8 @@ private slots:
     void cleanupTestCase();
     void init();
     void cleanup();
+
+    void testFlush();
 };
 
 void TestQJsonDbFlushRequest::initTestCase()
@@ -81,6 +89,40 @@ void TestQJsonDbFlushRequest::init()
 void TestQJsonDbFlushRequest::cleanup()
 {
     disconnectFromServer();
+}
+
+void TestQJsonDbFlushRequest::testFlush()
+{
+    QJsonDbReadRequest read;
+    read.setQuery(QStringLiteral("[?_type=%type]"));
+    read.bindValue(QStringLiteral("type"), QStringLiteral("foo"));
+    mConnection->send(&read);
+    QVERIFY(waitForResponse(&read));
+
+    uint state = read.stateNumber();
+
+    QJsonDbObject obj;
+    obj.setUuid(QJsonDbObject::createUuid());
+    obj.insert(QStringLiteral("_type"), QStringLiteral("foo"));
+    QJsonDbWriteRequest write;
+    write.setObjects(QList<QJsonObject>() << obj);
+    mConnection->send(&write);
+    QVERIFY(waitForResponse(&write));
+
+    QJsonDbFlushRequest flush;
+    mConnection->send(&flush);
+    QVERIFY(waitForResponse(&flush));
+    QVERIFY(flush.stateNumber() > state);
+    state = flush.stateNumber();
+
+    obj.insert(QStringLiteral("_deleted"), true);
+    write.setObjects(QList<QJsonObject>() << obj);
+    mConnection->send(&write);
+    QVERIFY(waitForResponse(&write));
+
+    mConnection->send(&flush);
+    QVERIFY(waitForResponse(&flush));
+    QVERIFY(flush.stateNumber() > state);
 }
 
 QTEST_MAIN(TestQJsonDbFlushRequest)

@@ -108,7 +108,7 @@ public:
     bool commit(quint32);
     bool abort();
     bool compact();
-    void sync(SyncFlags flags);
+    bool sync(SyncFlags flags);
 
     JsonDbStat stat() const;
     void flushCaches();

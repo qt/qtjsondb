@@ -573,13 +573,13 @@ bool JsonDbPartition::abortTransaction()
     return true;
 }
 
-QJsonObject JsonDbPartition::flush()
+int JsonDbPartition::flush(bool *ok)
 {
-    mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
+    *ok = mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
 
-    QJsonObject resultmap, errormap;
-    resultmap.insert(JsonDbString::kStateNumberStr, (int)mObjectTable->stateNumber());
-    return makeResponse(resultmap, errormap);
+    if (*ok)
+        return static_cast<int>(mObjectTable->stateNumber());
+    return -1;
 }
 
 

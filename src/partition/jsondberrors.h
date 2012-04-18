@@ -77,7 +77,8 @@ public:
         InvalidReduce = 18,
         InvalidSchemaOperation = 19,
         InvalidIndexOperation = 20,
-        InvalidType = 21
+        InvalidType = 21,
+        FlushFailed = 22
     };
 };
 

@@ -132,7 +132,7 @@ public:
     JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, WriteMode mode = OptimisticWrite, JsonDbUpdateList *changeList = 0);
     JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, WriteMode mode = OptimisticWrite, JsonDbUpdateList *changeList = 0);
 
-    QJsonObject flush();
+    int flush(bool *ok);
 
     JsonDbView *addView(const QString &viewType);
     void removeView(const QString &viewType);

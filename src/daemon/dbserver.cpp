@@ -907,7 +907,22 @@ void DBServer::processFlush(JsonStream *stream, JsonDbOwner *owner, const QStrin
 {
     Q_UNUSED(owner);
     JsonDbPartition *partition = mPartitions.value(partitionName, mDefaultPartition);
-    QJsonObject result = partition->flush();
+
+    QJsonObject resultmap, errormap;
+
+    bool ok;
+    int stateNumber = partition->flush(&ok);
+
+    if (ok) {
+        resultmap.insert(JsonDbString::kStateNumberStr, stateNumber);
+    } else {
+        errormap.insert(JsonDbString::kCodeStr, JsonDbError::FlushFailed);
+        errormap.insert(JsonDbString::kMessageStr, QStringLiteral("Unable to flush partition"));
+    }
+
+    QJsonObject result;
+    result.insert(JsonDbString::kResultStr, resultmap);
+    result.insert(JsonDbString::kErrorStr, errormap);
     result.insert(JsonDbString::kIdStr, id);
     stream->send(result);
 }

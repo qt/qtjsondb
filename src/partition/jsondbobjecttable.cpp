@@ -186,10 +186,12 @@ bool JsonDbObjectTable::compact()
     return mBdb->compact();
 }
 
-void JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
+bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
 {
-    if (flags & SyncObjectTable)
-        mBdb->sync();
+    if (flags & SyncObjectTable) {
+        if (!mBdb->sync())
+            return false;
+    }
 
     if (flags & SyncIndexes) {
         foreach (const IndexSpec &spec, mIndexes.values()) {
@@ -200,10 +202,14 @@ void JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
                     index->begin();
                     index->commit(mStateNumber);
                 }
-                spec.index->bdb()->sync();
+
+                if (!spec.index->bdb()->sync())
+                    return false;
             }
         }
     }
+
+    return true;
 }
 
 JsonDbStat JsonDbObjectTable::stat() const
