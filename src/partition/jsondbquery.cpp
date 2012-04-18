@@ -470,13 +470,13 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
         } else if (token == QLatin1String("*")) {
             // match all objects
         } else {
-            qCritical() << QString::fromLatin1("Parse error: expecting '?', '/', '\\', or 'count' but got '%1'").arg(token);
+            parsedQuery->queryExplanation.append(QString::fromLatin1("Parse error: expecting '?', '/', '\\', or 'count' but got '%1'").arg(token));
             parseError = true;
             break;
         }
         QString closeBracket = tokenizer.pop();
         if (closeBracket != QLatin1String("]")) {
-            qCritical() << QString::fromLatin1("Parse error: expecting ']' but got '%1'").arg(closeBracket);
+            parsedQuery->queryExplanation.append(QString::fromLatin1("Parse error: expecting ']' but got '%1'").arg(closeBracket));
             parseError = true;
             break;
         }
@@ -487,7 +487,6 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
         delete parsedQuery;
         parsedQuery = new JsonDbQuery;
         parsedQuery->queryExplanation = explanation;
-        qCritical() << "Parser error: query" << query << explanation;
         return parsedQuery;
     }
 
