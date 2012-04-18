@@ -62,6 +62,11 @@ QKeyValueStore::QKeyValueStore(const QString &name)
     p = new QKeyValueStorePrivate(this, name);
 }
 
+QKeyValueStore::~QKeyValueStore()
+{
+    delete p;
+}
+
 bool QKeyValueStore::open()
 {
     if (!p)
@@ -76,7 +81,7 @@ bool QKeyValueStore::close()
     return p->close() ? false : true;
 }
 
-void QKeyValueStore::setFileName(QString name)
+void QKeyValueStore::setFileName(const QString &name)
 {
     if (p)
         return;

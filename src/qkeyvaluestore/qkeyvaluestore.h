@@ -55,13 +55,14 @@ class QKeyValueStore {
 public:
     QKeyValueStore();
     QKeyValueStore(const QString &name);
+    ~QKeyValueStore();
     bool open();
     bool close();
     bool compact() { return p->compact(); }
     bool dump() { return false; }
     bool rollback() { return false; }
     QString fileName() const { return p->m_name; }
-    void setFileName(QString name);
+    void setFileName(const QString &name);
     // Transaction support
     QKeyValueStoreTxn *beginRead();
     QKeyValueStoreTxn *beginWrite();
