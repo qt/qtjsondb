@@ -166,7 +166,7 @@ private:
     bool del(HBtreeTransaction *transaction, const QByteArray &key);
 
     friend class HBtreeCursor;
-    bool doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key = QByteArray());
+    bool doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key = QByteArray(), HBtreeCursor::RangePolicy policy = HBtreeCursor::EqualOrGreater);
 
     Q_DECLARE_PRIVATE(HBtree)
     Q_DISABLE_COPY(HBtree)

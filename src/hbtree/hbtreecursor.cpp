@@ -122,8 +122,8 @@ bool HBtreeCursor::seek(const QByteArray &key)
     return btree_->doCursorOp(this, ExactMatch, key);
 }
 
-bool HBtreeCursor::seekRange(const QByteArray &key)
+bool HBtreeCursor::seekRange(const QByteArray &key, RangePolicy policy)
 {
     Q_ASSERT(btree_);
-    return btree_->doCursorOp(this, FuzzyMatch, key);
+    return btree_->doCursorOp(this, FuzzyMatch, key, policy);
 }

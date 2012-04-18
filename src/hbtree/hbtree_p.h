@@ -368,8 +368,8 @@ public:
     bool cursorFirst(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorNext(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
     bool cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut);
-    bool cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut, const QByteArray &matchKey, bool exact);
-    bool doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key = QByteArray());
+    bool cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut, const QByteArray &matchKey, bool exact, HBtreeCursor::RangePolicy policy);
+    bool doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key = QByteArray(), HBtreeCursor::RangePolicy policy = HBtreeCursor::EqualOrGreater);
 
     void copy(const Page &src, Page *dst);
 

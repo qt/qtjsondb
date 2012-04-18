@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef HBtreeCURSOR_H
-#define HBtreeCURSOR_H
+#ifndef HBTREECURSOR_H
+#define HBTREECURSOR_H
 
 #include <QByteArray>
 #include <QStack>
@@ -50,6 +50,12 @@ class HBtreeTransaction;
 class HBtreeCursor
 {
 public:
+    enum RangePolicy
+    {
+        EqualOrGreater,
+        EqualOrLess
+    };
+
     HBtreeCursor();
     explicit HBtreeCursor(HBtreeTransaction * transaction);
     explicit HBtreeCursor(HBtree *btree, bool commited = false);
@@ -65,7 +71,7 @@ public:
     bool next();
     bool previous();
     bool seek(const QByteArray &key);
-    bool seekRange(const QByteArray &key);
+    bool seekRange(const QByteArray &key, RangePolicy policy = EqualOrGreater);
 
     HBtreeCursor(const HBtreeCursor &other);
     HBtreeCursor &operator = (const HBtreeCursor &other);
@@ -92,4 +98,4 @@ private:
     bool doOp(Op op, const QByteArray &key = QByteArray());
 };
 
-#endif // HBtreeCURSOR_H
+#endif // HBTREECURSOR_H

@@ -2525,7 +2525,7 @@ bool HBtreePrivate::cursorPrev(HBtreeCursor *cursor, QByteArray *keyOut, QByteAr
     return false;
 }
 
-bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut, const QByteArray &matchKey, bool exact)
+bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArray *valueOut, const QByteArray &matchKey, bool exact, HBtreeCursor::RangePolicy policy)
 {
     HBTREE_ASSERT(cursor)(matchKey)(exact);
     HBTREE_DEBUG("searching for" << (exact ? "exactly" : "") << matchKey);
@@ -2542,7 +2542,7 @@ bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArr
         keyData = nkey.data;
         valueData = getDataFromNode(page->nodes.value(nkey));
         ok = true;
-    } else if (!exact) {
+    } else if (!exact && policy == HBtreeCursor::EqualOrGreater) {
         Node node = page->nodes.lowerBound(nkey);
         if (node != page->nodes.constEnd()) { // if found key equal or greater than, return
             keyData = node.key().data;
@@ -2560,6 +2560,32 @@ bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArr
                 }
             }
         }
+    } else if (!exact && policy == HBtreeCursor::EqualOrLess) {
+        Node node = page->nodes.lowerBound(nkey);
+        HBTREE_ASSERT(node == page->nodes.constEnd() || node.key() > nkey);
+        if (node == page->nodes.constBegin()) {
+            if (page->leftPageNumber != PageInfo::INVALID_PAGE) {
+                NodePage *left = static_cast<NodePage *>(getPage(page->leftPageNumber));
+                if (left->nodes.size() > 1)
+                    node = left->nodes.constEnd() - 1;
+                else
+                    node = left->nodes.constBegin();
+                if (node != left->nodes.constEnd()) {
+                    keyData = node.key().data;
+                    valueData = getDataFromNode(node.value());
+                    ok = true;
+                } else {
+                    // This should never happen if rebalancing is working properly
+                    HBTREE_ASSERT(0)(*left)(node)(*page).message(QStringLiteral("what up?"));
+                    ok = false;
+                }
+            }
+        } else {
+            --node;
+            keyData = node.key().data;
+            valueData = getDataFromNode(node.value());
+            ok = true;
+        }
     }
 
     if (keyOut)
@@ -2570,7 +2596,7 @@ bool HBtreePrivate::cursorSet(HBtreeCursor *cursor, QByteArray *keyOut, QByteArr
     return ok;
 }
 
-bool HBtreePrivate::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key)
+bool HBtreePrivate::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key, HBtreeCursor::RangePolicy policy)
 {
     bool ok = false;
     QByteArray keyOut, valueOut;
@@ -2580,10 +2606,10 @@ bool HBtreePrivate::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const 
 
     switch (op) {
     case HBtreeCursor::ExactMatch:
-        ok = cursorSet(cursor, &keyOut, &valueOut, key, true);
+        ok = cursorSet(cursor, &keyOut, &valueOut, key, true, policy);
         break;
     case HBtreeCursor::FuzzyMatch:
-        ok = cursorSet(cursor, &keyOut, &valueOut, key, false);
+        ok = cursorSet(cursor, &keyOut, &valueOut, key, false, policy);
         break;
     case HBtreeCursor::Next:
         ok = cursorNext(cursor, &keyOut, &valueOut);
@@ -2878,10 +2904,10 @@ bool HBtree::del(HBtreeTransaction *transaction, const QByteArray &key)
     return d->del(transaction, key);
 }
 
-bool HBtree::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key)
+bool HBtree::doCursorOp(HBtreeCursor *cursor, HBtreeCursor::Op op, const QByteArray &key, HBtreeCursor::RangePolicy policy)
 {
     Q_D(HBtree);
-    return d->doCursorOp(cursor, op, key);
+    return d->doCursorOp(cursor, op, key, policy);
 }
 
 // ######################################################################

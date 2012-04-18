@@ -521,8 +521,10 @@ private slots:
     void splitBranchWithOverflows();
     void cursorExactMatch_data();
     void cursorExactMatch();
-    void cursorFuzzyMatch_data();
-    void cursorFuzzyMatch();
+    void cursorEqualOrGreaterMatch_data();
+    void cursorEqualOrGreaterMatch();
+    void cursorEqualOrLessMatch_data();
+    void cursorEqualOrLessMatch();
     void cursorWalk_data();
     void cursorWalk();
     void lastMultiPage();
@@ -1409,14 +1411,14 @@ void TestHBtree::cursorExactMatch()
     transaction->abort();
 }
 
-void TestHBtree::cursorFuzzyMatch_data()
+void TestHBtree::cursorEqualOrGreaterMatch_data()
 {
     QList<int> itemCounts = QList<int>() << 5 << 100 << 1000;
     QList<int> dataSizes = QList<int>() << 100 << 1000 << 3000;
     setTestData(itemCounts, QList<int>(), dataSizes, false, false);
 }
 
-void TestHBtree::cursorFuzzyMatch()
+void TestHBtree::cursorEqualOrGreaterMatch()
 {
     QFETCH(int, numItems);
     QFETCH(int, valueSize);
@@ -1441,6 +1443,52 @@ void TestHBtree::cursorFuzzyMatch()
         QMap<QByteArray, QByteArray>::iterator it = keyValues.lowerBound(ba);
 
         if (it == keyValues.end()) {
+            QVERIFY(!ok);
+        } else {
+            QCOMPARE(cursor.key(), it.key());
+            QCOMPARE(cursor.value(), it.value());
+        }
+    }
+
+    transaction->abort();
+}
+
+void TestHBtree::cursorEqualOrLessMatch_data()
+{
+    QList<int> itemCounts = QList<int>() << 5 << 100 << 1000;
+    QList<int> dataSizes = QList<int>() << 100 << 1000 << 3000;
+    setTestData(itemCounts, QList<int>(), dataSizes, false, false);
+}
+
+void TestHBtree::cursorEqualOrLessMatch()
+{
+    QFETCH(int, numItems);
+    QFETCH(int, valueSize);
+
+    QMap<QByteArray, QByteArray> keyValues;
+
+    // start at 3 so that we can leave room for checking when there is no key equal or less
+    for (int i = 3; i < numItems; ++i) {
+        QByteArray key = QByteArray::number(i * 2);
+        QByteArray value = key + QByteArray('-', valueSize - key.size());
+        HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+        QVERIFY(transaction);
+        QVERIFY(transaction->put(key, value));
+        keyValues.insert(key, value);
+        QVERIFY(transaction->commit(i));
+    }
+
+    HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
+    HBtreeCursor cursor(transaction);
+    for (int i = 0; i < numItems * 2; ++i) {
+        QByteArray ba = QByteArray::number(i);
+        bool ok = cursor.seekRange(ba, HBtreeCursor::EqualOrLess);
+        QMap<QByteArray, QByteArray>::iterator it = keyValues.lowerBound(ba);
+
+        if (it == keyValues.end() || (it != keyValues.begin() && it.key() > ba))
+            --it;
+
+        if (it.key() > ba) {
             QVERIFY(!ok);
         } else {
             QCOMPARE(cursor.key(), it.key());
