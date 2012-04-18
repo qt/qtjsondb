@@ -26,7 +26,7 @@ $publicclassregexp = "QJsonDb.+";
 #   - any git symbolic ref resolvable from the module's repository (e.g. "refs/heads/master" to track master branch)
 #
 %dependencies = (
-        "qtbase" => "refs/heads/master",
+        "qtbase" => "fb7f30d2bad0c84ffea4db862a71ba2e03d855d0",
         "qtdeclarative" => "refs/heads/master",
         "qtjsbackend" => "refs/heads/master",
         "qtxmlpatterns" => "refs/heads/master",
