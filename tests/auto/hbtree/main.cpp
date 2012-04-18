@@ -1488,10 +1488,13 @@ void TestHBtree::cursorWalk()
             QVERIFY(cursor.next());
         QCOMPARE(cursor.key(), it.key());
         QCOMPARE(cursor.value(), it.value());
-        if (usePrevious)
+        if (usePrevious) {
+            if (it == keyValues.constBegin())
+                break;
             --it;
-        else
+        } else {
             ++it;
+        }
     }
 
     transaction->abort();
