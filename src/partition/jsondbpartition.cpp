@@ -109,13 +109,20 @@ JsonDbPartition::~JsonDbPartition()
 bool JsonDbPartition::close()
 {
     foreach (JsonDbView *view, mViews.values()) {
+        // sync the view object table, its indexes, and their state numbers to prevent reindexing on restart
+        view->objectTable()->sync(JsonDbObjectTable::SyncObjectTable | JsonDbObjectTable::SyncIndexes | JsonDbObjectTable::SyncStateNumbers);
         view->close();
         delete view;
     }
     mViews.clear();
 
-    delete mObjectTable;
-    mObjectTable = 0;
+    if (mObjectTable) {
+        // sync the main object table, its indexes, and their state numbers to prevent reindexing on restart
+        mObjectTable->sync(JsonDbObjectTable::SyncObjectTable | JsonDbObjectTable::SyncIndexes | JsonDbObjectTable::SyncStateNumbers);
+
+        delete mObjectTable;
+        mObjectTable = 0;
+    }
 
     return true;
 }
@@ -529,7 +536,7 @@ bool JsonDbPartition::commitTransaction(quint32 stateNumber)
         quint32 nextStateNumber = stateNumber ? stateNumber : (mObjectTable->stateNumber() + 1);
 
         if (jsondbSettings->debug())
-            qDebug() << "commitTransaction" << stateNumber;
+            qDebug() << "commitTransaction" << mPartitionName << nextStateNumber;
 
         if (!stateNumber && (mTableTransactions.size() == 1))
             nextStateNumber = mTableTransactions.at(0)->stateNumber() + 1;

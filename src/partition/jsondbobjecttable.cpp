@@ -198,7 +198,7 @@ bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
             JsonDbIndex *index = spec.index;
             if (index->bdb()) {
                 quint32 stateNumber = index->stateNumber();
-                if (stateNumber != mStateNumber) {
+                if (flags & SyncStateNumbers && stateNumber != mStateNumber) {
                     index->begin();
                     index->commit(mStateNumber);
                 }

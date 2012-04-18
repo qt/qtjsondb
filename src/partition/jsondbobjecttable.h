@@ -91,7 +91,8 @@ class Q_JSONDB_PARTITION_EXPORT JsonDbObjectTable : public QObject
 public:
     enum SyncFlag {
         SyncObjectTable = 0x1,
-        SyncIndexes = 0x2
+        SyncIndexes = 0x2,
+        SyncStateNumbers = 0x4
     };
     Q_DECLARE_FLAGS(SyncFlags, SyncFlag)
 
