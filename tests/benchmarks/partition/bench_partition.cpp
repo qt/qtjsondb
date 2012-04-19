@@ -969,7 +969,7 @@ void TestPartition::benchmarkCursorCount()
     QJsonObject bindings;
     foreach (QString query, queries) {
         QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
-        JsonDbIndexQuery *indexQuery = mJsonDbPartition->compileIndexQuery(mOwner, parsedQuery.data());
+        QScopedPointer<JsonDbIndexQuery> indexQuery(mJsonDbPartition->compileIndexQuery(mOwner, parsedQuery.data()));
         int count = 0;
         //qDebug() << "query" << query;
         QBENCHMARK {
