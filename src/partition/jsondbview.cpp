@@ -62,11 +62,11 @@ JsonDbView::JsonDbView(JsonDbPartition *partition, const QString &viewType, QObj
   , mPartition(partition)
   , mViewObjectTable(0)
   , mMainObjectTable(mPartition->mainObjectTable())
+  , mViewStateNumber(0)
   , mViewType(viewType)
   , mUpdating(false)
 {
     mViewObjectTable = new JsonDbObjectTable(mPartition);
-    mViewStateNumber = 0; // FIXME: should be able to read it from the object table
 }
 
 JsonDbView::~JsonDbView()
@@ -270,7 +270,7 @@ void JsonDbView::updateView(quint32 desiredStateNumber, JsonDbUpdateList *result
         qDebug() << "updateView" << mViewType << "{";
     // current state of the main object table of the partition
     quint32 partitionStateNumber = mMainObjectTable->stateNumber();
-    quint32 viewStateNumber = mViewStateNumber;
+    quint32 viewStateNumber = (mViewStateNumber ? mViewStateNumber : mViewObjectTable->stateNumber());
 
     // if the view is up to date, then return
     if ((desiredStateNumber && viewStateNumber >= desiredStateNumber)
@@ -384,6 +384,10 @@ void JsonDbView::updateEagerView(const JsonDbUpdateList &objectsUpdated, JsonDbU
 // has seen all relevant updates from this transaction
 void JsonDbView::updateViewStateNumber(quint32 partitionStateNumber)
 {
+    // make sure we've updated the view the first time
+    if (!mViewStateNumber)
+        return;
+
     // If the change is not zero or one it's an error
     if (jsondbSettings->verbose() || (mViewStateNumber != (partitionStateNumber - 1) && mViewStateNumber != partitionStateNumber))
         qCritical() << "updateViewStateNumber" << mViewType << "viewStateNumber" << mViewStateNumber << "partitionStateNumber" << partitionStateNumber;
