@@ -359,8 +359,6 @@ void Client::onRequestFinished()
 
 void Client::aboutToRemove(void)
 {
-    // remove the query from the request list
-    mRequests.takeFirst()->deleteLater();
 
     QtJsonDb::QJsonDbRequest *queryRequest = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
     Q_ASSERT(queryRequest != 0);
@@ -368,13 +366,18 @@ void Client::aboutToRemove(void)
         return;
 
     QList<QJsonObject> objects = queryRequest->takeResults();
-
     QString message = QLatin1String("Query result: received ") + QString::number(objects.size()) + QLatin1String(" object(s):\n");
     InputThread::print(message);
+
     if (objects.isEmpty()) {
         InputThread::print("No object matches your query. Nothing to remove.");
+        popRequest();
         return;
     }
+
+    // remove the query from the request list
+    mRequests.takeFirst()->deleteLater();
+
     InputThread::print("The object(s) matching your query are about to be removed.");
     //we get the objects, remove them now
     QtJsonDb::QJsonDbRemoveRequest* request = new QtJsonDb::QJsonDbRemoveRequest(objects);
