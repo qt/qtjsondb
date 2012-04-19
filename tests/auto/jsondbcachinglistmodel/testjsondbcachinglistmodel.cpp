@@ -360,6 +360,7 @@ void TestJsonDbCachingListModel::updateItemClient()
         lastVersion = lastItem.value("_version").toString();
     }
     item.insert("_uuid", lastUuid);
+    item.insert("_version", lastVersion);
     item.insert("name", "Baker");
 
     mItemsUpdated = 0;
@@ -422,6 +423,7 @@ void TestJsonDbCachingListModel::deleteItem()
         lastVersion = lastItem.value("_version").toString();
     }
     item.insert("_uuid", lastUuid);
+    item.insert("_version", lastVersion);
     mItemsRemoved = 0;
     id = remove(item, "com.nokia.shared.2");
     waitForResponse1(id);
@@ -526,7 +528,7 @@ void TestJsonDbCachingListModel::ordering()
     createIndex("ordering", "string");
 
     listModel->setProperty("sortOrder", "[/ordering]");
-    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "ordering");
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "ordering" << "_version");
     listModel->setProperty("roleNames", roleNames);
     listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     connectListModel(listModel);
@@ -545,9 +547,12 @@ void TestJsonDbCachingListModel::ordering()
     {
         QVariant uuid = getIndex(listModel, 4, 1);
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = getIndex(listModel, 4, 4);
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("ordering", "99");  // move it to the end
@@ -568,9 +573,12 @@ void TestJsonDbCachingListModel::ordering()
     {
         QVariant uuid = getIndex(listModel, 8, 1);
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = getIndex(listModel, 8, 4);
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("ordering", "22");    // move it after "2"
@@ -590,9 +598,12 @@ void TestJsonDbCachingListModel::ordering()
     {
         QVariant uuid = getIndex(listModel, 5, 1);
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = getIndex(listModel, 5, 4);
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("ordering", "0");    // move it to the beginning
@@ -701,7 +712,7 @@ void TestJsonDbCachingListModel::checkRemoveNotification()
         //Remove item at 4
         uuid = getIndex(listModel, 4, 1);
         item.insert("_uuid", uuid);
-        version = getIndex(listModel, 9, 2);
+        version = getIndex(listModel, 4, 2);
         item.insert("_version", version);
         mItemsRemoved = 0;
         id = remove(item, "com.nokia.shared.2");
@@ -836,6 +847,8 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         item.insert("_type", _type);
         name = getIndex(listModel, 9, 3);
         item.insert("name", name);
+        _version = getIndex(listModel, 9, 2);
+        item.insert("_version", _version);
         item.insert("order", 59);
         mItemsUpdated = 0;
         id = update(item, "com.nokia.shared.1");
@@ -859,6 +872,8 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         _type = getIndex(listModel, 8, 0);
         item.insert("_type", _type);
         name = getIndex(listModel, 8, 3);
+        _version = getIndex(listModel, 8, 2);
+        item.insert("_version", _version);
         item.insert("name", name);
         item.insert("order", 17);
         mItemsUpdated = 0;

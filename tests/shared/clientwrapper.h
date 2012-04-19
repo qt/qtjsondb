@@ -167,7 +167,7 @@ public:
     int  mCode;
     bool mNeedId;
     QVariant mId, mData, mNotificationId;
-    QString mLastUuid;
+    QString mLastUuid, mLastVersion;
     int mNotificationWaitCount;
     QList<JsonDbTestNotification> mNotifications;
     quint32 mClientTimeout;
@@ -201,6 +201,7 @@ protected slots:
         mId = id;
         mData = data;
         mLastUuid = data.toMap().value("_uuid").toString();
+        mLastVersion = data.toMap().value("_version").toString();
         if (mId.isValid() && !mNotificationWaitCount)
             mEventLoop.quit();
         if (!mNeedId && !mNotificationWaitCount)

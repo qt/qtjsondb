@@ -306,8 +306,6 @@ void TestQJsonDbWatcher::history()
 
         item.insert(JsonDbStrings::Property::uuid(), QUuid::createUuid().toString());
         item.insert(JsonDbStrings::Property::type(), QLatin1String("com.test.qjsondbwatcher-test"));
-        objects.append(item);
-
         request.setObjects(QList<QJsonObject>() << item);
 
         // Create the item
@@ -315,6 +313,8 @@ void TestQJsonDbWatcher::history()
         QVERIFY(waitForResponse(&request));
         if (!firstStateNumber)
             firstStateNumber = request.stateNumber();
+
+        objects.append(request.takeResults());
     }
     QVERIFY(firstStateNumber);
 
@@ -507,6 +507,7 @@ void TestQJsonDbWatcher::notificationTriggersMapReduce()
         QJsonDbCreateRequest write(object);
         mConnection->send(&write);
         QVERIFY(waitForResponse(&write));
+        toDelete.append(write.takeResults());
     }
 
     // create a watcher
@@ -536,19 +537,10 @@ void TestQJsonDbWatcher::notificationTriggersMapReduce()
         QJsonDbCreateRequest write(object);
         mConnection->send(&write);
         QVERIFY(waitForResponseAndNotifications(&write, &watcher, 1));
+        toDelete.append(write.takeResults());
 
         int numNotifications = watcher.takeNotifications().size();
         QCOMPARE(numNotifications, 1);
-    }
-
-    mConnection->removeWatcher(&watcher);
-    {
-        QJsonDbReadRequest read("[?_type=\"Contact\"]");
-        mConnection->send(&read);
-        QVERIFY(waitForResponse(&read));
-        QJsonDbRemoveRequest remove(read.takeResults());
-        mConnection->send(&remove);
-        QVERIFY(waitForResponse(&remove));
     }
 
     QJsonDbRemoveRequest remove(toDelete);
@@ -595,6 +587,7 @@ void TestQJsonDbWatcher::typeChangeEagerViewSource()
     write.setObjects(QList<QJsonObject>() << object);
     mConnection->send(&write);
     QVERIFY(waitForResponse(&write));
+    object.insert(QStringLiteral("_version"), write.takeResults().at(0).value(QStringLiteral("_version")).toString());
 
     // verify that the view didn't change
     {
@@ -617,6 +610,7 @@ void TestQJsonDbWatcher::typeChangeEagerViewSource()
     write.setObjects(QList<QJsonObject>() << object);
     mConnection->send(&write);
     QVERIFY(waitForResponseAndNotifications(&write, &watcher, 1));
+    object.insert(QStringLiteral("_version"), write.takeResults().at(0).value(QStringLiteral("_version")).toString());
     QList<QJsonDbNotification> notifications = watcher.takeNotifications();
     QCOMPARE(notifications.count(), 1);
     QCOMPARE(notifications[0].action(), QJsonDbWatcher::Created);

@@ -417,7 +417,7 @@ void TestJsonDbSortingListModel::ordering()
     if (!listModel) return;
     listModel->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
     listModel->setProperty("sortOrder", "[/order]");
-    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "order");
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "_version" << "name" << "order");
     listModel->setProperty("roleNames", roleNames);
     connectListModel(listModel);
 
@@ -432,9 +432,12 @@ void TestJsonDbSortingListModel::ordering()
     {
         QVariant uuid = get(listModel, 4, "_uuid");
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = get(listModel, 4, "_version");
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "99");  // move it to the end
@@ -453,9 +456,12 @@ void TestJsonDbSortingListModel::ordering()
     {
         QVariant uuid = get(listModel, 8, "_uuid");
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = get(listModel, 8, "_version");
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "22");    // move it after "2"
@@ -474,9 +480,12 @@ void TestJsonDbSortingListModel::ordering()
     {
         QVariant uuid = get(listModel, 5, "_uuid");
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = get(listModel, 5, "_version");
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "0");    // move it to the beginning
@@ -636,6 +645,7 @@ void TestJsonDbSortingListModel::checkUpdateNotification()
         //Update item at 0
         QVariantMap item;
         item.insert("_uuid", get(listModel, 0, "_uuid"));
+        item.insert("_version", get(listModel, 0, "_version"));
         item.insert("_type", get(listModel, 0, "_type"));
         item.insert("name", get(listModel, 0, "name"));
         item.insert("order", 1);
@@ -655,6 +665,7 @@ void TestJsonDbSortingListModel::checkUpdateNotification()
         //Update item at 9
         item.clear();
         item.insert("_uuid", get(listModel, 9, "_uuid"));
+        item.insert("_version", get(listModel, 9, "_version"));
         item.insert("_type", get(listModel, 9, "_type"));
         item.insert("name", get(listModel, 9, "name"));
         item.insert("order", 19);
@@ -674,6 +685,7 @@ void TestJsonDbSortingListModel::checkUpdateNotification()
 
         //Update item at 9
         item.insert("_uuid", get(listModel, 9, "_uuid"));
+        item.insert("_version", get(listModel, 9, "_version"));
         item.insert("_type", get(listModel, 9, "_type"));
         item.insert("name", get(listModel, 9, "name"));
         item.insert("order", 59);
@@ -693,6 +705,7 @@ void TestJsonDbSortingListModel::checkUpdateNotification()
 
         //Update item at 8
         item.insert("_uuid", get(listModel, 8, "_uuid"));
+        item.insert("_version", get(listModel, 8, "_version"));
         item.insert("_type", get(listModel, 8, "_type"));
         item.insert("name", get(listModel, 8, "name"));
         item.insert("order", 17);

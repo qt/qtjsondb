@@ -732,19 +732,21 @@ void TestQJsonDbRequest::removeRequest()
     QJsonDbRemoveRequest req3(results);
 
     // try to delete one object
-    req3.setObjects(QList<QJsonObject>() << results[0] );
+    QJsonObject toDelete = results[0];
+    req3.setObjects(QList<QJsonObject>() << toDelete );
     mConnection->send(&req3);
     QVERIFY(waitForResponse(&req3));
-    QCOMPARE(req3.takeResults().size(), 1);
+    QList<QJsonObject> writeResults = req3.takeResults();
+    QCOMPARE(writeResults.size(), 1);
     QCOMPARE(req3.status(), QJsonDbRequest::Finished);
+    toDelete.insert(QStringLiteral("_version"), writeResults.at(0).value(QStringLiteral("_version")).toString());
 
     // try to delete an object again. It's a replay, not an error?
-    req3.setObjects(QList<QJsonObject>() << results[0] );
+    req3.setObjects(QList<QJsonObject>() << toDelete );
     mConnection->send(&req3);
     QVERIFY(waitForResponse(&req3));
     QVERIFY(!mRequestErrors.contains(&req3));
     QCOMPARE(req3.status(), QJsonDbRequest::Finished);
-
 
     QJsonObject obj;
     obj.insert(typeStr(), QJsonValue(QStringLiteral("removeTest")));

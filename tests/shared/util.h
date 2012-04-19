@@ -116,13 +116,18 @@ inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketNam
     env.insert("JSONDB_SOCKET", socketName);
     process->setProcessEnvironment(env);
     ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
-    qDebug() << "Starting process" << jsondb_app << args << "with socket" << socketName;
+
+    QStringList argList(args);
+    argList << QLatin1String("-reject-stale-updates");
+
+    qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
+
     if (useValgrind) {
-        QStringList args1 = args;
+        QStringList args1 = argList;
         args1.prepend(jsondb_app);
         process->start("valgrind", args1);
     } else {
-        process->start(jsondb_app, args);
+        process->start(jsondb_app, argList);
     }
     if (!process->waitForStarted())
         qFatal("Unable to start jsondb database process");
@@ -160,14 +165,17 @@ inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &sock
         jsondb_app = QLatin1String("jsondb"); // rely on the PATH
 
     ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
-    qDebug() << "Starting process" << jsondb_app << args << "with socket" << socketName;
+    QStringList argList(args);
+    argList << QLatin1String("-reject-stale-updates");
+
+    qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
     qint64 pid;
     if (useValgrind) {
-        QStringList args1 = args;
+        QStringList args1 = argList;
         args1.prepend(jsondb_app);
         QProcess::startDetached ( jsondb_app, args1, QDir::currentPath(), &pid );
     } else {
-        QProcess::startDetached ( jsondb_app, args, QDir::currentPath(), &pid );
+        QProcess::startDetached ( jsondb_app, argList, QDir::currentPath(), &pid );
     }
 
     /* Wait until the jsondb is accepting connections */

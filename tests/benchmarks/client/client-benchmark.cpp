@@ -296,11 +296,13 @@ void TestJson::updateOneItem()
 
     item.insert("phone","111122223");
     item.insert("_uuid", mLastUuid);
+    item.insert("_version", mLastVersion);
 
     QBENCHMARK {
         BENCH_BEGIN_TAG;
         int id = mClient->update(item);
         waitForResponse1(id);
+        item.insert("_version", mLastVersion);
         BENCH_END_TAG;
     }
 }
@@ -319,6 +321,7 @@ void TestJson::updateThousandItems()
 
     QVariantList items;
     QBENCHMARK {
+
         BENCH_BEGIN_TAG;
         QString queryString("[?_type=\"updateThousandItems\"]");
         int id = mClient->query(queryString);
@@ -337,14 +340,13 @@ void TestJson::updateThousandItems()
     }
 
     // remove those items
-    //QString queryString("[?_type=\"updateThousandItems\"]");
-    //int id = mClient->remove(queryString);
-    //waitForResponse1(id);
-    for (int i = 0; i < gMany; i++) {
-        QVariantMap mapItem = items.at(i).toMap();
-        int id = mClient->remove(mapItem);
-        waitForResponse1(id);
-    }
+    QString queryString("[?_type=\"updateThousandItems\"]");
+    int id = mClient->query(queryString);
+    waitForResponse1(id);
+    QVariantMap mapResponse = mData.toMap();
+    items = mapResponse.value("data").toList();
+    id = mClient->remove(items);
+    waitForResponse1(id);
 }
 
 void TestJson::removeOneItem()
@@ -357,6 +359,8 @@ void TestJson::removeOneItem()
     waitForResponse1(id);
 
     item.insert("_uuid", mLastUuid);
+    item.insert("_version", mLastVersion);
+
     QBENCHMARK_ONCE {
         BENCH_BEGIN_TAG;
         int id = mClient->remove(item);
@@ -430,6 +434,7 @@ void TestJson::notifyUpdateOneItem()
     waitForResponse1(id);
 
     QString itemUuid = mLastUuid;
+    QString itemVersion = mLastVersion;
 
     QVariantMap item2;
     item2.insert("_type","notification");
@@ -443,10 +448,12 @@ void TestJson::notifyUpdateOneItem()
     waitForResponse1(id);
 
     QString notifyUuid = mLastUuid;
+    QString notifyVersion = mLastVersion;
     QVERIFY(!notifyUuid.isEmpty());
 
     item.insert("phone","111122223");
     item.insert("_uuid", itemUuid );
+    item.insert("_version", itemVersion);
 
     int i = 0;
     QBENCHMARK {
@@ -454,11 +461,13 @@ void TestJson::notifyUpdateOneItem()
         item.insert("phone",QString("11112%1").arg(i++, 4));
         int id = mClient->update(item);
         waitForResponse4(id, -1, notifyUuid, 1);
+        item.insert("_version", mLastVersion);
         BENCH_END_TAG;
     }
 
     // remove notification object
     item2.insert("_uuid",notifyUuid);
+    item2.insert("_version", notifyVersion);
     id = mClient->remove(item2);
     waitForResponse1(id);
 }
@@ -505,6 +514,7 @@ void TestJson::notifyRemoveOneItem()
     waitForResponse1(id);
 
     QString itemUuid = mLastUuid;
+    QString itemVersion = mLastVersion;
     QVERIFY(!itemUuid.isEmpty());
 
     QVariantMap item2;
@@ -517,9 +527,11 @@ void TestJson::notifyRemoveOneItem()
     waitForResponse1(id);
 
     QString notifyUuid = mLastUuid;
+    QString notifyVersion = mLastVersion;
     QVERIFY(!notifyUuid.isEmpty());
 
     item.insert("_uuid", itemUuid);
+    item.insert("_version", itemVersion);
 
     QBENCHMARK_ONCE {
         BENCH_BEGIN_TAG;
@@ -530,6 +542,7 @@ void TestJson::notifyRemoveOneItem()
 
     // remove notification object
     item2.insert("_uuid",notifyUuid);
+    item2.insert("_version", notifyVersion);
     id = mClient->remove(item2);
     waitForResponse1(id);
 }

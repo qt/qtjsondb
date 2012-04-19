@@ -250,6 +250,7 @@ void TestJsonDbListModel::updateItemClient()
     QCOMPARE(listModel->rowCount(), 1);
 
     item.insert("_uuid", mLastUuid);
+    item.insert("_version", mLastVersion);
     item.insert("name", "Baker");
 
     mWaitingForDataChange = true;
@@ -378,6 +379,7 @@ void TestJsonDbListModel::deleteItem()
 
     mWaitingForRowsRemoved = true;
     item.insert("_uuid", mLastUuid);
+    item.insert("_version", mLastVersion);
     id = mClient->remove(item);
     waitForResponse1(id);
     while(mWaitingForRowsRemoved)
@@ -448,7 +450,7 @@ void TestJsonDbListModel::ordering()
     JsonDbListModel *listModel = createModel();
     if (!listModel) return;
     listModel->setQuery(QString("[?_type=\"%1\"][/order]").arg(__FUNCTION__));
-    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "order");
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "_version" << "name" << "order");
     listModel->setScriptableRoleNames(roleNames);
     connectListModel(listModel);
 
@@ -465,9 +467,12 @@ void TestJsonDbListModel::ordering()
     {
         QVariant uuid = listModel->get(4, "_uuid");
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = listModel->get(4, "_version");
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "99");  // move it to the end
@@ -485,9 +490,12 @@ void TestJsonDbListModel::ordering()
     {
         QVariant uuid = listModel->get(8, "_uuid");
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = listModel->get(8, "_version");
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "22");    // move it after "2"
@@ -505,9 +513,12 @@ void TestJsonDbListModel::ordering()
     {
         QVariant uuid = listModel->get(5, "_uuid");
         QVERIFY(!uuid.toString().isEmpty());
+        QVariant version = listModel->get(5, "_version");
+        QVERIFY(!version.toString().isEmpty());
 
         QVariantMap item;
         item.insert("_uuid", uuid);
+        item.insert("_version", version);
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "0");    // move it to the beginning

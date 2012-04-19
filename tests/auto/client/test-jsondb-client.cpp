@@ -553,6 +553,8 @@ void TestJsonDbClient::create()
     waitForResponse1(id);
     QVERIFY(mData.toMap().contains("_uuid"));
     QVariant uuid = mData.toMap().value("_uuid");
+    QVERIFY(mData.toMap().contains("_version"));
+    item.insert(JsonDbString::kVersionStr, mData.toMap().value("_version"));
 
     // Attempt to remove it without supplying a _uuid
     item.remove("_uuid");
@@ -604,6 +606,7 @@ void TestJsonDbClient::createList()
         const QVariant& v = resultList.at(i);
         QVariantMap map = list.at(i).toMap();
         map.insert("_uuid", v.toMap().value("_uuid"));
+        map.insert("_version", v.toMap().value("_version"));
         toDelete << map;
     }
 
@@ -919,6 +922,9 @@ void TestJsonDbClient::notify()
     id = mClient->update(object, partition);
     waitForResponse4(id, -1, notifyUuid, 1);
 
+    version = mData.toMap().value("_version").toString();
+    object.insert("_version", version);
+
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
@@ -969,6 +975,9 @@ void TestJsonDbClient::notifyUpdate()
     object.insert("filter","nomatch");
     id = mClient->update(object);
     waitForResponse4(id, -1, notifyUuid, 1);
+
+    version = mData.toMap().value("_version").toString();
+    object.insert("_version", version);
 
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
@@ -1024,6 +1033,9 @@ void TestJsonDbClient::notifyViaCreate()
     id = mClient->update(object);
     waitForResponse4(id, -1, notifyUuid, 1);
 
+    version = mData.toMap().value("_version").toString();
+    object.insert("_version", version);
+
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
     QCOMPARE(n.mNotifyUuid, notifyUuid);
@@ -1072,6 +1084,9 @@ void TestJsonDbClient::registerNotification()
     object.insert("name","test2");
     id = mClient->update(object);
     waitForResponse4(id, -1, notifyUuid, 1);
+
+    version = mData.toMap().value("_version").toString();
+    object.insert("_version", version);
 
     QCOMPARE(mNotifications.size(), 1);
     n = mNotifications.takeFirst();
@@ -1197,6 +1212,8 @@ void TestJsonDbClient::remove()
     waitForResponse1(id);
     QVERIFY(mData.toMap().contains("_uuid"));
     QVariant uuid = mData.toMap().value("_uuid");
+    QVERIFY(mData.toMap().contains("_version"));
+    QVariant version = mData.toMap().value("_version");
 
     // create more items
     item.insert("foo", 5);
@@ -1216,6 +1233,7 @@ void TestJsonDbClient::remove()
 
     // Set the _uuid field and attempt to remove first item
     item.insert("_uuid", uuid);
+    item.insert("_version", version);
     id = mClient->remove(item);
     waitForResponse1(id);
     QVERIFY(mData.toMap().contains("count"));
