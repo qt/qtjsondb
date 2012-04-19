@@ -1,7 +1,6 @@
 TARGET = QtJsonDbJsonStream
 
 TEMPLATE = lib
-DESTDIR = $$QT_MODULE_LIB_BASE
 CONFIG += qt staticlib
 
 QT = core network
