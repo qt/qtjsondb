@@ -530,6 +530,8 @@ void DBServer::objectsUpdated(const QList<JsonDbUpdate> &objects)
         QStringList notificationKeys;
         if (object.contains(JsonDbString::kTypeStr)) {
             notificationKeys << objectType;
+            if (!oldObjectType.isEmpty() && objectType.compare(oldObjectType))
+                notificationKeys << oldObjectType;
 
             // eagerly update views if this object that was created isn't a view type itself
             if (partition) {

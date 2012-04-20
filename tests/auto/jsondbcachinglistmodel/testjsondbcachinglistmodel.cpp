@@ -894,6 +894,24 @@ void TestJsonDbCachingListModel::checkUpdateNotification()
         QVERIFY(result.isValid());
         QCOMPARE(result.toInt(), 20);
 
+        //Update _type
+        item.clear();
+        uuid = getIndex(listModel, 8, 1);
+        item.insert("_uuid", uuid);
+        _type = getIndex(listModel, 8, 0);
+        item.insert("_type", _type.toString().append(QLatin1String("Foo")));
+        name = getIndex(listModel, 8, 3);
+        _version = getIndex(listModel, 8, 2);
+        item.insert("_version", _version);
+        item.insert("name", name);
+        item.insert("order", 17);
+        mItemsRemoved = 0;
+        id = update(item, "com.nokia.shared.1");
+        waitForResponse1(id);
+        waitForItemsRemoved(1);
+        // Changed item should not match query anymore
+        QCOMPARE(listModel->rowCount(), 24);
+
         deleteModel(listModel);
     }
 }
