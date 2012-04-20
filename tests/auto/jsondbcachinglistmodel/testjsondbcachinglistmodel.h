@@ -113,6 +113,7 @@ private:
     QVariant getIndex(QAbstractListModel *model, int index, int role);
     QVariant getProperty(QAbstractListModel *model, int index, const QByteArray &roleName);
     void createIndex(const QString &property, const QString &propertyType);
+    void createIndexNoName(const QString &property, const QString &propertyType);
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);
     void resetWaitFlags();

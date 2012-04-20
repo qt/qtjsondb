@@ -328,22 +328,27 @@ void JsonDbCachingListModelPrivate::verifyIndexSpec(const QList<QJsonObject> &it
     SortIndexSpec &indexSpec = partitionIndexDetails[partitionIndex].spec;
     bool validIndex = false;
     if (items.count()) {
-        QJsonObject spec = items[0];
-        indexSpec.propertyName = QLatin1String("_indexValue");
-        QString propertyType = spec.value(QLatin1String("propertyType")).toString();
-        indexSpec.name = spec.value(QLatin1String("name")).toString();
-        indexSpec.caseSensitive = true;
-        if (!indexName.isEmpty()) {
-            if (indexSpec.name == indexName) {
-                if (!propertyType.compare(QLatin1String("string"), Qt::CaseInsensitive)) {
-                    indexSpec.type = SortIndexSpec::String;
-                    validIndex = true;
-                } else if (!propertyType.compare(QLatin1String("number"), Qt::CaseInsensitive)) {
-                    indexSpec.type = SortIndexSpec::Number;
-                    validIndex = true;
-                } else if (!propertyType.compare(QLatin1String("UUID"), Qt::CaseInsensitive)) {
-                    indexSpec.type = SortIndexSpec::UUID;
-                    validIndex = true;
+        for (int i = 0; i < items.length() && !validIndex; i++) {
+            QJsonObject spec = items[i];
+            indexSpec.propertyName = QLatin1String("_indexValue");
+            QString propertyType = spec.value(QLatin1String("propertyType")).toString();
+            indexSpec.name = spec.value(QLatin1String("name")).toString();
+            if (indexSpec.name.isEmpty())
+                indexSpec.name = spec.value(QLatin1String("propertyName")).toString();
+            indexSpec.caseSensitive = true;
+            if (!indexName.isEmpty()) {
+                if (indexSpec.name == indexName) {
+                    if (!propertyType.compare(QLatin1String("string"), Qt::CaseInsensitive)) {
+                        indexSpec.type = SortIndexSpec::String;
+                        validIndex = true;
+                    } else if (!propertyType.compare(QLatin1String("number"), Qt::CaseInsensitive)) {
+                        indexSpec.type = SortIndexSpec::Number;
+                        validIndex = true;
+                    } else if (!propertyType.compare(QLatin1String("UUID"), Qt::CaseInsensitive)) {
+                        indexSpec.type = SortIndexSpec::UUID;
+                        indexSpec.caseSensitive = false;
+                        validIndex = true;
+                    }
                 }
             }
         }
@@ -756,7 +761,7 @@ void JsonDbCachingListModelPrivate::parseSortOrder()
         indexName = orderMatch.cap(2);
     }
     if (!indexName.isEmpty()) {
-        queryForIndexSpec = QString(QLatin1String("[?_type=\"Index\"][?name=\"%1\"]")).arg(indexName);
+        queryForIndexSpec = QString(QLatin1String("[?_type=\"Index\"][?name=\"%1\" | propertyName=\"%1\"]")).arg(indexName);
     } else {
         // Set default sort order (by _uuid)
         q->setSortOrder(QLatin1String("[/_uuid]"));

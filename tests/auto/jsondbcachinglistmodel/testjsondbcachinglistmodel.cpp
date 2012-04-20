@@ -219,6 +219,20 @@ void TestJsonDbCachingListModel::createIndex(const QString &property, const QStr
     waitForResponse1(id);
 }
 
+void TestJsonDbCachingListModel::createIndexNoName(const QString &property, const QString &propertyType)
+{
+    QVariantMap item;
+    item.insert("_type", "Index");
+    item.insert("propertyName", property);
+    item.insert("propertyType", propertyType);
+
+    int id = create(item, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    id = create(item, "com.nokia.shared.2");
+    waitForResponse1(id);
+}
+
 // Create items in the model.
 void TestJsonDbCachingListModel::createItem()
 {
@@ -457,7 +471,8 @@ void TestJsonDbCachingListModel::sortedQuery()
     QAbstractListModel *listModel = createModel();
     if (!listModel) return;
 
-    createIndex("number", "number");
+    // Test also without name, just propertyName
+    createIndexNoName("number", "number");
 
     connectListModel(listModel);
 
