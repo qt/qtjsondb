@@ -435,6 +435,9 @@ void TestJsonDbQueries::queryContains()
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  { \"name\" : \"puffy\", \"dog\" : false } ]"));
     QVERIFY(queryResult.error.isNull());
     QCOMPARE(queryResult.data.count(), 1);
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains { \"name\" : \"puffy\", \"dog\" : true } | friends contains { \"name\" : \"rover\", \"dog\" : true } ]"));
+    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.data.count(), 1);
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  [\"spike\", \"rover\"] ]"));
     QVERIFY(queryResult.error.isNull());
     QCOMPARE(queryResult.data.count(), 1);

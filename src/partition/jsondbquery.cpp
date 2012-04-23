@@ -40,9 +40,6 @@
 ****************************************************************************/
 
 #include <QDebug>
-#include <QFile>
-#include <QJsonDocument>
-#include <QStack>
 #include <QString>
 
 #include "jsondbstrings.h"
@@ -244,7 +241,7 @@ QJsonArray JsonDbQuery::parseJsonArray(JsonDbQueryTokenizer &tokenizer, const QJ
 
     *ok = true;
     for (QString tkn = tokenizer.pop(); !tkn.isEmpty(); tkn = tokenizer.pop()) {
-        if (tkn == QLatin1String("]"))
+        if (tkn == QLatin1String("]") || tkn == QLatin1String("|"))
             break;
         else if (tkn == QLatin1String("["))
             array.append(parseJsonArray(tokenizer, bindings, ok));
@@ -268,7 +265,7 @@ QJsonObject JsonDbQuery::parseJsonObject(JsonDbQueryTokenizer &tokenizer, const 
     QJsonObject object;
     *ok = true;
     for (QString tkn = tokenizer.popIdentifier(); !tkn.isEmpty(); tkn = tokenizer.popIdentifier()) {
-        if (tkn == QLatin1String("}"))
+        if (tkn == QLatin1String("}") || tkn == QLatin1String("|"))
             break;
         QString key = tkn;
         tkn = tokenizer.pop();
