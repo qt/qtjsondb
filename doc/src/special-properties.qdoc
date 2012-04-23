@@ -55,6 +55,13 @@ Each time an object is updated the counter is incremented and the hash is
 recalculated based on the properties of the object (see \l
 {Stale Update Rejection}).
 
+\li _local
+\li To enable master/master replication, JsonDb tracks all versions of an object.
+For some objects this is simply overhead as they are not intended for replication
+at all. Hence, version tracking can be disabled. All view objects have version
+tracking disabled by default. For all other objects, you can manually disable
+version tracking by setting _local to true.
+
 \row
 \li _deleted
 \li If this property exists and is set to \c true, then the object has been
@@ -67,7 +74,9 @@ removed from the database.
 \row
 \li _meta
 \li JSON DB uses \c _meta to stores a variety of internal metadata, like the history of versions, which
-is needed for conflict detection and resolution.
+is needed for conflict detection and resolution. This is a read-only property, client changes to this
+property are ignored.
+
 \endtable
 
 \code
