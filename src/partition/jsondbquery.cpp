@@ -558,9 +558,10 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 if (objectFieldValue != termValue)
                     matches = true;
             } else if (op == QLatin1String("=~")) {
+                QRegExp rx = term.regExpConst();
                 if (jsondbSettings->debug())
-                    qDebug() << objectFieldValue.toString() << term.regExpConst().exactMatch(objectFieldValue.toString());
-                if (term.regExpConst().exactMatch(objectFieldValue.toString()))
+                    qDebug() << objectFieldValue.toString() << rx.exactMatch(objectFieldValue.toString());
+                if (rx.exactMatch(objectFieldValue.toString()))
                     matches = true;
             } else if (op == QLatin1String("<=")) {
                 matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
