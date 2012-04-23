@@ -149,10 +149,10 @@ void JsonDbObject::generateUuid()
  * \sa updateVersionOptimistic(), version()
  * \return the new version, which is also written to the object
  */
-QString JsonDbObject::computeVersion()
+QString JsonDbObject::computeVersion(bool trackHistory)
 {
     QString versionWritten;
-    updateVersionOptimistic(*this, &versionWritten);
+    updateVersionOptimistic(*this, &versionWritten, trackHistory);
     return versionWritten;
 }
 
@@ -161,10 +161,11 @@ QString JsonDbObject::computeVersion()
  * \param other the object containing the update to be written. Do NOT call computeVersion()
  *        on the other object before passing it in! other._meta.history is assumed untrusted.
  * \param versionWritten contains the version string of the write upon return
+ * \param trackHistory whether version history should be tracked or not. Defaults to true.
  * \return true if the passed object is a valid write. As this version can operate
  *         on conflicts too, version() and versionWritten can differ.
  */
-bool JsonDbObject::updateVersionOptimistic(const JsonDbObject &other, QString *versionWrittenOut)
+bool JsonDbObject::updateVersionOptimistic(const JsonDbObject &other, QString *versionWrittenOut, bool trackHistory)
 {
     QString versionWritten;
     // this is trusted and expected to contain a _meta object with book keeping info
@@ -175,6 +176,10 @@ bool JsonDbObject::updateVersionOptimistic(const JsonDbObject &other, QString *v
 
     // all known conflicts
     QJsonArray conflicts = meta.value(JsonDbString::kConflictsStr).toArray();
+
+    // check for in-object override of history tracking
+    if (trackHistory && value(JsonDbString::kLocalStr).toBool())
+        trackHistory = false;
 
     QString replacedVersion = other.version();
 
@@ -240,13 +245,15 @@ bool JsonDbObject::updateVersionOptimistic(const JsonDbObject &other, QString *v
 
         meta = QJsonObject();
 
-        if (history.size())
+        if (trackHistory && history.size())
             meta.insert(QStringLiteral("history"), history);
         if (conflicts.size())
             meta.insert(JsonDbString::kConflictsStr, history);
 
         if (!meta.isEmpty())
             insert(JsonDbString::kMetaStr, meta);
+        else
+            insert(JsonDbString::kMetaStr, QJsonValue::Undefined);
     }
 
     // last chance for a valid write: other is a replay from history

@@ -107,6 +107,7 @@ const QString JsonDbString::kPropertyFunctionStr = QString::fromLatin1("property
 const QString JsonDbString::kObjectTypeStr = QString::fromLatin1("objectType");
 const QString JsonDbString::kDbidTypeStr = QString::fromLatin1("DatabaseId");
 const QString JsonDbString::kIndexTypeStr = QString::fromLatin1("Index");
+const QString JsonDbString::kLocalStr = QString::fromLatin1("_local");
 const QString JsonDbString::kLocaleStr = QString::fromLatin1("locale");
 const QString JsonDbString::kCollationStr = QString::fromLatin1("collation");
 const QString JsonDbString::kCaseSensitiveStr = QString::fromLatin1("caseSensitive");

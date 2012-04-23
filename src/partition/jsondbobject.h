@@ -74,9 +74,9 @@ public:
 
     void generateUuid();
     static QUuid createUuidFromString(const QString &id);
-    QString computeVersion();
+    QString computeVersion(bool trackHistory = true);
 
-    bool updateVersionOptimistic(const JsonDbObject &other, QString *versionWritten);
+    bool updateVersionOptimistic(const JsonDbObject &other, QString *versionWritten, bool trackHistory = true);
     bool updateVersionReplicating(const JsonDbObject & other);
 
     bool operator <(const JsonDbObject &other) const;

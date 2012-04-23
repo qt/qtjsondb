@@ -376,7 +376,7 @@ void TestJsonDb::testFindAccessControl()
     item.insert("find-access-control-test", 50);
     JsonDbWriteResult result = create(mOwner.data(), item);
     verifyGoodResult(result);
-    item.remove(JsonDbString::kUuidStr);
+    item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("Contact"));
     item.insert("find-access-control-test", 51);
     result = create(mOwner.data(), item);
@@ -401,13 +401,13 @@ void TestJsonDb::testFindAccessControl()
 
     mOwner->setAllowAll(true);
 
-    item.remove(JsonDbString::kUuidStr);
+    item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.bar.FooType"));
     item.insert("find-access-control-test", 55);
     result = create(mOwner.data(), item);
     verifyGoodResult(result);
 
-    item.remove(JsonDbString::kUuidStr);
+    item = JsonDbObject();
     item.insert(JsonDbString::kTypeStr, QLatin1String("com.example.foo.FooType"));
     item.insert("find-access-control-test", 56);
     result = create(mOwner.data(), item);

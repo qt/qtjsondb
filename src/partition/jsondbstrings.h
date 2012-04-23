@@ -113,6 +113,7 @@ public:
     static const QString kDbidTypeStr;
     static const QString kIndexTypeStr;
     static const QString kLocaleStr;
+    static const QString kLocalStr;
     static const QString kCollationStr;
     static const QString kCaseSensitiveStr;
     static const QString kCasePreferenceStr;

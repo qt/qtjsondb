@@ -1280,6 +1280,10 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
             validWrite = master.updateVersionOptimistic(object, &versionWritten);
             break;
         case ViewObject:
+            master = object;
+            versionWritten = master.computeVersion(false);
+            validWrite = true;
+            break;
         case ForcedWrite:
             master = object;
             versionWritten = master.computeVersion();

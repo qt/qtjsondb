@@ -441,17 +441,18 @@ void TestPartition::computeVersion()
     QCOMPARE(item0.version(), QString());
     item0.computeVersion();
     QVERIFY(!item0.version().isEmpty());
+    QVERIFY(item0.version().startsWith("1-"));
+    QCOMPARE(item0.version().size(), 12);
 
-    // check that _uuid and _conflicts are ignored
+    // check that _uuid and _meta are ignored
     JsonDbObject item1;
     QVERIFY(item1.version().isEmpty());
     item1.insert(JsonDbString::kUuidStr, QString("123"));
-    item1.insert(JsonDbString::kConflictsStr, QString("456"));
+    item1.insert(JsonDbString::kMetaStr, QString("789"));
     item1.computeVersion();
-    QVERIFY(item1.version().startsWith("1-"));
-    QCOMPARE(item1.version().size(), 12);
     QVERIFY(!item0.isAncestorOf(item1));
     QVERIFY(!item1.isAncestorOf(item0));
+    QCOMPARE(item1.version(), item0.version());
 
     JsonDbObject replay(item1);
     replay.computeVersion();
@@ -588,6 +589,18 @@ void TestPartition::computeVersion()
     QVERIFY(!item9.isAncestorOf(item8));
 
     QCOMPARE(item9.version().mid(1), item1.version().mid(1));
+
+    JsonDbObject item10(item9);
+    item10.insert(QStringLiteral("key"), QString());
+    item10.computeVersion(false);
+    QVERIFY(item10.version().startsWith("10-"));
+    QVERIFY(!item10.contains(JsonDbString::kMetaStr));
+
+    JsonDbObject localItem(item9);
+    localItem.insert(JsonDbString::kLocalStr, true);
+    localItem.computeVersion();
+    QVERIFY(localItem.version().startsWith("10-"));
+    QVERIFY(!localItem.contains(JsonDbString::kMetaStr));
 }
 
 void TestPartition::updateVersionOptimistic()
