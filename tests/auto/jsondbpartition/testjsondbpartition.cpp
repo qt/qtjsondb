@@ -260,6 +260,173 @@ void TestJsonDbPartition::update()
     deleteComponent(partition);
 }
 
+// JsonDb.Partition.update()
+void TestJsonDbPartition::update_RejectStale()
+{
+    const QString createString = QString("create(%1, function (error, response) {callbackSignal(error, response);});");
+    const QString updateString = QString("update(%1, { mode : 0 }, function (error, response) {callbackSignal(error, response);});");
+    ComponentData *partition = createComponent();
+    if (!partition || !partition->qmlElement) return;
+    QVariant obj;
+    QVariantMap objMap;
+    QVariantList objList;
+    QString expression;
+
+    obj = createObject(__FUNCTION__);
+    expression = QString(createString).arg(objectString(QString(), obj));
+
+    QQmlExpression *expr;
+    int id = 0;
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    //Modify and update this object
+    objMap = updateObject(obj, callbackResponse.toList()).toMap();
+    objMap.insert("alphabet", objMap.value("alphabet").toString()+QString("**"));
+    obj = objMap;
+    expression = QString(updateString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    //This should be rejected since _version wont match
+    expression = QString(updateString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, true);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 0);
+
+    obj = createObjectList(__FUNCTION__, 5);
+    expression = QString(createString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+
+    //Modify all  update this object
+    objList = updateObjectList(obj.toList(), callbackResponse.toList()).toList();
+    for (int i = 0; i<5; i++) {
+        objMap = objList[i].toMap();
+        objMap.insert("alphabet", objMap.value("alphabet").toString()+QString("**"));
+        objList[i] = objMap;
+    }
+    obj = objList;
+    expression = QString(updateString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+
+    //This should fail for _version mismatch
+    expression = QString(updateString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, true);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 0);
+
+    delete expr;
+    deleteComponent(partition);
+}
+
+void TestJsonDbPartition::update_Replace()
+{
+    const QString createString = QString("create(%1, function (error, response) {callbackSignal(error, response);});");
+    const QString updateString = QString("update(%1, { mode : 1 }, function (error, response) {callbackSignal(error, response);});");
+    ComponentData *partition = createComponent();
+    if (!partition || !partition->qmlElement) return;
+    QVariant obj;
+    QVariantMap objMap;
+    QVariantList objList;
+    QString expression;
+
+    obj = createObject(__FUNCTION__);
+    expression = QString(createString).arg(objectString(QString(), obj));
+
+    QQmlExpression *expr;
+    int id = 0;
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    //Modify and update this object
+    objMap = updateObject(obj, callbackResponse.toList()).toMap();
+    objMap.insert("alphabet", objMap.value("alphabet").toString()+QString("**"));
+    obj = objMap;
+    expression = QString(updateString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    //Should not be rejected
+    objMap.remove("_version");
+    obj = objMap;
+    expression = QString(updateString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    obj = createObjectList(__FUNCTION__, 5);
+    expression = QString(createString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+
+    //Modify all  update this object
+    objList = updateObjectList(obj.toList(), callbackResponse.toList()).toList();
+    for (int i = 0; i<5; i++) {
+        objMap = objList[i].toMap();
+        objMap.insert("alphabet", objMap.value("alphabet").toString()+QString("**"));
+        objList[i] = objMap;
+    }
+    obj = objList;
+    expression = QString(updateString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+
+    //This should not fail, eventhough we have _version mismatch
+    expression = QString(updateString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+
+    delete expr;
+    deleteComponent(partition);
+}
+
 // JsonDb.Partition.remove()
 void TestJsonDbPartition::remove()
 {
@@ -334,6 +501,204 @@ void TestJsonDbPartition::remove()
     delete expr;
     deleteComponent(partition);
 }
+// JsonDb.Partition.remove()
+void TestJsonDbPartition::remove_RejectStale()
+{
+    const QString createString = QString("create(%1, function (error, response) {callbackSignal(error, response);});");
+    const QString removeString = QString("remove(%1, { mode : 0 }, function (error, response) {callbackSignal(error, response);});");
+    ComponentData *partition = createComponent();
+    if (!partition || !partition->qmlElement) return;
+    QVariant obj;
+    QVariantMap objMap;
+    QVariantList objList;
+    QString expression;
+
+    obj = createObject(__FUNCTION__);
+    expression = QString(createString).arg(objectString(QString(), obj));
+
+    QQmlExpression *expr;
+    int id = 0;
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    QVariantList originalList = callbackResponse.toList();
+
+    //Remove this object (should fail)
+    {
+        QVariantList newList;
+        QVariantList list = originalList;
+        for (int i = 0; i<list.count(); i++) {
+            QVariantMap objMap = list[i].toMap();
+            objMap.insert("_type", __FUNCTION__);
+            objMap.remove("_version");
+            newList.append(objMap);
+        }
+        obj = newList;
+    }
+    expression = QString(removeString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, true);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 0);
+
+    //Remove this object
+    {
+        QVariantList newList;
+        QVariantList list = originalList;
+        for (int i = 0; i<list.count(); i++) {
+            QVariantMap objMap = list[i].toMap();
+            objMap.insert("_type", __FUNCTION__);
+            newList.append(objMap);
+        }
+        obj = newList;
+    }
+    expression = QString(removeString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    obj = createObjectList(__FUNCTION__, 5);
+    expression = QString(createString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+    originalList = callbackResponse.toList();
+
+    //Remove all objects (should fail)
+    {
+        QVariantList newList;
+        QVariantList list = originalList;
+        for (int i = 0; i<list.count(); i++) {
+            QVariantMap objMap = list[i].toMap();
+            objMap.insert("_type", __FUNCTION__);
+            objMap.remove("_version");
+            newList.append(objMap);
+        }
+        obj = newList;
+    }
+    expression = QString(removeString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, true);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 0);
+
+    //Remove all objects
+    {
+        QVariantList newList;
+        QVariantList list = originalList;
+        for (int i = 0; i<list.count(); i++) {
+            QVariantMap objMap = list[i].toMap();
+            objMap.insert("_type", __FUNCTION__);
+            newList.append(objMap);
+        }
+        obj = newList;
+    }
+    expression = QString(removeString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+
+    delete expr;
+    deleteComponent(partition);
+}
+
+// JsonDb.Partition.remove()
+void TestJsonDbPartition::remove_Replace()
+{
+    const QString createString = QString("create(%1, function (error, response) {callbackSignal(error, response);});");
+    const QString removeString = QString("remove(%1, { mode : 1 }, function (error, response) {callbackSignal(error, response);});");
+    ComponentData *partition = createComponent();
+    if (!partition || !partition->qmlElement) return;
+    QVariant obj;
+    QVariantMap objMap;
+    QVariantList objList;
+    QString expression;
+
+    obj = createObject(__FUNCTION__);
+    expression = QString(createString).arg(objectString(QString(), obj));
+
+    QQmlExpression *expr;
+    int id = 0;
+    expr = new QQmlExpression(partition->engine->rootContext(), partition->qmlElement, expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    QVariantList originalList = callbackResponse.toList();
+
+    //Remove this object
+    {
+        QVariantList newList;
+        QVariantList list = originalList;
+        for (int i = 0; i<list.count(); i++) {
+            QVariantMap objMap = list[i].toMap();
+            objMap.insert("_type", __FUNCTION__);
+            objMap.remove("_version");
+            newList.append(objMap);
+        }
+        obj = newList;
+    }
+    expression = QString(removeString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 1);
+
+    obj = createObjectList(__FUNCTION__, 5);
+    expression = QString(createString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+    originalList = callbackResponse.toList();
+
+    //Remove all objects (should fail)
+    {
+        QVariantList newList;
+        QVariantList list = originalList;
+        for (int i = 0; i<list.count(); i++) {
+            QVariantMap objMap = list[i].toMap();
+            objMap.insert("_type", __FUNCTION__);
+            objMap.remove("_version");
+            newList.append(objMap);
+        }
+        obj = newList;
+    }
+    expression = QString(removeString).arg(objectString(QString(), obj));
+    expr->setExpression(expression);
+    id = expr->evaluate().toInt();
+    waitForCallback1();
+    QCOMPARE(callbackError, false);
+    QCOMPARE(callbackMeta.toMap()["id"].toInt(), id);
+    QCOMPARE(callbackResponse.toList().size(), 5);
+
+    delete expr;
+    deleteComponent(partition);
+}
+
 // JsonDb.Partition.find()
 void TestJsonDbPartition::find()
 {

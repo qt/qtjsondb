@@ -211,13 +211,13 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
     request. If the request fails to update an object, the whole transaction will be aborted. The
     \a options specifies how update should be handled.
     \list
-    \li options.mode - Supported values: "normal", "forced".
+    \li options.mode - Supported values: \c Partition.RejectStale, \c Partition.Replace
     \list
-    \li"normal" creates the document if it does not exist otherwise it enforces that the
+    \li \c Partition.RejectStale creates the document if it does not exist otherwise it enforces that the
     "_version" matches or fails - lost update prevention.
-    \li"forced" ignores the existing database content.
+    \li \c Partition.Replace ignores the existing database content.
     \endlist
-    Default is "normal"
+    Default is \c Partition.RejectStale
     \endlist
 
     The callback will be called in case of failure or success. The \a options and \a callback parameters
@@ -271,7 +271,11 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
         actualCallback = actualOptions;
         actualOptions = QJSValue(QJSValue::UndefinedValue);
     }
-    //#TODO ADD options
+
+    QVariantMap opts = qjsvalue_to_qvariant(actualOptions).toMap();
+    QJsonDbWriteRequest::ConflictResolutionMode conflictMode =
+            static_cast<QJsonDbWriteRequest::ConflictResolutionMode>(opts.value(QStringLiteral("mode")).toInt());
+
     QVariant obj = qjsvalue_to_qvariant(object);
     QJsonDbWriteRequest *request(0);
     if (obj.type() == QVariant::List) {
@@ -280,6 +284,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
         request = new QJsonDbUpdateRequest(QJsonObject::fromVariantMap(obj.toMap()));
     }
     request->setPartition(_name);
+    request->setConflictResolutionMode(conflictMode);
     connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
     connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
     connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
@@ -298,13 +303,13 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
     request.
     \a options specifies how update should be handled.
     \list
-    \li options.mode - Supported values: "normal", "forced".
+    \li options.mode - Supported values: \c Partition.RejectStale, \c Partition.Replace
     \list
-    \li"normal" removes the document if it exists and the _version value matches that of the object
+    \li \c Partition.RejectStale removes the document if it exists and the _version value matches that of the object
     in the database. Otherwise, if the _version doesn't match it will be rejected as a stale update.
-    \li"forced" ignores the existing database content.
+    \li \c Partition.Replace ignores the existing database content.
     \endlist
-    Default is "normal"
+    Default is \c Partition.RejectStale
     \endlist
 
     The callback will be called in case of failure or success. The \a options and \a callback parameters
@@ -356,7 +361,11 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
         actualCallback = actualOptions;
         actualOptions = QJSValue(QJSValue::UndefinedValue);
     }
-    //#TODO ADD options
+
+    QVariantMap opts = qjsvalue_to_qvariant(actualOptions).toMap();
+    QJsonDbWriteRequest::ConflictResolutionMode conflictMode =
+            static_cast<QJsonDbWriteRequest::ConflictResolutionMode>(opts.value(QStringLiteral("mode")).toInt());
+
     QVariant obj = qjsvalue_to_qvariant(object);
     QJsonDbWriteRequest *request(0);
     if (obj.type() == QVariant::List) {
@@ -365,6 +374,7 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
         request = new QJsonDbRemoveRequest(QJsonObject::fromVariantMap(obj.toMap()));
     }
     request->setPartition(_name);
+    request->setConflictResolutionMode(conflictMode);
     connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
     connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
     connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),

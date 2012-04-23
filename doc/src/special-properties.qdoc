@@ -112,7 +112,7 @@ by re-querying and re-updating the object.
 regardless of the value of _version currently in the database. For this scenario,
 the client should set \l {QJsonDbWriteRequest::conflictResolutionMode} to a
 value of \l {QJsonDbWriteRequest::Replace} (or in the case of the QML API,
-specify \c forced for the \c mode when calling \l {Partition::update} or
+specify \c Partition.Replace for the \c mode when calling \l {Partition::update} or
 \l {Partition::remove}). This will cause the version in the
 database to be ignored and the object to be forcefully overwritten.
 \li The final and least common scenario is when a client wants to create an

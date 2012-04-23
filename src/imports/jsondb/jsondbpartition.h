@@ -63,6 +63,12 @@ class JsonDbPartition: public QObject
 {
     Q_OBJECT
 public:
+
+    enum ConflictResolutionMode {
+        RejectStale = QJsonDbWriteRequest::RejectStale,
+        Replace = QJsonDbWriteRequest::Replace
+    };
+
     JsonDbPartition(const QString &partitionName=QString(), QObject *parent=0);
     ~JsonDbPartition();
 
@@ -94,7 +100,7 @@ public:
     Q_PROPERTY(QQmlListProperty<QObject> childElements READ childElements)
     Q_CLASSINFO("DefaultProperty", "childElements")
     QQmlListProperty<QObject> childElements();
-
+    Q_ENUMS(ConflictResolutionMode)
 Q_SIGNALS:
     void nameChanged(const QString &partitionName);
 

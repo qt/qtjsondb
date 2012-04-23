@@ -61,7 +61,11 @@ private slots:
 
     void create();
     void update();
+    void update_RejectStale();
+    void update_Replace();
     void remove();
+    void remove_RejectStale();
+    void remove_Replace();
     void find();
 
 public slots:
