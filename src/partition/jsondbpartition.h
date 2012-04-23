@@ -170,7 +170,7 @@ public Q_SLOTS:
     void updateView(const QString &objectType, quint32 stateNumber=0);
 
 Q_SIGNALS:
-    void objectsUpdated(const JsonDbUpdateList &objects);
+    void objectsUpdated(bool viewUpdated, const JsonDbUpdateList &objects);
 
 protected:
     void initSchemas();

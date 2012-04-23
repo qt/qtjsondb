@@ -95,7 +95,7 @@ protected slots:
     void clearNotifications();
 
     void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
-    void objectsUpdated(const JsonDbUpdateList &objects);
+    void objectsUpdated(bool viewUpdated, const JsonDbUpdateList &objects);
     void updateEagerViews(JsonDbPartition *partition, const QSet<QString> eagerViewTypes, JsonDbUpdateList changeList);
     void emitStateChanged(JsonDbPartition *partition);
 

@@ -138,6 +138,6 @@ JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *own
         updated.append(JsonDbUpdate(oldObject, object, action));
     }
 
-    emit objectsUpdated(updated);
+    emit objectsUpdated(false, updated);
     return result;
 }

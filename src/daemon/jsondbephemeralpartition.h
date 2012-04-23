@@ -73,7 +73,7 @@ public:
     inline QString name() const { return mName; }
 
 Q_SIGNALS:
-    void objectsUpdated(const JsonDbUpdateList &objects);
+    void objectsUpdated(bool viewUpdated, const JsonDbUpdateList &objects);
 
 private:
     typedef QMap<QUuid, JsonDbObject> ObjectMap;

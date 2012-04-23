@@ -1378,7 +1378,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
     transaction.commit();
 
-    emit objectsUpdated(updated);
+    emit objectsUpdated((mode == ViewObject), updated);
     return result;
 }
 
