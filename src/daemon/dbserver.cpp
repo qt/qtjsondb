@@ -288,7 +288,7 @@ bool DBServer::loadPartitions()
             JsonDbObject partitionRecord(definition);
             partitionRecord.insert(JsonDbString::kUuidStr, JsonDbObject::createUuidFromString(name).toString());
             partitionRecord.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
-            mEphemeralPartition->updateObjects(mOwner, JsonDbObjectList() << partitionRecord, JsonDbPartition::ForcedWrite);
+            mEphemeralPartition->updateObjects(mOwner, JsonDbObjectList() << partitionRecord, JsonDbPartition::Replace);
         }
     }
 
@@ -321,7 +321,7 @@ bool DBServer::loadPartitions()
             toRemove.append(notification);
         }
 
-        mEphemeralPartition->updateObjects(mOwner, toRemove, JsonDbPartition::ForcedWrite);
+        mEphemeralPartition->updateObjects(mOwner, toRemove, JsonDbPartition::Replace);
 
         disconnect(partition, SIGNAL(objectsUpdated(JsonDbUpdateList)), this, SLOT(objectsUpdated(JsonDbUpdateList)));
         partition->close();
@@ -753,7 +753,7 @@ void DBServer::objectUpdated(const QString &partitionName, quint32 stateNumber, 
 }
 
 void DBServer::processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDbObjectList &objects,
-                            JsonDbPartition::WriteMode mode, const QString &partitionName,  int id)
+                            JsonDbPartition::ConflictResolutionMode mode, const QString &partitionName,  int id)
 {
     QJsonObject response;
     response.insert(JsonDbString::kIdStr, id);
@@ -1355,13 +1355,13 @@ void DBServer::receiveMessage(const QJsonObject &message)
     }
 
     if (action == JsonDbString::kCreateStr || action == JsonDbString::kRemoveStr || action == JsonDbString::kUpdateStr) {
-        JsonDbPartition::WriteMode writeMode = JsonDbPartition::OptimisticWrite;
-        QString writeModeRequested = message.value(QStringLiteral("writeMode")).toString();
+        JsonDbPartition::ConflictResolutionMode writeMode = JsonDbPartition::RejectStale;
+        QString conflictModeRequested = message.value(JsonDbString::kConflictResolutionModeStr).toString();
 
-        if (writeModeRequested == QLatin1String("merge"))
+        if (conflictModeRequested == QLatin1String("merge"))
             writeMode = JsonDbPartition::ReplicatedWrite;
-        else if (writeModeRequested == QLatin1String("replace") || !jsondbSettings->rejectStaleUpdates())
-            writeMode = JsonDbPartition::ForcedWrite;
+        else if (conflictModeRequested == QLatin1String("replace") || !jsondbSettings->rejectStaleUpdates())
+            writeMode = JsonDbPartition::Replace;
 
         // TODO: remove at the same time that clientcompat is dropped
         if (action == JsonDbString::kRemoveStr && object.toObject().contains(JsonDbString::kQueryStr)) {
@@ -1459,7 +1459,7 @@ void DBServer::removeConnection()
             QJsonObject notificationObject;
             notificationObject.insert(JsonDbString::kUuidStr, notificationId);
             notificationObject.insert(JsonDbString::kDeletedStr, true);
-            mEphemeralPartition->updateObjects(owner, JsonDbObjectList() << notificationObject, JsonDbPartition::ForcedWrite);
+            mEphemeralPartition->updateObjects(owner, JsonDbObjectList() << notificationObject, JsonDbPartition::Replace);
             mNotifications.remove(notificationId);
         }
     }

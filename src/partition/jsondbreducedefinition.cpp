@@ -271,7 +271,7 @@ void JsonDbReduceDefinition::setError(const QString &errorMsg)
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
     if (mPartition)
-        mPartition->updateObject(mOwner, mDefinition, JsonDbPartition::ForcedWrite);
+        mPartition->updateObject(mOwner, mDefinition, JsonDbPartition::Replace);
 }
 
 bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message)

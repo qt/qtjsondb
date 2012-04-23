@@ -68,7 +68,7 @@ public:
     bool get(const QUuid &uuid, JsonDbObject *result) const;
 
     JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
-    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode);
+    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode);
 
     inline QString name() const { return mName; }
 

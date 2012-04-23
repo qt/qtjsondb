@@ -94,9 +94,9 @@ class Q_JSONDB_PARTITION_EXPORT JsonDbPartition : public QObject
     Q_OBJECT
 public:
 
-    enum WriteMode {
-        OptimisticWrite,    // write must not introduce a conflict
-        ForcedWrite,        // accept write as is (almost no matter what)
+    enum ConflictResolutionMode {
+        RejectStale,    // write must not introduce a conflict
+        Replace,        // accept write as is (almost no matter what)
         ReplicatedWrite,    // master/master replication, may create obj._meta.conflicts
         ViewObject          // internal for view object
     };
@@ -129,8 +129,8 @@ public:
     bool addToQuota(const JsonDbOwner *owner, int size);
 
     JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
-    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, WriteMode mode = OptimisticWrite, JsonDbUpdateList *changeList = 0);
-    JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, WriteMode mode = OptimisticWrite, JsonDbUpdateList *changeList = 0);
+    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, ConflictResolutionMode mode = RejectStale, JsonDbUpdateList *changeList = 0);
+    JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, ConflictResolutionMode mode = RejectStale, JsonDbUpdateList *changeList = 0);
 
     int flush(bool *ok);
 

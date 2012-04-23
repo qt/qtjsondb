@@ -91,9 +91,9 @@ void QJsonDbPrivatePartition::handleRequest()
             foreach (const QJsonValue &val, objectArray)
                 objects.append(val.toObject());
 
-            Partition::JsonDbPartition::WriteMode writeMode =
+            Partition::JsonDbPartition::ConflictResolutionMode writeMode =
                     request.value(JsonDbStrings::Protocol::conflictResolutionMode()).toString() == JsonDbStrings::Protocol::replace() ?
-                        Partition::JsonDbPartition::ForcedWrite : Partition::JsonDbPartition::OptimisticWrite;
+                        Partition::JsonDbPartition::Replace : Partition::JsonDbPartition::RejectStale;
             Partition::JsonDbWriteResult writeResults = privatePartition->updateObjects(privatePartition->defaultOwner(), objects, writeMode);
             if (writeResults.code == Partition::JsonDbError::NoError) {
                 emit writeRequestStarted(writeResults.state);

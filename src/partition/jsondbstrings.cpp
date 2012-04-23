@@ -115,5 +115,6 @@ const QString JsonDbString::kCasePreferenceStr = QString::fromLatin1("casePrefer
 const QString JsonDbString::kDatabaseSchemaVersionStr = QString::fromLatin1("databaseSchemaVersion");
 const QString JsonDbString::kPathStr = QString::fromLatin1("path");
 const QString JsonDbString::kDefaultStr = QString::fromLatin1("default");
+const QString JsonDbString::kConflictResolutionModeStr = QString::fromLatin1("conflictResolutionMode");
 
 QT_END_NAMESPACE_JSONDB_PARTITION

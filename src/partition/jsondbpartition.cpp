@@ -169,7 +169,7 @@ bool JsonDbPartition::open()
         object.insert(QLatin1String("id"), partitionId);
         object.insert(QLatin1String("name"), mPartitionName);
         object.insert(JsonDbString::kDatabaseSchemaVersionStr, gDatabaseSchemaVersion);
-        JsonDbWriteResult result = updateObject(mDefaultOwner, object, ForcedWrite);
+        JsonDbWriteResult result = updateObject(mDefaultOwner, object, Replace);
         Q_ASSERT(result.code == JsonDbError::NoError);
     }
     if (jsondbSettings->verbose())
@@ -1188,7 +1188,7 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     return result;
 }
 
-JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode,
+JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode,
                                                  JsonDbUpdateList *changeList)
 {
     JsonDbWriteResult result;
@@ -1276,7 +1276,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         JsonDbObject oldMaster = master;
 
         switch (mode) {
-        case OptimisticWrite:
+        case RejectStale:
             validWrite = master.updateVersionOptimistic(object, &versionWritten);
             break;
         case ViewObject:
@@ -1284,7 +1284,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
             versionWritten = master.computeVersion(false);
             validWrite = true;
             break;
-        case ForcedWrite:
+        case Replace:
             master = object;
             versionWritten = master.computeVersion();
             validWrite = true;
@@ -1382,7 +1382,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
     return result;
 }
 
-JsonDbWriteResult JsonDbPartition::updateObject(const JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::WriteMode mode, JsonDbUpdateList *changeList)
+JsonDbWriteResult JsonDbPartition::updateObject(const JsonDbOwner *owner, const JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode, JsonDbUpdateList *changeList)
 {
     return updateObjects(owner, JsonDbObjectList() << object, mode, changeList);
 }
@@ -1888,7 +1888,7 @@ void JsonDbPartition::initSchemas()
             schemaObject.insert(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr);
             schemaObject.insert(QStringLiteral("name"), schemaName);
             schemaObject.insert(QStringLiteral("schema"), schema);
-            updateObject(mDefaultOwner, schemaObject, ForcedWrite);
+            updateObject(mDefaultOwner, schemaObject, Replace);
         }
     }
     {
@@ -1898,7 +1898,7 @@ void JsonDbPartition::initSchemas()
         nameIndex.insert(JsonDbString::kPropertyNameStr, QLatin1String("name"));
         nameIndex.insert(JsonDbString::kPropertyTypeStr, QLatin1String("string"));
         nameIndex.insert(JsonDbString::kObjectTypeStr, QLatin1String("Capability"));
-        updateObject(mDefaultOwner, nameIndex, ForcedWrite);
+        updateObject(mDefaultOwner, nameIndex, Replace);
 
         const QLatin1String capabilityName("RootCapability");
         QFile capabilityFile(QString::fromLatin1(":schema/%1.json").arg(capabilityName));

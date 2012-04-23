@@ -97,6 +97,7 @@ private slots:
     void privatePartition();
     void invalidPrivatePartition();
     void removeRequest();
+    void forced();
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
@@ -777,6 +778,54 @@ void TestQJsonDbRequest::removeRequest()
     QCOMPARE(req3.status(), QJsonDbRequest::Error);
     QCOMPARE(mRequestErrors.value(&req3), QJsonDbRequest::MissingType);
 
+}
+
+void TestQJsonDbRequest::forced()
+{
+    QJsonDbObject item;
+    item.setUuid(QJsonDbObject::createUuid());
+    item.insert(QStringLiteral("_type"), QStringLiteral("forcedTest"));
+    item.insert(QStringLiteral("name"), QStringLiteral("Alice"));
+    QJsonDbCreateRequest create(item);
+    mConnection->send(&create);
+    QVERIFY(waitForResponse(&create));
+    QVERIFY(!mRequestErrors.contains(&create));
+
+    // this should get rejected...no _version specified
+    item.insert(QStringLiteral("name"), QStringLiteral("Joe"));
+    QJsonDbWriteRequest update;
+    update.setObjects(QList<QJsonObject>() << item);
+    mConnection->send(&update);
+    QVERIFY(waitForResponse(&update));
+    QVERIFY(mRequestErrors.contains(&update));
+    QCOMPARE(mRequestErrors[&update], QJsonDbRequest::UpdatingStaleVersion);
+    mRequestErrors.clear();
+
+    // force the write
+    update.setConflictResolutionMode(QJsonDbWriteRequest::Replace);
+    mConnection->send(&update);
+    QVERIFY(waitForResponse(&update));
+    QVERIFY(!mRequestErrors.contains(&update));
+
+    // fail with a stale remove
+    QJsonDbRemoveRequest remove(item);
+    mConnection->send(&remove);
+    QVERIFY(waitForResponse(&remove));
+    QVERIFY(mRequestErrors.contains(&remove));
+    QCOMPARE(mRequestErrors[&remove], QJsonDbRequest::UpdatingStaleVersion);
+    mRequestErrors.clear();
+
+    // force the remove
+    remove.setConflictResolutionMode(QJsonDbWriteRequest::Replace);
+    mConnection->send(&remove);
+    QVERIFY(waitForResponse(&remove));
+    QVERIFY(!mRequestErrors.contains(&remove));
+
+    // make sure it's really gone
+    QJsonDbReadObjectRequest read(item.uuid());
+    mConnection->send(&read);
+    QVERIFY(waitForResponse(&read));
+    QVERIFY(read.takeResults().isEmpty());
 }
 
 QTEST_MAIN(TestQJsonDbRequest)

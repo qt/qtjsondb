@@ -106,7 +106,7 @@ private:
     void reduceMemoryUsage();
     JsonDbStat stat() const;
 
-    void processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::WriteMode mode, const QString &partitionName, int id);
+    void processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode, const QString &partitionName, int id);
     void processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
     void processChangesSince(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
     void processFlush(JsonStream *stream, JsonDbOwner *owner, const QString &partitionName, int id);

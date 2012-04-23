@@ -393,7 +393,7 @@ void JsonDbMapDefinition::setError(const QString &errorMsg)
     mDefinition.insert(JsonDbString::kActiveStr, false);
     mDefinition.insert(JsonDbString::kErrorStr, errorMsg);
     if (mPartition)
-        mPartition->updateObject(mOwner, mDefinition, JsonDbPartition::ForcedWrite);
+        mPartition->updateObject(mOwner, mDefinition, JsonDbPartition::Replace);
 }
 
 bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPartition *partition, QString &message)

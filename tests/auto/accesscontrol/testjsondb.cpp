@@ -106,9 +106,9 @@ private slots:
 
 private:
     JsonDbQueryResult find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings = QJsonObject());
-    JsonDbWriteResult create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
-    JsonDbWriteResult update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
-    JsonDbWriteResult remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode = JsonDbPartition::OptimisticWrite);
+    JsonDbWriteResult create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode = JsonDbPartition::RejectStale);
+    JsonDbWriteResult update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode = JsonDbPartition::RejectStale);
+    JsonDbWriteResult remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode = JsonDbPartition::RejectStale);
 
     void removeDbFiles();
 
@@ -177,7 +177,7 @@ JsonDbQueryResult TestJsonDb::find(JsonDbOwner *owner, const QString &query, con
     return mJsonDbPartition->queryObjects(owner, q.data());
 }
 
-JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode)
 {
     JsonDbWriteResult result =  mJsonDbPartition->updateObject(owner, object, mode);
     if (result.code == JsonDbError::NoError) {
@@ -187,7 +187,7 @@ JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, J
     return result;
 }
 
-JsonDbWriteResult TestJsonDb::update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult TestJsonDb::update(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode)
 {
     JsonDbWriteResult result =  mJsonDbPartition->updateObject(owner, object, mode);
     if (result.code == JsonDbError::NoError)
@@ -195,7 +195,7 @@ JsonDbWriteResult TestJsonDb::update(JsonDbOwner *owner, JsonDbObject &object, J
     return result;
 }
 
-JsonDbWriteResult TestJsonDb::remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::WriteMode mode)
+JsonDbWriteResult TestJsonDb::remove(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode)
 {
     JsonDbObject toDelete = object;
     toDelete.insert(JsonDbString::kDeletedStr, true);

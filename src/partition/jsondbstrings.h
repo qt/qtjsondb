@@ -120,6 +120,7 @@ public:
     static const QString kDatabaseSchemaVersionStr;
     static const QString kPathStr;
     static const QString kDefaultStr;
+    static const QString kConflictResolutionModeStr;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION
