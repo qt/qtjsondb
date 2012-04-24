@@ -40,7 +40,7 @@
 ****************************************************************************/
 
 #include <QtCore>
-#include <QGuiApplication>
+#include <QCoreApplication>
 #include <iostream>
 #include "client.h"
 
@@ -61,22 +61,11 @@ static void usage(const QString &name, int exitCode = 0)
 
 int main(int argc, char * argv[])
 {
-    // Hack to avoid making people specify a platform plugin.
-    // We only need QGuiApplication so that we can use QQmlEngine.
-    bool platformSpecified = false;
-    for (int i = 0; i < argc; i++) {
-        if (strcmp(argv[i], "-platform") == 0)
-            platformSpecified = true;
-    }
-
-    if (!platformSpecified)
-        setenv("QT_QPA_PLATFORM", "minimal", false);
-
-    QGuiApplication::setOrganizationName("Nokia");
-    QGuiApplication::setOrganizationDomain("qt.nokia.com");
-    QGuiApplication::setApplicationName("jclient");
-    QGuiApplication::setApplicationVersion("1.0");
-    QGuiApplication app(argc, argv);
+    QCoreApplication::setOrganizationName("Nokia");
+    QCoreApplication::setOrganizationDomain("qt.nokia.com");
+    QCoreApplication::setApplicationName("jclient");
+    QCoreApplication::setApplicationVersion("1.0");
+    QCoreApplication app(argc, argv);
 
     QStringList args = QCoreApplication::arguments();
     qDebug() << "args: " << args;
@@ -85,7 +74,6 @@ int main(int argc, char * argv[])
     QStringList filesToLoad;
     bool terminate = false;
     bool debug = false;
-
 
     while (args.size()) {
         QString arg = args.takeFirst();
