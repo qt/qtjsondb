@@ -645,7 +645,10 @@ QList<QString> OrQueryTerm::propertyNames() const
 
 QList<QString> OrQueryTerm::findUnindexablePropertyNames() const
 {
-  QList<QString> unindexablePropertyNames;
+    QList<QString> unindexablePropertyNames;
+    QString firstPropertyName;
+    if (!mTerms.isEmpty())
+        firstPropertyName = mTerms[0].propertyName();
     foreach (const QueryTerm &term, mTerms) {
         const QString propertyName = term.propertyName();
         const QString op = term.op();
@@ -655,6 +658,11 @@ QList<QString> OrQueryTerm::findUnindexablePropertyNames() const
              || op == QLatin1String("contains"))
              && !unindexablePropertyNames.contains(propertyName))
             unindexablePropertyNames.append(propertyName);
+        // if multiple properties are access in an disjunction ("|") then we cannot use an index on it
+        if (propertyName != firstPropertyName) {
+            qDebug() << "unindexable" << firstPropertyName << propertyName;
+            unindexablePropertyNames.append(propertyName);
+        }
     }
     return unindexablePropertyNames;
 }

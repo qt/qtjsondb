@@ -14,8 +14,9 @@
     "num-red-eyes":2,
 
     "num-bunnies": 10,
+    "num-bunnies-age-8": 2,
     "num-fluffy-bunnies":4,
-    "num-demon-bunnies":3,
+    "num-demon-bunnies":4,
     "num-russian-bunnies":2
   },
   {
@@ -99,19 +100,19 @@
   {
     "_type" : "bunny",
     "name": "glenn legros",
-    "type":"fluffly",
+    "type":"fluffy",
     "age": 1
   },
   {
     "_type" : "bunny",
     "name": "sean joyce",
-    "type":"fluffly",
+    "type":"fluffy",
     "age": 2
   },
   {
     "_type" : "bunny",
     "name": "bruce toth",
-    "type":"fluffly",
+    "type":"fluffy",
     "age": 2
   },
   {

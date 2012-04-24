@@ -88,6 +88,7 @@ private slots:
     void queryOneType();
     void queryOneOrOtherType();
     void queryTypesIn();
+    void queryUnion();
     void queryFieldExists();
     void queryFieldNotExists();
     void queryLessThan();
@@ -291,6 +292,29 @@ void TestJsonDbQueries::queryTypesIn()
     JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type in [\"dragon\",\"bunny\"]]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt() + mDataStats["num-bunnies"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", QStringList() << "dragon" << "bunny")));
+}
+
+void TestJsonDbQueries::queryUnion()
+{
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"bunny\"][?age=8|type=\"demon\"]"));
+    QCOMPARE(queryResult.data.size(), mDataStats["num-bunnies-age-8"].toInt() + mDataStats["num-demon-bunnies"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", QStringList() << "bunny")));
+
+    // verify it still works if one of the fields has an index
+    // verify can use notExists on an indexed field
+    JsonDbObject index;
+    index.insert("_type", QString("Index"));
+    index.insert("propertyName", QString("age"));
+    index.insert("propertyType", QString("string"));
+    JsonDbWriteResult result = mJsonDbPartition->updateObject(mOwner, index);
+    verifyGoodWriteResult(result);
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"bunny\"][?age=8|type=\"demon\"]"));
+    QCOMPARE(queryResult.data.size(), mDataStats["num-bunnies-age-8"].toInt() + mDataStats["num-demon-bunnies"].toInt());
+    QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", QStringList() << "bunny")));
+
+    index.markDeleted();
+    mJsonDbPartition->updateObject(mOwner, index);
 }
 
 void TestJsonDbQueries::queryFieldExists()

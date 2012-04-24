@@ -12,3 +12,6 @@ RESOURCES = queries.qrc
 
 SOURCES += \
     testjsondbqueries.cpp
+
+OTHER_FILES += \
+    dataset.json
