@@ -624,7 +624,6 @@ void DBServer::updateEagerViewStateNumbers(JsonDbPartition *partition, quint32 p
     WeightedSourceViewGraph &sourceViewGraph = mEagerViewSourceGraph[partitionName];
     QStringList visitedViews;
     for (WeightedSourceViewGraph::ConstIterator it = sourceViewGraph.begin(); it != sourceViewGraph.end(); ++it) {
-        const QString &sourceType = it.key();
         const ViewEdgeWeights &edgeWeights = it.value();
         for (ViewEdgeWeights::const_iterator jt = edgeWeights.begin(); jt != edgeWeights.end(); ++jt) {
             const QString &viewType = jt.key();
@@ -1158,6 +1157,7 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
     JsonDbQuery *parsedQuery = n->parsedQuery();
     QSet<QString> matchedTypes = parsedQuery->matchedTypes();
     bool matchAnyType = matchedTypes.isEmpty();
+    QList<JsonDbObjectTable*> objectTables;
     if (stateNumber == 0) {
         QString indexName = JsonDbString::kTypeStr;
         if (matchAnyType) {
@@ -1167,6 +1167,9 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
         }
         foreach (const QString matchedType, matchedTypes) {
             JsonDbObjectTable *objectTable = partition->findObjectTable(matchedType);
+            if (objectTables.contains(objectTable))
+                continue;
+            objectTables.append(objectTable);
             lastStateNumber = objectTable->stateNumber();
             if (lastStateNumber == stateNumber)
                 continue;
@@ -1195,6 +1198,9 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
     } else {
         foreach (const QString matchedType, matchedTypes) {
             JsonDbObjectTable *objectTable = partition->findObjectTable(matchedType);
+            if (objectTables.contains(objectTable))
+                continue;
+            objectTables.append(objectTable);
             if (objectTable->stateNumber() == stateNumber)
                 continue;
             QList<JsonDbUpdate> updateList;

@@ -341,6 +341,29 @@ void TestQJsonDbWatcher::history()
 
     mConnection->removeWatcher(&watcher);
 
+    // create a historical watcher with an "in" query
+    QJsonDbWatcher watcherIn;
+    watcherIn.setWatchedActions(QJsonDbWatcher::All);
+    watcherIn.setQuery(QLatin1String("[?_type in [\"com.test.qjsondbwatcher-test\", \"com.test.qjsondbwatcher-test2\"]]"));
+
+    // set the starting state
+    watcherIn.setInitialStateNumber(firstStateNumber-1);
+    mConnection->addWatcher(&watcherIn);
+
+    // expecting one notification per create
+    QVERIFY(waitForResponseAndNotifications(0, &watcherIn, objects.size()));
+    QVERIFY(waitForStatus(&watcherIn, QJsonDbWatcher::Active));
+
+    notifications = watcherIn.takeNotifications();
+    QCOMPARE(notifications.size(), objects.size());
+    // we received one Create notification per object
+    foreach (const QJsonDbNotification n, notifications.mid(0, objects.size())) {
+        QCOMPARE(n.action(), QJsonDbWatcher::Created);
+        QVERIFY(n.stateNumber() >= firstStateNumber);
+    }
+
+    mConnection->removeWatcher(&watcherIn);
+
     // create a new historical watcher that should retrieve all the changes
     QJsonDbWatcher watcher2;
     watcher2.setWatchedActions(QJsonDbWatcher::All);

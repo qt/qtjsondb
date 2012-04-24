@@ -495,10 +495,12 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
         foreach (const QueryTerm &term, oqt.terms()) {
             if (term.propertyName() == JsonDbString::kTypeStr) {
                 if (term.op() == QLatin1String("=")) {
-                    parsedQuery->mMatchedTypes.clear();
                     parsedQuery->mMatchedTypes.insert(term.value().toString());
                 } else if (term.op() == QLatin1String("!=")) {
                     parsedQuery->mMatchedTypes.insert(term.value().toString());
+                } else if (term.op() == QLatin1String("in")) {
+                    foreach (const QJsonValue &v, term.value().toArray())
+                        parsedQuery->mMatchedTypes.insert(v.toString());
                 }
             }
         }
@@ -512,8 +514,6 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
         parsedQuery->orderTerms.append(term);
     }
 
-    //qDebug() << "queryTerms.size()" << parsedQuery->queryTerms.size();
-    //qDebug() << "orderTerms.size()" << parsedQuery->orderTerms.size();
     return parsedQuery;
 }
 
