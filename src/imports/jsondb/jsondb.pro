@@ -14,7 +14,7 @@ qmldir.path += $$[QT_INSTALL_IMPORTS]/$$TARGETPATH
 INSTALLS += target qmldir
 
 #rules for qmltypes
-!cross_compile {
+contains(QMAKE_HOST.arch, x86) | contains(QMAKE_HOST.arch, x86_64) {
     qtPrepareTool(QMLPLUGINDUMP, qmlplugindump)
     mac: !exists($$QMLPLUGINDUMP): QMLPLUGINDUMP = "$${QMLPLUGINDUMP}.app/Contents/MacOS/qmlplugindump"
     unix:!mac: QMLPLUGINDUMP = "$${QMLPLUGINDUMP} -platform minimal"
