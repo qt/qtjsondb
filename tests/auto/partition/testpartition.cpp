@@ -4051,7 +4051,7 @@ void TestPartition::indexPropertyFunction()
     }
 
     // verify we can fetch the index values
-    queryResult = find(mOwner, QLatin1String("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex > 10][/propertyFunctionIndex][= { _uuid: _uuid, indexValue: propertyFunctionIndex }]"));
+    queryResult = find(mOwner, QLatin1String("[?_type=\"IndexPropertyFunction\"][?propertyFunctionIndex > 10][/propertyFunctionIndex][= { _uuid: _uuid, _indexValue: _indexValue, to: to }]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("to").toDouble(), (double)42);
     QVERIFY(queryResult.data.at(0).contains("_indexValue"));

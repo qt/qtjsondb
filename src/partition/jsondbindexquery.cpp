@@ -376,10 +376,14 @@ JsonDbObject JsonDbIndexQuery::next()
 JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
 {
     int numExpressions = mResultExpressionList.length();
-    QJsonObject result(object);
+    QJsonObject result;
+    JsonDbObject baseObject(object);
 
     // insert the computed index value
-    result.insert(QLatin1String("_indexValue"), mFieldValue);
+    baseObject.insert(QLatin1String("_indexValue"), mFieldValue);
+
+    if (mResultKeyList.isEmpty())
+        result = baseObject;
 
     if (!numExpressions)
         return result;
@@ -389,7 +393,6 @@ JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
 
         QVector<QStringList> &joinPath = mJoinPaths[i];
         int joinPathSize = joinPath.size();
-        JsonDbObject baseObject(result);
         for (int j = 0; j < joinPathSize-1; j++) {
             QJsonValue uuidQJsonValue = baseObject.propertyLookup(joinPath[j]).toString();
             QString uuid = uuidQJsonValue.toString();

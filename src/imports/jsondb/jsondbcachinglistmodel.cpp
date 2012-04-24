@@ -772,8 +772,7 @@ void JsonDbCachingListModelPrivate::setQueryForSortKeys()
 {
     // Query to retrieve the sortKeys
     // TODO remove the "[= {}]" from query
-    queryForSortKeys = query + QLatin1String("[= { _uuid: _uuid");
-    queryForSortKeys += QLatin1String("}]");
+    queryForSortKeys = query + QLatin1String("[= { _uuid: _uuid, _indexValue: _indexValue }]");
     queryForSortKeys += sortOrder;
 }
 

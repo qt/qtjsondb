@@ -393,6 +393,7 @@ void TestJsonDbQueries::queryQuotedProperties()
     // object values are returned in queryResult.data
     QCOMPARE(queryResult.data.size(), mDataStats["num-red-eyes"].toInt());
     QCOMPARE(queryResult.data.at(0).value("color-of-eyes").toString(), QString("red"));
+    QCOMPARE(queryResult.data.at(0).count(), 1);
 }
 
 void TestJsonDbQueries::querySortedByIndexName()
