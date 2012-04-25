@@ -1453,7 +1453,12 @@ void DBServer::receiveMessage(const QJsonObject &message)
         } else {
             additionalInfo = object.toObject().value(JsonDbString::kTypeStr).toString();
         }
-        qDebug().nospace() << "+ JsonDB Perf: [id]" << id << "[id]:[action]" << action
+        qDebug().nospace() << "+ JsonDB Perf: [id]" << id << "[id]";
+        if (mOwners.contains(stream->device())) {
+            const OwnerInfo &ownerInfo = mOwners[stream->device()];
+            qDebug().nospace() << ":[pid]" << ownerInfo.pid << "[pid]:[process]" << ownerInfo.processName << "[process]";
+        }
+        qDebug().nospace() << ":[action]" << action
                            << "[action]:[ms]" << timer.elapsed() << "[ms]:[details]" << additionalInfo << "[details]"
                            << ":[reads]" << stats.reads << "[reads]:[hits]" << stats.hits << "[hits]:[writes]" << stats  .writes << "[writes]";
         if (jsondbSettings->verbose() && partitionName != mEphemeralPartition->name()) {
