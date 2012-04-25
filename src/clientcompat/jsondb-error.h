@@ -57,27 +57,28 @@ public:
         OperationNotPermitted = 2,
         InvalidPartition = 3,
         DatabaseConnectionError = 4,
+        PartitionUnavailable = 5,
 
         // read / notify errors
-        MissingQuery = 5,
-        InvalidMessage= 6,
-        InvalidLimit = 7,
-        InvalidOffset = 8,
-        InvalidStateNumber = 9,
+        MissingQuery = 6,
+        InvalidMessage= 7,
+        InvalidLimit = 8,
+        InvalidOffset = 9,
+        InvalidStateNumber = 10,
 
         // write errors
-        MissingObject = 10,
-        DatabaseError = 11,
-        MissingUUID = 12,
-        MissingType = 13,
-        UpdatingStaleVersion = 14,
-        QuotaExceeded = 15,
-        FailedSchemaValidation = 16,
-        InvalidMap = 17,
-        InvalidReduce = 18,
-        InvalidSchemaOperation = 19,
-        InvalidIndexOperation = 20,
-        InvalidType = 21
+        MissingObject = 11,
+        DatabaseError = 12,
+        MissingUUID = 13,
+        MissingType = 14,
+        UpdatingStaleVersion = 15,
+        QuotaExceeded = 16,
+        FailedSchemaValidation = 17,
+        InvalidMap = 18,
+        InvalidReduce = 19,
+        InvalidSchemaOperation = 20,
+        InvalidIndexOperation = 21,
+        InvalidType = 22
     };
 };
 

@@ -133,6 +133,7 @@ public:
     JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, ConflictResolutionMode mode = RejectStale, JsonDbUpdateList *changeList = 0);
 
     int flush(bool *ok);
+    inline bool isOpen() const { return mIsOpen; }
 
     JsonDbView *addView(const QString &viewType);
     void removeView(const QString &viewType);
@@ -218,6 +219,7 @@ private:
     int          mMainSyncInterval;
     int          mIndexSyncInterval;
     JsonDbOwner *mDefaultOwner;
+    bool         mIsOpen;
 
     friend class JsonDbIndexQuery;
     friend class JsonDbObjectTable;
@@ -233,7 +235,7 @@ public:
         : mPartition(0)
     {
         Q_UNUSED(name)
-        if (partition)
+        if (partition && partition->isOpen())
             setPartition(partition);
     }
 

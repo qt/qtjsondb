@@ -85,6 +85,7 @@ JsonDbPartition::JsonDbPartition(const QString &filename, const QString &name, J
     , mMainSyncTimerId(-1)
     , mIndexSyncTimerId(-1)
     , mDefaultOwner(owner)
+    , mIsOpen(false)
 {
     if (!mFilename.endsWith(QLatin1String(".db")))
         mFilename += QLatin1String(".db");
@@ -108,6 +109,24 @@ JsonDbPartition::~JsonDbPartition()
 
 bool JsonDbPartition::close()
 {
+    if (!mIsOpen)
+        return true;
+    else if (mTransactionDepth || !mTableTransactions.isEmpty())
+        return false;
+
+    if (mMainSyncTimerId != -1) {
+        killTimer(mMainSyncTimerId);
+        mMainSyncTimerId = -1;
+    }
+
+    if (mIndexSyncTimerId != -1) {
+        killTimer(mIndexSyncTimerId);
+        mIndexSyncTimerId = -1;
+    }
+
+    mSchemas.clear();
+    mViewTypes.clear();
+
     foreach (JsonDbView *view, mViews.values()) {
         // sync the view object table, its indexes, and their state numbers to prevent reindexing on restart
         view->objectTable()->sync(JsonDbObjectTable::SyncObjectTable | JsonDbObjectTable::SyncIndexes | JsonDbObjectTable::SyncStateNumbers);
@@ -124,6 +143,7 @@ bool JsonDbPartition::close()
         mObjectTable = 0;
     }
 
+    mIsOpen = false;
     return true;
 }
 
@@ -132,14 +152,23 @@ bool JsonDbPartition::open()
     if (jsondbSettings->debug())
         qDebug() << "JsonDbBtree::open" << mPartitionName << mFilename;
 
-    mObjectTable = new JsonDbObjectTable(this);
-    mObjectTable->open(mFilename);
+    if (mIsOpen)
+        return true;
 
-    if (!checkStateConsistency()) {
-        qCritical() << "JsonDbBtreePartition::open()" << "Unable to recover database";
+    if (!mObjectTable)
+        mObjectTable = new JsonDbObjectTable(this);
+
+    if (!mObjectTable->open(mFilename)) {
+        qWarning() << "JsonDbPartition::open() failed to open object table" << mFilename;
         return false;
     }
 
+    if (!checkStateConsistency()) {
+        qCritical() << "JsonDbPartition::open()" << "Unable to recover database";
+        return false;
+    }
+
+    mIsOpen = true;
     bool rebuildingDatabaseMetadata = false;
 
     QString partitionId;
@@ -1140,6 +1169,15 @@ bool JsonDbPartition::addToQuota(const JsonDbOwner *owner, int size)
 JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
 {
     JsonDbQueryResult result;
+
+    if (!mIsOpen) {
+        QJsonObject error;
+        error.insert(JsonDbString::kCodeStr, JsonDbError::PartitionUnavailable);
+        error.insert(JsonDbString::kMessageStr, QStringLiteral("Partition unavailable"));
+        result.error = error;
+        return result;
+    }
+
     JsonDbObjectList results;
     JsonDbObjectList joinedResults;
 
@@ -1192,6 +1230,13 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
                                                  JsonDbUpdateList *changeList)
 {
     JsonDbWriteResult result;
+
+    if (!mIsOpen) {
+        result.code = JsonDbError::PartitionUnavailable;
+        result.message  = QStringLiteral("Partition unavailable");
+        return result;
+    }
+
     WithTransaction transaction(this);
     QList<JsonDbUpdate> updated;
     QString errorMsg;

@@ -319,6 +319,8 @@ void TestPartition::cleanup()
 
 void TestPartition::reopen()
 {
+    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(QLatin1String("[?_type=\"reopentest\"]")));
+
     int counter = 1;
     for (int i = 0; i < 10; ++i, ++counter) {
         JsonDbObject item;
@@ -332,11 +334,35 @@ void TestPartition::reopen()
         mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
         mJsonDbPartition->open();
 
-        JsonDbQuery *parsedQuery = JsonDbQuery::parse(QLatin1String("[?_type=\"reopentest\"]"));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
-        delete parsedQuery;
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
         QCOMPARE(queryResult.data.size(), counter);
     }
+
+    // repeat only reuse the same JsonDbPartition object
+    for (int i = 0; i < 10; ++i, ++counter) {
+        JsonDbObject item;
+        item.insert(QLatin1String("_type"), QLatin1String("reopentest"));
+        item.insert("create-string", QString("string"));
+        Q_UNUSED(mJsonDbPartition->updateObject(mOwner, item));
+
+        mJsonDbPartition->close();
+        mJsonDbPartition->open();
+
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+        QCOMPARE(queryResult.data.size(), counter);
+    }
+
+    // make sure a closed partition doesn't answer requests
+    mJsonDbPartition->close();
+
+    JsonDbObject item1;
+    JsonDbWriteResult writeRes = mJsonDbPartition->updateObject(mOwner, item1);
+    QCOMPARE(writeRes.code, JsonDbError::PartitionUnavailable);
+    JsonDbQueryResult queryRes = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+    QCOMPARE(static_cast<JsonDbError::ErrorCode>(queryRes.error.toObject().value(JsonDbString::kCodeStr).toDouble()),
+             JsonDbError::PartitionUnavailable);
+
+    mJsonDbPartition->open();
 }
 
 void TestPartition::createContacts()

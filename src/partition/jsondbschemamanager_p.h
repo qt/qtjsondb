@@ -65,6 +65,7 @@ public:
     inline QJsonObject insert(const QString &name, const QJsonObject &schema);
 
     inline QJsonObject validate(const QString &schemaName, JsonDbObject object);
+    inline void clear();
 
 private:
     typedef QPair<QJsonObject, SchemaValidation::Schema<QJsonObjectTypes> > QJsonObjectSchemaPair;

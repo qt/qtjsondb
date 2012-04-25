@@ -103,6 +103,11 @@ inline QJsonObject JsonDbSchemaManager::validate(const QString &schemaName, Json
     return callbacks.error();
 }
 
+inline void JsonDbSchemaManager::clear()
+{
+    m_schemas.clear();
+}
+
 QT_END_NAMESPACE_JSONDB_PARTITION
 
 #endif // JSONDB_SCHEMA_MANAGER_IMPL_P_H

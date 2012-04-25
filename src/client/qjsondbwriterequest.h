@@ -70,6 +70,7 @@ public:
         OperationNotPermitted = QJsonDbRequest::OperationNotPermitted,
         InvalidPartition = QJsonDbRequest::InvalidPartition,
         DatabaseConnectionError = QJsonDbRequest::DatabaseConnectionError,
+        PartitionUnavailable = QJsonDbRequest::PartitionUnavailable,
         MissingObject = QJsonDbRequest::MissingObject,
         DatabaseError = QJsonDbRequest::DatabaseError,
         MissingUUID = QJsonDbRequest::MissingUUID,
