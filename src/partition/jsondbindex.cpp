@@ -132,31 +132,6 @@ QString _q_bytesToHexString(const QByteArray &ba)
     return result;
 }
 
-class JsonDbIndexCursor
-{
-public:
-    JsonDbIndexCursor(JsonDbIndex *index);
-    ~JsonDbIndexCursor();
-
-    bool seek(const QJsonValue &value);
-    bool seekRange(const QJsonValue &value);
-
-    bool first();
-    bool current(QJsonValue &key, ObjectKey &value);
-    bool currentKey(QJsonValue &key);
-    bool currentValue(ObjectKey &value);
-    bool next();
-    bool prev();
-
-private:
-    bool isOwnTransaction;
-    JsonDbBtree::Transaction *mTxn;
-    JsonDbBtree::Cursor mCursor;
-    JsonDbIndex *mIndex;
-
-    JsonDbIndexCursor(const JsonDbIndexCursor&);
-};
-
 JsonDbIndex::JsonDbIndex(const QString &fileName, const QString &indexName, const QString &propertyName,
                          const QString &propertyType, const QStringList &objectType, const QString &locale, const QString &collation,
                          const QString &casePreference, Qt::CaseSensitivity caseSensitivity, JsonDbObjectTable *objectTable)
@@ -530,74 +505,6 @@ void JsonDbIndex::setCacheSize(quint32 cacheSize)
     mCacheSize = cacheSize;
     if (mBdb)
         mBdb->setCacheSize(cacheSize);
-}
-
-JsonDbIndexCursor::JsonDbIndexCursor(JsonDbIndex *index)
-    : isOwnTransaction(!index->bdb()->writeTransaction()),
-      mTxn(isOwnTransaction ? index->bdb()->beginWrite() : index->bdb()->writeTransaction()),
-      mCursor(mTxn)
-{
-}
-
-JsonDbIndexCursor::~JsonDbIndexCursor()
-{
-    if (isOwnTransaction)
-        mTxn->abort();
-}
-
-bool JsonDbIndexCursor::seek(const QJsonValue &value)
-{
-    QByteArray forwardKey(makeForwardKey(makeFieldValue(value, mIndex->propertyType()), ObjectKey()));
-    return mCursor.seek(forwardKey);
-}
-
-bool JsonDbIndexCursor::seekRange(const QJsonValue &value)
-{
-    QByteArray forwardKey(makeForwardKey(makeFieldValue(value, mIndex->propertyType()), ObjectKey()));
-    return mCursor.seekRange(forwardKey);
-}
-
-bool JsonDbIndexCursor::current(QJsonValue &key, ObjectKey &value)
-{
-    QByteArray baKey, baValue;
-    if (!mCursor.current(&baKey, &baValue))
-        return false;
-    forwardKeySplit(baKey, key);
-    forwardValueSplit(baValue, value);
-    return true;
-}
-
-bool JsonDbIndexCursor::currentKey(QJsonValue &key)
-{
-    QByteArray baKey;
-    if (!mCursor.current(&baKey, 0))
-        return false;
-    forwardKeySplit(baKey, key);
-    return true;
-}
-
-bool JsonDbIndexCursor::currentValue(ObjectKey &value)
-{
-    QByteArray baValue;
-    if (!mCursor.current(0, &baValue))
-        return false;
-    forwardValueSplit(baValue, value);
-    return true;
-}
-
-bool JsonDbIndexCursor::first()
-{
-    return mCursor.first();
-}
-
-bool JsonDbIndexCursor::next()
-{
-    return mCursor.next();
-}
-
-bool JsonDbIndexCursor::prev()
-{
-    return mCursor.previous();
 }
 
 #include "moc_jsondbindex.cpp"
