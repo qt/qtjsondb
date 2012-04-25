@@ -155,6 +155,11 @@ bool JsonDbPartition::open()
     if (mIsOpen)
         return true;
 
+    if (!QFileInfo(mFilename).absoluteDir().exists()) {
+        qWarning() << "Partition directory does not exist" << QFileInfo(mFilename).absolutePath();
+        return false;
+    }
+
     if (!mObjectTable)
         mObjectTable = new JsonDbObjectTable(this);
 
@@ -524,7 +529,9 @@ JsonDbObjectTable *JsonDbPartition::findObjectTable(const QString &objectType) c
 {
     if (JsonDbView *view = mViews.value(objectType))
         return view->objectTable();
-    return mObjectTable;
+    else if (mIsOpen)
+        return mObjectTable;
+    return 0;
 }
 
 bool JsonDbPartition::beginTransaction()
@@ -588,10 +595,12 @@ bool JsonDbPartition::abortTransaction()
 
 int JsonDbPartition::flush(bool *ok)
 {
-    *ok = mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
+    if (mIsOpen) {
+        *ok = mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
 
-    if (*ok)
-        return static_cast<int>(mObjectTable->stateNumber());
+        if (*ok)
+            return static_cast<int>(mObjectTable->stateNumber());
+    }
     return -1;
 }
 
@@ -664,6 +673,11 @@ GetObjectsResult JsonDbPartition::getObjects(const QString &keyName, const QJson
 
 QJsonObject JsonDbPartition::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
 {
+    if (!mIsOpen)
+        return JsonDbPartition::makeResponse(JsonDbObject(),
+                                             JsonDbPartition::makeError(JsonDbError::PartitionUnavailable,
+                                                                        QStringLiteral("Partition unvailable")));
+
     JsonDbObjectTable *objectTable = 0;
     if (!limitTypes.size())
         objectTable = mObjectTable;
@@ -700,6 +714,9 @@ QJsonObject JsonDbPartition::changesSince(quint32 stateNumber, const QSet<QStrin
 
 void JsonDbPartition::flushCaches()
 {
+    if (!mIsOpen)
+        return;
+
     mObjectTable->flushCaches();
     for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
          it != mViews.end();
@@ -808,6 +825,10 @@ void JsonDbPartition::checkIndexConsistency(JsonDbObjectTable *objectTable, Json
 
 QHash<QString, qint64> JsonDbPartition::fileSizes() const
 {
+    QHash<QString, qint64> result;
+    if (!mIsOpen)
+        return result;
+
     QList<QFileInfo> fileInfo;
     fileInfo << mObjectTable->bdb()->fileName();
 
@@ -825,7 +846,6 @@ QHash<QString, qint64> JsonDbPartition::fileSizes() const
         }
     }
 
-    QHash<QString, qint64> result;
     foreach (const QFileInfo &info, fileInfo)
         result.insert(info.fileName(), info.size());
     return result;
@@ -1414,6 +1434,9 @@ void JsonDbPartition::checkIndex(const QString &propertyName)
 
 bool JsonDbPartition::compact()
 {
+    if (!mIsOpen)
+        return false;
+
     for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
          it != mViews.end();
          ++it) {
@@ -1427,12 +1450,14 @@ bool JsonDbPartition::compact()
 JsonDbStat JsonDbPartition::stat() const
 {
     JsonDbStat result;
-    for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
-          it != mViews.end();
-          ++it) {
-        result += it.value()->objectTable()->stat();
-     }
-    result += mObjectTable->stat();
+    if (mIsOpen) {
+        for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
+             it != mViews.end();
+             ++it) {
+            result += it.value()->objectTable()->stat();
+        }
+        result += mObjectTable->stat();
+    }
     return result;
 }
 

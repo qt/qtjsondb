@@ -116,5 +116,7 @@ const QString JsonDbString::kDatabaseSchemaVersionStr = QString::fromLatin1("dat
 const QString JsonDbString::kPathStr = QString::fromLatin1("path");
 const QString JsonDbString::kDefaultStr = QString::fromLatin1("default");
 const QString JsonDbString::kConflictResolutionModeStr = QString::fromLatin1("conflictResolutionMode");
+const QString JsonDbString::kRemovableStr = QString::fromLatin1("removable");
+const QString JsonDbString::kAvailableStr = QString::fromLatin1("available");
 
 QT_END_NAMESPACE_JSONDB_PARTITION

@@ -94,10 +94,60 @@ defaults to the current working directory.
 \li If this boolean property is \c true, then requests which do not specify
 a partition will default this partition. If more than one partition is marked
 as default, JSON DB chooses one arbitrarily.
+
+\row
+\li removable
+\li If this bool property is \c true, then the path of the partition is assumed
+to be on removable media. See \l {Removable Partitions} for more details.
+
 \endtable
 
 If no partitions.json files are created, then the database defaults to a single
 partition with the name "default".
+
+The paths specified in the partition definition file \e must exist prior to
+starting the JSON DB daemon. If the directories don't exist, the daemon will
+not start. The exception to this is \l {Removable Partitions}.
+
+\section1 Querying Available Partitions
+
+The current state of the partitions in the system are reflected in objects
+of _type \c Partition in \l {The Ephemeral Partition}. These objects can be
+queried to find the currently available partitions. These objects are read-only.
+For example:
+
+\code
+jclient> query partition:Ephemeral [?_type="Partition"]
+Received 3 object(s) [state 0]
+{
+    "_owner": "root",
+    "_type": "Partition",
+    "_uuid": "{2dee7d2f-2cb6-358b-a11a-72f24bfe1063}",
+    "_version": "1-29b8899e4d",
+    "available": true,
+    "name": "partition2",
+    "path": "/var/run/jsondb/partition2"
+},
+{
+    "_owner": "root",
+    "_type": "Partition",
+    "_uuid": "{5fc4e506-ce38-3eb7-85e2-ecf612432b13}",
+    "_version": "1-fbf10c15e8",
+    "available": false,
+    "name": "card",
+    "path": "/media/card/jsondb"
+},
+{
+    "_owner": "root",
+    "_type": "Partition",
+    "_uuid": "{d5545f62-86c8-39e7-a721-2ac739309394}",
+    "_version": "1-bf7b68056d",
+    "available": true,
+    "default": true,
+    "name": "partition1",
+    "path": "/var/run/jsondb/partition1"
+}
+\endcode
 
 \section1 The Ephemeral Partition
 
@@ -140,4 +190,18 @@ list models will not automatically update themselves when used with private part
 
 Apart from the naming scheme and the lack of \l Notifications, private partitions behave
 like normal partitions and are accessed via exactly the same APIs as other partitions.
+
+\section1 Removable Partitions
+
+JSON DB supports partitions on removable media. When the \c removable property is
+\c true for a partition, the JSON DB daemon can run even when the path for the partition
+doesn't exist. If the media for a partition is not present in the system, the \c Partition
+object in the Ephemeral partition will have an \c available property with a value of \c
+false. If a client attempts to read or write to an unavailable partition, the daemon will
+return a \l {QJsonDbRequest::PartitionUnavailable} error.
+
+The daemon does not poll or watch the filesystem to determine whether or not a removable
+partition has become available. Instead, whenever the media for a removal partition is
+inserted and removed, the JSON DB daemon must be sent a SIGHUP signal. This will cause the
+daemon to reparse the partition definitions and check for partition availability.
 */

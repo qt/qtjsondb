@@ -253,12 +253,45 @@ bool DBServer::loadPartitions()
 
     foreach (const QJsonObject &definition, definitions) {
         QString name = definition.value(JsonDbString::kNameStr).toString();
+        bool removable = definition.value(JsonDbString::kRemovableStr).toBool();
 
         if (definition.value(JsonDbString::kDefaultStr).toBool() && defaultPartitionName.isEmpty())
             defaultPartitionName = name;
 
         if (mPartitions.contains(name)) {
             partitions[name] = mPartitions.take(name);
+
+            if (removable) {
+                JsonDbPartition *removablePartition = partitions[name];
+                bool updateDefinition = false;
+
+                // for existing removable partitions, we need to check:
+                // 1. if the partition is already open, check if it's
+                // main file exists to make sure it's still available
+                // 2. if the partition isn't open, call open on it to see
+                // if it can be made available
+                if (removablePartition->isOpen()) {
+                    if (jsondbSettings->verbose())
+                        qDebug() << "Determining if partition" << removablePartition->name() << "is still available";
+                    if (!QFile::exists(removablePartition->filename())) {
+                        if (jsondbSettings->debug())
+                            qDebug() << "Marking partition" << removablePartition->name() << "as unavailable";
+                        removablePartition->close();
+                        updateDefinition = true;
+                    }
+                } else {
+                    if (jsondbSettings->verbose())
+                        qDebug() << "Determining if partition" << removablePartition->name() << "has become available";
+                    if (removablePartition->open()) {
+                        if (jsondbSettings->debug())
+                            qDebug() << "Marking partition" << removablePartition->name() << "as available";
+                        updateDefinition = true;
+                    }
+                }
+
+                if (updateDefinition)
+                    updatePartitionDefinition(removablePartition);
+            }
         } else {
 
             if (partitions.contains(name)) {
@@ -267,25 +300,17 @@ bool DBServer::loadPartitions()
             }
 
             QString path = definition.value(JsonDbString::kPathStr).toString();
-            QDir pathDir(path);
-            pathDir.mkpath(QLatin1String("."));
-
-            JsonDbPartition *partition = new JsonDbPartition(pathDir.absoluteFilePath(name), name, mOwner, this);
+            JsonDbPartition *partition = new JsonDbPartition(QDir(path).absoluteFilePath(name), name, mOwner, this);
             partitions[name] = partition;
             connect(partition, SIGNAL(objectsUpdated(bool,JsonDbUpdateList)),
                     this, SLOT(objectsUpdated(bool,JsonDbUpdateList)));
 
-            // TODO: for removable partitions, this shouldn't cause a total failure
-            if (!partition->open()) {
+            if (!(partition->open() || removable)) {
                 close();
                 return false;
             }
 
-            // create an object in the Ephemeral partition to reflect this partition
-            JsonDbObject partitionRecord(definition);
-            partitionRecord.insert(JsonDbString::kUuidStr, JsonDbObject::createUuidFromString(name).toString());
-            partitionRecord.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
-            mEphemeralPartition->updateObjects(mOwner, JsonDbObjectList() << partitionRecord, JsonDbPartition::Replace);
+            updatePartitionDefinition(partitions[name]);
         }
     }
 
@@ -295,16 +320,10 @@ bool DBServer::loadPartitions()
         if (mDefaultPartition == partition)
             mDefaultPartition = 0;
 
-        QList<JsonDbObject> toRemove;
-
-        // remove the ephemeral object representing this partition
-        JsonDbObject partitionRecord;
-        partitionRecord.insert(JsonDbString::kUuidStr, JsonDbObject::createUuidFromString(partition->name()).toString());
-        partitionRecord.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
-        partitionRecord.markDeleted();
-        toRemove.append(partitionRecord);
+        updatePartitionDefinition(partition, true);
 
         // remove any notifications for the partition being closed
+        QList<JsonDbObject> toRemove;
         QJsonObject bindings;
         bindings.insert(QLatin1String("notification"), JsonDbString::kNotificationTypeStr);
         bindings.insert(QLatin1String("partition"), partition->name());
@@ -328,8 +347,10 @@ bool DBServer::loadPartitions()
 
     mPartitions = partitions;
 
-    if (!mDefaultPartition)
+    if (!mDefaultPartition) {
         mDefaultPartition = mPartitions[defaultPartitionName];
+        updatePartitionDefinition(mDefaultPartition, false, true);
+    }
 
     return true;
 }
@@ -1340,6 +1361,25 @@ QList<QJsonObject> DBServer::findPartitionDefinitions() const
     }
 
     return partitions;
+}
+
+void DBServer::updatePartitionDefinition(JsonDbPartition *partition, bool remove, bool isDefault)
+{
+    JsonDbObject partitionRecord;
+    partitionRecord.insert(JsonDbString::kUuidStr,
+                           JsonDbObject::createUuidFromString(QString::fromLatin1("Partition:%1").arg(partition->name())).toString());
+    partitionRecord.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
+    partitionRecord.insert(JsonDbString::kNameStr, partition->name());
+    partitionRecord.insert(JsonDbString::kPathStr, QFileInfo(partition->filename()).absolutePath());
+    partitionRecord.insert(JsonDbString::kAvailableStr, partition->isOpen());
+
+    if (isDefault)
+        partitionRecord.insert(JsonDbString::kDefaultStr, true);
+
+    if (remove)
+        partitionRecord.markDeleted();
+
+    mEphemeralPartition->updateObjects(mOwner, JsonDbObjectList() << partitionRecord, JsonDbPartition::Replace);
 }
 
 void DBServer::receiveMessage(const QJsonObject &message)

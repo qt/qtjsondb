@@ -124,6 +124,7 @@ private:
 
     JsonDbPartition* findPartition(const QString &partitionName);
     QList<QJsonObject> findPartitionDefinitions() const;
+    void updatePartitionDefinition(JsonDbPartition *partition, bool remove = false, bool isDefault = false);
 
     JsonDbOwner *getOwner( JsonStream *stream);
     JsonDbOwner *createDummyOwner( JsonStream *stream);

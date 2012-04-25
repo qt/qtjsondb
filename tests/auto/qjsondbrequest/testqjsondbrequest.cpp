@@ -86,6 +86,7 @@ private slots:
     void cleanup();
 
     void modifyPartitions();
+    void removablePartition();
     void readRequest_data();
     void readRequest();
     void writeRequest_data();
@@ -115,6 +116,9 @@ void TestQJsonDbRequest::cleanupTestCase()
 {
     removeDbFiles();
 
+    QFile partitionsFile(QFileInfo(QFINDTESTDATA("partitions.json")).absoluteDir().absoluteFilePath(QLatin1String("partitions-test.json")));
+    partitionsFile.remove();
+
     struct passwd *pwd = getpwnam(qgetenv("USER"));
     if (pwd) {
         QDir homePartition(QString::fromLatin1("%1/.jsondb").arg(QString::fromUtf8(pwd->pw_dir)));
@@ -140,8 +144,6 @@ void TestQJsonDbRequest::cleanup()
 
 void TestQJsonDbRequest::modifyPartitions()
 {
-    QFile::remove("partitions-test.json");
-
     // create a notification on Partitions
     QJsonDbWatcher watcher;
     watcher.setPartition(QLatin1String("Ephemeral"));
@@ -236,6 +238,125 @@ void TestQJsonDbRequest::modifyPartitions()
     QCOMPARE(mRequestErrors[&failingRequest], QJsonDbRequest::InvalidPartition);
 
     mConnection->removeWatcher(&watcher);
+    waitForStatus(&watcher, QJsonDbWatcher::Inactive);
+}
+
+void TestQJsonDbRequest::removablePartition()
+{
+#ifdef Q_OS_LINUX
+    if (geteuid())
+        QSKIP("This test only works as root");
+
+    // create a notification on Partitions
+    QJsonDbWatcher watcher;
+    watcher.setPartition(QLatin1String("Ephemeral"));
+    watcher.setQuery("[?_type=\"Partition\"]");
+    mConnection->addWatcher(&watcher);
+    waitForStatus(&watcher, QJsonDbWatcher::Active);
+
+    QJsonObject def;
+    def.insert(QStringLiteral("name"), QStringLiteral("removableTest"));
+    def.insert(QStringLiteral("path"), QStringLiteral("/mnt/removablePartition"));
+    def.insert(QStringLiteral("removable"), true);
+
+    QJsonArray defs;
+    defs.append(def);
+
+    // ensure that the new file is written to the directory as the main partitions.json
+    QFile partitionsFile(QFileInfo(QFINDTESTDATA("partitions.json")).absoluteDir().absoluteFilePath(QLatin1String("partitions-test.json")));
+    partitionsFile.open(QFile::WriteOnly);
+    partitionsFile.write(QJsonDocument(defs).toJson());
+    partitionsFile.close();
+
+    QDir mnt(def.value(QStringLiteral("path")).toString());
+
+    // unmount just in case previous run failed
+    system(QString::fromLatin1("umount -l %1 > /dev/null 2>&1").arg(mnt.absolutePath()).toLatin1());
+
+    // load the partitions via a SIGHUP and wait for the notification
+    kill(mProcess->pid(), SIGHUP);
+    QVERIFY(waitForResponseAndNotifications(0, &watcher, 1));
+    QList<QJsonDbNotification> notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.count(), 1);
+
+    QJsonObject newPartition = notifications.at(0).object();
+    QCOMPARE(newPartition.value(QStringLiteral("name")).toString(),
+             def.value(QStringLiteral("name")).toString());
+    QCOMPARE(newPartition.value(QStringLiteral("path")).toString(),
+             def.value(QStringLiteral("path")).toString());
+    QVERIFY(!newPartition.value(QStringLiteral("available")).toBool());
+
+    // make sure the partition doesn't work
+    QJsonDbReadRequest read;
+    read.setQuery(QStringLiteral("[*]"));
+    read.setPartition(def.value(QStringLiteral("name")).toString());
+    mConnection->send(&read);
+    waitForResponse(&read);
+    QVERIFY(mRequestErrors.contains(&read));
+    QCOMPARE(mRequestErrors[&read], QJsonDbRequest::PartitionUnavailable);
+    mRequestErrors.clear();
+
+    // dd a file to use with our loopback device
+    QString tmpFile = QStringLiteral("/tmp/removablePartition.img");
+    QVERIFY(system(QString::fromLatin1("dd if=/dev/zero of=%1 bs=1024 count=2048 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
+    QVERIFY(system(QString::fromLatin1("mkfs -F -t ext3 %1 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
+
+    // mount
+    QVERIFY(mnt.mkpath(QStringLiteral(".")));
+    QVERIFY(system(QString::fromLatin1("mount -o loop -t ext3 %1 %2 > /dev/null 2>&1").arg(tmpFile).arg(mnt.absolutePath()).toLatin1()) == 0);
+
+    kill(mProcess->pid(), SIGHUP);
+    QVERIFY(waitForResponseAndNotifications(0, &watcher, 1));
+    notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.count(), 1);
+
+    QJsonObject updatedPartition = notifications.at(0).object();
+    QCOMPARE(updatedPartition.value(QStringLiteral("name")).toString(),
+             def.value(QStringLiteral("name")).toString());
+    QCOMPARE(updatedPartition.value(QStringLiteral("path")).toString(),
+             def.value(QStringLiteral("path")).toString());
+    QVERIFY(updatedPartition.value(QStringLiteral("available")).toBool());
+
+    // make sure the partition works
+    mConnection->send(&read);
+    waitForResponse(&read);
+    QVERIFY(!mRequestErrors.contains(&read));
+
+    // unmount
+    QVERIFY(system(QString::fromLatin1("umount -l %1 > /dev/null 2>&1").arg(mnt.absolutePath()).toLatin1()) == 0);
+
+    // remove the mount point
+    QVERIFY(mnt.rmpath(QStringLiteral(".")));
+
+    kill(mProcess->pid(), SIGHUP);
+    QVERIFY(waitForResponseAndNotifications(0, &watcher, 1));
+    notifications = watcher.takeNotifications();
+    QCOMPARE(notifications.count(), 1);
+
+    updatedPartition = notifications.at(0).object();
+    QCOMPARE(updatedPartition.value(QStringLiteral("name")).toString(),
+             def.value(QStringLiteral("name")).toString());
+    QCOMPARE(updatedPartition.value(QStringLiteral("path")).toString(),
+             def.value(QStringLiteral("path")).toString());
+    QVERIFY(!updatedPartition.value(QStringLiteral("available")).toBool());
+
+    // make sure the partition doesn't work
+    mConnection->send(&read);
+    waitForResponse(&read);
+    QVERIFY(mRequestErrors.contains(&read));
+    QCOMPARE(mRequestErrors[&read], QJsonDbRequest::PartitionUnavailable);
+
+    // remove the partition definition and reload
+    partitionsFile.remove();
+    kill(mProcess->pid(), SIGHUP);
+    QVERIFY(waitForResponseAndNotifications(0, &watcher, 1));
+
+    mConnection->removeWatcher(&watcher);
+    waitForStatus(&watcher, QJsonDbWatcher::Inactive);
+
+    // remove the tmp file
+    QFile::remove(tmpFile);
+#endif
 }
 
 /*!

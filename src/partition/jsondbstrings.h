@@ -121,6 +121,8 @@ public:
     static const QString kPathStr;
     static const QString kDefaultStr;
     static const QString kConflictResolutionModeStr;
+    static const QString kRemovableStr;
+    static const QString kAvailableStr;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION
