@@ -450,7 +450,7 @@ JsonDbBtree::Transaction *JsonDbIndex::begin()
 bool JsonDbIndex::commit(quint32 stateNumber)
 {
     if (mBdb->isWriting())
-        mBdb->writeTransaction()->commit(stateNumber);
+        return mBdb->writeTransaction()->commit(stateNumber);
     return false;
 }
 bool JsonDbIndex::abort()
