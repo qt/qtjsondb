@@ -41,6 +41,7 @@
 #include "jsondbqueryobject.h"
 #include "jsondbpartition.h"
 #include "jsondatabase.h"
+#include "plugin.h"
 #include <private/qjsondbstrings_p.h>
 #include <jsondbmodelutils.h>
 #include <qdebug.h>
@@ -237,13 +238,12 @@ void JsonDbQueryObject::setBindings(const QVariantMap &newBindings)
 
 */
 
-QVariantList JsonDbQueryObject::takeResults()
+QJSValue JsonDbQueryObject::takeResults()
 {
-    QVariantList list;
     if (readRequest) {
-        list  = qjsonobject_list_to_qvariantlist(readRequest->takeResults());
+        return qjsonobject_list_to_qjsvalue(readRequest->takeResults());
     }
-    return list;
+    return QJSValue();
 }
 
 /*!

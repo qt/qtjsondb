@@ -405,7 +405,7 @@ void JsonDbNotify::onNotificationsAvailable()
         QList<QJsonDbNotification> list = watcher->takeNotifications();
         for (int i = 0; i < list.count(); i++) {
             const QJsonDbNotification & _notification = list[i];
-            QJSValue obj = g_declEngine->toScriptValue(_notification.object().toVariantMap());
+            QJSValue obj = g_declEngine->toScriptValue(_notification.object());
             emit notification(obj, (Actions)_notification.action(), _notification.stateNumber());
         }
     }

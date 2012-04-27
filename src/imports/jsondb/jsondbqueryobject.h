@@ -97,7 +97,7 @@ public:
     void componentComplete();
 
     Q_INVOKABLE int start();
-    Q_INVOKABLE QVariantList takeResults();
+    Q_INVOKABLE QJSValue takeResults();
 
 Q_SIGNALS:
     void resultsReady(int resultsAvailable);

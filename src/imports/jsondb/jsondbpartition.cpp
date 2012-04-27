@@ -129,6 +129,16 @@ QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list)
     return objects;
 }
 
+QJSValue qjsonobject_list_to_qjsvalue(const QList<QJsonObject> &list)
+{
+    int count = list.count();
+    QJSValue resultList = g_declEngine->newArray(count);
+    for (int i = 0; i < count; i++) {
+        resultList.setProperty(i, g_declEngine->toScriptValue(list[i]));
+    }
+    return resultList;
+}
+
 /*!
     \qmlmethod int QtJsonDb::Partition::create(object newObject, object options, function callback)
 
@@ -585,9 +595,7 @@ void JsonDbPartition::call(QMap<QJsonDbWriteRequest*, QJSValue> &callbacks, QJso
     QJSValue response= engine->newObject();
     response.setProperty(JsonDbStrings::Protocol::stateNumber(), request->stateNumber());
     response.setProperty(JsonDbStrings::Protocol::requestId(), request->property("requestId").toInt());
-    QJSValue items = engine->toScriptValue(qjsonobject_list_to_qvariantlist(objects));
-    response.setProperty(QLatin1String("items"), items);
-
+    response.setProperty(QLatin1String("items"), qjsonobject_list_to_qjsvalue(objects));
     args << QJSValue(QJSValue::UndefinedValue) << response;
     callback.call(args);
     callbacks.remove(request);
@@ -631,7 +639,7 @@ void JsonDbPartition::queryFinished()
             QJSValue response= engine->newObject();
             response.setProperty(JsonDbStrings::Protocol::stateNumber(), object->stateNumber());
             response.setProperty(JsonDbStrings::Protocol::requestId(),  id);
-            response.setProperty(QLatin1String("items"), engine->toScriptValue(object->takeResults()));
+            response.setProperty(QLatin1String("items"), object->takeResults());
             args << QJSValue(QJSValue::UndefinedValue) << response;
             callback.call(args);
         }

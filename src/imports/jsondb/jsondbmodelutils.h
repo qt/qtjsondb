@@ -218,6 +218,7 @@ QJsonValue lookupJsonProperty(QJsonObject object, const QStringList &path);
 QString removeArrayOperator(QString propertyName);
 QList<QJsonObject> qvariantlist_to_qjsonobject_list(const QVariantList &list);
 QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list);
+QJSValue qjsonobject_list_to_qjsvalue(const QList<QJsonObject> &list);
 
 QT_END_NAMESPACE_JSONDB
 

@@ -194,10 +194,25 @@ void TestJsonDbQueryObject::errorSlot(const QVariantMap &newError)
     eventLoop1.quit();
 }
 
+namespace {
+static QVariant qjsvalue_to_qvariant(const QJSValue &value)
+{
+    if (value.isQObject()) {
+        // We need the QVariantMap & not the QObject wrapper
+        return qjsvalue_cast<QVariantMap>(value);
+    } else {
+        // Converts to either a QVariantList or a QVariantMap
+        return value.toVariant();
+    }
+}
+}
+
 void TestJsonDbQueryObject::finishedSlot()
 {
+    QJSValue cbData;
     QMetaObject::invokeMethod(currentQmlElement, "takeResults", Qt::DirectConnection,
-                              Q_RETURN_ARG(QVariantList, callbackData));
+                              Q_RETURN_ARG(QJSValue, cbData));
+    callbackData = qjsvalue_to_qvariant(cbData).toList();
     eventLoop1.quit();
 }
 
