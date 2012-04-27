@@ -600,6 +600,7 @@ quint32 JsonDbObjectTable::changesSince(quint32 startingStateNumber, QMap<Object
     if (!changes)
         return -1;
     startingStateNumber = qMax(quint32(1), startingStateNumber+1);
+    quint32 currentStateNumber = stateNumber();
 
     QElapsedTimer timer;
     if (jsondbSettings->performanceLog())
@@ -654,6 +655,10 @@ quint32 JsonDbObjectTable::changesSince(quint32 startingStateNumber, QMap<Object
                     JsonDbUpdate change(oldObject, newObject, JsonDbNotification::Action(action));
                     mChangeCache.insert(stateNumber, change);
                 }
+
+                // stop if we've reached the latest state number
+                if (stateNumber == currentStateNumber)
+                    break;
             } while (cursor.next());
         }
         if (!inTransaction)
