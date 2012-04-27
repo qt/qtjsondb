@@ -75,15 +75,17 @@ QVariantMap _waitForResponse(QtJsonDb::QJsonDbRequest *request) {
 }
 
 
-JsonDbProxy::JsonDbProxy(QtJsonDb::QJsonDbConnection *conn, QObject *parent) :
+JsonDbProxy::JsonDbProxy(QtJsonDb::QJsonDbConnection *conn, const QString &partition, QObject *parent) :
     QObject(parent)
   , mConnection(conn)
+  , mPartition(partition)
 {
 }
 
 QVariantMap JsonDbProxy::find(QVariantMap object)
 {
     QtJsonDb::QJsonDbReadRequest *request = new QtJsonDb::QJsonDbReadRequest(this);
+    request->setPartition(mPartition);
     request->setQuery(object.value(QLatin1String("query")).toString());
     if (object.contains(QLatin1String("limit")))
         request->setQueryLimit(object.value(QLatin1String("limit")).toInt());
@@ -100,7 +102,9 @@ QVariantMap JsonDbProxy::create(QVariantMap object)
         obj.remove(QLatin1String("_id"));
     }
     QtJsonDb::QJsonDbCreateRequest *request = new QtJsonDb::QJsonDbCreateRequest(QList<QJsonObject>() << obj,
-                                                                                this);
+                                                                                 this);
+    request->setPartition(mPartition);
+
     mConnection->send(request);
     return _waitForResponse(request);
 }
@@ -108,7 +112,9 @@ QVariantMap JsonDbProxy::create(QVariantMap object)
 QVariantMap JsonDbProxy::update(QVariantMap object)
 {
     QtJsonDb::QJsonDbUpdateRequest *request = new QtJsonDb::QJsonDbUpdateRequest(QList<QJsonObject>() << QJsonObject::fromVariantMap(object),
-                                                                                this);
+                                                                                 this);
+    request->setPartition(mPartition);
+
     mConnection->send(request);
     return _waitForResponse(request);
 }
@@ -117,6 +123,8 @@ QVariantMap JsonDbProxy::remove(QVariantMap object )
 {
     QtJsonDb::QJsonDbRemoveRequest *request = new QtJsonDb::QJsonDbRemoveRequest(QList<QJsonObject>() << QJsonObject::fromVariantMap(object),
                                                                                 this);
+    request->setPartition(mPartition);
+
     mConnection->send(request);
     return _waitForResponse(request);
 }
@@ -133,6 +141,8 @@ QVariantMap JsonDbProxy::createList(QVariantList list)
         objects << obj;
     }
     QtJsonDb::QJsonDbCreateRequest *request = new QtJsonDb::QJsonDbCreateRequest(objects, this);
+    request->setPartition(mPartition);
+
     mConnection->send(request);
     return _waitForResponse(request);
 }
@@ -143,6 +153,8 @@ QVariantMap JsonDbProxy::updateList(QVariantList list)
     foreach (const QVariant &obj, list)
         objects << QJsonObject::fromVariantMap(obj.toMap());
     QtJsonDb::QJsonDbUpdateRequest *request = new QtJsonDb::QJsonDbUpdateRequest(objects, this);
+    request->setPartition(mPartition);
+
     mConnection->send(request);
     return _waitForResponse(request);
 }
@@ -153,6 +165,8 @@ QVariantMap JsonDbProxy::removeList(QVariantList list)
     foreach (const QVariant &obj, list)
         objects << QJsonObject::fromVariantMap(obj.toMap());
     QtJsonDb::QJsonDbRemoveRequest *request = new QtJsonDb::QJsonDbRemoveRequest(objects, this);
+    request->setPartition(mPartition);
+
     mConnection->send(request);
     return _waitForResponse(request);
 }

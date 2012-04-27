@@ -381,6 +381,8 @@ void Client::aboutToRemove(void)
     InputThread::print("The object(s) matching your query are about to be removed.");
     //we get the objects, remove them now
     QtJsonDb::QJsonDbRemoveRequest* request = new QtJsonDb::QJsonDbRemoveRequest(objects);
+    request->setPartition(queryRequest->partition());
+
     connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
     connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
     connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
@@ -458,6 +460,8 @@ bool Client::processCommand(const QString &command)
         rest.remove(0, partition.size());
         partition.remove(0, 10);
         rest = rest.trimmed();
+    } else {
+        partition = mDefaultPartition;
     }
 
     if (cmd == "quit") {
@@ -683,6 +687,7 @@ void Client::loadJsonFile(const QString &jsonFile)
     }
 
     QtJsonDb::QJsonDbCreateRequest *write = new QtJsonDb::QJsonDbCreateRequest(objects, this);
+    write->setPartition(mDefaultPartition);
     connect(write, SIGNAL(finished()), this, SLOT(fileLoadSuccess()));
     connect(write, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
             this, SLOT(fileLoadError()));
@@ -739,7 +744,7 @@ void Client::loadJavaScriptFile(const QString &jsFile)
 
     QJSEngine *scriptEngine = new QJSEngine(this);
     QJSValue globalObject = scriptEngine->globalObject();
-    QJSValue proxy = scriptEngine->newQObject(new JsonDbProxy(mConnection, this));
+    QJSValue proxy = scriptEngine->newQObject(new JsonDbProxy(mConnection, mDefaultPartition, this));
     globalObject.setProperty("jsondb", proxy);
     globalObject.setProperty("console", proxy);
 

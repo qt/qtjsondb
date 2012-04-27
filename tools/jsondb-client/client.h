@@ -84,6 +84,7 @@ public:
     void interactiveMode();
     void loadFiles(const QStringList &files);
 
+    inline void setDefaultPartition(const QString &partition) { mDefaultPartition = partition; }
     inline void setTerminateOnCompleted(bool terminate) { mTerminate = terminate; }
     inline void setDebug(bool debug) { mDebug = debug; }
 
@@ -128,6 +129,7 @@ private:
     bool mTerminate;
     bool mDebug;
     QStringList mFilesToLoad;
+    QString mDefaultPartition;
     QQmlEngine *mEngine;
 };
 

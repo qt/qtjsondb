@@ -49,7 +49,7 @@ class JsonDbProxy : public QObject
 {
     Q_OBJECT
 public:
-    explicit JsonDbProxy(QtJsonDb::QJsonDbConnection *conn, QObject *parent = 0);
+    explicit JsonDbProxy(QtJsonDb::QJsonDbConnection *conn, const QString &partition, QObject *parent = 0);
     Q_SCRIPTABLE QVariantMap find(QVariantMap object);
     Q_SCRIPTABLE QVariantMap create(QVariantMap object);
     Q_SCRIPTABLE QVariantMap update(QVariantMap object);
@@ -64,6 +64,7 @@ public:
 
 private:
     QtJsonDb::QJsonDbConnection *mConnection;
+    QString mPartition;
 };
 
 #endif // JSONDBPROXY_H

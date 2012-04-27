@@ -51,8 +51,9 @@ static void usage(const QString &name, int exitCode = 0)
     cout << "Usage: " << qPrintable(name) << " [OPTIONS] [command]" << endl
          << endl
          << "    -debug" << endl
-         << "    -load FILE     Load the specified .json or .qml file" << endl
-         << "    -terminate     Terminate after processing any -load parameters" << endl
+         << "    -load FILE               Load the specified .json or .qml file" << endl
+         << "    -partition PARTITION     Set the specified partition as the default" << endl
+         << "    -terminate               Terminate after processing any -load parameters" << endl
          << endl
          << " where command is valid JsonDb command object" << endl;
     exit(exitCode);
@@ -72,6 +73,7 @@ int main(int argc, char * argv[])
     QString progname = args.takeFirst();
     QStringList command;
     QStringList filesToLoad;
+    QString partition;
     bool terminate = false;
     bool debug = false;
 
@@ -92,6 +94,12 @@ int main(int argc, char * argv[])
                 usage(progname, 1);
             }
             filesToLoad << args.takeFirst();
+        } else if (arg == QLatin1String("-partition")) {
+            if (args.isEmpty()) {
+                cout << "Must specify a partition" << endl;
+                usage(progname, 1);
+            }
+            partition = args.takeFirst();
         } else if (arg == QLatin1String("-terminate")) {
             terminate = true;
         } else {
@@ -107,6 +115,9 @@ int main(int argc, char * argv[])
 
     if (!client.connectToServer())
         return 1;
+
+    if (!partition.isEmpty())
+        client.setDefaultPartition(partition);
 
     if (!filesToLoad.isEmpty()) {
         client.loadFiles(filesToLoad);
