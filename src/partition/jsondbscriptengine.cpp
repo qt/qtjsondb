@@ -101,8 +101,8 @@ QJSValue JsonDbScriptEngine::toJSValue(const QJsonValue &v, QJSEngine *scriptEng
     case QJsonValue::Bool:
         return QJSValue(v.toBool());
     case QJsonValue::Array: {
-        QJSValue jsArray = scriptEngine->newArray();
         QJsonArray array = v.toArray();
+        QJSValue jsArray = scriptEngine->newArray(array.size());
         for (int i = 0; i < array.size(); i++)
             jsArray.setProperty(i, toJSValue(array.at(i), scriptEngine));
         return jsArray;
