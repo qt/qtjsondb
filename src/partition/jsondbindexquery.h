@@ -85,6 +85,7 @@ public:
     void addConstraint(QueryConstraint *qc) { mQueryConstraints.append(qc); }
     bool ascending() const { return mAscending; }
     QString propertyName() const { return mPropertyName; }
+    QString propertyType() const { return mPropertyType; }
     void setTypeNames(const QSet<QString> typeNames) { mTypeNames = typeNames; }
     void setMin(const QJsonValue &minv);
     void setMax(const QJsonValue &maxv);

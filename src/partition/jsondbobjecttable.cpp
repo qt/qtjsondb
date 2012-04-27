@@ -537,7 +537,9 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
     }
 
     const IndexSpec *indexSpec = &mIndexes[keyName];
-    QByteArray forwardKey(makeForwardKey(makeFieldValue(keyValue, indexSpec->propertyType), ObjectKey()));
+    QJsonValue fieldValue = makeFieldValue(keyValue, indexSpec->propertyType);
+    truncateFieldValue(&fieldValue, indexSpec->propertyType);
+    QByteArray forwardKey(makeForwardKey(fieldValue, ObjectKey()));
     //fprintf(stderr, "getObject bdb=%p\n", indexSpec->index->bdb());
     if (indexSpec->lazy)
         updateIndex(indexSpec->index);
@@ -551,7 +553,7 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
             bool ok = cursor.current(&checkKey, &forwardValue);
             QJsonValue checkValue;
             forwardKeySplit(checkKey, checkValue);
-            if (checkValue != keyValue)
+            if (checkValue != fieldValue)
                 break;
 
             ObjectKey objectKey;

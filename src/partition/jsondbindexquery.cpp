@@ -63,7 +63,7 @@ JsonDbIndexQuery *JsonDbIndexQuery::indexQuery(JsonDbPartition *partition, JsonD
 }
 
 JsonDbUuidQuery::JsonDbUuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending)
-    : JsonDbIndexQuery(partition, table, propertyName, QString(), owner, ascending)
+    : JsonDbIndexQuery(partition, table, propertyName, QLatin1String("string"), owner, ascending)
 {
 }
 
@@ -126,11 +126,15 @@ bool JsonDbIndexQuery::matches(const QJsonValue &fieldValue)
 void JsonDbIndexQuery::setMin(const QJsonValue &value)
 {
     mMin = makeFieldValue(value, mPropertyType);
+    if (mPropertyName != JsonDbString::kUuidStr)
+        truncateFieldValue(&mMin, mPropertyType);
 }
 
 void JsonDbIndexQuery::setMax(const QJsonValue &value)
 {
     mMax = makeFieldValue(value, mPropertyType);
+    if (mPropertyName != JsonDbString::kUuidStr)
+        truncateFieldValue(&mMax, mPropertyType);
 }
 
 bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)

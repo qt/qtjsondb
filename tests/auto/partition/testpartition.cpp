@@ -240,6 +240,8 @@ private slots:
     void typeChangeReduceSource();
     void typeChangeSchema();
 
+    void addBigIndex();
+
 private:
     void createContacts();
     JsonDbQueryResult find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings = QJsonObject());
@@ -1725,7 +1727,11 @@ void TestPartition::map()
             toDelete.insert(doc.value("_uuid").toString(), doc);
     }
 
-    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
+    JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type=\"PhoneCount\"]"));
+    verifyGoodQueryResult(queryResult);
+    QCOMPARE(queryResult.data.size(), 5);
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"Phone\"]"));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 5);
 
@@ -4702,6 +4708,37 @@ void TestPartition::typeChangeSchema()
     verifyGoodResult(remove(mOwner, test));
     verifyGoodResult(remove(mOwner, schema));
     jsondbSettings->setValidateSchemas(currentValidateSchemas);
+}
+
+void TestPartition::addBigIndex()
+{
+    addIndex(QLatin1String("subject"));
+
+    JsonDbObject indexObject;
+    indexObject.insert(JsonDbString::kTypeStr, QStringLiteral("Index"));
+    indexObject.insert("objectType", QStringLiteral("foobar"));
+    indexObject.insert("propertyName", QStringLiteral("foo"));
+    indexObject.insert("propertyType", QStringLiteral("string"));
+
+    JsonDbWriteResult result = create(mOwner, indexObject);
+    verifyGoodResult(result);
+    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("foo") != 0);
+
+    JsonDbObject obj;
+    obj.insert(JsonDbString::kTypeStr, QStringLiteral("foobar"));
+    obj.insert(QStringLiteral("foo"), QString(QByteArray(2000, 'a')));
+    obj.insert(QStringLiteral("bar"), QString(QByteArray(2000, 'b')));
+
+    result = create(mOwner, obj);
+    verifyGoodResult(result);
+
+    QString query = QString("[?foo=\"%1\"][/foo]").arg(QString(QByteArray(2000, 'a')));
+    JsonDbQueryResult queryResult = find(mOwner, query);
+    verifyGoodQueryResult(queryResult);
+
+    QCOMPARE(queryResult.data.size(), 1);
+
+    remove(mOwner, indexObject);
 }
 
 QTEST_MAIN(TestPartition)

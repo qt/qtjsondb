@@ -63,6 +63,7 @@ JsonDbSettings::JsonDbSettings() :
   , mSyncInterval(5000)
   , mIndexSyncInterval(12000)
   , mDebugQuery(false)
+  , mIndexFieldValueSize(512) // Should be even and no bigger than maxBtreeKeySize - 20 (the 20 for uuid + index type data)
 {
     loadEnvironment();
 }

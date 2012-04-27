@@ -513,7 +513,17 @@ void TestQJsonDbWatcher::notificationTriggersMapReduce()
     foreach (const QJsonObject result, request.takeResults())
         toDelete.prepend(result);
 
-    QString query = QLatin1String("[?_type=\"PhoneCount\"]");
+    QString query = QLatin1String("[?_type=\"Phone\"]");
+
+    {
+        QJsonDbReadRequest read(query);
+        mConnection->send(&read);
+        QVERIFY(waitForResponse(&read));
+        int numObjects = read.takeResults().size();
+        QCOMPARE(numObjects, 5);
+    }
+
+    query = QLatin1String("[?_type=\"PhoneCount\"]");
 
     {
         QJsonDbReadRequest read(query);

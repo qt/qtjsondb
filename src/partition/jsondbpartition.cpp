@@ -210,8 +210,11 @@ inline quint16 fieldValueSize(QJsonValue::Type vt, const QJsonValue &fieldValue)
         return 4;
     case QJsonValue::Double:
         return 8;
-    case QJsonValue::String:
-        return 2*fieldValue.toString().count();
+    case QJsonValue::String: {
+        quint16 size = 2 * fieldValue.toString().count();
+        Q_ASSERT(size <= JsonDbSettings::instance()->indexFieldValueSize());
+        return (quint16)size;
+        }
     }
     return 0;
 }
@@ -238,13 +241,16 @@ void memcpyFieldValue(char *data, QJsonValue::Type vt, const QJsonValue &fieldVa
     } break;
     case QJsonValue::String: {
         QString str = fieldValue.toString();
-        memcpy(data, (const char *)str.constData(), 2*str.count());
+        quint16 size = 2 * str.count();
+        Q_ASSERT(size <= JsonDbSettings::instance()->indexFieldValueSize());
+        memcpy(data, (const char *)str.constData(), size);
     }
     }
 }
 
 void memcpyFieldValue(QJsonValue::Type vt, QJsonValue &fieldValue, const char *data, quint16 size)
 {
+    Q_ASSERT(size <= JsonDbSettings::instance()->indexFieldValueSize());
     switch (vt) {
     case QJsonValue::Undefined:
     case QJsonValue::Array:
@@ -303,6 +309,17 @@ int qstringcmp(const quint16 *achar, quint32 acount, const quint16 *bchar, quint
             return rv;
     }
     return acount-bcount;
+}
+
+void truncateFieldValue(QJsonValue *value, const QString &type)
+{
+    Q_ASSERT(value);
+    if ((type.isEmpty() || type == QLatin1String("string")) && value->type() == QJsonValue::String) {
+        QString str = value->toString();
+        int maxSize = JsonDbSettings::instance()->indexFieldValueSize() / 2;
+        if (str.size() > maxSize)
+            *value = str.left(maxSize);
+    }
 }
 
 QJsonValue makeFieldValue(const QJsonValue &value, const QString &type)
@@ -822,6 +839,10 @@ void JsonDbPartition::compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const Que
 {
     QString op = queryTerm.op();
     QJsonValue fieldValue = queryTerm.value();
+
+    if (indexQuery->propertyName() != JsonDbString::kUuidStr)
+        truncateFieldValue(&fieldValue, indexQuery->propertyType());
+
     if (op == QLatin1String(">")) {
         indexQuery->addConstraint(new QueryConstraintGt(fieldValue));
         indexQuery->setMin(fieldValue);
@@ -920,6 +941,7 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
                 propertyName = queryTerm.propertyName();
                 QString fieldValue = queryTerm.value().toString();
                 QString op = queryTerm.op();
+
                 if (propertyName == JsonDbString::kTypeStr) {
                     if ((op == QLatin1String("=")) || (op == QLatin1String("in"))) {
                         QSet<QString> types;
@@ -1000,7 +1022,6 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
         if (queryTerms.size() == 1) {
             QueryTerm queryTerm = queryTerms[0];
             QString propertyName = queryTerm.propertyName();
-            QString fieldValue = queryTerm.value().toString();
             QString op = queryTerm.op();
 
             if (!queryTerm.joinField().isEmpty()) {
