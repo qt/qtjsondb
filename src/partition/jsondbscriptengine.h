@@ -55,13 +55,9 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-class JsonDbScriptEngine : public QObject
+class JsonDbScriptEngine
 {
 public:
-    JsonDbScriptEngine();
-    JsonDbScriptEngine(const QJsonObject &object);
-    ~JsonDbScriptEngine();
-
     static QJsonValue fromJSValue(const QJSValue &v);
     static QJSValue toJSValue(const QJsonValue &v, QJSEngine *scriptEngine);
     static QJSValue toJSValue(const QJsonObject &object, QJSEngine *mScriptEngine);
