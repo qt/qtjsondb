@@ -1263,6 +1263,10 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         if (mode != ReplicatedWrite && forCreation && forRemoval) {
             result.code =  JsonDbError::MissingObject;
             result.message = QLatin1String("Cannot remove non-existing object");
+            if (object.contains(JsonDbString::kUuidStr))
+                result.message.append(QString::fromLatin1(" _uuid %1").arg(object.uuid().toString()));
+            if (object.contains(JsonDbString::kTypeStr))
+                result.message.append(QString::fromLatin1(" _type %1").arg(object.value(JsonDbString::kTypeStr).toString()));
             return result;
         }
 
