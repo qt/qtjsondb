@@ -39,7 +39,7 @@
 **
 ****************************************************************************/
 
-#include "jsondbmodelutils.h"
+#include "qjsondbmodelutils_p.h"
 #include <qdebug.h>
 #include <QJsonValue>
 #include <QJsonArray>
@@ -80,6 +80,18 @@ SortingKey::SortingKey(const SortingKey &other)
 int SortingKey::partitionIndex() const
 {
     return d->partitionIndex;
+}
+
+QVariant SortingKey::value() const
+{
+    if (d->count == 1)
+        return d->values[0];
+    else if (d->count == 0)
+        return QVariant();
+    QVariantList ret;
+    for (int i = 0; i < d->count; i++)
+        ret << d->values[i];
+    return ret;
 }
 
 static bool operator<(const QVariant& lhs, const QVariant& rhs)
@@ -267,6 +279,25 @@ QString removeArrayOperator(QString propertyName)
     return propertyName;
 }
 
+QList<QJsonObject> qvariantlist_to_qjsonobject_list(const QVariantList &list)
+{
+    QList<QJsonObject> objects;
+    int count = list.count();
+    for (int i = 0; i < count; i++) {
+        objects.append(QJsonObject::fromVariantMap(list[i].toMap()));
+    }
+    return objects;
+}
+
+QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list)
+{
+    QVariantList objects;
+    int count = list.count();
+    for (int i = 0; i < count; i++) {
+        objects.append(list[i].toVariantMap());
+    }
+    return objects;
+}
 
 ModelRequest::ModelRequest(QObject *parent)
     :QObject(parent)
@@ -305,5 +336,5 @@ void ModelRequest::onQueryFinished()
     emit finished(index, request->takeResults(), request->sortKey());
 }
 
-#include "moc_jsondbmodelutils.cpp"
+#include "moc_qjsondbmodelutils_p.cpp"
 QT_END_NAMESPACE_JSONDB

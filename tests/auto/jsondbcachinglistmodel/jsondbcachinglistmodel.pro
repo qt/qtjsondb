@@ -3,7 +3,7 @@ TARGET = tst_jsondbcachinglistmodel
 DEPENDPATH += .
 INCLUDEPATH += . ../../shared/
 
-QT = core network testlib gui qml jsondb
+QT = core network testlib gui qml jsondb-private
 CONFIG -= app_bundle
 CONFIG += testcase
 

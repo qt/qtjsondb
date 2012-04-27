@@ -49,7 +49,6 @@
 #include <QString>
 #include <qdebug.h>
 
-
 #undef DEBUG_LIST_MODEL
 
 #ifdef DEBUG_LIST_MODEL

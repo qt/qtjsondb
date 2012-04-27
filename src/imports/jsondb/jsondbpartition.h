@@ -54,8 +54,6 @@
 #include <QJsonDbWatcher>
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-class JsonDatabase;
 class JsonDbNotify;
 class JsonDbPartitionPrivate;
 class JsonDbQueryObject;
@@ -141,10 +139,11 @@ private Q_SLOTS:
     void notificationsAvailable();
     void notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
 
-    friend class JsonDatabase;
     friend class JsonDbNotify;
     friend class JsonDbQueryObject;
 };
+
+QJSValue qjsonobject_list_to_qjsvalue(const QList<QJsonObject> &list);
 
 QT_END_NAMESPACE_JSONDB
 

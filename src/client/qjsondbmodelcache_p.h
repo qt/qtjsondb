@@ -40,21 +40,33 @@
 ****************************************************************************/
 
 
-#ifndef JSONDBMODELCACHE_H
-#define JSONDBMODELCACHE_H
+#ifndef JSONDBMODELCACHE_P_H
+#define JSONDBMODELCACHE_P_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtJsonDb API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
 
 #include <QHash>
 #include <QObject>
 #include <QList>
 #include <QJsonObject>
-#include "jsondbmodelutils.h"
+#include "qjsondbmodelutils_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
 typedef QMap<SortingKey, QString> JsonDbModelIndexType;
 typedef QHash<QString, QJsonObject> JsonDbModelObjectType;
 
-class ModelPage
+class Q_JSONDB_EXPORT ModelPage
 {
 public:
     int index;
@@ -75,7 +87,7 @@ public:
     void dumpPageDetails();
 };
 
-class ModelCache
+class Q_JSONDB_EXPORT ModelCache
 {
 public:
     static qulonglong currentCounter;
@@ -116,4 +128,4 @@ public:
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // JSONDBMODELCACHE_H
+#endif // JSONDBMODELCACHE_P_H

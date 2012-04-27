@@ -102,6 +102,7 @@ private slots:
     void indexOfUuid();
     void roleNames();
     void getItemNotInCache();
+    void useDataToGetUuidAndIndexValue();
 public:
     void timeout();
 private:

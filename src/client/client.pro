@@ -38,7 +38,12 @@ HEADERS += \
     qjsondbprivatepartition_p.h \
     qjsondbstandardpaths_p.h \
     qjsondblogrequest_p.h \
-    qjsondblogrequest_p_p.h
+    qjsondblogrequest_p_p.h \
+    qjsondbquerymodel_p_p.h \
+    qjsondbmodelcache_p.h \
+    qjsondbmodelutils_p.h \
+    qjsondbquerymodel_p.h
+
 
 SOURCES += \
     qjsondbconnection.cpp \
@@ -50,6 +55,9 @@ SOURCES += \
     qjsondbobject.cpp \
     qjsondbprivatepartition.cpp \
     qjsondbstandardpaths.cpp \
-    qjsondblogrequest.cpp
+    qjsondblogrequest.cpp \
+    qjsondbmodelcache_p.cpp \
+    qjsondbmodelutils_p.cpp \
+    qjsondbquerymodel_p.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondb.name

@@ -34,13 +34,10 @@ HEADERS += \
     plugin.h \
     jsondatabase.h \
     jsondbqueryobject.h \
-    jsondbmodelutils.h \
-    jsondbmodelcache.h \
     jsondblistmodel.h \
     jsondblistmodel_p.h \
     jsondbsortinglistmodel_p.h \
     jsondbsortinglistmodel.h \
-    jsondbcachinglistmodel_p.h \
     jsondbcachinglistmodel.h
 
 SOURCES += \
@@ -49,8 +46,6 @@ SOURCES += \
     plugin.cpp \
     jsondatabase.cpp \
     jsondbqueryobject.cpp \
-    jsondbmodelutils.cpp \
-    jsondbmodelcache.cpp \
     jsondblistmodel.cpp \
     jsondbsortinglistmodel.cpp \
     jsondbcachinglistmodel.cpp

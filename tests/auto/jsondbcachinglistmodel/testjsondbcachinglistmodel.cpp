@@ -42,6 +42,7 @@
 #include <QtTest/QtTest>
 #include <QJSEngine>
 #include "testjsondbcachinglistmodel.h"
+#include "private/qjsondbquerymodel_p.h"
 
 #include "../../shared/util.h"
 #include <QQmlListReference>
@@ -1568,6 +1569,44 @@ void TestJsonDbCachingListModel::getItemNotInCache()
     QCOMPARE(number.toInt(),  2);
 
     deleteModel(listModel);
+}
+
+void TestJsonDbCachingListModel::useDataToGetUuidAndIndexValue()
+{
+    resetWaitFlags();
+
+    createIndex("anotherNumber", "number");
+
+    for (int i=0; i < 1000; i++) {
+        QVariantMap item;
+        item.insert("_type", __FUNCTION__);
+        item.insert("anotherNumber", i);
+        int id = i%2 ? create(item, "com.nokia.shared.1") : create(item, "com.nokia.shared.2");
+        waitForResponse1(id);
+    }
+
+    QJsonDbQueryModel *queryModel = new QJsonDbQueryModel(QJsonDbConnection::defaultConnection(), this);
+    queryModel->setSortOrder(QString("[/anotherNumber]"));
+    queryModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    queryModel->setPartitionNames(QStringList() << "com.nokia.shared.1" << "com.nokia.shared.2");
+    queryModel->setQueryRoleNames(QStringList() << "_type" << "_uuid" << "_indexValue" << "anotherNumber");
+    connectListModel(queryModel);
+
+    queryModel->populate();
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    QCOMPARE(queryModel->rowCount(), 1000);
+
+    for (int i=0; i < 1000; i++) {
+        QVariant iv = queryModel->data (i, 1);
+        iv = queryModel->data (i, 2);
+        QCOMPARE(iv.toInt(), i);
+    }
+
+    delete queryModel;
 }
 
 QStringList TestJsonDbCachingListModel::getOrderValues(QAbstractListModel *listModel)

@@ -53,9 +53,15 @@
 #include <QJsonDbWatcher>
 #include <QJsonDbReadRequest>
 #include <QJsonDbUpdateRequest>
-#include "jsondbmodelutils.h"
+#include <private/qjsondbmodelutils_p.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
+
+struct CallbackInfo {
+    int index;
+    QJSValue successCallback;
+    QJSValue errorCallback;
+};
 
 class JsonDbListModelPrivate
 {

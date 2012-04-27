@@ -39,24 +39,31 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDBMODELUTILS_H
-#define JSONDBMODELUTILS_H
+
+#ifndef JSONDBMODELUTILS_P_H
+#define JSONDBMODELUTILS_P_H
+
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the QtJsonDb API.  It exists purely as an
+// implementation detail.  This header file may change from version to
+// version without notice, or even be removed.
+//
+// We mean it.
+//
+
+
 #include <QSharedData>
 #include <QStringList>
 #include <QUuid>
-#include <QJSValue>
 #include <QVariant>
 #include <QPointer>
 #include <QJsonDbWatcher>
 #include <QJsonDbReadRequest>
 
 QT_BEGIN_NAMESPACE_JSONDB
-
-struct CallbackInfo {
-    int index;
-    QJSValue successCallback;
-    QJSValue errorCallback;
-};
 
 struct NotificationItem {
     int partitionIndex;
@@ -87,10 +94,9 @@ struct SortIndexSpec
     {}
 
 };
-class JsonDbListModelPrivate;
-class ModelRequest : public QObject
+
+class Q_JSONDB_EXPORT ModelRequest : public QObject
 {
-    friend class JsonDbListModelPrivate;
     Q_OBJECT
 public:
 
@@ -124,7 +130,7 @@ struct IndexInfo
 
 class SortingKeyPrivate;
 
-class SortingKey {
+class Q_JSONDB_EXPORT SortingKey {
 public:
     SortingKey(int partitionIndex, const QVariantMap &object, const QList<bool> &directions, const QList<QStringList> &paths, const SortIndexSpec &spec = SortIndexSpec());
     SortingKey(int partitionIndex, const QVariantList &object, const QList<bool> &directions, const SortIndexSpec &spec = SortIndexSpec());
@@ -133,6 +139,7 @@ public:
     SortingKey(const SortingKey&);
     SortingKey() {}
     int partitionIndex() const;
+    QVariant value() const;
     bool operator <(const SortingKey &rhs) const;
     bool operator ==(const SortingKey &rhs) const;
 private:
@@ -211,13 +218,12 @@ template <typename T> int iterator_position(T &begin, T &end, T &value)
     return i;
 }
 
-QVariant lookupProperty(QVariantMap object, const QStringList &path);
-QJsonValue lookupJsonProperty(QJsonObject object, const QStringList &path);
-QString removeArrayOperator(QString propertyName);
-QList<QJsonObject> qvariantlist_to_qjsonobject_list(const QVariantList &list);
-QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list);
-QJSValue qjsonobject_list_to_qjsvalue(const QList<QJsonObject> &list);
+Q_JSONDB_EXPORT QVariant lookupProperty(QVariantMap object, const QStringList &path);
+Q_JSONDB_EXPORT QJsonValue lookupJsonProperty(QJsonObject object, const QStringList &path);
+Q_JSONDB_EXPORT QString removeArrayOperator(QString propertyName);
+Q_JSONDB_EXPORT QList<QJsonObject> qvariantlist_to_qjsonobject_list(const QVariantList &list);
+Q_JSONDB_EXPORT QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list);
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // JSONDBMODELUTILS_H
+#endif // JSONDBMODELUTILS_P_H

@@ -40,7 +40,7 @@
 ****************************************************************************/
 //#define JSONDB_LISTMODEL_DEBUG
 
-#include "jsondbmodelcache.h"
+#include "qjsondbmodelcache_p.h"
 #include <QMap>
 #include <QDebug>
 

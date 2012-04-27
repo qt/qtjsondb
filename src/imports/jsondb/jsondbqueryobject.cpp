@@ -43,7 +43,7 @@
 #include "jsondatabase.h"
 #include "plugin.h"
 #include <private/qjsondbstrings_p.h>
-#include <jsondbmodelutils.h>
+#include <private/qjsondbmodelutils_p.h>
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB

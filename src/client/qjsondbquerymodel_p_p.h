@@ -40,8 +40,8 @@
 ****************************************************************************/
 
 
-#ifndef JSONDBCACHINGLISTMODEL_P_H
-#define JSONDBCACHINGLISTMODEL_P_H
+#ifndef QJSONDBQUERYMODEL_P_P_H
+#define QJSONDBQUERYMODEL_P_P_H
 
 #include <QHash>
 #include <QMultiMap>
@@ -52,10 +52,11 @@
 #include <QUuid>
 #include <QJsonObject>
 
-#include "jsondatabase.h"
-#include "jsondbcachinglistmodel.h"
-#include "jsondbmodelutils.h"
-#include "jsondbmodelcache.h"
+#include "qjsondbquerymodel_p.h"
+#include "qjsondbmodelutils_p.h"
+#include "qjsondbmodelcache_p.h"
+
+QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -72,14 +73,23 @@ struct JsonDbModelIndexNSize
     }
 };
 
-class JsonDbCachingListModelPrivate
-{
-    Q_DECLARE_PUBLIC(JsonDbCachingListModel)
-public:
-    JsonDbCachingListModel *q_ptr;
+struct JsonDbAvailablePartitionsInfo;
 
+class QJsonDbQueryModelPrivate
+{
+    Q_DECLARE_PUBLIC(QJsonDbQueryModel)
+
+public:
+    enum JsonDbPartitionState { PartitionStateNone,
+                                PartitionStateOnline,
+                                PartitionStateOffline,
+                                PartitionStateError };
+    QJsonDbQueryModel *q_ptr;
+
+    QJsonDbConnection *mConnection;
     QList<RequestInfo> partitionObjectDetails;
-    QList<QPointer<JsonDbPartition> >partitionObjects;
+    QList<QString> partitionObjects;
+    QList<JsonDbAvailablePartitionsInfo> availablePartitions;
 
     bool componentComplete;
     bool resetModel;
@@ -112,14 +122,14 @@ public:
 
     QHash<int, QStringList> properties;
     QList<NotificationItem> pendingNotifications;
+    QList<NotificationItem> pendingPartitionObjectNotifications;
     QList<int> cacheMiss;
-    QMap<int, QJSValue> getCallbacks;
     QList< QPair<int,int> > requestQueue;
     QList< QPointer<ModelRequest> >keyRequests;
     QList< QPointer<ModelRequest> >indexRequests;
     QList< QPointer<ModelRequest> >valueRequests;
 
-    JsonDbCachingListModel::State state;
+    QJsonDbQueryModel::State state;
     QModelIndex parent;
     int errorCode;
     QString errorString;
@@ -132,10 +142,9 @@ public:
     QJsonObject lastQueriedObject;
 
 public:
-    JsonDbCachingListModelPrivate(JsonDbCachingListModel *q);
-    ~JsonDbCachingListModelPrivate();
-    void init();
-    bool partitionsReady();
+    QJsonDbQueryModelPrivate(QJsonDbQueryModel *q);
+    ~QJsonDbQueryModelPrivate();
+    void init(QJsonDbConnection *dbConnection);
     void setCacheParams(int maxItems);
 
     void createObjectRequests(int startIndex, int maxItems);
@@ -170,39 +179,51 @@ public:
     void verifyIndexSpec(const QList<QJsonObject> &items, int partitionIndex);
 
     int indexOfWatcher(QJsonDbWatcher *watcher);
+    int indexOfPartitionObjectWatcher(QJsonDbWatcher *watcher);
 
-    void initPartition(JsonDbPartition *v);
-    void appendPartition(JsonDbPartition *v);
+    void appendPartition(const QString& partitionName);
     void clearPartitions();
+    void startWatchingPartitionObject(const QString& partitionName);
+    void onPartitionStateChanged();
+    bool partitionsReady();
     QJsonObject getJsonObject(int index);
     QVariant getItem(int index);
     QVariant getItem(int index, int role);
-    void queueGetCallback(int index, const QJSValue &callback);
-    void callGetCallback(int index, QJSValue callback);
-    JsonDbPartition* getItemPartition(int index);
+    QString getItemPartition(int index);
     int indexOf(const QString &uuid) const;
-    void set(int index, const QJSValue& valuemap,
-             const QJSValue &successCallback,
-             const QJSValue &errorCallback);
     void sendNotification(int partitionIndex, const QJsonObject &object, QJsonDbWatcher::Action action);
 
     // private slots
     void _q_verifyDefaultIndexType(int index);
     void _q_notificationsAvailable();
+    void _q_partitionWatcherNotificationsAvailable();
+    void _q_partitionWatcherNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
     void _q_notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
+    void _q_partitionObjectQueryFinished();
+    void _q_partitionObjectQueryError();
     void _q_readError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString & message);
     void _q_keyResponse(int , const QList<QJsonObject>&, const QString&);
     void _q_valueResponse(int , const QList<QJsonObject>&);
     void _q_indexResponse(int , const QList<QJsonObject>&);
-    void _q_partitionStateChanged(JsonDbPartition::State state);
+};
 
-    static void partitions_append(QQmlListProperty<JsonDbPartition> *p, JsonDbPartition *v);
-    static int partitions_count(QQmlListProperty<JsonDbPartition> *p);
-    static JsonDbPartition* partitions_at(QQmlListProperty<JsonDbPartition> *p, int idx);
-    static void partitions_clear(QQmlListProperty<JsonDbPartition> *p);
-
+struct JsonDbAvailablePartitionsInfo
+{
+    QPointer<QJsonDbWatcher> watcher;
+    QJsonDbQueryModelPrivate::JsonDbPartitionState state;
+    JsonDbAvailablePartitionsInfo() { clear();}
+    void clear()
+    {
+        state = QJsonDbQueryModelPrivate::PartitionStateNone;
+        if (watcher) {
+            delete watcher;
+            watcher = 0;
+        }
+    }
 };
 
 QT_END_NAMESPACE_JSONDB
 
-#endif // JSONDBCACHINGLISTMODEL_P_H
+QT_END_HEADER
+
+#endif // QJSONDBQUERYMODEL_P_P_H

@@ -38,6 +38,9 @@
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
+#include <private/qjsondbmodelutils_p.h>
+#include <QJsonDbCreateRequest>
+
 #include "jsondbpartition.h"
 #include "jsondatabase.h"
 #include "jsondbnotification.h"
@@ -49,7 +52,6 @@
 #include <qdebug.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
-
 /*!
     \qmlclass Partition JsonDbPartition
     \inqmlmodule QtJsonDb 1.0
@@ -162,26 +164,6 @@ static QVariant qjsvalue_to_qvariant(const QJSValue &value)
         return value.toVariant();
     }
 }
-}
-
-QList<QJsonObject> qvariantlist_to_qjsonobject_list(const QVariantList &list)
-{
-    QList<QJsonObject> objects;
-    int count = list.count();
-    for (int i = 0; i < count; i++) {
-        objects.append(QJsonObject::fromVariantMap(list[i].toMap()));
-    }
-    return objects;
-}
-
-QVariantList qjsonobject_list_to_qvariantlist(const QList<QJsonObject> &list)
-{
-    QVariantList objects;
-    int count = list.count();
-    for (int i = 0; i < count; i++) {
-        objects.append(list[i].toVariantMap());
-    }
-    return objects;
 }
 
 QJSValue qjsonobject_list_to_qjsvalue(const QList<QJsonObject> &list)

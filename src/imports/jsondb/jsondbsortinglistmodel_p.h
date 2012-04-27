@@ -51,8 +51,7 @@
 #include <QUuid>
 #include <QJSEngine>
 #include <QJSValueIterator>
-
-#include "jsondbmodelutils.h"
+#include <private/qjsondbmodelutils_p.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
