@@ -279,8 +279,13 @@ bool JsonDbObject::updateVersionReplicating(const JsonDbObject &other)
         // the value is just for show, QSet is based on QHash, which does not sort
         QMap<JsonDbObject,bool> documents;
 
-        QUuid id = uuid();
-        populateMerge(&documents, id, *this);
+        QUuid id;
+        if (!isEmpty()) {
+            id = uuid();
+            populateMerge(&documents, id, *this);
+        } else {
+            id = other.uuid();
+        }
         if (!populateMerge(&documents, id, other, true))
             return false;
 

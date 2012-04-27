@@ -698,6 +698,14 @@ void TestPartition::updateVersionReplicating()
     QCOMPARE(target.updateVersionReplicating(source), true);
     QCOMPARE(target, master);
 
+    // merge from empty
+    {
+        JsonDbObject target;
+        JsonDbObject source(master);
+        QCOMPARE(target.updateVersionReplicating(source), true);
+        QCOMPARE(target, master);
+    }
+
     // create a conflict
     JsonDbObject conflict(master);
     source.insert(QStringLiteral("key"), false);
