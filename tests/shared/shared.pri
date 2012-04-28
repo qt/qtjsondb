@@ -15,6 +15,6 @@ contains(QT, jsondbcompat|jsondbcompat-private) {
 }
 
 RESOURCES += \
-    ../../json.qrc
+    $$PWD/../json.qrc
 
 DEFINES += JSONDB_DAEMON_BASE=\\\"$$QT.jsondb.bins\\\"
