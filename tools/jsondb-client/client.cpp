@@ -671,8 +671,15 @@ void Client::loadJsonFile(const QString &jsonFile)
     }
 
     json.open(QFile::ReadOnly);
-    QJsonDocument doc = QJsonDocument::fromJson(json.readAll());
+    QJsonParseError error;
+    QJsonDocument doc = QJsonDocument::fromJson(json.readAll(), &error);
     json.close();
+
+    if (error.error != QJsonParseError::NoError) {
+        qDebug() << "Unable to parse file:" << error.errorString();
+        fileLoadError();
+        return;
+    }
 
     QList<QJsonObject> objects;
     if (doc.isArray()) {
@@ -691,6 +698,8 @@ void Client::loadJsonFile(const QString &jsonFile)
     connect(write, SIGNAL(finished()), this, SLOT(fileLoadSuccess()));
     connect(write, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
             this, SLOT(fileLoadError()));
+    connect(write, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
     mConnection->send(write);
 }
 
