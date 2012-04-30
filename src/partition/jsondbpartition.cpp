@@ -70,6 +70,7 @@
 #include "jsondbview.h"
 #include "jsondbschemamanager_impl_p.h"
 #include "jsondbobjecttypes_impl_p.h"
+#include "jsondbutils_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
@@ -503,17 +504,17 @@ void JsonDbPartition::updateView(const QString &objectType, quint32 stateNumber)
 bool JsonDbPartition::checkCanAddSchema(const JsonDbObject &schema, const JsonDbObject &oldSchema, QString &errorMsg)
 {
     if (!schema.contains(QStringLiteral("name")) || !schema.contains(QStringLiteral("schema"))) {
-        errorMsg = QLatin1String("_schemaType objects must specify both name and schema properties");
+        errorMsg = QStringLiteral("_schemaType objects must specify both name and schema properties");
         return false;
     }
 
     QString schemaName = schema.value(QStringLiteral("name")).toString();
 
     if (schemaName.isEmpty()) {
-        errorMsg = QLatin1String("name property of _schemaType object must be specified");
+        errorMsg = QStringLiteral("name property of _schemaType object must be specified");
         return false;
     } else if (mSchemas.contains(schemaName) && oldSchema.value(QStringLiteral("name")).toString() != schemaName) {
-        errorMsg = QString::fromLatin1("A schema with name %1 already exists").arg(schemaName);
+        errorMsg = QString(QStringLiteral("A schema with name %1 already exists")).arg(schemaName);
         return false;
     }
 
@@ -859,19 +860,19 @@ void JsonDbPartition::compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const Que
     if (indexQuery->propertyName() != JsonDbString::kUuidStr)
         truncateFieldValue(&fieldValue, indexQuery->propertyType());
 
-    if (op == QLatin1String(">")) {
+    if (op == QLatin1Char('>')) {
         indexQuery->addConstraint(new QueryConstraintGt(fieldValue));
         indexQuery->setMin(fieldValue);
     } else if (op == QLatin1String(">=")) {
         indexQuery->addConstraint(new QueryConstraintGe(fieldValue));
         indexQuery->setMin(fieldValue);
-    } else if (op == QLatin1String("<")) {
+    } else if (op == QLatin1Char('<')) {
         indexQuery->addConstraint(new QueryConstraintLt(fieldValue));
         indexQuery->setMax(fieldValue);
     } else if (op == QLatin1String("<=")) {
         indexQuery->addConstraint(new QueryConstraintLe(fieldValue));
         indexQuery->setMax(fieldValue);
-    } else if (op == QLatin1String("=")) {
+    } else if (op == QLatin1Char('=')) {
         indexQuery->addConstraint(new QueryConstraintEq(fieldValue));
         indexQuery->setMin(fieldValue);
         indexQuery->setMax(fieldValue);
@@ -959,9 +960,9 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
                 QString op = queryTerm.op();
 
                 if (propertyName == JsonDbString::kTypeStr) {
-                    if ((op == QLatin1String("=")) || (op == QLatin1String("in"))) {
+                    if (op == QLatin1Char('=') || op == QLatin1String("in")) {
                         QSet<QString> types;
-                        if (op == QLatin1String("=")) {
+                        if (op == QLatin1Char('=')) {
                             types << fieldValue;
                             for (int i = 1; i < queryTerms.size(); ++i) {
                                 if (queryTerms[i].propertyName() == JsonDbString::kTypeStr && queryTerms[i].op() == QStringLiteral("="))
@@ -1237,7 +1238,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         if (!object.contains(JsonDbString::kUuidStr) || object.value(JsonDbString::kUuidStr).isNull()) {
             if (forRemoval) {
                 result.code = JsonDbError::MissingUUID;
-                result.message = QLatin1String("Missing '_uuid' field in object");
+                result.message = QStringLiteral("Missing '_uuid' field in object");
                 return result;
             }
 
@@ -1250,7 +1251,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
         if (!forRemoval && object.value(JsonDbString::kTypeStr).toString().isEmpty()) {
             result.code = JsonDbError::MissingType;
-            result.message = QLatin1String("Missing '_type' field in object");
+            result.message = QStringLiteral("Missing '_type' field in object");
             return result;
         }
 
@@ -1282,7 +1283,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
         if (mode != ReplicatedWrite && forCreation && forRemoval) {
             result.code =  JsonDbError::MissingObject;
-            result.message = QLatin1String("Cannot remove non-existing object");
+            result.message = QStringLiteral("Cannot remove non-existing object");
             if (object.contains(JsonDbString::kUuidStr))
                 result.message.append(QString::fromLatin1(" _uuid %1").arg(object.uuid().toString()));
             if (object.contains(JsonDbString::kTypeStr))
@@ -1292,7 +1293,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
         if (!(forCreation || owner->isAllowed(master, mPartitionName, QStringLiteral("write")))) {
             result.code = JsonDbError::OperationNotPermitted;
-            result.message = QLatin1String("Access denied");
+            result.message = QStringLiteral("Access denied");
             return result;
         }
 
@@ -1303,7 +1304,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
         if (!(forRemoval || owner->isAllowed(object, mPartitionName, QStringLiteral("write")))) {
             result.code = JsonDbError::OperationNotPermitted;
-            result.message = QLatin1String("Access denied");
+            result.message = QStringLiteral("Access denied");
             return result;
         }
 
@@ -1333,19 +1334,19 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
             break;
         default:
             result.code = JsonDbError::InvalidRequest;
-            result.message = QLatin1String("Missing writeMode implementation.");
+            result.message = QStringLiteral("Missing writeMode implementation.");
             return result;
         }
 
         if (!validWrite) {
             if (mode == ReplicatedWrite) {
                 result.code = JsonDbError::InvalidRequest;
-                result.message = QLatin1String("Replication has reject your update for sanity reasons");
+                result.message = QStringLiteral("Replication has reject your update for sanity reasons");
             } else {
                 if (jsondbSettings->debug())
                     qDebug() << "Stale update detected - expected version:" << oldMaster.version() << object;
                 result.code = JsonDbError::UpdatingStaleVersion;
-                result.message = QString::fromLatin1("Updating stale version of object. Expected version %1, received %2")
+                result.message = QString(QStringLiteral("Updating stale version of object. Expected version %1, received %2"))
                         .arg(oldMaster.version()).arg(object.version());
             }
             return result;
@@ -1657,7 +1658,7 @@ JsonDbError::ErrorCode JsonDbPartition::checkBuiltInTypeAccessControl(bool forCr
         }
 
         // Check that owner can read all objectTypes
-        QJsonValue objectTypeProperty = object.value(QLatin1String("objectType"));
+        QJsonValue objectTypeProperty = object.value(JsonDbString::kObjectTypeStr);
         JsonDbObject fake; // Just for access control
         if (objectTypeProperty.isUndefined() || objectTypeProperty.isNull()) {
             if (!owner->allowAll()) {
@@ -1915,7 +1916,7 @@ void JsonDbPartition::initSchemas()
     }
 
     foreach (const QString &schemaName, (QStringList() << JsonDbString::kNotificationTypeStr << JsonDbString::kViewTypeStr
-                                         << QStringLiteral("Capability") << JsonDbString::kIndexTypeStr)) {
+                                         << JsonDbString::kCapabilityTypeStr << JsonDbString::kIndexTypeStr)) {
         if (!mSchemas.contains(schemaName)) {
             QFile schemaFile(QString::fromLatin1(":schema/%1.json").arg(schemaName));
             schemaFile.open(QIODevice::ReadOnly);
@@ -1943,22 +1944,21 @@ void JsonDbPartition::initSchemas()
         nameIndex.insert(JsonDbString::kNameStr, QLatin1String("capabilityName"));
         nameIndex.insert(JsonDbString::kPropertyNameStr, QLatin1String("name"));
         nameIndex.insert(JsonDbString::kPropertyTypeStr, QLatin1String("string"));
-        nameIndex.insert(JsonDbString::kObjectTypeStr, QLatin1String("Capability"));
+        nameIndex.insert(JsonDbString::kObjectTypeStr, JsonDbString::kCapabilityTypeStr);
         updateObject(mDefaultOwner, nameIndex, Replace);
 
-        const QLatin1String capabilityName("RootCapability");
-        QFile capabilityFile(QString::fromLatin1(":schema/%1.json").arg(capabilityName));
+        QFile capabilityFile(QStringLiteral(":schema/RootCapability.json"));
         capabilityFile.open(QIODevice::ReadOnly);
         QJsonParseError error;
         QJsonDocument doc = QJsonDocument::fromJson(capabilityFile.readAll(), &error);
         capabilityFile.close();
         if (doc.isNull()) {
-            qWarning() << "Parsing " << capabilityName << " capability" << error.error;
+            qWarning() << "Parsing root capability" << error.error;
             return;
         }
         JsonDbObject capability = doc.object();
         QString name = capability.value(QStringLiteral("name")).toString();
-        GetObjectsResult getObjectResponse = getObjects(QStringLiteral("capabilityName"), name, QStringLiteral("Capability"));
+        GetObjectsResult getObjectResponse = getObjects(QStringLiteral("capabilityName"), name, JsonDbString::kCapabilityTypeStr);
         int count = getObjectResponse.data.size();
         if (!count) {
             if (jsondbSettings->verbose())

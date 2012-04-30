@@ -71,10 +71,10 @@ JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owne
     Q_UNUSED(owner);
     if (!query->orderTerms.isEmpty())
         return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,
-                                                      QLatin1String("Cannot query with order term on ephemeral objects"));
+                                                    QStringLiteral("Cannot query with order term on ephemeral objects"));
     if (limit != -1 || offset != 0)
         return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,
-                                                    QLatin1String("Cannot query with limit or offset on ephemeral objects"));
+                                                    QStringLiteral("Cannot query with limit or offset on ephemeral objects"));
 
     JsonDbObjectList results;
     ObjectMap::const_iterator it, e;
@@ -85,7 +85,7 @@ JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owne
     }
 
     QJsonArray sortKeys;
-    sortKeys.append(QLatin1String("_uuid"));
+    sortKeys.append(JsonDbString::kUuidStr);
     JsonDbQueryResult result;
     result.length = results.size();
     result.offset = offset;
@@ -121,7 +121,7 @@ JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *own
                 mObjects.remove(object.uuid());
             } else {
                 result.code =  JsonDbError::MissingObject;
-                result.message = QLatin1String("Cannot remove non-existing object");
+                result.message = QStringLiteral("Cannot remove non-existing object");
                 return result;
             }
         } else {

@@ -101,7 +101,7 @@ void JsonDbMapDefinition::definitionCreated()
             return;
         }
         JsonDbObjectList objects = getObjectResponse.data;
-        bool isJoin = mDefinition.contains(QLatin1String("join"));
+        bool isJoin = mDefinition.contains(JsonDbString::kJoinStr);
         for (int i = 0; i < objects.size(); i++) {
             JsonDbObject object(objects.at(i));
             if (isJoin)
@@ -114,7 +114,7 @@ void JsonDbMapDefinition::definitionCreated()
 void JsonDbMapDefinition::definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid)
 {
     // remove the output objects
-    GetObjectsResult getObjectResponse = table->getObjects(QLatin1String("_sourceUuids.*"),
+    GetObjectsResult getObjectResponse = table->getObjects(JsonDbString::kSourceUuidsDotStarStr,
                                                            definitionUuid,
                                                            targetType);
     JsonDbObjectList objects = getObjectResponse.data;
@@ -193,7 +193,7 @@ void JsonDbMapDefinition::releaseScriptEngine()
 
 void JsonDbMapDefinition::initIndexes()
 {
-    mTargetTable->addIndexOnProperty(QLatin1String("_sourceUuids.*"), QLatin1String("string"), mTargetType);
+    mTargetTable->addIndexOnProperty(JsonDbString::kSourceUuidsDotStarStr, QLatin1String("string"), mTargetType);
 }
 
 void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const JsonDbObject &afterObject, JsonDbUpdateList *changeList)
@@ -434,9 +434,9 @@ bool JsonDbMapDefinition::validateDefinition(const JsonDbObject &map, JsonDbPart
     } else {
         QJsonValue mapValue = map.value(QStringLiteral("map"));
         if (!mapValue.isObject())
-            message = QLatin1String("sourceType property for Map not specified");
+            message = QStringLiteral("sourceType property for Map not specified");
         else if (!mapValue.isString() && !mapValue.isObject())
-            message = QLatin1String("map function for Map not specified");
+            message = QStringLiteral("map function for Map not specified");
 
         if (mapValue.isObject()) {
 

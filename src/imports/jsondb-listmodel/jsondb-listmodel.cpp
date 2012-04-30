@@ -919,7 +919,7 @@ QVariant JsonDbListModel::scriptableRoleNames() const
 
 QString removeArrayOperator(QString propertyName)
 {
-    propertyName.replace(QLatin1String("["), QLatin1String("."));
+    propertyName.replace(QLatin1Char('['), QLatin1Char('.'));
     propertyName.remove(QLatin1Char(']'));
     return propertyName;
 }

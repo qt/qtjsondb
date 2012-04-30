@@ -77,26 +77,33 @@ void JsonDbSettings::loadEnvironment()
     for (int i = 0; i < meta->propertyCount(); i++) {
         QMetaProperty property(meta->property(i));
         QString propertyName = QString::fromLatin1(property.name());
-        QString envVariable = QLatin1String("JSONDB_");
+        QString envVariable(QStringLiteral("JSONDB_"));
 
         for (int j = 0; j < propertyName.count(); j++) {
             if (j > 0 && propertyName.at(j).isUpper() && !propertyName.at(j - 1).isUpper())
-                envVariable += QString::fromLatin1("_%1").arg(propertyName.at(j));
+                envVariable += QLatin1Char('_') + propertyName.at(j);
             else
                 envVariable += propertyName.at(j).toUpper();
         }
 
-        if (qgetenv(envVariable.toLatin1()).size()) {
-            if (property.type() == QVariant::Bool)
-                property.write(this, QLatin1String(qgetenv(envVariable.toLatin1())) == QLatin1String("true"));
-            else if (property.type() == QVariant::Int)
-                property.write(this, qgetenv(envVariable.toLatin1()).toInt());
-            else if (property.type() == QVariant::String)
-                property.write(this, qgetenv(envVariable.toLatin1()));
-            else if (property.type() == QVariant::StringList)
-                property.write(this, QString::fromLatin1(qgetenv(envVariable.toLatin1())).split(':'));
-            else
+        QByteArray value = qgetenv(envVariable.toLatin1());
+        if (value.size()) {
+            switch (property.type()) {
+            case QVariant::Bool:
+                property.write(this, value == "true");
+                break;
+            case QVariant::Int:
+                property.write(this, value.toInt());
+                break;
+            case QVariant::String:
+                property.write(this, QString::fromLatin1(value));
+                break;
+            case QVariant::StringList:
+                property.write(this, QString::fromLatin1(value).split(QLatin1Char(':')));
+                break;
+            default:
                 qWarning() << "JsonDbSettings: unknown property type" << property.name() << property.type();
+            }
         }
     }
 }

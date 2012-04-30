@@ -127,7 +127,7 @@ QUuid JsonDbObject::createUuidFromString(const QString &identifier)
 
 void JsonDbObject::generateUuid()
 {
-    QLatin1String idStr("_id");
+    const QString idStr(QStringLiteral("_id"));
     if (contains(idStr)) {
         QUuid uuid(createUuidFromString(value(idStr).toString()));
         insert(JsonDbString::kUuidStr, uuid.toString());

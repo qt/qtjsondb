@@ -48,6 +48,8 @@
 #include "jsondbquery.h"
 #include "jsondbsettings.h"
 
+#include "jsondbutils_p.h"
+
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
 const char* JsonDbQueryTokenizer::sTokens[] = {
@@ -241,18 +243,18 @@ QJsonArray JsonDbQuery::parseJsonArray(JsonDbQueryTokenizer &tokenizer, const QJ
 
     *ok = true;
     for (QString tkn = tokenizer.pop(); !tkn.isEmpty(); tkn = tokenizer.pop()) {
-        if (tkn == QLatin1String("]") || tkn == QLatin1String("|"))
+        if (tkn == QLatin1Char(']') || tkn == QLatin1Char('|'))
             break;
-        else if (tkn == QLatin1String("["))
+        else if (tkn == QLatin1Char('['))
             array.append(parseJsonArray(tokenizer, bindings, ok));
-        else if (tkn == QLatin1String("{"))
+        else if (tkn == QLatin1Char('{'))
             array.append(parseJsonObject(tokenizer, bindings, ok));
         else
             array.append(parseJsonLiteral(tkn, 0, bindings, ok));
         tkn = tokenizer.pop();
-        if (tkn == QLatin1String("]")) {
+        if (tkn == QLatin1Char(']')) {
             break;
-        } else if (tkn != QLatin1String(",")) {
+        } else if (tkn != QLatin1Char(',')) {
             *ok = false;
             break;
         }
@@ -265,28 +267,28 @@ QJsonObject JsonDbQuery::parseJsonObject(JsonDbQueryTokenizer &tokenizer, const 
     QJsonObject object;
     *ok = true;
     for (QString tkn = tokenizer.popIdentifier(); !tkn.isEmpty(); tkn = tokenizer.popIdentifier()) {
-        if (tkn == QLatin1String("}") || tkn == QLatin1String("|"))
+        if (tkn == QLatin1Char('}') || tkn == QLatin1Char('|'))
             break;
         QString key = tkn;
         tkn = tokenizer.pop();
-        if (tkn != QLatin1String(":")) {
+        if (tkn != QLatin1Char(':')) {
             *ok = false;
             break;
         }
 
         tkn = tokenizer.pop();
         QJsonValue value;
-        if (tkn == QLatin1String("["))
+        if (tkn == QLatin1Char('['))
             value = parseJsonArray(tokenizer, bindings, ok);
-        else if (tkn == QLatin1String("{"))
+        else if (tkn == QLatin1Char('{'))
             value = parseJsonObject(tokenizer, bindings, ok);
         else
             value = parseJsonLiteral(tkn, 0, bindings, ok);
         object.insert(key, value);
         tkn = tokenizer.pop();
-        if (tkn == QLatin1String("}")) {
+        if (tkn == QLatin1Char('}')) {
             break;
-        } else if (tkn != QLatin1String(",")) {
+        } else if (tkn != QLatin1Char(',')) {
             *ok = false;
             break;
         }
@@ -307,16 +309,16 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
     QString token;
     while (!parseError
            && !(token = tokenizer.pop()).isEmpty()) {
-        if (token != QLatin1String("[")) {
+        if (token != QLatin1Char('[')) {
             qCritical() << "unexpected token" << token;
             break;
         }
         token = tokenizer.pop();
-        if (token == QLatin1String("?")) {
+        if (token == QLatin1Char('?')) {
             OrQueryTerm oqt;
             do {
                 QString fieldSpec = tokenizer.popIdentifier();
-                if (fieldSpec == QLatin1String("|"))
+                if (fieldSpec == QLatin1Char('|'))
                     fieldSpec = tokenizer.popIdentifier();
 
                 QString opOrJoin = tokenizer.pop();
@@ -386,15 +388,15 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                         term.regExp().setCaseSensitivity(Qt::CaseInsensitive);
                     //qDebug() << "pattern" << tvs.mid(2, eor-2);
                     term.regExp().setPattern(tvs.mid(sepPos + 1, eor-sepPos-1));
-                } else if ((op != QLatin1String("exists")) && (op != QLatin1String("notExists"))) {
+                } else if (op != QLatin1String("exists") && op != QLatin1String("notExists")) {
                     bool ok = true;
 
                     QString value = tokenizer.pop();
-                    if (value == QLatin1String("[")) {
+                    if (value == QLatin1Char('[')) {
                         QJsonValue value = parseJsonArray(tokenizer, bindings, &ok);
                         if (ok)
                             term.setValue(value);
-                    } else if (value == QLatin1String("{")) {
+                    } else if (value == QLatin1Char('{')) {
                         QJsonValue value = parseJsonObject(tokenizer, bindings, &ok);
                         if (ok)
                             term.setValue(value);
@@ -414,11 +416,11 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                 }
 
                 oqt.addTerm(term);
-            } while (tokenizer.peek() != QLatin1String("]"));
+            } while (tokenizer.peek() != QLatin1Char(']'));
             parsedQuery->queryTerms.append(oqt);
-        } else if (token == QLatin1String("=")) {
+        } else if (token == QLatin1Char('=')) {
             QString curlyBraceToken = tokenizer.pop();
-            if (curlyBraceToken != QLatin1String("{")) {
+            if (curlyBraceToken != QLatin1Char('{')) {
                 parsedQuery->queryExplanation.append(QString::fromLatin1("Parse error: expecting '{' but got '%1'")
                                                      .arg(curlyBraceToken));
                 parseError = true;
@@ -426,14 +428,12 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
             }
             QString nextToken;
             while (!(nextToken = tokenizer.popIdentifier()).isEmpty()) {
-                if (nextToken == QLatin1String("}")) {
+                if (nextToken == QLatin1Char('}')) {
                     break;
                 } else {
-
-                    //qDebug() << "isMapObject" << nextToken << tokenizer.peek();
                     parsedQuery->mapKeyList.append(nextToken);
                     QString colon = tokenizer.pop();
-                    if (colon != QLatin1String(":")) {
+                    if (colon != QLatin1Char(':')) {
                         parsedQuery->queryExplanation.append(QString::fromLatin1("Parse error: expecting ':' but got '%1'").arg(colon));
                         parseError = true;
                         break;
@@ -447,27 +447,27 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                     }
                     parsedQuery->mapExpressionList.append(nextToken);
                     QString maybeComma = tokenizer.pop();
-                    if (maybeComma == QLatin1String("}")) {
+                    if (maybeComma == QLatin1Char('}')) {
                         tokenizer.push(maybeComma);
                         continue;
-                    } else if (maybeComma != QLatin1String(",")) {
-                        parsedQuery->queryExplanation.append(QString::fromLatin1("Parse error: expecting ',', or '}' but got '%1'")
+                    } else if (maybeComma != QLatin1Char(',')) {
+                        parsedQuery->queryExplanation.append(QString(QStringLiteral("Parse error: expecting ',', or '}' but got '%1'"))
                                                              .arg(maybeComma));
                         parseError = true;
                         break;
                     }
                 }
             }
-        } else if ((token == QLatin1String("/")) || (token == QLatin1String("\\")) ||
-                   (token == QLatin1String(">")) || (token == QLatin1String("<"))) {
+        } else if (token == QLatin1Char('/') || token == QLatin1Char('\\') ||
+                   token == QLatin1Char('>') || token == QLatin1Char('<')) {
             QString ordering = token;
             OrderTerm term;
             term.propertyName = tokenizer.popIdentifier();
-            term.ascending = ((ordering == QLatin1String("/")) || (ordering == QLatin1String(">")));
+            term.ascending = ordering == QLatin1Char('/') || ordering == QLatin1Char('>');
             parsedQuery->orderTerms.append(term);
         } else if (token == QLatin1String("count")) {
             parsedQuery->mAggregateOperation = QLatin1String("count");
-        } else if (token == QLatin1String("*")) {
+        } else if (token == QLatin1Char('*')) {
             // match all objects
         } else {
             parsedQuery->queryExplanation.append(QString::fromLatin1("Parse error: expecting '?', '/', '\\', or 'count' but got '%1'").arg(token));
@@ -475,7 +475,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
             break;
         }
         QString closeBracket = tokenizer.pop();
-        if (closeBracket != QLatin1String("]")) {
+        if (closeBracket != QLatin1Char(']')) {
             parsedQuery->queryExplanation.append(QString::fromLatin1("Parse error: expecting ']' but got '%1'").arg(closeBracket));
             parseError = true;
             break;
@@ -493,7 +493,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
     foreach (const OrQueryTerm &oqt, parsedQuery->queryTerms) {
         foreach (const QueryTerm &term, oqt.terms()) {
             if (term.propertyName() == JsonDbString::kTypeStr) {
-                if (term.op() == QLatin1String("=")) {
+                if (term.op() == QLatin1Char('=')) {
                     parsedQuery->mMatchedTypes.insert(term.value().toString());
                 } else if (term.op() == QLatin1String("!=")) {
                     parsedQuery->mMatchedTypes.insert(term.value().toString());
@@ -551,10 +551,10 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 else
                     objectFieldValue = object.propertyLookup(term.fieldPath());
             }
-            if ((op == QLatin1String("=")) || (op == QLatin1String("=="))) {
+            if (op == QLatin1Char('=') || op == QLatin1String("==")) {
                 if (objectFieldValue == termValue)
                         matches = true;
-            } else if ((op == QLatin1String("<>")) || (op == QLatin1String("!="))) {
+            } else if (op == QLatin1String("<>") || op == QLatin1String("!=")) {
                 if (objectFieldValue != termValue)
                     matches = true;
             } else if (op == QLatin1String("=~")) {
@@ -565,11 +565,11 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                     matches = true;
             } else if (op == QLatin1String("<=")) {
                 matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
-            } else if (op == QLatin1String("<")) {
+            } else if (op == QLatin1Char('<')) {
                 matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue);
             } else if (op == QLatin1String(">=")) {
                 matches = JsonDbIndexQuery::greaterThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
-            } else if (op == QLatin1String(">")) {
+            } else if (op == QLatin1Char('>')) {
                 matches = JsonDbIndexQuery::greaterThan(objectFieldValue, termValue);
             } else if (op == QLatin1String("exists")) {
                 if (objectFieldValue.type() != QJsonValue::Undefined)

@@ -55,6 +55,8 @@
 #include "jsondbobjecttable.h"
 #include "jsondbscriptengine.h"
 
+#include "jsondbutils_p.h"
+
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
 static const int collationStringsCount = 13;
@@ -307,7 +309,7 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
     mFieldValues.clear();
     if (!mScriptEngine) {
         int size = mPath.size();
-        if (mPath[size-1] == QLatin1String("*")) {
+        if (mPath[size-1] == QLatin1Char('*')) {
             QJsonValue v = object.propertyLookup(mPath.mid(0, size-1));
             QJsonArray array = v.toArray();
             mFieldValues.reserve(array.size());

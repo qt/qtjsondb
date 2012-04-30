@@ -234,10 +234,10 @@ int main(int argc, char * argv[])
             clear = true;
         } else if (arg == "-base-name") {
             args.removeAt(0);
-            qWarning() << QLatin1String("The -base-name argument is no longer supported");
+            qWarning() << QStringLiteral("The -base-name argument is no longer supported");
         } else if (arg == "-dbdir") {
             args.removeAt(0);
-            qWarning() << QLatin1String("The -dbdir argument is no longer supported");
+            qWarning() << QStringLiteral("The -dbdir argument is no longer supported");
         } else if (arg == "-log-file") {
             logFileName = args.takeFirst();
         } else {
@@ -260,8 +260,8 @@ int main(int argc, char * argv[])
 
     // FIXME: we should eventually make this trailing argument an error
     if (args.size() == 1)
-        qDebug().nospace() << QStringLiteral("Passing the database directory as a trailing argument is no longer supported (")
-                           << args.takeFirst() << QStringLiteral(")");
+        qDebug() << "Passing the database directory as a trailing argument is no longer supported ("
+                 << args.takeFirst() << ")";
 
     if (!args.isEmpty())
         usage();

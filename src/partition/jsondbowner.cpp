@@ -90,7 +90,7 @@ void JsonDbOwner::setAllowedObjects(const QString &partition, const QString &op,
 void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDbPartition *partition)
 {
     QJsonObject request;
-    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QStringLiteral("Capability"));
+    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, JsonDbString::kCapabilityTypeStr);
     JsonDbObjectList translations = result.data;
     //qDebug() << "JsonDbOwner::setCapabilities" << "translations" << translations;
 

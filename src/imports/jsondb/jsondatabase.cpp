@@ -121,8 +121,8 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback)
     }
 
     QJsonDbReadRequest *request = new QJsonDbReadRequest;
-    request->setQuery(QLatin1String("[?_type=\"Partition\"]"));
-    request->setPartition(QLatin1String("Ephemeral"));
+    request->setQuery(QStringLiteral("[?_type=\"Partition\"]"));
+    request->setPartition(QStringLiteral("Ephemeral"));
     connect(request, SIGNAL(finished()), this, SLOT(onQueryFinished()));
     connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
     connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
@@ -167,7 +167,7 @@ void JsonDatabase::onQueryFinished()
         if (count) {
             QJSValue response = engine->newArray(count);
             for (int i = 0; i < count; ++i) {
-                QString partitionName = objects[i].value(QLatin1String("name")).toString();
+                QString partitionName = objects[i].value(QStringLiteral("name")).toString();
                 response.setProperty(i, engine->newQObject(partition(partitionName)));
             }
             args << response;
@@ -188,10 +188,10 @@ void JsonDatabase::onQueryError(QtJsonDb::QJsonDbRequest::ErrorCode code, const 
 
         QJSValueList args;
         QVariantMap error;
-        error.insert(QLatin1String("code"), code);
-        error.insert(QLatin1String("message"), message);
+        error.insert(QStringLiteral("code"), code);
+        error.insert(QStringLiteral("message"), message);
 
-        args << engine->toScriptValue(QVariant(error))<< engine->newArray();
+        args << engine->toScriptValue(QVariant(error)) << engine->newArray();
 
         callback.call(args);
         listCallbacks.remove(request);

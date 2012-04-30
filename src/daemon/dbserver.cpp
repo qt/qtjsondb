@@ -316,7 +316,6 @@ bool DBServer::loadPartitions()
 
     // close any partitions that were declared previously but are no longer present
     foreach (JsonDbPartition *partition, mPartitions.values()) {
-
         if (mDefaultPartition == partition)
             mDefaultPartition = 0;
 
@@ -869,17 +868,17 @@ void DBServer::processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonVa
     int offset = request.value(JsonDbString::kOffsetStr).toDouble();
 
     JsonDbError::ErrorCode errorCode = JsonDbError::NoError;
-    QLatin1String errorMessage("");
+    QString errorMessage;
 
     if (limit < -1) {
         errorCode = JsonDbError::InvalidLimit;
-        errorMessage = QLatin1String("Invalid limit");
+        errorMessage = QStringLiteral("Invalid limit");
     } else if (offset < 0) {
         errorCode = JsonDbError::InvalidOffset;
-        errorMessage = QLatin1String("Invalid offset");
+        errorMessage = QStringLiteral("Invalid offset");
     } else if (query.isEmpty()) {
         errorCode = JsonDbError::MissingQuery;
-        errorMessage = QLatin1String("Missing query string");
+        errorMessage = QStringLiteral("Missing query string");
     }
 
     // response should only contain the id at this point
@@ -1459,7 +1458,7 @@ void DBServer::receiveMessage(const QJsonObject &message)
                     partitionName = mEphemeralPartition->name();
                 } else {
                     sendError(stream, JsonDbError::InvalidRequest,
-                              QLatin1String("Mixing objects of type Notification with others can only be done in the ephemeral partition"), id);
+                              QStringLiteral("Mixing objects of type Notification with others can only be done in the ephemeral partition"), id);
                     return;
                 }
             }

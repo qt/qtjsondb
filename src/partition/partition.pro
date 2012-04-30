@@ -20,6 +20,7 @@ include(../hbtree/hbtree.pri)
 RESOURCES = jsondb.qrc
 
 HEADERS += \
+    jsondbutils_p.h \
     jsondbowner.h \
     jsondbproxy.h \
     jsondbindex.h \

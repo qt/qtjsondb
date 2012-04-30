@@ -121,6 +121,9 @@ public:
     static const QString kPathStr;
     static const QString kDefaultStr;
     static const QString kConflictResolutionModeStr;
+    static const QString kJoinStr;
+    static const QString kSourceUuidsDotStarStr;
+    static const QString kCapabilityTypeStr;
     static const QString kRemovableStr;
     static const QString kAvailableStr;
 };

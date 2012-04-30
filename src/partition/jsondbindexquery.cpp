@@ -384,7 +384,7 @@ JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
     JsonDbObject baseObject(object);
 
     // insert the computed index value
-    baseObject.insert(QLatin1String("_indexValue"), mFieldValue);
+    baseObject.insert(JsonDbString::kIndexValueStr, mFieldValue);
 
     if (mResultKeyList.isEmpty())
         result = baseObject;

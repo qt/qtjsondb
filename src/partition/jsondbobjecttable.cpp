@@ -717,7 +717,7 @@ quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, const QSet<QString>
         if (!oldObject.isEmpty() && oldType != newType && splitTypeChanges == JsonDbObjectTable::SplitTypeChanges) {
             if (allTypes || limitTypes.contains(oldType)) {
                 JsonDbObject tombstone(oldObject);
-                tombstone.insert(QLatin1String("_deleted"), true);
+                tombstone.insert(JsonDbString::kDeletedStr, true);
                 changeList.append(JsonDbUpdate(oldObject, tombstone, JsonDbNotification::Delete));
             }
             if (allTypes || limitTypes.contains(newType)) {
