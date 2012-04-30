@@ -58,6 +58,9 @@
 #define HBTREE_VERSION 0xdeadc0de
 #define HBTREE_DEFAULT_PAGE_SIZE 4096
 
+// How many previous commits to leave intact (not including the synced commit)
+#define HBTREE_COMMIT_CHAIN 1
+
 #include "hbtreeassert_p.h"
 
 #if HBTREE_VERBOSE_OUTPUT && !HBTREE_DEBUG_OUTPUT
@@ -1220,6 +1223,7 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
         case PageInfo::Branch: {
             NodePage *np = page ? new (page) NodePage(type, pageNumber) : new NodePage(type, pageNumber);
             np->meta.syncId = lastSyncedId_ + 1;
+            np->meta.commitId = marker_.meta.revision + 1;
             page = np;
             break;
         }
@@ -1266,17 +1270,11 @@ HBtreePrivate::NodePage *HBtreePrivate::touchNodePage(HBtreePrivate::NodePage *p
     HBTREE_ASSERT(!dirtyPages_.contains(page->info.number))(page->info);
     collectHistory(page);
 
-    if (page->meta.syncId > lastSyncedId_) {
-        HBTREE_DEBUG(page->info << "is not synced, reusing");
-        page->dirty = true;
-        dirtyPages_.insert(page->info.number, page);
-        return page;
-    }
-
     HBTREE_DEBUG("touching page" << page->info);
     NodePage *touched = static_cast<NodePage *>(newPage(PageInfo::Type(page->info.type)));
     copy(*page, touched);
     touched->meta.syncId = lastSyncedId_ + 1;
+    touched->meta.commitId = marker_.meta.revision + 1;
 
     HBTREE_DEBUG("touched page" << page->info.number << "to" << touched->info.number);
 
@@ -1387,21 +1385,28 @@ bool HBtreePrivate::getOverflowPageNumbers(quint32 startPage, QList<quint32> *pa
 
 quint16 HBtreePrivate::collectHistory(NodePage *page)
 {
+    int numBeforeSync = 0;
+    int numBetweenSyncAndCommit = 0;
     quint16 numRemoved = 0;
     QList<HistoryNode>::iterator it = page->history.begin();
-    bool canCollect = page->meta.syncId <= lastSyncedId_;
     while (it != page->history.end()) {
-        // collect pages before last sync
-        if (marker_.meta.syncId && it->syncId != lastSyncedId_) {
-            if (canCollect || it->syncId > lastSyncedId_) {
-                HBTREE_DEBUG("marking" << *it << "as collectible. Last sync =" << lastSyncedId_);
-                collectiblePages_.insert(it->pageNumber);
-                numRemoved++;
-                it = page->history.erase(it);
-                continue;
-            }
-            // Don't collect first history node, that's the latest synced one.
-            canCollect = true;
+        bool canCollect = false;
+        if (it->syncId <= lastSyncedId_) {
+            if (numBeforeSync++)
+                canCollect = true;
+        }
+
+        if (it->syncId > lastSyncedId_ && it->commitId <= marker_.meta.revision) {
+            if (numBetweenSyncAndCommit++ >= HBTREE_COMMIT_CHAIN)
+                canCollect = true;
+        }
+
+        if (canCollect) {
+            HBTREE_DEBUG("marking" << *it << "as collectible. Last sync =" << lastSyncedId_);
+            collectiblePages_.insert(it->pageNumber);
+            numRemoved++;
+            it = page->history.erase(it);
+            continue;
         }
         ++it;
     }
@@ -1477,19 +1482,13 @@ void HBtreePrivate::removeFromTree(HBtreePrivate::NodePage *page)
 {
     HBTREE_ASSERT(writeTransaction_);
     HBTREE_DEBUG("removing" << page->info << "from tree with root" << writeTransaction_->rootPage_);
-    // Can be reused immediately if not synced
-    if (page->meta.syncId > lastSyncedId_)
-        collectiblePages_.insert(page->info.number);
-    else
-        addHistoryNode(NULL, HistoryNode(page));
+
+    collectHistory(page);
+    addHistoryNode(NULL, HistoryNode(page));
 
     // Same for history nodes
-    foreach (const HistoryNode &hn, page->history) {
-        if (hn.syncId > lastSyncedId_)
-            collectiblePages_.insert(hn.pageNumber);
-        else
-            addHistoryNode(NULL, hn);
-    }
+    foreach (const HistoryNode &hn, page->history)
+        addHistoryNode(NULL, hn);
 
     // Don't need to commit since it's not part of our tree
     dirtyPages_.remove(page->info.number);
@@ -1867,6 +1866,7 @@ bool HBtreePrivate::removeNode(HBtreePrivate::NodePage *page, const HBtreePrivat
             HistoryNode hn;
             hn.pageNumber = pageNumber;
             hn.syncId = lastSyncedId_ + 1;
+            hn.commitId = marker_.meta.revision + 1;
             addHistoryNode(NULL, hn);
         }
     }
@@ -3039,6 +3039,8 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::NodePage::Meta &m)
      dbg.nospace() << "["
                    << "syncNumber:" << m.syncId
                    << ", "
+                   << "comitNumber:" << m.commitId
+                   << ", "
                    << "historySize:" << m.historySize
                    << ", "
                    << "flags:" << m.flags
@@ -3088,12 +3090,12 @@ QDebug operator << (QDebug dbg, const HBtreePrivate::NodeHeader &n)
 
 QDebug operator << (QDebug dbg, const HBtreePrivate::HistoryNode &hn)
 {
-    dbg.nospace() << "(page:" << hn.pageNumber << ", syncId:" << hn.syncId << ")";
+    dbg.nospace() << "(page:" << hn.pageNumber << ", syncId:" << hn.syncId << ", commitId:" << hn.commitId << ")";
     return dbg.space();
 }
 
 HBtreePrivate::HistoryNode::HistoryNode(HBtreePrivate::NodePage *np)
-    : pageNumber(np->info.number), syncId(np->meta.syncId)
+    : pageNumber(np->info.number), syncId(np->meta.syncId), commitId(np->meta.commitId)
 {
 }
 

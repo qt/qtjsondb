@@ -2370,7 +2370,7 @@ void TestHBtree::markerOnReopen()
 
     QCOMPARE(d->marker_.info.number, 1u);
     QCOMPARE(d->collectiblePages_.size(), 0);
-    QCOMPARE(d->size_, quint32(pageSize * 4));
+    QCOMPARE(d->size_, quint32(pageSize * 6)); // Header page + 2 markers + current page + num of commit chain (which is 1) + synced page
     QCOMPARE(d->marker_.meta.revision, numCommits);
     QCOMPARE(d->marker_.meta.syncId, 1u);
     QCOMPARE(d->marker_.meta.root, 3u);
@@ -2381,7 +2381,7 @@ void TestHBtree::markerOnReopen()
 
     QCOMPARE(d->marker_.info.number, 1u);
     QCOMPARE(d->collectiblePages_.size(), 0);
-    QCOMPARE(d->size_, quint32(pageSize * 4));
+    QCOMPARE(d->size_, quint32(pageSize * 6));
     QCOMPARE(d->marker_.meta.revision, numCommits);
     QCOMPARE(d->marker_.meta.syncId, 1u);
     QCOMPARE(d->marker_.meta.root, 3u);
@@ -2395,10 +2395,10 @@ void TestHBtree::markerOnReopen()
     // Synced page should not be used
     QCOMPARE(d->marker_.info.number, 1u);
     QCOMPARE(d->collectiblePages_.size(), 0);
-    QCOMPARE(d->size_, quint32(pageSize * 5));
+    QCOMPARE(d->size_, quint32(pageSize * 6));
     QCOMPARE(d->marker_.meta.revision, numCommits + 1);
     QCOMPARE(d->marker_.meta.syncId, 2u);
-    QCOMPARE(d->marker_.meta.root, 4u);
+    QCOMPARE(d->marker_.meta.root, 4u); // root 3 was synced so should not be reused
     QCOMPARE(d->marker_.meta.tag, (quint64)1000);
 
     QVERIFY(db->sync());
@@ -2410,10 +2410,10 @@ void TestHBtree::markerOnReopen()
 
     QCOMPARE(d->marker_.info.number, 1u);
     QCOMPARE(d->collectiblePages_.size(), 0);
-    QCOMPARE(d->size_, quint32(pageSize * 5));
+    QCOMPARE(d->size_, quint32(pageSize * 6));
     QCOMPARE(d->marker_.meta.revision, numCommits + 2);
     QCOMPARE(d->marker_.meta.syncId, 3u);
-    QCOMPARE(d->marker_.meta.root, 3u);
+    QCOMPARE(d->marker_.meta.root, 5u); // root 4 was synced so should not be reused
     QCOMPARE(d->marker_.meta.tag, (quint64)2000);
 }
 

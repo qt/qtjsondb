@@ -184,14 +184,15 @@ public:
         HistoryNode()
             : pageNumber(PageInfo::INVALID_PAGE), syncId(0)
         {}
-        HistoryNode(quint32 pageNo, quint32 syncNo)
-            : pageNumber(pageNo), syncId(syncNo)
+        HistoryNode(quint32 pageNo, quint32 syncNo, quint32 commitNo)
+            : pageNumber(pageNo), syncId(syncNo), commitId(commitNo)
         {}
         explicit HistoryNode(NodePage *np);
         quint32 pageNumber;
         quint32 syncId;
+        quint32 commitId;
     } HBTREE_ATTRIBUTE_PACKED;
-    Q_STATIC_ASSERT(sizeof(HistoryNode) == 8);
+    Q_STATIC_ASSERT(sizeof(HistoryNode) == 12);
 
     struct MarkerPage : Page {
         enum Flags {
@@ -235,13 +236,14 @@ public:
 
         struct Meta {
             Meta()
-                : syncId(0), historySize(0), flags(0)
+                : syncId(0), historySize(0), flags(0), commitId(0)
             {}
             quint32 syncId;         // Which revision it was synced at
             quint16 historySize;    // Number of revisions of this page
             quint16 flags;          // Contains NodeHeader::Overflow when this node page has a node referencing overflows
+            quint32 commitId;
         } HBTREE_ATTRIBUTE_PACKED;
-        Q_STATIC_ASSERT(sizeof(Meta) == 8);
+        Q_STATIC_ASSERT(sizeof(Meta) == 12);
 
         Meta meta;
         KeyValueMap nodes;
