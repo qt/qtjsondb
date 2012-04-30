@@ -483,17 +483,16 @@ JsonDbView *JsonDbPartition::addView(const QString &viewType)
 
 void JsonDbPartition::removeView(const QString &viewType)
 {
-    JsonDbView *view = mViews.value(viewType);
+    JsonDbView *view = mViews.take(viewType);
+    Q_ASSERT(view);
     view->close();
     view->deleteLater();
-    mViews.remove(viewType);
 }
 
 void JsonDbPartition::updateView(const QString &objectType, quint32 stateNumber)
 {
-    if (!mViews.contains(objectType))
-        return;
-    mViews[objectType]->updateView(stateNumber);
+    if (JsonDbView *view = mViews.value(objectType))
+        view->updateView(stateNumber);
 }
 
 bool JsonDbPartition::checkCanAddSchema(const JsonDbObject &schema, const JsonDbObject &oldSchema, QString &errorMsg)
@@ -518,18 +517,14 @@ bool JsonDbPartition::checkCanAddSchema(const JsonDbObject &schema, const JsonDb
 
 JsonDbView *JsonDbPartition::findView(const QString &objectType) const
 {
-    if (mViews.contains(objectType))
-        return mViews.value(objectType);
-    else
-        return 0;
+    return mViews.value(objectType);
 }
 
 JsonDbObjectTable *JsonDbPartition::findObjectTable(const QString &objectType) const
 {
-        if (mViews.contains(objectType))
-            return mViews.value(objectType)->objectTable();
-        else
-            return mObjectTable;
+    if (JsonDbView *view = mViews.value(objectType))
+        return view->objectTable();
+    return mObjectTable;
 }
 
 bool JsonDbPartition::beginTransaction()
@@ -759,17 +754,18 @@ bool JsonDbPartition::addIndex(const QString &indexName, const QString &property
     Q_ASSERT(!indexName.isEmpty());
     //qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
     JsonDbObjectTable *table = 0;
-    if (objectTypes.isEmpty())
+    if (objectTypes.isEmpty()) {
         table = mainObjectTable();
-    else
+    } else {
         foreach (const QString &objectType, objectTypes) {
             JsonDbObjectTable *t = findObjectTable(objectType);
-            if (table && (t != table)) {
+            if (table && t != table) {
                 qDebug() << "addIndex" << "index on multiple tables" << objectTypes;
                 return false;
             }
             table = t;
         }
+    }
     const IndexSpec *indexSpec = table->indexSpec(indexName);
     if (indexSpec)
         return true;
