@@ -209,7 +209,7 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
 
     Update the object \a updatedObject (or list of objects) in the partition. Returns the id of this
     request. If the request fails to update an object, the whole transaction will be aborted. The
-    \a options specifies how update should be handled.
+    \a options is an object that specifies how the update should be handled.
     \list
     \li options.mode - Supported values: \c Partition.RejectStale, \c Partition.Replace
     \list
@@ -220,9 +220,7 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
     Default is \c Partition.RejectStale
     \endlist
 
-    The callback will be called in case of failure or success. The \a options and \a callback parameters
-    are optional. If the \a callback parameter is used, it has to be the last parameter specified in the
-    function call. The \a callback has the following signature.
+    The callback will be called in case of failure or success. The \a callback has the following signature.
 
     \code
     import QtJsonDb 1.0 as JsonDb
@@ -257,7 +255,18 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
     \endlist
 
 */
+/*!
+    \qmlmethod int QtJsonDb::Partition::update(object updatedObject, function callback)
+    \overload QtJsonDbPartition::update(object,object,function)
 
+    Update the object without specifying the update options.
+*/
+/*!
+    \qmlmethod int QtJsonDb::Partition::update(object updatedObject)
+    \overload QtJsonDbPartition::update(object,object,function)
+
+    Update the object without specifying the update options or callback function.
+*/
 
 int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, const QJSValue &callback)
 {
@@ -301,7 +310,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
 
     Removes the \a objectToRemove (or list of objects) from the partition. It returns the id of this
     request.
-    \a options specifies how update should be handled.
+    \a options is an object that specifies how the remove should be handled.
     \list
     \li options.mode - Supported values: \c Partition.RejectStale, \c Partition.Replace
     \list
@@ -312,9 +321,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
     Default is \c Partition.RejectStale
     \endlist
 
-    The callback will be called in case of failure or success. The \a options and \a callback parameters
-    are optional. If the \a callback parameter is used, it has to be the last parameter specified in the
-    function call. The \a callback has the following signature.
+    The callback will be called in case of failure or success. The \a callback has the following signature.
 
     \code
     import QtJsonDb 1.0 as JsonDb
@@ -347,6 +354,19 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
     \endlist
     \endlist
 
+*/
+/*!
+    \qmlmethod int QtJsonDb::Partition::remove(object updatedObject, function callback)
+    \overload QtJsonDbPartition::remove(object,object,function)
+
+    Remove the object without specifying the update options.
+*/
+
+/*!
+    \qmlmethod int QtJsonDb::Partition::remove(object updatedObject)
+    \overload QtJsonDbPartition::remove(object,object,function)
+
+    Remove the object without specifying the update options or callback function.
 */
 
 int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, const QJSValue &callback)
