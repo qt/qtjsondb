@@ -1929,7 +1929,7 @@ bool HBtreePrivate::split(HBtreePrivate::NodePage *page, const NodeKey &key, con
     if (copy.info.type == PageInfo::Branch) {
         // Branch page should be fine to split in the middle since there's
         // no data and just keys...
-        splitIndex = copy.nodes.size() / 2 + 1; // bias for left page
+        splitIndex = copy.nodes.size() / 2; // bias for left page
     } else if (copy.info.type == PageInfo::Leaf) {
         // Find node at which number of bytes exceeds half
         // the capacity of the left page
