@@ -197,6 +197,10 @@ bool JsonDbOwner::_setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *par
                 if (gr && ::strcasecmp (gr->gr_name, "identity") == 0)
                     setOwner = true;
             }
+            // Add the default group for everybody
+            QJsonArray def;
+            def.append(QJsonValue(QLatin1String("rw")));
+            capabilities.insert(QLatin1String("default"), def);
             // Start from 1 to omit the primary group
             for (int i = 1; i < ngroups; i++) {
                 gr = ::getgrgid(groups[i]);
