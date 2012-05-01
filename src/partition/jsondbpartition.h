@@ -125,9 +125,6 @@ public:
                   Qt::CaseSensitivity caseSensitive = Qt::CaseSensitive);
     bool removeIndex(const QString &indexName, const QString &objectType = QString());
 
-    bool checkQuota(const JsonDbOwner *owner, int size) const;
-    bool addToQuota(const JsonDbOwner *owner, int size);
-
     JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
     JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, ConflictResolutionMode mode = RejectStale, JsonDbUpdateList *changeList = 0);
     JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, ConflictResolutionMode mode = RejectStale, JsonDbUpdateList *changeList = 0);

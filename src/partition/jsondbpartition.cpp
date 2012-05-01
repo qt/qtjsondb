@@ -1134,20 +1134,6 @@ void JsonDbPartition::doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &r
     }
 }
 
-bool JsonDbPartition::checkQuota(const JsonDbOwner *owner, int size) const
-{
-    Q_UNUSED(owner);
-    Q_UNUSED(size);
-    return true;
-}
-
-bool JsonDbPartition::addToQuota(const JsonDbOwner *owner, int size)
-{
-    Q_UNUSED(owner);
-    Q_UNUSED(size);
-    return true;
-}
-
 JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
 {
     JsonDbQueryResult result;

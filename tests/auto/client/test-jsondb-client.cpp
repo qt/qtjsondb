@@ -136,8 +136,6 @@ private:
     QList<gid_t> gidsAdded;
     bool failed;
     void removeDbFiles();
-    // Temporarily disable quota test
-    void storageQuotas();
 };
 
 class Handler : public QObject
@@ -1426,104 +1424,6 @@ void TestJsonDbClient::changesSince()
 static QStringList stringList(QString s)
 {
     return (QStringList() << s);
-}
-
-void TestJsonDbClient::storageQuotas()
-{
-    QVERIFY(mClient);
-
-    // Create Security Object with storage quota
-    QVariantMap item;
-    item.insert(JsonDbString::kTypeStr, "Quota");
-    struct passwd *pwd = getpwent ();
-    item.insert(JsonDbString::kTokenStr, QString::fromAscii(pwd->pw_name));
-    QVariantMap capability;
-    QVariantMap quotas;
-    quotas.insert("storage", int(512));
-    capability.insert("quotas", quotas);
-    item.insert("capabilities", capability);
-    int id = mClient->create(item);
-    waitForResponse1(id);
-
-    // Create Capability Object
-    QVariantMap item2;
-    item2.insert(JsonDbString::kTypeStr, "Capability");
-    item2.insert("name", "AllAccess");
-    QVariantMap accessRules;
-    QVariantMap accessTypeTranslation;
-    accessTypeTranslation.insert("read", stringList(".*"));
-    accessTypeTranslation.insert("write", stringList(".*"));
-    accessRules.insert("allAllowed", accessTypeTranslation);
-    item2.insert("accessRules", accessRules);
-    id = mClient->create(item2);
-    waitForResponse1(id);
-
-
-    // Set token in environment
-    JsonDbConnection connection;
-    connection.connectToServer();
-    JsonDbClient tokenClient(&connection);
-    connect( &tokenClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),
-             this, SLOT(notified(QString,QtAddOn::JsonDb::JsonDbNotification)));
-    connect( &tokenClient, SIGNAL(response(int, const QVariant&)),
-             this, SLOT(response(int, const QVariant&)));
-    connect( &tokenClient, SIGNAL(error(int, int, const QString&)),
-             this, SLOT(error(int, int, const QString&)));
-
-
-    // Add an item to the db
-    QVariantMap item3;
-    item3.insert(JsonDbString::kTypeStr, "storage-test");
-    item3.insert("storagedata", QString(256, 'a'));
-    item3.insert("number", 123);
-    id = tokenClient.create(item3);
-    waitForResponse1(id);
-    QVERIFY(mData.toMap().contains("_uuid"));
-    QVariant uuid = mData.toMap().value("_uuid");
-
-    // This should be to large to fit the quota
-    QVariantMap item4;
-    item4.insert(JsonDbString::kTypeStr, "storage-test");
-    item4.insert("storagedata",  QString(256, 'a'));
-    item4.insert("number", 123);
-    id = tokenClient.create(item4);
-    waitForResponse2(id, JsonDbError::QuotaExceeded);
-
-    // Remove the first item to make more space
-    item3.insert("_uuid", uuid);
-    id = tokenClient.remove(item3);
-    waitForResponse1(id);
-
-    // This time it should work to add the second item
-    id = tokenClient.create(item4);
-    waitForResponse1(id);
-
-    // Remove all items
-    QVERIFY(mData.toMap().contains("_uuid"));
-    uuid = mData.toMap().value("_uuid");
-    item4.insert("_uuid", uuid);
-    id = tokenClient.remove(item4);
-    waitForResponse1(id);
-
-
-    // Make sure that the storage does not increase
-    // by adding and removing objects.
-    for (int i = 0; i < 10; i++) {
-        // Add an item to the db
-        QVariantMap item5;
-        item5.insert(JsonDbString::kTypeStr, "storage-test");
-        item5.insert("storagedata", QString(256, 'a'));
-        item5.insert("number", 123);
-        id = tokenClient.create(item5);
-        waitForResponse1(id);
-        QVERIFY(mData.toMap().contains("_uuid"));
-        uuid = mData.toMap().value("_uuid");
-
-        // Remove the  item again
-        item5.insert("_uuid", uuid);
-        id = tokenClient.remove(item5);
-        waitForResponse1(id);
-    }
 }
 
 void TestJsonDbClient::requestWithSlot()

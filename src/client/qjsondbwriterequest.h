@@ -76,7 +76,6 @@ public:
         MissingUUID = QJsonDbRequest::MissingUUID,
         MissingType = QJsonDbRequest::MissingType,
         UpdatingStaleVersion = QJsonDbRequest::UpdatingStaleVersion,
-        QuotaExceeded = QJsonDbRequest::QuotaExceeded,
         FailedSchemaValidation = QJsonDbRequest::FailedSchemaValidation,
         InvalidMap = QJsonDbRequest::InvalidMap,
         InvalidReduce = QJsonDbRequest::InvalidReduce,

@@ -237,7 +237,6 @@ void TestJsonDb::allowAll()
     QScopedPointer<JsonDbOwner> owner(new JsonDbOwner());
     owner->setAllowedObjects(QLatin1String("all"), QLatin1String("read"), QStringList());
     owner->setAllowedObjects(QLatin1String("all"), QLatin1String("write"), QStringList());
-    owner->setStorageQuota(-1);
 
     JsonDbObject toPut;
     toPut.insert("_type", QLatin1String("TestObject"));

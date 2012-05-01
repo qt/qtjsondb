@@ -78,13 +78,12 @@ public:
         MissingUUID = 13,
         MissingType = 14,
         UpdatingStaleVersion = 15,
-        QuotaExceeded = 16,
-        FailedSchemaValidation = 17,
-        InvalidMap = 18,
-        InvalidReduce = 19,
-        InvalidSchemaOperation = 20,
-        InvalidIndexOperation = 21,
-        InvalidType = 22
+        FailedSchemaValidation = 16,
+        InvalidMap = 17,
+        InvalidReduce = 18,
+        InvalidSchemaOperation = 19,
+        InvalidIndexOperation = 20,
+        InvalidType = 21
     };
 
     enum Status {

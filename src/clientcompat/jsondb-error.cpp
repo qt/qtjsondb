@@ -79,8 +79,6 @@ QT_BEGIN_NAMESPACE_JSONDB
          Updating stale version of object.
      \value OperationNotPermitted
          Operation prohibited by access control policy.
-     \value QuotaExceeded
-         Operation would exceed quota.
      \value FailedSchemaValidation
          Object to be created/updated was invalid according to the schema.
      \value InvalidMap

@@ -54,7 +54,7 @@
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
 JsonDbOwner::JsonDbOwner( QObject *parent )
-    : QObject(parent), mStorageQuota(-1), mAllowAll(false)
+    : QObject(parent), mAllowAll(false)
 {
 }
 
@@ -223,29 +223,6 @@ bool JsonDbOwner::_setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *par
     } else {
         // root can access all
         setAllowAll(true);
-        setStorageQuota(-1);
-    }
-
-    // Read quota from security object
-    GetObjectsResult result = partition->getObjects(JsonDbString::kTypeStr, QStringLiteral("Quota"));
-    JsonDbObjectList securityObjects;
-    for (int i = 0; i < result.data.size(); i++) {
-        JsonDbObject doc = result.data.at(i);
-        if (doc.value(JsonDbString::kTokenStr).toString() == mOwnerId)
-            securityObjects.append(doc);
-    }
-    if (securityObjects.size() == 1) {
-        QJsonObject securityObject = securityObjects.at(0);
-        QJsonObject capabilities = securityObject.value(QStringLiteral("capabilities")).toObject();
-        QStringList keys = capabilities.keys();
-        if (keys.contains(QStringLiteral("quotas"))) {
-            QJsonObject quotas = capabilities.value(QStringLiteral("quotas")).toObject();
-            int storageQuota = quotas.value(QStringLiteral("storage")).toDouble();
-            setStorageQuota(storageQuota);
-        }
-    } else if (!securityObjects.isEmpty()) {
-        qWarning() << Q_FUNC_INFO << "Wrong number of security objects found." << securityObjects.size();
-        return false;
     }
 #else
     Q_UNUSED(pwd);

@@ -435,7 +435,6 @@ JsonDbOwner *DBServer::getOwner(JsonStream *stream)
         owner->setOwnerId(QString::fromLatin1("unknown app %1").arg((intptr_t)stream));
         owner->setDomain("unknown app domain");
         owner->setAllowAll(true);
-        owner->setStorageQuota(-1);
         mOwners[device].owner = owner;
     }
 #endif

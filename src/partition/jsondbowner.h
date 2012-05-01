@@ -78,8 +78,6 @@ public:
     void setAllowAll(bool allowAll) { mAllowAll = allowAll; }
 
     bool isAllowed(JsonDbObject &object, const QString &partition, const QString &op) const;
-    int storageQuota() const { return mStorageQuota; }
-    void setStorageQuota(int storageQuota) { mStorageQuota = storageQuota; }
     bool setOwnerCapabilities(uid_t uid, JsonDbPartition *partition);
     bool setOwnerCapabilities(QString username, JsonDbPartition *partition);
 
@@ -88,7 +86,6 @@ private:
     QString mDomain;  // from security object
     QMap<QString, QMap<QString, QList<QString> > > mAllowedObjects; // list of querie strings per partition
     QMap<QString, QMap<QString, QList<JsonDbQuery *> > > mAllowedObjectQueries;
-    int mStorageQuota;
     bool mAllowAll;
     friend class ::TestPartition;
     bool _setOwnerCapabilities(struct passwd *pwd, JsonDbPartition *partition);
