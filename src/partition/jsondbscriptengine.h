@@ -59,6 +59,7 @@ class JsonDbScriptEngine
 {
 public:
     static QJSEngine *scriptEngine();
+    static void releaseScriptEngine();
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

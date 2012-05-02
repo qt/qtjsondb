@@ -68,6 +68,7 @@
 #include "jsondbobjecttable.h"
 #include "jsondbbtree.h"
 #include "jsondbsettings.h"
+#include "jsondbscriptengine.h"
 #include "jsondbview.h"
 #include "jsondbschemamanager_impl_p.h"
 #include "jsondbobjecttypes_impl_p.h"
@@ -792,6 +793,7 @@ void JsonDbPartition::flushCaches()
          it != d->mViews.end();
          ++it)
         it.value()->reduceMemoryUsage();
+    JsonDbScriptEngine::releaseScriptEngine();
 }
 
 void JsonDbPartition::closeIndexes()

@@ -67,4 +67,12 @@ QJSEngine *JsonDbScriptEngine::scriptEngine()
     return sScriptEngine;
 }
 
+void JsonDbScriptEngine::releaseScriptEngine()
+{
+    qDebug() << "JsonDbScriptEngine::releaseScriptEngine";
+    delete sScriptEngine;
+    sScriptEngine = 0;
+}
+
+
 QT_END_NAMESPACE_JSONDB_PARTITION
