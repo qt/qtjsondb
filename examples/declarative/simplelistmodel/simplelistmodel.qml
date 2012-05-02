@@ -75,6 +75,21 @@ Item {
                 console.log("Error : Partition for this example is not available");
                 console.log("Run jsondb daemon in examples/declarative directory to load partions.json");
             } else {
+                var indexDefinition = {
+                    "_type": "Index",
+                    "name": "firstName",
+                    "propertyName": "firstName",
+                    "propertyType": "string"
+                };
+                nokiaPartition.create(indexDefinition);
+                var indexDefinition2 = {
+                    "_type": "Index",
+                    "name": "lastName",
+                    "propertyName": "lastName",
+                    "propertyType": "string"
+                };
+                nokiaPartition.create(indexDefinition2);
+
                 contacts.partition = nokiaPartition;
             }
         }

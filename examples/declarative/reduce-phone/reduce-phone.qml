@@ -63,6 +63,13 @@ Rectangle {
                 // Create the schema
                 var schema = {"_type": "_schemaType", "name": "ReducedPhoneView", "schema": {"extends": "View"}};
                 systemPartition.create(schema, createReduce);
+                var indexDefinition = {
+                    "_type": "Index",
+                    "name": "key",
+                    "propertyName": "key",
+                    "propertyType": "string"
+                };
+                systemPartition.create(indexDefinition);
             }
         }
         onStatusChanged: {

@@ -64,6 +64,13 @@ Rectangle {
                 // Create the schema
                 var schema = {"_type": "_schemaType", "name": "PhoneView", "schema": {"extends": "View"}};
                 systemPartition.create(schema, createMap);
+                var indexDefinition = {
+                    "_type": "Index",
+                    "name": "phoneNumber",
+                    "propertyName": "phoneNumber",
+                    "propertyType": "string"
+                };
+                systemPartition.create(indexDefinition);
             }
         }
         onStatusChanged: {
