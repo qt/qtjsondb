@@ -238,18 +238,18 @@ QJsonValue JsonDbReduceDefinition::addObject(JsonDbReduceDefinition::FunctionNum
                                              const QJsonValue &keyValue, QJsonValue previousValue, JsonDbObject object)
 {
     initScriptEngine();
-    QJSValue svKeyValue = JsonDbScriptEngine::toJSValue(keyValue, mScriptEngine);
+    QJSValue svKeyValue = mScriptEngine->toScriptValue(keyValue);
     if (!mTargetValueName.isEmpty())
         previousValue = previousValue.toObject().value(mTargetValueName);
-    QJSValue svPreviousValue = JsonDbScriptEngine::toJSValue(previousValue, mScriptEngine);
-    QJSValue svObject = JsonDbScriptEngine::toJSValue(object, mScriptEngine);
+    QJSValue svPreviousValue = mScriptEngine->toScriptValue(previousValue);
+    QJSValue svObject = mScriptEngine->toScriptValue(static_cast<QJsonObject>(object));
 
     QJSValueList reduceArgs;
     reduceArgs << svKeyValue << svPreviousValue << svObject;
     QJSValue reduced = mFunctions[functionNumber].call(reduceArgs);
 
     if (!reduced.isUndefined() && !reduced.isError()) {
-        QJsonValue jsonReduced = JsonDbScriptEngine::fromJSValue(reduced);
+        QJsonValue jsonReduced = mScriptEngine->fromScriptValue<QJsonValue>(reduced);
         QJsonObject jsonReducedObject;
         if (!mTargetValueName.isEmpty())
             jsonReducedObject.insert(mTargetValueName, jsonReduced);
@@ -351,8 +351,8 @@ QJsonValue JsonDbReduceDefinition::sourceKeyValue(const JsonDbObject &object)
         return QJsonValue(QJsonValue::Undefined);
     } else if (mFunctions[JsonDbReduceDefinition::SourceKeyValue].isCallable()) {
         QJSValueList args;
-        args << JsonDbScriptEngine::toJSValue(object, mScriptEngine);
-        QJsonValue keyValue = JsonDbScriptEngine::fromJSValue(mFunctions[JsonDbReduceDefinition::SourceKeyValue].call(args));
+        args << mScriptEngine->toScriptValue(static_cast<QJsonObject>(object));
+        QJsonValue keyValue = mScriptEngine->fromScriptValue<QJsonValue>(mFunctions[JsonDbReduceDefinition::SourceKeyValue].call(args));
         return keyValue;
     } else
         return mSourceKeyName.contains('.') ? JsonDbObject(object).propertyLookup(mSourceKeyNameList) : object.value(mSourceKeyName);

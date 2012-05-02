@@ -331,7 +331,7 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 void JsonDbIndex::propertyValueEmitted(QJSValue value)
 {
     if (!value.isUndefined())
-        mFieldValues.append(JsonDbScriptEngine::fromJSValue(value));
+        mFieldValues.append(mScriptEngine->fromScriptValue<QJsonValue>(value));
 }
 
 void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber)

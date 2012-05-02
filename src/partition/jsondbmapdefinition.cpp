@@ -267,7 +267,7 @@ void JsonDbMapDefinition::mapObject(JsonDbObject object)
 {
     const QString &sourceType = object.value(JsonDbString::kTypeStr).toString();
 
-    QJSValue sv = JsonDbScriptEngine::toJSValue(object, mScriptEngine);
+    QJSValue sv = mScriptEngine->toScriptValue(static_cast<QJsonObject>(object));
     QString uuid = object.value(JsonDbString::kUuidStr).toString();
     mSourceUuids.clear();
     mSourceUuids.append(mUuid); // depends on the map definition object
@@ -318,7 +318,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
     QString findKey = query.property(QStringLiteral("index")).toString();
     QJSValue findValue = query.property(QStringLiteral("value"));
     GetObjectsResult getObjectResponse =
-        mPartition->getObjects(findKey, JsonDbScriptEngine::fromJSValue(findValue), objectType, false);
+        mPartition->getObjects(findKey, mScriptEngine->fromScriptValue<QJsonValue>(findValue), objectType, false);
     if (!getObjectResponse.error.isNull()) {
         if (jsondbSettings->verbose())
             qDebug() << "lookupRequested" << mSourceTypes << mTargetType
@@ -327,16 +327,16 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
     }
     JsonDbObjectList objectList = getObjectResponse.data;
     for (int i = 0; i < objectList.size(); ++i) {
-        JsonDbObject object = objectList.at(i);
+        QJsonObject object = objectList.at(i);
         const QString uuid = object.value(JsonDbString::kUuidStr).toString();
         if (mSourceUuids.contains(uuid)) {
             if (jsondbSettings->verbose())
-                qDebug() << "Lookup cycle detected" << "key" << findKey << JsonDbScriptEngine::fromJSValue(findValue) << "matching object" << uuid << "source uuids" << mSourceUuids;
+                qDebug() << "Lookup cycle detected" << "key" << findKey << mScriptEngine->fromScriptValue<QJsonValue>(findValue) << "matching object" << uuid << "source uuids" << mSourceUuids;
             continue;
         }
         mSourceUuids.append(uuid);
         QJSValueList mapArgs;
-        QJSValue sv = JsonDbScriptEngine::toJSValue(object, mScriptEngine);
+        QJSValue sv = mScriptEngine->toScriptValue(object);
 
         mapArgs << sv << context;
         QJSValue mapped = mMapFunctions[objectType].call(mapArgs);
@@ -350,7 +350,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
 
 void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
 {
-    JsonDbObject newItem(JsonDbScriptEngine::fromJSValue(value).toObject());
+    JsonDbObject newItem(mScriptEngine->fromScriptValue<QJsonObject>(value));
     newItem.insert(JsonDbString::kTypeStr, mTargetType);
     mSourceUuids.sort();
     QJsonArray sourceUuidArray;
