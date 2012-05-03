@@ -94,17 +94,17 @@ inline QJsonValue readJsonFile(const QString &filename, QJsonParseError *error =
 
 inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketName, const QStringList &args, const char *sourceFile)
 {
-    QStringList partitionPath;
-    QFileInfo partitionsFile(QFINDTESTDATA("partitions.json"));
-    partitionPath << partitionsFile.absolutePath()
-                  << QFileInfo(QString::fromLatin1(sourceFile)).absolutePath()
-                  << QCoreApplication::applicationDirPath();
-    qputenv("JSONDB_CONFIG_SEARCH_PATH", partitionPath.join(QStringLiteral(":")).toUtf8());
-
     static bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
     static bool useValgrind = qgetenv("AUTOTEST_VALGRIND_JSONDB").toInt() == 1;
     if (dontlaunch)
         return 0;
+
+    QString configfile = QTest::qFindTestData("partitions.json", sourceFile);
+    if (configfile.isEmpty()) {
+        qDebug() << "Cannot find partitions.json configuration file for jsondb";
+        return 0;
+    }
+
     QString jsondb_app = QString::fromLocal8Bit(prefix) + QDir::separator() + "jsondb";
     if (!QFile::exists(jsondb_app))
         jsondb_app = QLatin1String("jsondb"); // rely on the PATH
@@ -119,6 +119,7 @@ inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketNam
 
     QStringList argList(args);
     argList << QLatin1String("-reject-stale-updates");
+    argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
 
     qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
 
@@ -149,17 +150,17 @@ inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketNam
 
 inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &socketName, const QStringList &args, const char *sourceFile)
 {
-    QStringList partitionPath;
-    QFileInfo partitionsFile(QFINDTESTDATA("partitions.json"));
-    partitionPath << partitionsFile.absolutePath()
-                  << QFileInfo(QString::fromLatin1(sourceFile)).absolutePath()
-                  << QCoreApplication::applicationDirPath();
-    qputenv("JSONDB_CONFIG_SEARCH_PATH", partitionPath.join(QStringLiteral(":")).toUtf8());
-
     static bool dontlaunch = qgetenv("AUTOTEST_DONT_LAUNCH_JSONDB").toInt() == 1;
     static bool useValgrind = qgetenv("AUTOTEST_VALGRIND_JSONDB").toInt() == 1;
     if (dontlaunch)
         return 0;
+
+    QString configfile = QTest::qFindTestData("partitions.json", sourceFile);
+    if (configfile.isEmpty()) {
+        qDebug() << "Cannot find partitions.json configuration file for jsondb";
+        return 0;
+    }
+
     QString jsondb_app = QString::fromLocal8Bit(prefix) + QDir::separator() + "jsondb";
     if (!QFile::exists(jsondb_app))
         jsondb_app = QLatin1String("jsondb"); // rely on the PATH
@@ -167,6 +168,7 @@ inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &sock
     ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
     QStringList argList(args);
     argList << QLatin1String("-reject-stale-updates");
+    argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
 
     qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
     qint64 pid;
