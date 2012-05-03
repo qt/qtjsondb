@@ -174,7 +174,7 @@ QtJsonDb::QJsonDbRequest::ErrorCode QJsonDbPrivatePartition::ensurePartition(con
     }
 
     if (!privatePartition) {
-        struct passwd *pwd = getpwnam(user.toAscii());
+        struct passwd *pwd = getpwnam(user.toLatin1());
         if (pwd) {
             if (!partitionOwner) {
                 partitionOwner = new Partition::JsonDbOwner();

@@ -2318,8 +2318,8 @@ void HBtreePrivate::dumpPage(HBtreePrivate::NodePage *page, int depth)
     qDebug() << tabs << page->info;
     qDebug() << tabs << page->meta;
     qDebug() << tabs << page->history;
-    qDebug() << tabs << "right =>" << (page->rightPageNumber == PageInfo::INVALID_PAGE ? "Unavailable" : QString::number(page->rightPageNumber).toAscii());
-    qDebug() << tabs << "left =>" << (page->leftPageNumber == PageInfo::INVALID_PAGE ? "Unavailable" : QString::number(page->leftPageNumber).toAscii());
+    qDebug() << tabs << "right =>" << (page->rightPageNumber == PageInfo::INVALID_PAGE ? "Unavailable" : QString::number(page->rightPageNumber).toLatin1());
+    qDebug() << tabs << "left =>" << (page->leftPageNumber == PageInfo::INVALID_PAGE ? "Unavailable" : QString::number(page->leftPageNumber).toLatin1());
     switch (page->info.type) {
     case PageInfo::Branch:
         qDebug() << tabs << page->nodes;
@@ -2803,7 +2803,7 @@ bool HBtree::open()
         return false;
 
     int oflags = d->openMode_ == ReadOnly ? O_RDONLY : O_RDWR | O_CREAT;
-    int fd = ::open(d->fileName_.toAscii(), oflags, 0644);
+    int fd = ::open(d->fileName_.toLatin1(), oflags, 0644);
 
     if (fd == -1)
         return false;

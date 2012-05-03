@@ -616,7 +616,7 @@ void newTestRow(QString name, int nItems, int szKeys, int szData, bool addCmpBoo
     if (addRandBool)
         Q_ASSERT(nItems < numTableSize);
 
-    QTest::newRow(name.toAscii().constData()) << nItems << szKeys << szData << addCmpBool << addRandBool << addPreviousBool;
+    QTest::newRow(name.toLatin1().constData()) << nItems << szKeys << szData << addCmpBool << addRandBool << addPreviousBool;
 }
 
 void makeTestRow(int nItems, int szKeys, int szData, bool addCmpBool, bool addRandBool, bool addPreviousBool)
@@ -904,7 +904,7 @@ void TestHBtree::reopenMultiple()
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray key = QString::number(i).toAscii();
+        QByteArray key = QString::number(i).toLatin1();
         if (key.size() < keySize)
             key += QByteArray(keySize - key.size(), '-');
         QByteArray value(valueSize, 'a' + i);
@@ -1111,14 +1111,14 @@ void TestHBtree::testOverflow()
     for (int i = 0; i < numItems; ++i) {
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
-        QVERIFY(transaction->put(QString::number(i).toAscii(), QByteArray(numBytes, '0' + i)));
+        QVERIFY(transaction->put(QString::number(i).toLatin1(), QByteArray(numBytes, '0' + i)));
         QVERIFY(transaction->commit(i));
     }
 
     for (int i = 0; i < numItems; ++i) {
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
         QVERIFY(transaction);
-        QCOMPARE(transaction->get(QString::number(i).toAscii()), QByteArray(numBytes, '0' + i));
+        QCOMPARE(transaction->get(QString::number(i).toLatin1()), QByteArray(numBytes, '0' + i));
         transaction->abort();
     }
 }
@@ -1266,7 +1266,7 @@ void TestHBtree::insertRandom_200BytesTo1kValues()
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray key = QString::number(qrand()).toAscii();
+        QByteArray key = QString::number(qrand()).toLatin1();
         QByteArray value(myRand(200, 1000) , 'a' + i);
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
@@ -1295,14 +1295,14 @@ void TestHBtree::insertHugeData_10Mb()
     for (int i = 0; i < numItems; ++i) {
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
-        QVERIFY(transaction->put(QString::number(i).toAscii(), QByteArray(numBytes, '0' + i)));
+        QVERIFY(transaction->put(QString::number(i).toLatin1(), QByteArray(numBytes, '0' + i)));
         QVERIFY(transaction->commit(i));
     }
 
     for (int i = 0; i < numItems; ++i) {
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
         QVERIFY(transaction);
-        QCOMPARE(transaction->get(QString::number(i).toAscii()), QByteArray(numBytes, '0' + i));
+        QCOMPARE(transaction->get(QString::number(i).toLatin1()), QByteArray(numBytes, '0' + i));
         transaction->abort();
     }
 }
@@ -1315,7 +1315,7 @@ void TestHBtree::splitBranch_1kData()
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray key = QString::number(i).toAscii();
+        QByteArray key = QString::number(i).toLatin1();
         if (key.size() < keySize)
             key += QByteArray(keySize - key.size(), '-');
         QByteArray value(valueSize, 'a' + i);
@@ -1349,7 +1349,7 @@ void TestHBtree::splitBranchWithOverflows()
     QMap<QByteArray, QByteArray> keyValues;
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray key = QString::number(i).toAscii();
+        QByteArray key = QString::number(i).toLatin1();
         if (key.size() < keySize)
             key += QByteArray(keySize - key.size(), '-');
         QByteArray value(valueSize, 'a' + i);
@@ -2065,7 +2065,7 @@ void TestHBtree::asciiAsSortedNumbers()
     db->setCompareFunction(asciiCmpFunc);
 
     for (int i = 0; i < numItems; ++i) {
-        QByteArray key = QString::number(qrand()).toAscii();
+        QByteArray key = QString::number(qrand()).toLatin1();
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
         QVERIFY(transaction);
         QVERIFY(transaction->put(key, key));
@@ -2503,7 +2503,7 @@ void TestHBtree::cursorWhileDelete()
     // Insert data
     QMap<QByteArray, QByteArray> keyValues;
     for (int i = 0; i < numItems; ++i) {
-        QByteArray key = QString::number(i).toAscii();
+        QByteArray key = QString::number(i).toLatin1();
         if (key.size() < keySize)
             key += QByteArray(keySize - key.size(), '-');
         QByteArray value(valueSize, 'a' + (i % ('z' - 'a')));

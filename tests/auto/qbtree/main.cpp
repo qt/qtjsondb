@@ -693,7 +693,7 @@ int cmpVarLengthKeys(const QByteArray &aa, const QByteArray &bb)
     int bcount = findLongestSequenceOf(bptr, bsize, 'a');
 
     if (acount == bcount) {
-        return QString::compare(QString::fromAscii(aptr, asize), QString::fromAscii(bptr, bsize));
+        return QString::compare(QString::fromLatin1(aptr, asize), QString::fromLatin1(bptr, bsize));
     } else {
         return (acount > bcount) ? 1 : ((acount < bcount) ? -1 : 0);
     }
@@ -1119,7 +1119,7 @@ void TestQBtree::prefixSizes()
     for (int i = 0; i < keys.size(); ++i) {
         QBtreeTxn *txn = db->beginWrite();
         QVERIFY(txn);
-        QVERIFY(txn->put(keys[i], QString::number(i).toAscii()));
+        QVERIFY(txn->put(keys[i], QString::number(i).toLatin1()));
         txn->commit(0);
     }
 }
@@ -1274,7 +1274,7 @@ void TestQBtree::markerFileSizeCheck()
     const int count = 1000;
     QVector<QByteArray> keys;
     for (int i = 0; i < count; ++i) {
-        QByteArray key = QString::number(rand()).toAscii();
+        QByteArray key = QString::number(rand()).toLatin1();
         val.free_data = 0;
         val.mp = 0;
         val.size = key.size();
