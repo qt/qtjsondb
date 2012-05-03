@@ -34,7 +34,9 @@ HEADERS += \
     qjsondbwatcher_p.h \
     qjsondbwatcher.h \
     qjsondbobject.h \
-    qjsondbprivatepartition_p.h
+    qjsondbprivatepartition_p.h \
+    qjsondblogrequest_p.h \
+    qjsondblogrequest_p_p.h
 
 SOURCES += \
     qjsondbconnection.cpp \
@@ -44,6 +46,7 @@ SOURCES += \
     qjsondbflushrequest_p.cpp \
     qjsondbwatcher.cpp \
     qjsondbobject.cpp \
-    qjsondbprivatepartition.cpp
+    qjsondbprivatepartition.cpp \
+    qjsondblogrequest.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondb.name

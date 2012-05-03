@@ -1004,6 +1004,18 @@ void DBServer::processFlush(JsonStream *stream, JsonDbOwner *owner, const QStrin
     stream->send(result);
 }
 
+void DBServer::processLog(JsonStream *stream, const QString &message, int id)
+{
+     if (jsondbSettings->debug() || jsondbSettings->performanceLog())
+         qDebug() << message;
+
+     QJsonObject result;
+     result.insert(JsonDbString::kResultStr, QJsonObject());
+     result.insert(JsonDbString::kErrorStr, QJsonObject());
+     result.insert(JsonDbString::kIdStr, id);
+     stream->send(result);
+}
+
 void DBServer::debugQuery(JsonDbQuery *query, int limit, int offset, const JsonDbQueryResult &result)
 {
     const QList<OrQueryTerm> &orQueryTerms = query->queryTerms;
@@ -1514,8 +1526,7 @@ void DBServer::receiveMessage(const QJsonObject &message)
     } else if (action == JsonDbString::kFlushStr) {
         processFlush(stream, owner, partitionName, id);
     } else if (action == JsonDbString::kLogStr) {
-        if (jsondbSettings->debug() || jsondbSettings->performanceLog())
-            qDebug() << object.toObject().value(JsonDbString::kMessageStr).toString();
+        processLog(stream, object.toObject().value(JsonDbString::kMessageStr).toString(), id);
     }
 
     if (jsondbSettings->performanceLog()) {

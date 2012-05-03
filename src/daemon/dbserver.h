@@ -111,6 +111,7 @@ private:
     void processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
     void processChangesSince(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
     void processFlush(JsonStream *stream, JsonDbOwner *owner, const QString &partitionName, int id);
+    void processLog(JsonStream *stream, const QString &message, int id);
 
     void debugQuery(JsonDbQuery *query, int limit, int offset, const JsonDbQueryResult &result);
     JsonDbObjectList prepareWriteData(const QString &action, const QJsonValue &object);
