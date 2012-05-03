@@ -304,6 +304,7 @@ void TestJsonDbQueries::queryUnion()
     // verify can use notExists on an indexed field
     JsonDbObject index;
     index.insert("_type", QString("Index"));
+    index.insert("name", QString("age"));
     index.insert("propertyName", QString("age"));
     index.insert("propertyType", QString("string"));
     JsonDbWriteResult result = mJsonDbPartition->updateObject(mOwner, index);
@@ -334,6 +335,7 @@ void TestJsonDbQueries::queryFieldNotExists()
     // verify can use notExists on an indexed field
     JsonDbObject index;
     index.insert("_type", QString("Index"));
+    index.insert("name", QString("color"));
     index.insert("propertyName", QString("color"));
     index.insert("propertyType", QString("string"));
     verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
@@ -431,6 +433,7 @@ void TestJsonDbQueries::querySortedByIndexName()
 
     index = JsonDbObject();
     index.insert("_type", QString("Index"));
+    index.insert("name", QString("age"));
     index.insert("propertyName", QString("age"));
     index.insert("propertyType", QString("number"));
     verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
@@ -478,7 +481,7 @@ void TestJsonDbQueries::queryContains()
     // verify it works on an indexed property
     JsonDbObject index;
     index.insert("_type", QString("Index"));
-    index.insert("indexName", QString("friends"));
+    index.insert("name", QString("friends"));
     index.insert("propertyName", QString("friends"));
     verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
 

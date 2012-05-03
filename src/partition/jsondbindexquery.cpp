@@ -84,7 +84,7 @@ JsonDbIndexQuery::JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable
     , mResidualQuery(0)
 {
     if (propertyName != JsonDbString::kUuidStr) {
-        mBdbIndex = table->indexSpec(propertyName)->index->bdb();
+        mBdbIndex = table->index(propertyName)->bdb();
         isOwnTransaction = !mBdbIndex->writeTransaction();
         mTxn = isOwnTransaction ? mBdbIndex->beginWrite() : mBdbIndex->writeTransaction();
         mCursor = new JsonDbBtree::Cursor(mTxn);

@@ -66,6 +66,7 @@ QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 class JsonDbBtree;
 class JsonDbOwner;
 class JsonDbObjectTable;
+class JsonDbIndexSpec;
 class JsonDbIndex;
 class JsonDbIndexQuery;
 class JsonDbView;
@@ -115,15 +116,7 @@ public:
     void initIndexes();
     void flushCaches();
     void closeIndexes();
-    bool addIndex(const QString &indexName,
-                  const QString &propertyName,
-                  const QString &propertyType = QStringLiteral("string"),
-                  const QStringList &objectTypes = QStringList(),
-                  const QString &propertyFunction = QString(),
-                  const QString &locale = QString(),
-                  const QString &collation = QString(),
-                  const QString &casePreference = QString(),
-                  Qt::CaseSensitivity caseSensitive = Qt::CaseSensitive);
+    bool addIndex(const JsonDbIndexSpec &indexSpec);
     bool removeIndex(const QString &indexName, const QString &objectType = QString());
 
     JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);

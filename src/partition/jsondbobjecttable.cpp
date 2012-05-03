@@ -174,14 +174,11 @@ bool JsonDbObjectTable::abort()
 
 bool JsonDbObjectTable::compact()
 {
-    for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
-         it != mIndexes.end();
-         ++it) {
-        const IndexSpec &indexSpec = it.value();
+    foreach (JsonDbIndex *index, mIndexes) {
         // _uuid index does not have bdb() because it is actually the object table itself
-        if (!indexSpec.index->bdb())
+        if (!index->bdb())
             continue;
-        if (!indexSpec.index->bdb()->compact())
+        if (!index->bdb()->compact())
             return false;
     }
     return mBdb->compact();
@@ -195,8 +192,7 @@ bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
     }
 
     if (flags & SyncIndexes) {
-        foreach (const IndexSpec &spec, mIndexes.values()) {
-            JsonDbIndex *index = spec.index;
+        foreach (JsonDbIndex *index, mIndexes) {
             if (index->bdb()) {
                 quint32 stateNumber = index->stateNumber();
                 if (flags & SyncStateNumbers && stateNumber != mStateNumber) {
@@ -204,7 +200,7 @@ bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
                     index->commit(mStateNumber);
                 }
 
-                if (!spec.index->bdb()->sync())
+                if (!index->bdb()->sync())
                     return false;
             }
         }
@@ -216,13 +212,10 @@ bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
 JsonDbStat JsonDbObjectTable::stat() const
 {
     JsonDbStat result;
-    for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
-         it != mIndexes.end();
-         ++it) {
-        const IndexSpec &indexSpec = it.value();
-        if (indexSpec.index->bdb()) {
-            JsonDbBtree::Stat stat = indexSpec.index->bdb()->btree() ?
-                        indexSpec.index->bdb()->stats() :
+    foreach (JsonDbIndex *index, mIndexes) {
+        if (index->bdb()) {
+            JsonDbBtree::Stat stat = index->bdb()->btree() ?
+                        index->bdb()->stats() :
                         JsonDbBtree::Stat();
             result += JsonDbStat(stat.reads, stat.hits, stat.writes);
         }
@@ -236,122 +229,90 @@ JsonDbStat JsonDbObjectTable::stat() const
 
 void JsonDbObjectTable::flushCaches()
 {
-    for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
-         it != mIndexes.end();
-         ++it) {
-        const IndexSpec &indexSpec = it.value();
+    foreach (JsonDbIndex *index, mIndexes) {
         // _uuid index does not have bdb() because it is actually the object table itself
-        if (!indexSpec.index->bdb())
+        if (!index->bdb())
             continue;
-        indexSpec.index->bdb()->setCacheSize(1);
-        indexSpec.index->bdb()->setCacheSize(jsondbSettings->cacheSize());
+        index->bdb()->setCacheSize(1);
+        index->bdb()->setCacheSize(jsondbSettings->cacheSize());
     }
     mChangeCache.clear();
 }
 
 void JsonDbObjectTable::closeIndexes()
 {
-    QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin(), e = mIndexes.end();
-    for (; it != e; ++it) {
-        const IndexSpec &indexSpec = it.value();
-        indexSpec.index->close();
-    }
+    foreach (JsonDbIndex *index, mIndexes)
+        index->close();
 }
 
-IndexSpec *JsonDbObjectTable::indexSpec(const QString &indexName)
+JsonDbIndex *JsonDbObjectTable::index(const QString &indexName)
 {
-    //qDebug() << "ObjectTable::indexSpec" << propertyName << mFilename << (mIndexes.contains(propertyName) ? "exists" : "missing") << (long)this << mIndexes.keys();
-    if (mIndexes.contains(indexName))
-        return &mIndexes[indexName];
-    else
-        return 0;
+    return mIndexes.value(indexName);
 }
 
-QHash<QString, IndexSpec> JsonDbObjectTable::indexSpecs() const
+QList<JsonDbIndex *> JsonDbObjectTable::indexes() const
 {
-    return mIndexes;
+    return mIndexes.values();
 }
 
-bool JsonDbObjectTable::addIndex(const QString &indexName, const QString &propertyName,
-                           const QString &propertyType, const QStringList &objectTypes, const QString &propertyFunction,
-                           const QString &locale, const QString &collation, const QString &casePreference,
-                           Qt::CaseSensitivity caseSensitivity)
+bool JsonDbObjectTable::addIndex(const JsonDbIndexSpec &indexSpec)
 {
-    Q_ASSERT(propertyName.isEmpty() ^ propertyFunction.isEmpty());
+    Q_ASSERT(indexSpec.propertyName.isEmpty() ^ indexSpec.propertyFunction.isEmpty());
+    Q_ASSERT(!indexSpec.name.isEmpty());
 
-    QString name = indexName.isEmpty() ? propertyName : indexName;
-    //qDebug() << "ObjectTable::addIndex" << propertyName << mFilename << (mIndexes.contains(propertyName) ? "exists" : "to be created");
-    if (mIndexes.contains(name))
+    if (indexSpec.name.isEmpty())
+        return false;
+
+    if (mIndexes.contains(indexSpec.name))
         return true;
 
-    //if (gVerbose) qDebug() << "ObjectTable::addIndex" << propertyName << mFilename;
+    JsonDbIndex *index = new JsonDbIndex(mFilename, this);
+    index->setIndexSpec(indexSpec);
+    index->setCacheSize(jsondbSettings->cacheSize());
+    index->open();
+    mIndexes.insert(indexSpec.name, index);
 
-    IndexSpec &indexSpec = mIndexes[name];
-    indexSpec.name = name;
-    indexSpec.propertyName = propertyName;
-    indexSpec.propertyFunction = propertyFunction;
-    indexSpec.propertyType = propertyType;
-    indexSpec.locale = locale;
-    indexSpec.collation = collation;
-    indexSpec.casePreference = casePreference;
-    indexSpec.caseSensitivity = caseSensitivity;
-    indexSpec.objectType = objectTypes;
-    indexSpec.lazy = false; //lazy;
-    indexSpec.index = new JsonDbIndex(mFilename, this);
-    indexSpec.index->setIndexSpec(indexSpec);
-    indexSpec.index->setCacheSize(jsondbSettings->cacheSize());
-    indexSpec.index->open();
-
-    QJsonObject indexObject;
-    indexObject.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
-    indexObject.insert(JsonDbString::kNameStr, name);
-    indexObject.insert(JsonDbString::kPropertyNameStr, propertyName);
-    indexObject.insert(JsonDbString::kPropertyTypeStr, propertyType);
-    indexObject.insert(JsonDbString::kLocaleStr, locale);
-    indexObject.insert(JsonDbString::kCollationStr, collation);
-    indexObject.insert(JsonDbString::kCaseSensitiveStr, (bool)caseSensitivity);
-    indexObject.insert(JsonDbString::kCasePreferenceStr, casePreference);
-    QJsonArray objectTypeList;
-    foreach (const QString objectType, objectTypes)
-        objectTypeList.append(objectType);
-    indexObject.insert(JsonDbString::kObjectTypeStr, objectTypeList);
-    indexObject.insert(QStringLiteral("lazy"), false);
-    indexObject.insert(JsonDbString::kPropertyFunctionStr, propertyFunction);
-    Q_ASSERT(!name.isEmpty());
-    Q_ASSERT(mIndexes.contains(name));
-
-    if (indexSpec.index->stateNumber() == 0 || indexSpec.index->stateNumber() != mStateNumber) {
+    if (index->stateNumber() == 0 || index->stateNumber() != mStateNumber) {
         if (jsondbSettings->verbose())
-            qDebug() << "Index" << name << "stateNumber" << indexSpec.index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing" << "clearing";
-        indexSpec.index->clearData();
-        reindexObjects(name, stateNumber());
+            qDebug() << "Index" << indexSpec.name << "stateNumber" << index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing" << "clearing";
+        index->clearData();
+        reindexObjects(indexSpec.name, stateNumber());
     }
 
     return true;
 }
 
+bool JsonDbObjectTable::addIndexOnProperty(const QString &propertyName,
+                                           const QString &propertyType,
+                                           const QString &objectType)
+{
+    JsonDbIndexSpec indexSpec;
+    indexSpec.name = propertyName;
+    indexSpec.propertyName = propertyName;
+    indexSpec.propertyType = propertyType;
+    if (!objectType.isEmpty())
+        indexSpec.objectTypes.append(objectType);
+    return addIndex(indexSpec);
+}
+
 bool JsonDbObjectTable::removeIndex(const QString &indexName)
 {
-    IndexSpec *spec = indexSpec(indexName);
-    if (!spec)
-        return false;
-
-    QString propertyName = spec->propertyName;
-    if (propertyName == JsonDbString::kUuidStr || propertyName == JsonDbString::kTypeStr)
+    if (indexName == JsonDbString::kUuidStr || indexName == JsonDbString::kTypeStr)
         return true;
 
-    if (spec->index) {
-        if (spec->index->bdb()
-            && spec->index->bdb()->isWriting()) { // Incase index is removed via Jdb::remove( _type=Index )
-            mBdbTransactions.remove(mBdbTransactions.indexOf(spec->index->bdb()->writeTransaction()));
-            spec->index->abort();
-        }
-        spec->index->close();
-        if (spec->index->bdb())
-            QFile::remove(spec->index->bdb()->fileName());
-        delete spec->index;
-        mIndexes.remove(indexName);
+    JsonDbIndex *index = mIndexes.take(indexName);
+    if (!index)
+        return false;
+
+    if (index->bdb()
+            && index->bdb()->isWriting()) { // Incase index is removed via Jdb::remove( _type=Index )
+        mBdbTransactions.remove(mBdbTransactions.indexOf(index->bdb()->writeTransaction()));
+        index->abort();
     }
+    index->close();
+    if (index->bdb())
+        QFile::remove(index->bdb()->fileName());
+    delete index;
 
     return true;
 }
@@ -366,8 +327,8 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNu
         return;
     }
 
-    IndexSpec &indexSpec = mIndexes[indexName];
-    JsonDbIndex *index = indexSpec.index;
+    JsonDbIndex *index = mIndexes.value(indexName);
+    Q_ASSERT(index != 0);
     bool isInIndexTransaction = index->bdb()->writeTransaction();
     bool isInObjectTableTransaction = mBdb->writeTransaction();
     JsonDbBtree::Transaction *bdbTxn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
@@ -384,7 +345,7 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNu
         JsonDbObject object = QJsonDocument::fromBinaryData(baObject).object();
         if (object.value(JsonDbString::kDeletedStr).toBool())
             continue;
-        QJsonValue fieldValue = object.propertyLookup(indexSpec.propertyName);
+        QJsonValue fieldValue = object.propertyLookup(index->indexSpec().propertyName);
         if (!fieldValue.isNull())
             index->indexObject(objectKey, object, stateNumber);
     }
@@ -400,16 +361,12 @@ void JsonDbObjectTable::indexObject(const ObjectKey &objectKey, JsonDbObject obj
 {
     if (jsondbSettings->debug())
         qDebug() << "ObjectTable::indexObject" << objectKey << object.value(JsonDbString::kVersionStr).toString() << endl << mIndexes.keys();
-    for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
-         it != mIndexes.end();
-         ++it) {
+    foreach (JsonDbIndex *index, mIndexes) {
         Q_ASSERT(mBdb->isWriting());
-        const IndexSpec &indexSpec = it.value();
+        const JsonDbIndexSpec &indexSpec = index->indexSpec();
         if (indexSpec.propertyName == JsonDbString::kUuidStr)
             continue;
-        if (indexSpec.lazy)
-            continue;
-        indexSpec.index->indexObject(objectKey, object, stateNumber);
+        index->indexObject(objectKey, object, stateNumber);
     }
 }
 
@@ -418,18 +375,14 @@ void JsonDbObjectTable::deindexObject(const ObjectKey &objectKey, JsonDbObject o
     if (jsondbSettings->debug())
         qDebug() << "ObjectTable::deindexObject" << objectKey << object.value(JsonDbString::kVersionStr).toString() << endl << mIndexes.keys();
 
-    for (QHash<QString,IndexSpec>::const_iterator it = mIndexes.begin();
-         it != mIndexes.end();
-         ++it) {
+    foreach (JsonDbIndex *index, mIndexes) {
         Q_ASSERT(mBdb->isWriting());
-        const IndexSpec &indexSpec = it.value();
+        const JsonDbIndexSpec &indexSpec = index->indexSpec();
         if (jsondbSettings->debug())
             qDebug() << "ObjectTable::deindexObject" << indexSpec.propertyName;
         if (indexSpec.propertyName == JsonDbString::kUuidStr)
             continue;
-        if (indexSpec.lazy)
-            continue;
-        indexSpec.index->deindexObject(objectKey, object, stateNumber);
+        index->deindexObject(objectKey, object, stateNumber);
     }
 }
 
@@ -511,12 +464,12 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
         return result;
     }
 
-    if (!mIndexes.contains(keyName) && (keyName != JsonDbString::kTypeStr)) {
+    if (!mIndexes.contains(keyName) && keyName != JsonDbString::kTypeStr) {
         qDebug() << "ObjectTable::getObject" << "no index for" << keyName << mFilename;
         return result;
     }
 
-    if (!mIndexes.contains(keyName) && (keyName == JsonDbString::kTypeStr)) {
+    if (!mIndexes.contains(keyName) && keyName == JsonDbString::kTypeStr) {
         bool isInTransaction = mBdb->writeTransaction();
         JsonDbBtree::Transaction *txn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
         JsonDbBtree::Cursor cursor(txn);
@@ -538,15 +491,13 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
         return result;
     }
 
-    const IndexSpec *indexSpec = &mIndexes[keyName];
-    QJsonValue fieldValue = makeFieldValue(keyValue, indexSpec->propertyType);
-    truncateFieldValue(&fieldValue, indexSpec->propertyType);
+    JsonDbIndex *index = mIndexes.value(keyName);
+    Q_ASSERT(index != 0);
+    QJsonValue fieldValue = makeFieldValue(keyValue, index->indexSpec().propertyType);
+    truncateFieldValue(&fieldValue, index->indexSpec().propertyType);
     QByteArray forwardKey(makeForwardKey(fieldValue, ObjectKey()));
-    //fprintf(stderr, "getObject bdb=%p\n", indexSpec->index->bdb());
-    if (indexSpec->lazy)
-        updateIndex(indexSpec->index);
-    bool isInTransaction = indexSpec->index->bdb()->writeTransaction();
-    JsonDbBtree::Transaction *txn = indexSpec->index->bdb()->writeTransaction() ? indexSpec->index->bdb()->writeTransaction() : indexSpec->index->bdb()->beginWrite();
+    bool isInTransaction = index->bdb()->writeTransaction();
+    JsonDbBtree::Transaction *txn = index->bdb()->writeTransaction() ? index->bdb()->writeTransaction() : index->bdb()->beginWrite();
     JsonDbBtree::Cursor cursor(txn);
     if (cursor.seekRange(forwardKey)) {
         do {

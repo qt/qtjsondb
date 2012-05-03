@@ -781,11 +781,11 @@ void DBServer::objectUpdated(const QString &partitionName, quint32 stateNumber, 
                 const QString &indexName = n->parsedQuery()->orderTerms[0].propertyName;
                 QString objectType = r.type();
                 JsonDbObjectTable *objectTable = partition->findObjectTable(objectType);
-                IndexSpec *indexSpec = objectTable->indexSpec(indexName);
-                if (indexSpec) {
-                    QList<QJsonValue> indexValues = indexSpec->index->indexValues(r);
+                JsonDbIndex *index = objectTable->index(indexName);
+                if (index) {
+                    QList<QJsonValue> indexValues = index->indexValues(r);
                     if (!indexValues.isEmpty())
-                        r.insert(JsonDbString::kIndexValueStr, indexValues[0]);
+                        r.insert(JsonDbString::kIndexValueStr, indexValues.at(0));
                 }
             }
             QString actionStr = (effectiveAction == JsonDbNotification::Create ? JsonDbString::kCreateStr :

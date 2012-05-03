@@ -223,7 +223,6 @@ void JsonDbMapDefinition::updateObject(const JsonDbObject &beforeObject, const J
          ++it) {
         JsonDbObject unmappedObject = it.value();
         QString uuid = unmappedObject.value(JsonDbString::kUuidStr).toString();
-        JsonDbWriteResult res;
         if (mEmittedObjects.contains(uuid)) {
             JsonDbObject emittedObject(mEmittedObjects.value(uuid));
             emittedObject.insert(JsonDbString::kVersionStr, unmappedObject.value(JsonDbString::kVersionStr));

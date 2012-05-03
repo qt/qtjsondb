@@ -457,6 +457,7 @@ void TestPartition::addIndex(const QString &propertyName, const QString &propert
 {
     JsonDbObject index;
     index.insert(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr);
+    index.insert(JsonDbString::kNameStr, propertyName);
     index.insert(JsonDbString::kPropertyNameStr, propertyName);
     if (!propertyType.isEmpty())
         index.insert(JsonDbString::kPropertyTypeStr, propertyType);
@@ -2943,7 +2944,7 @@ void TestPartition::addIndex()
 
     JsonDbWriteResult result = create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("predicate") != 0);
+    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->index("predicate") != 0);
     remove(mOwner, indexObject);
 }
 
@@ -3963,10 +3964,10 @@ void TestPartition::indexQueryOnCommonValues()
 void TestPartition::removeIndexes()
 {
     addIndex("wacky_index");
-    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") != 0);
+    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->index("wacky_index") != 0);
 
     QVERIFY(mJsonDbPartition->removeIndex("wacky_index"));
-    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("wacky_index") == 0);
+    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->index("wacky_index") == 0);
 
     JsonDbObject indexObject;
     indexObject.insert(JsonDbString::kTypeStr, QLatin1String("Index"));
@@ -3975,7 +3976,7 @@ void TestPartition::removeIndexes()
 
     JsonDbWriteResult result = create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDbPartition->findObjectTable("Index")->indexSpec("predicate") != 0);
+    QVERIFY(mJsonDbPartition->findObjectTable("Index")->index("predicate") != 0);
 
     indexObject.insert("propertyType", QLatin1String("integer"));
     result = update(mOwner, indexObject);
@@ -3983,7 +3984,7 @@ void TestPartition::removeIndexes()
 
     result = remove(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDbPartition->findObjectTable("Index")->indexSpec("predicate") == 0);
+    QVERIFY(mJsonDbPartition->findObjectTable("Index")->index("predicate") == 0);
 }
 
 void TestPartition::setOwner()
@@ -4783,7 +4784,7 @@ void TestPartition::addBigIndex()
 
     JsonDbWriteResult result = create(mOwner, indexObject);
     verifyGoodResult(result);
-    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->indexSpec("foo") != 0);
+    QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->index("foo") != 0);
 
     JsonDbObject obj;
     obj.insert(JsonDbString::kTypeStr, QStringLiteral("foobar"));

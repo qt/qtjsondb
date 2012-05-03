@@ -122,23 +122,13 @@ public:
     };
     quint32 changesSince(quint32 stateNumber, const QSet<QString> &limitTypes, QList<JsonDbUpdate> *updateList, TypeChangeMode mode=KeepTypeChanges);
 
-    IndexSpec *indexSpec(const QString &indexName);
-    QHash<QString, IndexSpec> indexSpecs() const;
+    JsonDbIndex *index(const QString &indexName);
+    QList<JsonDbIndex *> indexes() const;
 
-    bool addIndex(const QString &indexName,
-                  const QString &propertyName = QString(),
-                  const QString &propertyType = QStringLiteral("string"),
-                  const QStringList &objectTypes = QStringList(),
-                  const QString &propertyFunction = QString(),
-                  const QString &locale = QString(),
-                  const QString &collation = QString(),
-                  const QString &casePreference = QString(),
-                  Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive);
+    bool addIndex(const JsonDbIndexSpec &indexSpec);
     bool addIndexOnProperty(const QString &propertyName,
                             const QString &propertyType = QStringLiteral("string"),
-                            const QString &objectType = QString())
-    { return addIndex(propertyName, propertyName, propertyType,
-                      objectType.isEmpty() ? QStringList() : (QStringList() << objectType)); }
+                            const QString &objectType = QString());
     bool removeIndex(const QString &indexName);
     void reindexObjects(const QString &indexName, quint32 stateNumber);
     void indexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
@@ -160,7 +150,7 @@ private:
     JsonDbPartition *mPartition;
     QString             mFilename;
     JsonDbBtree      *mBdb;
-    QHash<QString,IndexSpec> mIndexes; // indexed by full path, e.g., _type or _name.first
+    QHash<QString, JsonDbIndex *> mIndexes; // indexed by full path, e.g., _type or _name.first
     QVector<JsonDbBtree::Transaction *> mBdbTransactions;
 
     quint32 mStateNumber;

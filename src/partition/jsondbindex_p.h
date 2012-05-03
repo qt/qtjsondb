@@ -72,7 +72,7 @@ public:
     ~JsonDbIndexPrivate();
 
     JsonDbIndex *q_ptr;
-    IndexSpec mSpec;
+    JsonDbIndexSpec mSpec;
     JsonDbObjectTable *mObjectTable;
     QString mPath;
     QString mBaseName;

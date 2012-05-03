@@ -61,10 +61,27 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
+class JsonDbIndexSpec
+{
+public:
+    QString name;
+    QString propertyName;
+    QString propertyFunction;
+    QString propertyType;
+    QString locale;
+    QString collation;
+    QString casePreference;
+    Qt::CaseSensitivity caseSensitivity;
+    QStringList objectTypes;
+
+    inline JsonDbIndexSpec()
+        : caseSensitivity(Qt::CaseSensitive)
+    { }
+    static JsonDbIndexSpec fromIndexObject(const QJsonObject &indexObject);
+};
+
 class JsonDbPartition;
 class JsonDbObjectTable;
-class IndexSpec;
-
 class JsonDbIndexPrivate;
 class Q_JSONDB_PARTITION_EXPORT JsonDbIndex : public QObject
 {
@@ -73,8 +90,8 @@ public:
     JsonDbIndex(const QString &fileName, JsonDbObjectTable *objectTable);
     ~JsonDbIndex();
 
-    void setIndexSpec(const IndexSpec &);
-    const IndexSpec &indexSpec() const;
+    void setIndexSpec(const JsonDbIndexSpec &);
+    const JsonDbIndexSpec &indexSpec() const;
 
     JsonDbBtree *bdb();
 
@@ -107,26 +124,6 @@ private:
     Q_DECLARE_PRIVATE(JsonDbIndex)
     Q_DISABLE_COPY(JsonDbIndex)
     QScopedPointer<JsonDbIndexPrivate> d_ptr;
-};
-
-class IndexSpec
-{
-public:
-    QString name;
-    QString propertyName;
-    QString propertyFunction;
-    QString propertyType;
-    QString locale;
-    QString collation;
-    QString casePreference;
-    Qt::CaseSensitivity caseSensitivity;
-    QStringList objectType;
-    bool    lazy;
-    QPointer<JsonDbIndex> index;
-
-    inline IndexSpec()
-        : caseSensitivity(Qt::CaseSensitive), lazy(false)
-    { }
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

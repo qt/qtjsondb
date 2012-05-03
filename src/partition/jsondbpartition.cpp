@@ -736,9 +736,6 @@ void JsonDbPartition::closeIndexes()
 
 void JsonDbPartition::initIndexes()
 {
-    QByteArray baPropertyName;
-    QByteArray baIndexObject;
-
     mObjectTable->addIndexOnProperty(JsonDbString::kUuidStr, QStringLiteral("string"));
     mObjectTable->addIndexOnProperty(JsonDbString::kTypeStr, QStringLiteral("string"));
 
@@ -747,64 +744,36 @@ void JsonDbPartition::initIndexes()
         if (jsondbSettings->verbose())
             qDebug() << "initIndexes" << "index" << indexObject;
         QString indexObjectType = indexObject.value(JsonDbString::kTypeStr).toString();
-        if (indexObjectType == JsonDbString::kIndexTypeStr) {
-            QString indexName = JsonDbIndex::determineName(indexObject);
-            QString propertyName = indexObject.value(JsonDbString::kPropertyNameStr).toString();
-            QString propertyType = indexObject.value(JsonDbString::kPropertyTypeStr).toString();
-            QString propertyFunction = indexObject.value(JsonDbString::kPropertyFunctionStr).toString();
-            QString locale = indexObject.value(JsonDbString::kLocaleStr).toString();
-            QString collation = indexObject.value(JsonDbString::kCollationStr).toString();
-            QString casePreference = indexObject.value(JsonDbString::kCasePreferenceStr).toString();
-            QStringList objectTypes;
-            QJsonValue objectTypeValue = indexObject.value(JsonDbString::kObjectTypeStr);
-            if (objectTypeValue.isString()) {
-                objectTypes.append(objectTypeValue.toString());
-            } else if (objectTypeValue.isArray()) {
-                foreach (const QJsonValue objectType, objectTypeValue.toArray())
-                    objectTypes.append(objectType.toString());
-            }
-
-            Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive;
-            if (indexObject.contains(JsonDbString::kCaseSensitiveStr))
-                caseSensitivity = (indexObject.value(JsonDbString::kCaseSensitiveStr).toBool() == true ? Qt::CaseSensitive : Qt::CaseInsensitive);
-
-            addIndex(indexName, propertyName, propertyType, objectTypes, propertyFunction, locale, collation, casePreference, caseSensitivity);
-        }
+        if (indexObjectType == JsonDbString::kIndexTypeStr)
+            addIndex(JsonDbIndexSpec::fromIndexObject(indexObject));
     }
 }
 
-bool JsonDbPartition::addIndex(const QString &indexName, const QString &propertyName,
-                                  const QString &propertyType, const QStringList &objectTypes, const QString &propertyFunction,
-                                  const QString &locale, const QString &collation, const QString &casePreference,
-                                  Qt::CaseSensitivity caseSensitivity)
+bool JsonDbPartition::addIndex(const JsonDbIndexSpec &indexSpec)
 {
-    Q_ASSERT(!indexName.isEmpty());
-    //qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
+    Q_ASSERT(!indexSpec.name.isEmpty());
     JsonDbObjectTable *table = 0;
-    if (objectTypes.isEmpty()) {
+    if (indexSpec.objectTypes.isEmpty()) {
         table = mainObjectTable();
     } else {
-        foreach (const QString &objectType, objectTypes) {
+        foreach (const QString &objectType, indexSpec.objectTypes) {
             JsonDbObjectTable *t = findObjectTable(objectType);
             if (table && t != table) {
-                qDebug() << "addIndex" << "index on multiple tables" << objectTypes;
+                qDebug() << "addIndex" << "index on multiple tables" << indexSpec.objectTypes;
                 return false;
             }
             table = t;
         }
     }
-    const IndexSpec *indexSpec = table->indexSpec(indexName);
-    if (indexSpec)
+    if (table->index(indexSpec.name))
         return true;
-    //if (gVerbose) qDebug() << "JsonDbBtreePartition::addIndex" << propertyName << objectType;
-    return table->addIndex(indexName, propertyName, propertyType, objectTypes, propertyFunction, locale, collation, casePreference, caseSensitivity);
+    return table->addIndex(indexSpec);
 }
 
 bool JsonDbPartition::removeIndex(const QString &indexName, const QString &objectType)
 {
     JsonDbObjectTable *table = findObjectTable(objectType);
-    const IndexSpec *indexSpec = table->indexSpec(indexName);
-    if (!indexSpec)
+    if (!table->index(indexName))
         return false;
     return table->removeIndex(indexName);
 }
@@ -842,17 +811,17 @@ QHash<QString, qint64> JsonDbPartition::fileSizes() const
     QList<QFileInfo> fileInfo;
     fileInfo << mObjectTable->bdb()->fileName();
 
-    foreach (const IndexSpec &spec, mObjectTable->indexSpecs().values()) {
-        if (spec.index->bdb())
-            fileInfo << spec.index->bdb()->fileName();
+    foreach (JsonDbIndex *index, mObjectTable->indexes()) {
+        if (index->bdb())
+            fileInfo << index->bdb()->fileName();
     }
 
     foreach (JsonDbView *view, mViews) {
         JsonDbObjectTable *objectTable = view->objectTable();
         fileInfo << objectTable->bdb()->fileName();
-        foreach (const IndexSpec &spec, objectTable->indexSpecs().values()) {
-            if (spec.index->bdb())
-                fileInfo << spec.index->bdb()->fileName();
+        foreach (JsonDbIndex *index, objectTable->indexes()) {
+            if (index->bdb())
+                fileInfo << index->bdb()->fileName();
         }
     }
 
@@ -954,7 +923,7 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
                     table = view->objectTable();
                 }
 
-                if (table->indexSpec(propertyName))
+                if (table->index(propertyName))
                     indexedQueryTermCount++;
                 else if (indexCandidate.isEmpty()
                          && (propertyName != JsonDbString::kTypeStr)
@@ -1016,7 +985,7 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
     for (int i = 0; i < orderTerms.size(); i++) {
         const OrderTerm &orderTerm = orderTerms[i];
         QString propertyName = orderTerm.propertyName;
-        if (!table->indexSpec(propertyName)) {
+        if (!table->index(propertyName)) {
             if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
                 qDebug() << "Unindexed sort term" << propertyName << orderTerm.ascending;
             residualQuery->orderTerms.append(orderTerm);
@@ -1030,11 +999,13 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
         }
         if (!indexQuery) {
             orderField = propertyName;
-            const IndexSpec *indexSpec = table->indexSpec(propertyName);
             if (view)
                 view->updateView();
 
-            indexQuery = JsonDbIndexQuery::indexQuery(this, table, propertyName, indexSpec->propertyType,
+            JsonDbIndex *index = table->index(propertyName);
+            Q_ASSERT(index != 0);
+            JsonDbIndexSpec indexSpec = index->indexSpec();
+            indexQuery = JsonDbIndexQuery::indexQuery(this, table, propertyName, indexSpec.propertyType,
                                                 owner, orderTerm.ascending);
         } else if (orderField != propertyName) {
             qCritical() << QString::fromLatin1("unimplemented: multiple order terms. Sorting on '%1'").arg(orderField);
@@ -1058,7 +1029,7 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
                 queryTerm.setOp(op);
                 queryTerm.setJoinField(QString());
             }
-            if (!table->indexSpec(propertyName)
+            if (!table->index(propertyName)
                 || (indexQuery
                     && (propertyName != orderField))) {
                 if (jsondbSettings->verbose() || jsondbSettings->debug())
@@ -1069,13 +1040,13 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
 
             if (!indexQuery
                 && (propertyName != JsonDbString::kTypeStr)
-                && table->indexSpec(propertyName)
+                && table->index(propertyName)
                 && !unindexablePropertyNames.contains(propertyName)) {
                 orderField = propertyName;
-                const IndexSpec *indexSpec = table->indexSpec(propertyName);
+                JsonDbIndexSpec indexSpec = table->index(propertyName)->indexSpec();
                 if (view)
                     view->updateView();
-                indexQuery = JsonDbIndexQuery::indexQuery(this, table, propertyName, indexSpec->propertyType, owner);
+                indexQuery = JsonDbIndexQuery::indexQuery(this, table, propertyName, indexSpec.propertyType, owner);
             }
 
             if (propertyName == orderField) {
@@ -1098,13 +1069,10 @@ JsonDbIndexQuery *JsonDbPartition::compileIndexQuery(const JsonDbOwner *owner, c
             } else
                 defaultIndex = JsonDbString::kTypeStr;
         }
-        const IndexSpec *indexSpec = table->indexSpec(defaultIndex);
-
-        //qDebug() << "defaultIndex" << defaultIndex << "on table" << indexSpec->objectType;
-
         if (view)
             view->updateView();
-        indexQuery = JsonDbIndexQuery::indexQuery(this, table, defaultIndex, indexSpec->propertyType, owner);
+        JsonDbIndex *index = table->index(defaultIndex);
+        indexQuery = JsonDbIndexQuery::indexQuery(this, table, defaultIndex, index ? index->indexSpec().propertyType : QString(), owner);
         if (typeNames.size() == 0)
             qCritical() << "searching all objects" << query->query;
 
@@ -1722,33 +1690,8 @@ void JsonDbPartition::updateBuiltInTypes(const JsonDbObject &object, const JsonD
         removeIndex(indexName, oldObject.value(JsonDbString::kObjectTypeStr).toString());
     }
 
-    if (object.type() == JsonDbString::kIndexTypeStr && !object.isDeleted()) {
-        QString indexName = JsonDbIndex::determineName(object);
-
-        bool caseSensitivity = true;
-        if (object.contains(JsonDbString::kCaseSensitiveStr))
-            caseSensitivity = object.value(JsonDbString::kCaseSensitiveStr).toBool();
-
-        QStringList objectTypes;
-        QJsonValue v = object.value(JsonDbString::kObjectTypeStr);
-        if (v.isString()) {
-            objectTypes = (QStringList() << v.toString());
-        } else if (v.isArray()) {
-            QJsonArray array = v.toArray();
-            foreach (const QJsonValue objectType, array)
-                objectTypes.append(objectType.toString());
-        }
-
-        addIndex(indexName,
-                 object.value(JsonDbString::kPropertyNameStr).toString(),
-                 object.value(JsonDbString::kPropertyTypeStr).toString(),
-                 objectTypes,
-                 object.value(JsonDbString::kPropertyFunctionStr).toString(),
-                 object.value(JsonDbString::kLocaleStr).toString(),
-                 object.value(JsonDbString::kCollationStr).toString(),
-                 object.value(JsonDbString::kCasePreferenceStr).toString(),
-                 caseSensitivity == true ? Qt::CaseSensitive : Qt::CaseInsensitive);
-    }
+    if (object.type() == JsonDbString::kIndexTypeStr && !object.isDeleted())
+        addIndex(JsonDbIndexSpec::fromIndexObject(object));
 
     if (oldObject.type() == JsonDbString::kSchemaTypeStr)
         removeSchema(oldObject.value(JsonDbString::kNameStr).toString());
@@ -1839,7 +1782,11 @@ void JsonDbPartition::updateSchemaIndexes(const QString &schemaName, QJsonObject
             QStringList kpath = path;
             kpath << k;
             QString propertyName = kpath.join(QStringLiteral("."));
-            addIndex(propertyName, propertyName, propertyType);
+            JsonDbIndexSpec indexSpec;
+            indexSpec.name = propertyName;
+            indexSpec.propertyName = propertyName;
+            indexSpec.propertyType = propertyType;
+            addIndex(indexSpec);
         }
         if (propertyInfo.contains(QStringLiteral("properties")))
             updateSchemaIndexes(schemaName, propertyInfo, path + (QStringList() << k));

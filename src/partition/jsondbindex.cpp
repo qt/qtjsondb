@@ -172,7 +172,7 @@ JsonDbIndex::~JsonDbIndex()
     close();
 }
 
-void JsonDbIndex::setIndexSpec(const IndexSpec &spec)
+void JsonDbIndex::setIndexSpec(const JsonDbIndexSpec &spec)
 {
     Q_D(JsonDbIndex);
     d->mSpec = spec;
@@ -201,9 +201,11 @@ void JsonDbIndex::setIndexSpec(const IndexSpec &spec)
         if (d->mPropertyFunction.isError() || !d->mPropertyFunction.isCallable())
             qDebug() << "Unable to parse index value function: " << d->mPropertyFunction.toString();
     }
+
+    setObjectName(d->mSpec.name);
 }
 
-const IndexSpec &JsonDbIndex::indexSpec() const
+const JsonDbIndexSpec &JsonDbIndex::indexSpec() const
 {
     Q_D(const JsonDbIndex);
     return d->mSpec;
@@ -356,7 +358,7 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
     if (d->mSpec.propertyName == JsonDbString::kUuidStr)
         return;
 
-    if (!d->mSpec.objectType.isEmpty() && !d->mSpec.objectType.contains(object.value(JsonDbString::kTypeStr).toString()))
+    if (!d->mSpec.objectTypes.isEmpty() && !d->mSpec.objectTypes.contains(object.value(JsonDbString::kTypeStr).toString()))
         return;
 
     Q_ASSERT(!object.contains(JsonDbString::kDeletedStr)
@@ -400,7 +402,7 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
     Q_D(JsonDbIndex);
     if (d->mSpec.propertyName == JsonDbString::kUuidStr)
         return;
-    if (!d->mSpec.objectType.isEmpty() && !d->mSpec.objectType.contains(object.value(JsonDbString::kTypeStr).toString()))
+    if (!d->mSpec.objectTypes.isEmpty() && !d->mSpec.objectTypes.contains(object.value(JsonDbString::kTypeStr).toString()))
         return;
     if (!d->mBdb.isOpen())
         open();
@@ -473,6 +475,41 @@ void JsonDbIndex::setCacheSize(quint32 cacheSize)
     Q_D(JsonDbIndex);
     d->mCacheSize = cacheSize;
     d->mBdb.setCacheSize(cacheSize);
+}
+
+JsonDbIndexSpec JsonDbIndexSpec::fromIndexObject(const QJsonObject &indexObject)
+{
+    JsonDbIndexSpec indexSpec;
+
+    Q_ASSERT(indexObject.value(JsonDbString::kTypeStr).toString() == JsonDbString::kIndexTypeStr);
+    if (indexObject.value(JsonDbString::kTypeStr).toString() != JsonDbString::kIndexTypeStr)
+        return indexSpec;
+
+    indexSpec.name = indexObject.value(JsonDbString::kNameStr).toString();
+    indexSpec.propertyName = indexObject.value(JsonDbString::kPropertyNameStr).toString();
+    indexSpec.propertyType = indexObject.value(JsonDbString::kPropertyTypeStr).toString();
+    indexSpec.propertyFunction = indexObject.value(JsonDbString::kPropertyFunctionStr).toString();
+    indexSpec.locale = indexObject.value(JsonDbString::kLocaleStr).toString();
+    indexSpec.collation = indexObject.value(JsonDbString::kCollationStr).toString();
+    indexSpec.casePreference = indexObject.value(JsonDbString::kCasePreferenceStr).toString();
+    QJsonValue objectTypeValue = indexObject.value(JsonDbString::kObjectTypeStr);
+    if (objectTypeValue.isString()) {
+        indexSpec.objectTypes.append(objectTypeValue.toString());
+    } else if (objectTypeValue.isArray()) {
+        foreach (const QJsonValue &objectType, objectTypeValue.toArray())
+            indexSpec.objectTypes.append(objectType.toString());
+    }
+    indexSpec.caseSensitivity = Qt::CaseSensitive;
+    if (indexObject.contains(JsonDbString::kCaseSensitiveStr))
+        indexSpec.caseSensitivity = indexObject.value(JsonDbString::kCaseSensitiveStr).toBool() ? Qt::CaseSensitive : Qt::CaseInsensitive;
+
+    if (indexSpec.name.isEmpty())
+        indexSpec.name = indexSpec.propertyName;
+
+    Q_ASSERT(!indexSpec.propertyName.isEmpty() || !indexSpec.propertyFunction.isEmpty());
+    Q_ASSERT(!indexSpec.name.isEmpty());
+
+    return indexSpec;
 }
 
 #include "moc_jsondbindex.cpp"
