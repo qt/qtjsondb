@@ -1171,8 +1171,9 @@ JsonDbError::ErrorCode DBServer::validateNotification(const JsonDbObject &notifi
 void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
 {
     JsonDbPartition *partition = findPartition(n->partition());
+    JsonDbObjectTable *mainObjectTable = partition->mainObjectTable();
     quint32 stateNumber = n->initialStateNumber();
-    quint32 lastStateNumber = stateNumber;
+    quint32 lastStateNumber = mainObjectTable->stateNumber();
     JsonDbQuery *parsedQuery = n->parsedQuery();
     QSet<QString> matchedTypes = parsedQuery->matchedTypes();
     bool matchAnyType = matchedTypes.isEmpty();
@@ -1189,7 +1190,9 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
             if (objectTables.contains(objectTable))
                 continue;
             objectTables.append(objectTable);
-            lastStateNumber = objectTable->stateNumber();
+            if (jsondbSettings->verbose() && lastStateNumber != objectTable->stateNumber())
+                qDebug() << "old object table for type" << matchedType << objectTable->stateNumber() << lastStateNumber;
+
             if (lastStateNumber == stateNumber)
                 continue;
 
@@ -1223,7 +1226,9 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
             if (objectTable->stateNumber() == stateNumber)
                 continue;
             QList<JsonDbUpdate> updateList;
-            lastStateNumber = objectTable->changesSince(stateNumber, matchedTypes, &updateList);
+            quint32 objectTableStateNumber = objectTable->changesSince(stateNumber, matchedTypes, &updateList);
+            if (jsondbSettings->verbose() && lastStateNumber != objectTableStateNumber)
+                qDebug() << "old object table for type" << matchedType << objectTableStateNumber << lastStateNumber;
             foreach (const JsonDbUpdate &update, updateList) {
                 QJsonObject before = update.oldObject;
                 QJsonObject after = update.newObject;
