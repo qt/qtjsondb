@@ -753,6 +753,7 @@ void QJsonDbConnectionPrivate::removeWatcher(QJsonDbWatcher *watcher)
         return;
 
     QJsonObject object;
+    object.insert(JsonDbStrings::Property::type(), QJsonValue(JsonDbStrings::Types::notification()));
     object.insert(JsonDbStrings::Property::uuid(), dwatcher->uuid);
     object.insert(JsonDbStrings::Property::version(), dwatcher->version);
 
