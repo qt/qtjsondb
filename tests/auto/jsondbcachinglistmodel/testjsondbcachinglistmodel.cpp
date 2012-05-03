@@ -456,6 +456,71 @@ void TestJsonDbCachingListModel::deleteItem()
     deleteModel(listModel);
 }
 
+void TestJsonDbCachingListModel::bindings()
+{
+    resetWaitFlags();
+    QVariantMap item;
+    item.insert("_type", __FUNCTION__);
+    item.insert("name", "Charlie");
+    int id = create(item, "com.nokia.shared.1");
+    waitForResponse1(id);
+    QString lastUuid,lastVersion;
+    QVariantMap lastItem;
+    if (lastResult.count()) {
+        lastItem = lastResult[0].toMap();
+        lastUuid = lastItem.value("_uuid").toString();
+        lastVersion = lastItem.value("_version").toString();
+    }
+
+    QAbstractListModel *listModel = createModel();
+    if (!listModel) return;
+    QVariantMap roleNamesMap;
+    roleNamesMap.insert("n", "name");
+    roleNamesMap.insert("u", "_uuid");
+    roleNamesMap.insert("t", "_type");
+    listModel->setProperty("roleNames", roleNamesMap);
+    listModel->setProperty("sortOrder", "[/name]");
+    QVariantMap bindingsMap;
+    bindingsMap.insert("firstName", "Charlie");
+    listModel->setProperty("bindings", bindingsMap);
+    listModel->setProperty("query", QString("[?_type=\"%1\"][?name=%firstName]").arg(__FUNCTION__));
+    connectListModel(listModel);
+
+    // now start it working
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    QCOMPARE(listModel->rowCount(), 1);
+
+    QVariantMap item2;
+    item2.insert("_type", __FUNCTION__);
+    item2.insert("name", "Baker");
+    mItemsCreated = 0;
+    id = create(item2, "com.nokia.shared.2");
+    waitForResponse1(id);
+
+    QCOMPARE(listModel->rowCount(), 1);
+    QVariant val = getProperty(listModel, 0, "t");
+    QCOMPARE(val.toString(), QLatin1String(__FUNCTION__));
+    val = getProperty(listModel, 0, "n");
+    QCOMPARE(val.toString(), QLatin1String("Charlie"));
+
+    item.insert("_uuid", lastUuid);
+    item.insert("_version", lastVersion);
+    mItemsRemoved = 0;
+    id = remove(item, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    while (!mItemsRemoved) {
+        mWaitingForRemoved = true;
+        waitForExitOrTimeout();
+    }
+    QCOMPARE(mWaitingForRemoved, false);
+
+    QCOMPARE(listModel->rowCount(), 0);
+    deleteModel(listModel);
+}
 void TestJsonDbCachingListModel::sortedQuery()
 {
     resetWaitFlags();

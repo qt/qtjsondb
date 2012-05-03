@@ -78,7 +78,7 @@ public:
     QList<QStringList> orderPaths;
 
     QString query;
-    QVariant queryOptions;
+    QVariantMap queryBindings;
     QString sortOrder;
 
     int limit;

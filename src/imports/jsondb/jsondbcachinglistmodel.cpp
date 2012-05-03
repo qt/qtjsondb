@@ -249,6 +249,15 @@ int findIndexOf(const JsonDbModelIndexType::const_iterator &begin, const Sorting
         return findIndexOf(begin, key, low, mid-1);
 }
 
+inline void setQueryBindings(QJsonDbReadRequest *request, const QVariantMap &bindings)
+{
+    QVariantMap::ConstIterator i = bindings.constBegin();
+    while (i != bindings.constEnd()) {
+        request->bindValue(i.key(), QJsonValue::fromVariant(i.value()));
+        ++i;
+    }
+}
+
 void JsonDbCachingListModelPrivate::createObjectRequests(int startIndex, int maxItems)
 {
     Q_Q(JsonDbCachingListModel);
@@ -306,6 +315,7 @@ void JsonDbCachingListModelPrivate::createObjectRequests(int startIndex, int max
             request->setProperty("queryOffset", indexNSizes[i].index);
             request->setQueryLimit(qMin(r.requestCount, chunkSize));
             request->setPartition(partitionObjects[i]->name());
+            setQueryBindings(request, queryBindings);
             JsonDatabase::sharedConnection().send(request);
 #ifdef JSONDB_LISTMODEL_DEBUG
             qDebug()<<"Query"<<query+sortOrder<<partitionObjects[i]->name();
@@ -603,6 +613,7 @@ void JsonDbCachingListModelPrivate::fetchPartitionKeys(int index)
         request->setQuery(queryForSortKeys);
         request->setQueryLimit(chunkSize);
         request->setPartition(p->name());
+        setQueryBindings(request, queryBindings);
         JsonDatabase::sharedConnection().send(request);
     }
 }
@@ -641,6 +652,7 @@ void JsonDbCachingListModelPrivate::fetchNextKeyChunk(int partitionIndex)
     request->setProperty("queryOffset", r.lastOffset);
     request->setQueryLimit(chunkSize);
     request->setPartition(partitionObjects[partitionIndex]->name());
+    setQueryBindings(request, queryBindings);
     JsonDatabase::sharedConnection().send(request);
 
 }
@@ -653,6 +665,7 @@ void JsonDbCachingListModelPrivate::fetchNextChunk(int partitionIndex)
     request->setProperty("queryOffset", r.lastOffset);
     request->setQueryLimit(qMin(r.requestCount, chunkSize));
     request->setPartition(partitionObjects[partitionIndex]->name());
+    setQueryBindings(request, queryBindings);
     JsonDatabase::sharedConnection().send(request);
 
 }
@@ -735,6 +748,11 @@ void JsonDbCachingListModelPrivate::createOrUpdateNotification(int index)
     watcher->setQuery(query+sortOrder);
     watcher->setWatchedActions(QJsonDbWatcher::Created | QJsonDbWatcher::Updated |QJsonDbWatcher::Removed);
     watcher->setPartition(partitionObjects[index]->name());
+    QVariantMap::ConstIterator i = queryBindings.constBegin();
+    while (i != queryBindings.constEnd()) {
+        watcher->bindValue(i.key(), QJsonValue::fromVariant(i.value()));
+        ++i;
+    }
     QObject::connect(watcher, SIGNAL(notificationsAvailable(int)),
                      q, SLOT(_q_notificationsAvailable()));
     QObject::connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
@@ -1400,6 +1418,8 @@ void JsonDbCachingListModel::setScriptableRoleNames(const QVariant &vroles)
     }
     \endqml
 
+    \sa QtJsonDb::JsonDbCachingListModel::bindings
+
 */
 QString JsonDbCachingListModel::query() const
 {
@@ -1423,6 +1443,52 @@ void JsonDbCachingListModel::setQuery(const QString &newQuery)
     if (rowCount() && d->query.isEmpty()) {
         d->reset();
     }
+
+    if (!d->componentComplete || d->query.isEmpty() || !d->partitionObjects.count())
+        return;
+    d->createOrUpdateNotifications();
+    d->fetchModel();
+#ifdef JSONDB_LISTMODEL_BENCHMARK
+    qint64 elap = elt.elapsed();
+    if (elap > 3)
+        qDebug() << Q_FUNC_INFO << "took more than 3 ms (" << elap << "ms )";
+#endif
+}
+
+/*!
+    \qmlproperty object QtJsonDb::JsonDbCachingListModel::bindings
+    Holds the bindings for the placeholders used in the query string. Note that
+    the placeholder marker '%' should not be included as part of the keys.
+
+    \qml
+    JsonDb.JsonDbCachingListModel {
+        id: listModel
+        query: '[?_type="Contact"][?name=%firstName]'
+        bindings :{'firstName':'Book'}
+        partitions:[ JsonDb.Partiton {
+            name:"com.nokia.shared"
+        }]
+    }
+    \endqml
+
+    \sa QtJsonDb::JsonDbCachingListModel::query
+
+*/
+
+QVariantMap JsonDbCachingListModel::bindings() const
+{
+    Q_D(const JsonDbCachingListModel);
+    return d->queryBindings;
+}
+
+void JsonDbCachingListModel::setBindings(const QVariantMap &newBindings)
+{
+#ifdef JSONDB_LISTMODEL_BENCHMARK
+    QElapsedTimer elt;
+    elt.start();
+#endif
+    Q_D(JsonDbCachingListModel);
+    d->queryBindings = newBindings;
 
     if (!d->componentComplete || d->query.isEmpty() || !d->partitionObjects.count())
         return;

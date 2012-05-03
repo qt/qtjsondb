@@ -89,6 +89,7 @@ private slots:
     void createItem();
     void updateItemClient();
     void deleteItem();
+    void bindings();
     void sortedQuery();
     void ordering();
     void checkRemoveNotification();

@@ -99,7 +99,7 @@ public:
     QString indexName;
 
     QString query;
-    QVariant queryOptions;
+    QVariantMap queryBindings;
     QString sortOrder;
     QString queryForSortKeys;
     QString queryForIndexSpec;

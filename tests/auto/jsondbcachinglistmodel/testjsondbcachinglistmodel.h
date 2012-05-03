@@ -89,6 +89,7 @@ private slots:
     void createModelTwoPartitions();
     void updateItemClient();
     void deleteItem();
+    void bindings();
     void sortedQuery();
     void ordering();
     void checkRemoveNotification();

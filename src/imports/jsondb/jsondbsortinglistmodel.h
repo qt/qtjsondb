@@ -73,6 +73,7 @@ public:
 
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString query READ query WRITE setQuery)
+    Q_PROPERTY(QVariantMap bindings READ bindings WRITE setBindings)
     Q_PROPERTY(QString sortOrder READ sortOrder WRITE setSortOrder)
     Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
     Q_PROPERTY(QVariant roleNames READ scriptableRoleNames WRITE setScriptableRoleNames)
@@ -92,6 +93,9 @@ public:
 
     QString query() const;
     void setQuery(const QString &newQuery);
+
+    QVariantMap bindings() const;
+    void setBindings(const QVariantMap &newBindings);
 
     QQmlListProperty<JsonDbPartition> partitions();
 

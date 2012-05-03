@@ -343,6 +343,11 @@ void JsonDbSortingListModelPrivate::fetchPartition(int index, bool reset)
     }
     QJsonDbReadRequest *request = valueRequests[index]->newRequest(index);
     request->setQuery(query);
+    QVariantMap::ConstIterator i = queryBindings.constBegin();
+    while (i != queryBindings.constEnd()) {
+        request->bindValue(i.key(), QJsonValue::fromVariant(i.value()));
+        ++i;
+    }
     request->setProperty("queryOffset", r.lastOffset);
     request->setQueryLimit(chunkSize);
     request->setPartition(p->name());
@@ -390,6 +395,11 @@ void JsonDbSortingListModelPrivate::createOrUpdateNotification(int index)
     watcher->setQuery(query);
     watcher->setWatchedActions(QJsonDbWatcher::Created | QJsonDbWatcher::Updated |QJsonDbWatcher::Removed);
     watcher->setPartition(partitionObjects[index]->name());
+    QVariantMap::ConstIterator i = queryBindings.constBegin();
+    while (i != queryBindings.constEnd()) {
+        watcher->bindValue(i.key(), QJsonValue::fromVariant(i.value()));
+        ++i;
+    }
     QObject::connect(watcher, SIGNAL(notificationsAvailable(int)),
                      q, SLOT(_q_notificationsAvailable()));
     QObject::connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
@@ -802,6 +812,8 @@ void JsonDbSortingListModel::setScriptableRoleNames(const QVariant &vroles)
     }
     \endqml
 
+    \sa QtJsonDb::JsonDbSortingListModel::bindings
+
 */
 QString JsonDbSortingListModel::query() const
 {
@@ -825,6 +837,42 @@ void JsonDbSortingListModel::setQuery(const QString &newQuery)
     if (!d->componentComplete || d->query.isEmpty() || !d->partitionObjects.count())
         return;
 
+    d->createOrUpdateNotifications();
+    d->fetchModel();
+}
+
+/*!
+    \qmlproperty object QtJsonDb::JsonDbSortingListModel::bindings
+    Holds the bindings for the placeholders used in the query string. Note that
+    the placeholder marker '%' should not be included as part of the keys.
+
+    \qml
+    JsonDb.JsonDbSortingListModel {
+        query: '[?_type="Contact"][?name=%firstName]'
+        bindings :{'firstName':'Book'}
+        partitions:[ JsonDb.Partiton {
+            name:"com.nokia.shared"
+        }]
+    }
+    \endqml
+
+    \sa QtJsonDb::JsonDbSortingListModel::query
+
+*/
+
+QVariantMap JsonDbSortingListModel::bindings() const
+{
+    Q_D(const JsonDbSortingListModel);
+    return d->queryBindings;
+}
+
+void JsonDbSortingListModel::setBindings(const QVariantMap &newBindings)
+{
+    Q_D(JsonDbSortingListModel);
+    d->queryBindings = newBindings;
+
+    if (!d->componentComplete || d->query.isEmpty() || !d->partitionObjects.count())
+        return;
     d->createOrUpdateNotifications();
     d->fetchModel();
 }
