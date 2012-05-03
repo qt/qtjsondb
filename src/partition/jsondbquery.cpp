@@ -675,32 +675,4 @@ OrderTerm::~OrderTerm()
 {
 }
 
-QVariantMap JsonDbQueryResult::toVariantMap() const
-{
-    QJsonObject resultmap, errormap;
-    QJsonArray variantList;
-    for (int i = 0; i < data.size(); i++)
-        variantList.append(data.at(i));
-    resultmap.insert(JsonDbString::kDataStr, variantList);
-    resultmap.insert(JsonDbString::kLengthStr, data.size());
-    resultmap.insert(JsonDbString::kOffsetStr, offset);
-    resultmap.insert(JsonDbString::kExplanationStr, explanation);
-    resultmap.insert(QStringLiteral("sortKeys"), sortKeys);
-    if (error.isObject())
-        errormap = error.toObject();
-    return JsonDbPartition::makeResponse(resultmap, errormap).toVariantMap();
-}
-
-JsonDbQueryResult JsonDbQueryResult::makeErrorResponse(JsonDbError::ErrorCode code, const QString &message, bool silent)
-{
-    JsonDbQueryResult result;
-    QJsonObject errormap;
-    errormap.insert(JsonDbString::kCodeStr, code);
-    errormap.insert(JsonDbString::kMessageStr, message);
-    result.error = errormap;
-    if (jsondbSettings->verbose() && !silent && !errormap.isEmpty())
-        qCritical() << errormap;
-    return result;
-}
-
 QT_END_NAMESPACE_JSONDB_PARTITION

@@ -129,9 +129,8 @@ void QJsonDbPrivatePartition::handleRequest()
 
             Partition::JsonDbQueryResult queryResult = privatePartition->queryObjects(privatePartition->defaultOwner(),
                                                                                       query.data(), limit, offset);
-            if (queryResult.error.isNull()) {
-                emit readRequestStarted(static_cast<quint32>(queryResult.state.toDouble()),
-                                        queryResult.sortKeys.toArray().at(0).toString());
+            if (queryResult.code == Partition::JsonDbError::NoError) {
+                emit readRequestStarted(queryResult.state, queryResult.sortKeys.at(0));
                 emit statusChanged(QJsonDbRequest::Receiving);
                 emit started();
 
@@ -140,9 +139,8 @@ void QJsonDbPrivatePartition::handleRequest()
                     results.append(val);
                 emit resultsAvailable(results);
             } else {
-                QJsonObject error = queryResult.error.toObject();
-                errorCode = static_cast<QJsonDbRequest::ErrorCode>(error.value(JsonDbStrings::Protocol::errorCode()).toDouble());
-                errorMessage = error.value(JsonDbStrings::Protocol::errorMessage()).toString();
+                errorCode = static_cast<QJsonDbRequest::ErrorCode>(queryResult.code);
+                errorMessage = queryResult.message;
             }
         }
     }

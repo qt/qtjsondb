@@ -902,23 +902,24 @@ void DBServer::processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonVa
     if (jsondbSettings->debug())
         debugQuery(parsedQuery.data(), limit, offset, queryResult);
 
-    if (queryResult.error.type() != QJsonValue::Null) {
-        sendError(stream,
-                  static_cast<JsonDbError::ErrorCode>(queryResult.error.toObject().value(JsonDbString::kCodeStr).toDouble()),
-                  queryResult.error.toObject().value(JsonDbString::kMessageStr).toString(),
-                  id);
+    if (queryResult.code != JsonDbError::NoError) {
+        sendError(stream, queryResult.code, queryResult.message, id);
         return;
     } else {
         QJsonObject result;
         QJsonArray data;
         for (int i = 0; i < queryResult.data.size(); i++)
             data.append(queryResult.data.at(i));
+
+        QJsonArray sortKeys;
+        foreach (const QString &sortKey, queryResult.sortKeys)
+            sortKeys.append(sortKey);
+
         result.insert(JsonDbString::kDataStr, data);
         result.insert(JsonDbString::kLengthStr, data.size());
         result.insert(JsonDbString::kOffsetStr, queryResult.offset);
-        result.insert(JsonDbString::kExplanationStr, queryResult.explanation);
-        result.insert("sortKeys", queryResult.sortKeys);
-        result.insert("state", queryResult.state);
+        result.insert("sortKeys", sortKeys);
+        result.insert("state", static_cast<qint32>(queryResult.state));
         response.insert(JsonDbString::kResultStr, result);
         response.insert(JsonDbString::kErrorStr, QJsonValue());
     }
@@ -944,13 +945,38 @@ void DBServer::processChangesSince(JsonStream *stream, JsonDbOwner *owner, const
         }
 
         JsonDbPartition *partition = mPartitions.value(partitionName, mDefaultPartition);
-        result = partition->changesSince(stateNumber, limitTypes);
+        JsonDbChangesSinceResult csResult = partition->changesSince(stateNumber, limitTypes);
+        if (csResult.code == JsonDbError::NoError) {
+            QJsonObject resultMap;
+
+            resultMap.insert(QStringLiteral("count"), csResult.changes.count());
+            resultMap.insert(QStringLiteral("startingStateNumber"), static_cast<qint32>(csResult.startingStateNumber));
+            resultMap.insert(QStringLiteral("currentStateNumber"), static_cast<qint32>(csResult.currentStateNumber));
+
+            QJsonArray changeArray;
+            foreach (const JsonDbUpdate &update, csResult.changes) {
+                QJsonObject change;
+                change.insert(QStringLiteral("before"), update.oldObject);
+                change.insert(QStringLiteral("after"), update.newObject);
+                changeArray.append(change);
+            }
+
+            resultMap.insert(QStringLiteral("changes"), changeArray);
+            result.insert(JsonDbString::kResultStr, resultMap);
+            result.insert(JsonDbString::kErrorStr, QJsonValue());
+        } else {
+            QJsonObject errorMap;
+            errorMap.insert(JsonDbString::kCodeStr, csResult.code);
+            errorMap.insert(JsonDbString::kMessageStr, csResult.message);
+            result.insert(JsonDbString::kResultStr, QJsonValue());
+            result.insert(JsonDbString::kErrorStr, errorMap);
+        }
      } else {
         sendError(stream, JsonDbError::InvalidRequest, "Invalid changes since request", id);
         return;
     }
 
-    result.insert( JsonDbString::kIdStr, id );
+    result.insert(JsonDbString::kIdStr, id);
     stream->send(result);
 }
 

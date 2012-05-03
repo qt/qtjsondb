@@ -180,22 +180,6 @@ private:
     Q_DISABLE_COPY(JsonDbQuery);
 };
 
-typedef QList<QJsonValue> QJsonValueList;
-typedef QList<QJsonObject> QJsonObjectList;
-typedef QList<JsonDbObject> JsonDbObjectList;
-class Q_JSONDB_PARTITION_EXPORT JsonDbQueryResult {
-public:
-    JsonDbObjectList data;
-    QJsonValue length;
-    QJsonValue offset;
-    QJsonValue explanation;
-    QJsonValue sortKeys;
-    QJsonValue state;
-    QJsonValue error; // { code: int, message: string }
-    QVariantMap toVariantMap() const;
-    static JsonDbQueryResult makeErrorResponse(JsonDbError::ErrorCode, const QString&, bool silent=false);
-};
-
 QT_END_NAMESPACE_JSONDB_PARTITION
 
 QT_END_HEADER

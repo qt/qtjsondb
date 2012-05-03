@@ -94,8 +94,8 @@ static QString kContactStr = "com.example.unittest.contact";
 #define verifyGoodQueryResult(result) \
 { \
     JsonDbQueryResult __result = result; \
-    QVERIFY2(__result.error.type() == QJsonValue::Null,  \
-         __result.error.toObject().value("message").toString().toLocal8Bit()); \
+    QVERIFY2(__result.code == JsonDbError::NoError,  \
+         __result.message.toLocal8Bit()); \
 }
 
 template<class T>
@@ -362,8 +362,7 @@ void TestPartition::reopen()
     JsonDbWriteResult writeRes = mJsonDbPartition->updateObject(mOwner, item1);
     QCOMPARE(writeRes.code, JsonDbError::PartitionUnavailable);
     JsonDbQueryResult queryRes = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
-    QCOMPARE(static_cast<JsonDbError::ErrorCode>(queryRes.error.toObject().value(JsonDbString::kCodeStr).toDouble()),
-             JsonDbError::PartitionUnavailable);
+    QCOMPARE(queryRes.code, JsonDbError::PartitionUnavailable);
 
     mJsonDbPartition->open();
 }
@@ -2907,11 +2906,10 @@ void TestPartition::reduceArray()
 
 void TestPartition::changesSinceCreate()
 {
-    QJsonObject csRes = mJsonDbPartition->changesSince(0);
-    QVERIFY(csRes.value(JsonDbString::kErrorStr).isNull());
+    JsonDbChangesSinceResult csRes = mJsonDbPartition->changesSince(0);
+    QCOMPARE(csRes.code, JsonDbError::NoError);
 
-    int state = csRes.value("result").toObject().value("currentStateNumber").toDouble();
-    QVERIFY(state >= 0);
+    quint32 state = csRes.currentStateNumber;
 
     JsonDbObject toCreate;
     toCreate.insert("_type", QString("TestContact"));
@@ -2922,12 +2920,12 @@ void TestPartition::changesSinceCreate()
     verifyGoodResult(crRes);
 
     csRes = mJsonDbPartition->changesSince(state);
-    QVERIFY(csRes.value(JsonDbString::kErrorStr).isNull());
+    QCOMPARE(csRes.code, JsonDbError::NoError);
 
-    QVERIFY(csRes.value("result").toObject().value("currentStateNumber").toDouble() > state);
-    QCOMPARE(csRes.value("result").toObject().value("count").toDouble(), (double)1);
+    QVERIFY(csRes.currentStateNumber > state);
+    QCOMPARE(csRes.changes.count(), 1);
 
-    QJsonObject after = csRes.value("result").toObject().value("changes").toArray().at(0).toObject().value("after").toObject();
+    QJsonObject after = csRes.changes.at(0).newObject;
     QCOMPARE(after.value("_type").toString(), toCreate.value("_type").toString());
     QCOMPARE(after.value("firstName").toString(), toCreate.value("firstName").toString());
     QCOMPARE(after.value("lastName").toString(), toCreate.value("lastName").toString());

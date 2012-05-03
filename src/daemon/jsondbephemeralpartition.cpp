@@ -69,12 +69,19 @@ bool JsonDbEphemeralPartition::get(const QUuid &uuid, JsonDbObject *result) cons
 JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
 {
     Q_UNUSED(owner);
-    if (!query->orderTerms.isEmpty())
-        return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,
-                                                    QStringLiteral("Cannot query with order term on ephemeral objects"));
-    if (limit != -1 || offset != 0)
-        return JsonDbQueryResult::makeErrorResponse(JsonDbError::InvalidMessage,
-                                                    QStringLiteral("Cannot query with limit or offset on ephemeral objects"));
+    JsonDbQueryResult result;
+
+    if (!query->orderTerms.isEmpty()) {
+        result.code = JsonDbError::InvalidMessage;
+        result.message = QStringLiteral("Cannot query with order term on ephemeral objects");
+        return result;
+    }
+
+    if (limit != -1 || offset != 0) {
+        result.code = JsonDbError::InvalidMessage;
+        result.message = QStringLiteral("Cannot query with limit or offset on ephemeral objects");
+        return result;
+    }
 
     JsonDbObjectList results;
     ObjectMap::const_iterator it, e;
@@ -84,14 +91,10 @@ JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owne
             results.append(object);
     }
 
-    QJsonArray sortKeys;
-    sortKeys.append(JsonDbString::kUuidStr);
-    JsonDbQueryResult result;
-    result.length = results.size();
     result.offset = offset;
     result.data = results;
     result.state = 0;
-    result.sortKeys = sortKeys;
+    result.sortKeys.append(JsonDbString::kUuidStr);
     return result;
 }
 

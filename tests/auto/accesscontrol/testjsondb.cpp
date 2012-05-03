@@ -78,8 +78,8 @@ QT_USE_NAMESPACE_JSONDB_PARTITION
 #define verifyGoodQueryResult(result) \
 { \
     JsonDbQueryResult __result = result; \
-    QVERIFY2(__result.error.type() == QJsonValue::Null,  \
-         __result.error.toObject().value("message").toString().toLocal8Bit()); \
+    QVERIFY2(__result.code == JsonDbError::NoError,  \
+         __result.message.toLocal8Bit()); \
 }
 
 class TestJsonDb: public QObject
@@ -391,12 +391,12 @@ void TestJsonDb::testFindAccessControl()
     JsonDbQueryResult queryResult = find(mOwner.data(), QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("find-access-control-test-type"));
     verifyGoodQueryResult(queryResult);
 
-    QVERIFY(queryResult.length.toDouble() < 1);
+    QVERIFY(queryResult.data.length() < 1);
 
     queryResult= find(mOwner.data(), QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("Contact"));
     verifyGoodQueryResult(queryResult);
 
-    QVERIFY(queryResult.length.toDouble() > 0);
+    QVERIFY(queryResult.data.length() > 0);
 
     mOwner->setAllowAll(true);
 
@@ -424,12 +424,12 @@ void TestJsonDb::testFindAccessControl()
     queryResult = find(mOwner.data(), QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("com.example.foo.bar.FooType"));
     verifyGoodQueryResult(queryResult);
 
-    QVERIFY(queryResult.length.toDouble() < 1);
+    QVERIFY(queryResult.data.length() < 1);
 
     queryResult= find(mOwner.data(), QString("[?%1=\"%2\"]").arg(JsonDbString::kTypeStr).arg("com.example.foo.FooType"));
     verifyGoodQueryResult(queryResult);
 
-    QVERIFY(queryResult.length.toDouble() > 0);
+    QVERIFY(queryResult.data.length() > 0);
     jsondbSettings->setEnforceAccessControl(false);
 }
 

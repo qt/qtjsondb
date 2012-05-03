@@ -342,21 +342,21 @@ void TestJsonDbQueries::queryFieldNotExists()
 
     // notExists on an indexed field will choose a different sortKey
     queryResult = find(mOwner, QLatin1String("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"]"));
-    QVERIFY(!queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QVERIFY(!queryResult.sortKeys.contains(QLatin1String("color")));
     QCOMPARE(queryResult.data.size(),
              mDataStats["num-bunnies"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
 
     // notExists on an indexed field will choose a different sortKey, even if we try to force it
     queryResult = find(mOwner, QLatin1String("[?color notExists][? _type = \"bunny\" | _type=\"dragon\"][/color]"));
-    QVERIFY(!queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QVERIFY(!queryResult.sortKeys.contains(QLatin1String("color")));
     QCOMPARE(queryResult.data.size(),
              mDataStats["num-bunnies"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "bunny")));
 
     // exists on an indexed field will choose the field as sortKey
     queryResult = find(mOwner, QLatin1String("[?color exists][? _type = \"bunny\" | _type=\"dragon\"]"));
-    QVERIFY(queryResult.sortKeys.toArray().contains(QJsonValue(QLatin1String("color"))));
+    QVERIFY(queryResult.sortKeys.contains(QLatin1String("color")));
     QCOMPARE(queryResult.data.size(),
              mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", "dragon")));
@@ -402,18 +402,12 @@ void TestJsonDbQueries::queryQuotedProperties()
     queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][?\"eye-color\" = \"red\"][= \"eye-color\"]"));
     // no longer supported
     QCOMPARE(queryResult.data.size(), 0);
-    QVERIFY(queryResult.error.isObject());
-    QVERIFY(queryResult.error.toObject().contains(QLatin1String("code")));
-    QCOMPARE((int)queryResult.error.toObject().value(QLatin1String("code")).toDouble(),
-             (int)JsonDbError::MissingQuery);
+    QCOMPARE(queryResult.code, JsonDbError::MissingQuery);
 
     queryResult = find(mOwner, QLatin1String("[?\"eye-color\" = \"red\"][= [\"eye-color\", age ]]"));
     // no longer supported
     QCOMPARE(queryResult.data.size(), 0);
-    QVERIFY(queryResult.error.isObject());
-    QVERIFY(queryResult.error.toObject().contains(QLatin1String("code")));
-    QCOMPARE((int)queryResult.error.toObject().value(QLatin1String("code")).toDouble(),
-             (int)JsonDbError::MissingQuery);
+    QCOMPARE(queryResult.code, JsonDbError::MissingQuery);
 
     queryResult = find(mOwner, QLatin1String("[?_type=\"dragon\"][/_type][?\"eye-color\" = \"red\"][= {\"color-of-eyes\": \"eye-color\" }]"));
     // object values are returned in queryResult.data
@@ -458,25 +452,25 @@ void TestJsonDbQueries::querySortedByIndexName()
 void TestJsonDbQueries::queryContains()
 {
     JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains \"spike\" ]"));
-    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.code, JsonDbError::NoError);
     QCOMPARE(queryResult.data.count(), 1);
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  { \"name\" : \"puffy\", \"dog\" : false } ]"));
-    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.code, JsonDbError::NoError);
     QCOMPARE(queryResult.data.count(), 1);
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains { \"name\" : \"puffy\", \"dog\" : true } | friends contains { \"name\" : \"rover\", \"dog\" : true } ]"));
-    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.code, JsonDbError::NoError);
     QCOMPARE(queryResult.data.count(), 1);
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  [\"spike\", \"rover\"] ]"));
-    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.code, JsonDbError::NoError);
     QCOMPARE(queryResult.data.count(), 1);
 
     // invalid queries
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  { \"name\" : \"puffy\" \"dog\" : false } ]"));
-    QVERIFY(!queryResult.error.isNull());
+    QVERIFY(queryResult.code != JsonDbError::NoError);
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  [\"spike\", \"rover\" ]"));
-    QVERIFY(!queryResult.error.isNull());
+    QVERIFY(queryResult.code != JsonDbError::NoError);
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains  \"spike\", \"rover\" ] ]"));
-    QVERIFY(!queryResult.error.isNull());
+    QVERIFY(queryResult.code != JsonDbError::NoError);
 
     // verify it works on an indexed property
     JsonDbObject index;
@@ -486,28 +480,28 @@ void TestJsonDbQueries::queryContains()
     verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
 
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?friends contains \"spike\" ][/friends]"));
-    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.code, JsonDbError::NoError);
     // contains is an unindexable query constraint, so it uses _type instead of friends
-    QCOMPARE(queryResult.sortKeys.toArray().at(0).toString(), QLatin1String("_type"));
+    QCOMPARE(queryResult.sortKeys.at(0), QLatin1String("_type"));
     QCOMPARE(queryResult.data.count(), 1);
 }
 
 void TestJsonDbQueries::queryInvalid()
 {
     JsonDbQueryResult queryResult = find(mOwner, QLatin1String("foo"));
-    QVERIFY(!queryResult.error.isNull());
+    QVERIFY(queryResult.code != JsonDbError::NoError);
 }
 
 void TestJsonDbQueries::queryRegExp()
 {
     JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name =~ \"/*ov*/w\" ]"));
-    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.code, JsonDbError::NoError);
     QCOMPARE(queryResult.data.count(), 1);
 
     QJsonObject bindings;
     bindings.insert(QLatin1String("regexp"), QLatin1String("/*ov*/w"));
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name =~ %regexp ]"), bindings);
-    QVERIFY(queryResult.error.isNull());
+    QCOMPARE(queryResult.code, JsonDbError::NoError);
     QCOMPARE(queryResult.data.count(), 1);
 }
 

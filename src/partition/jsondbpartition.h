@@ -90,6 +90,26 @@ struct Q_JSONDB_PARTITION_EXPORT JsonDbWriteResult {
     QString message;
 };
 
+struct Q_JSONDB_PARTITION_EXPORT JsonDbChangesSinceResult {
+    JsonDbChangesSinceResult() : currentStateNumber(0), startingStateNumber(0), code(JsonDbError::NoError) { }
+    quint32 currentStateNumber;
+    quint32 startingStateNumber;
+    JsonDbUpdateList changes;
+    JsonDbError::ErrorCode code;
+    QString message;
+};
+
+typedef QList<JsonDbObject> JsonDbObjectList;
+struct Q_JSONDB_PARTITION_EXPORT JsonDbQueryResult {
+    JsonDbQueryResult() : offset(0), state(0), code(JsonDbError::NoError) { }
+    JsonDbObjectList data;
+    int offset;
+    quint32 state;
+    QStringList sortKeys;
+    JsonDbError::ErrorCode code;
+    QString message;
+};
+
 class Q_JSONDB_PARTITION_EXPORT JsonDbPartition : public QObject
 {
     Q_OBJECT
@@ -138,7 +158,7 @@ public:
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(),
                                 bool updateViews = true);
 
-    QJsonObject changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
+    JsonDbChangesSinceResult changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
 
     inline QString name() const { return mPartitionName; }
     inline void setName(const QString &name) { mPartitionName = name; }
@@ -148,14 +168,6 @@ public:
     JsonDbStat stat() const;
 
     QHash<QString, qint64> fileSizes() const;
-
-    // FIXME: copied from JsonDb class.
-    // This is the protocol leaking into the lower layers and should be removed
-    static void setError(QJsonObject &map, int code, const QString &message);
-    static QJsonObject makeError(int code, const QString &message);
-    static QJsonObject makeResponse(const QJsonObject &resultmap, const QJsonObject &errormap, bool silent = false);
-    static QJsonObject makeErrorResponse(QJsonObject &resultmap, int code, const QString &message, bool silent = false);
-    static bool responseIsError(const QJsonObject &responseMap);
 
 public Q_SLOTS:
     void updateView(const QString &objectType, quint32 stateNumber=0);

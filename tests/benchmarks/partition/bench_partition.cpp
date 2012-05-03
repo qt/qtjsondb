@@ -144,8 +144,8 @@ private:
 #define verifyGoodQueryResult(result) \
 { \
     JsonDbQueryResult __result = result; \
-    QVERIFY2(__result.error.type() == QJsonValue::Null,  \
-         __result.error.toObject().value("message").toString().toLocal8Bit()); \
+    QVERIFY2(__result.code == JsonDbError::NoError,  \
+         __result.message.toLocal8Bit()); \
 }
 
 const char *kFilename = "testdatabase";

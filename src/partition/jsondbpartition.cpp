@@ -672,45 +672,41 @@ GetObjectsResult JsonDbPartition::getObjects(const QString &keyName, const QJson
     return table->getObjects(keyName, keyValue, objectType);
 }
 
-QJsonObject JsonDbPartition::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
+JsonDbChangesSinceResult JsonDbPartition::changesSince(quint32 stateNumber, const QSet<QString> &limitTypes)
 {
-    if (!mIsOpen)
-        return JsonDbPartition::makeResponse(JsonDbObject(),
-                                             JsonDbPartition::makeError(JsonDbError::PartitionUnavailable,
-                                                                        QStringLiteral("Partition unvailable")));
+    JsonDbChangesSinceResult result;
+    if (!mIsOpen) {
+        result.code = JsonDbError::PartitionUnavailable;
+        result.message = QStringLiteral("Partition unvailable");
+        return result;
+    }
 
     JsonDbObjectTable *objectTable = 0;
-    if (!limitTypes.size())
+    if (!limitTypes.size()) {
         objectTable = mObjectTable;
-    else
+    } else {
         foreach (const QString &limitType, limitTypes) {
             JsonDbObjectTable *ot = findObjectTable(limitType);
-            if (!objectTable)
+            if (!objectTable) {
                 objectTable = ot;
-            else if (ot == objectTable)
+            } else if (ot == objectTable) {
                 continue;
-            else
-                return JsonDbPartition::makeError(JsonDbError::InvalidRequest,
-                                                  QStringLiteral("limit types must be from the same object table"));
+            } else {
+                result.code = JsonDbError::InvalidRequest;
+                result.message = QStringLiteral("limit types must be from the same object table");
+                return result;
+            }
         }
+    }
+
     Q_ASSERT(objectTable);
     JsonDbUpdateList changeList;
     quint32 currentStateNumber = objectTable->changesSince(stateNumber, limitTypes, &changeList);
-    QJsonArray changeArray;
-    foreach (const JsonDbUpdate &update, changeList) {
-        QJsonObject change;
-        change.insert(QStringLiteral("before"), update.oldObject);
-        change.insert(QStringLiteral("after"), update.newObject);
-        changeArray.append(change);
-    }
 
-    QJsonObject resultmap, errormap;
-    resultmap.insert(QStringLiteral("count"), changeArray.size());
-    resultmap.insert(QStringLiteral("startingStateNumber"), static_cast<qint32>(stateNumber));
-    resultmap.insert(QStringLiteral("currentStateNumber"), static_cast<qint32>(currentStateNumber));
-    resultmap.insert(QStringLiteral("changes"), changeArray);
-    QJsonObject changesSince(JsonDbPartition::makeResponse(resultmap, errormap));
-    return changesSince;
+    result.startingStateNumber = stateNumber;
+    result.currentStateNumber = currentStateNumber;
+    result.changes = changeList;
+    return result;
 }
 
 void JsonDbPartition::flushCaches()
@@ -1137,10 +1133,8 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     JsonDbQueryResult result;
 
     if (!mIsOpen) {
-        QJsonObject error;
-        error.insert(JsonDbString::kCodeStr, JsonDbError::PartitionUnavailable);
-        error.insert(JsonDbString::kMessageStr, QStringLiteral("Partition unavailable"));
-        result.error = error;
+        result.code = JsonDbError::PartitionUnavailable;
+        result.message = QStringLiteral("Partition unavailable");
         return result;
     }
 
@@ -1148,11 +1142,9 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     JsonDbObjectList joinedResults;
 
     if (!(query->queryTerms.size() || query->orderTerms.size())) {
-        QJsonObject error;
-        error.insert(JsonDbString::kCodeStr, JsonDbError::MissingQuery);
-        error.insert(JsonDbString::kMessageStr, QString::fromLatin1("Missing query: %1")
-                     .arg(query->queryExplanation.join(QStringLiteral("\n"))));
-        result.error = error;
+        result.code = JsonDbError::MissingQuery;
+        result.message = QString::fromLatin1("Missing query: %1")
+                .arg(query->queryExplanation.join(QStringLiteral("\n")));
         return result;
     }
 
@@ -1164,7 +1156,6 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     doIndexQuery(owner, results, limit, offset, indexQuery);
     int elapsedToQuery = time.elapsed();
     quint32 stateNumber = indexQuery->stateNumber();
-    int length = results.size();
     JsonDbQuery *residualQuery = indexQuery->residualQuery();
     if (residualQuery && residualQuery->orderTerms.size()) {
         if (jsondbSettings->verbose())
@@ -1172,19 +1163,15 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
         sortValues(residualQuery, results, joinedResults);
     }
 
-    QJsonArray sortKeys;
+    QStringList sortKeys;
     sortKeys.append(indexQuery->propertyName());
     sortKeys.append(indexQuery->objectTable()->filename());
 
     delete indexQuery;
 
-    QStringList mapExpressions = query->mapExpressionList;
-    QStringList mapKeys = query->mapKeyList;
-
     result.data = results;
-    result.length = length;
     result.offset = offset;
-    result.state = (qint32)stateNumber;
+    result.state = stateNumber;
     result.sortKeys = sortKeys;
     int elapsedToDone = time.elapsed();
     if (jsondbSettings->verbose())
@@ -1778,50 +1765,6 @@ void JsonDbPartition::updateSchemaIndexes(const QString &schemaName, QJsonObject
         if (propertyInfo.contains(QStringLiteral("properties")))
             updateSchemaIndexes(schemaName, propertyInfo, path + (QStringList() << k));
     }
-}
-
-void JsonDbPartition::setError(QJsonObject &map, int code, const QString &message)
-{
-    map.insert(JsonDbString::kCodeStr, code);
-    map.insert(JsonDbString::kMessageStr, message);
-}
-
-QJsonObject JsonDbPartition::makeError(int code, const QString &message)
-{
-    QJsonObject map;
-    setError(map, code, message);
-    return map;
-}
-
-QJsonObject JsonDbPartition::makeResponse(const QJsonObject &resultmap, const QJsonObject &errormap, bool silent)
-{
-    QJsonObject map;
-    if (jsondbSettings->verbose() && !silent && !errormap.isEmpty())
-        qCritical() << errormap;
-
-    if (!resultmap.isEmpty())
-        map.insert( JsonDbString::kResultStr, resultmap);
-    else
-        map.insert( JsonDbString::kResultStr, QJsonValue());
-
-    if (!errormap.isEmpty())
-        map.insert( JsonDbString::kErrorStr, errormap );
-    else
-        map.insert( JsonDbString::kErrorStr, QJsonValue());
-    return map;
-}
-
-QJsonObject JsonDbPartition::makeErrorResponse(QJsonObject &resultmap, int code, const QString &message, bool silent)
-{
-    QJsonObject errormap;
-    setError(errormap, code, message);
-    return makeResponse(resultmap, errormap, silent);
-}
-
-bool JsonDbPartition::responseIsError(const QJsonObject &responseMap)
-{
-    return responseMap.contains(JsonDbString::kErrorStr)
-            && responseMap.value(JsonDbString::kErrorStr).isObject();
 }
 
 bool WithTransaction::addObjectTable(JsonDbObjectTable *table)
