@@ -115,10 +115,9 @@ static void usage()
          << "     -sigstop            Send SIGSTOP to self when ready to notify upstart" << endl
 #endif
          << "     -tcpPort port       Specify a TCP port to listen on" << endl
-         << "     -config-path path   Specify the path to search for partitions.json files"
+         << "     -config-path path   Specify the path to search for partitions.json files" << endl
 #ifndef QT_NO_DEBUG_OUTPUT
          << "     -debug" << endl
-         << "     -debug-recovery" << endl
          << "     -performance-log    Print timings of database operations" << endl
 #endif
          << "     -verbose" << endl
