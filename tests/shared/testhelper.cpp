@@ -402,7 +402,7 @@ void TestHelper::requestFinished()
 
 void TestHelper::requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, QString msg)
 {
-    qWarning() << "Request error:" << code << msg;
+    Q_UNUSED(msg);
     QJsonDbRequest *request = qobject_cast<QJsonDbRequest*>(sender());
     if (request)
         mRequestErrors[request] = code;
