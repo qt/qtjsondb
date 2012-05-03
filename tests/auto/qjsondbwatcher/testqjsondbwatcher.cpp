@@ -93,9 +93,6 @@ private slots:
     void privatePartition();
 };
 
-static const char dbfileprefix[] = "test-jsondb-watcher";
-
-
 TestQJsonDbWatcher::TestQJsonDbWatcher()
 {
 }
@@ -109,7 +106,7 @@ void TestQJsonDbWatcher::initTestCase()
     removeDbFiles();
 
     QStringList arg_list = QStringList() << "-validate-schemas";
-    launchJsonDbDaemon(QString::fromLatin1(dbfileprefix), arg_list, __FILE__);
+    launchJsonDbDaemon(arg_list, __FILE__);
 }
 
 void TestQJsonDbWatcher::cleanupTestCase()

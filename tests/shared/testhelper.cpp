@@ -82,7 +82,7 @@ QJsonDocument TestHelper::readJsonFile(const QString &filename, QJsonParseError 
     return doc;
 }
 
-void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &args, const char *sourceFile)
+void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceFile)
 {
     QStringList partitionPath;
     QFileInfo partitionsFile(QFINDTESTDATA("partitions.json"));
@@ -111,8 +111,7 @@ void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &
     ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
 
     QStringList argList = args;
-    argList << QLatin1String("-base-name") << basename
-            << QLatin1String("-reject-stale-updates");
+    argList << QLatin1String("-reject-stale-updates");
 
     qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
 
@@ -144,7 +143,7 @@ void TestHelper::launchJsonDbDaemon(const QString &basename, const QStringList &
         qFatal("Unable to connect to jsondb process");
 }
 
-inline qint64 TestHelper::launchJsonDbDaemonDetached(const QString &basename, const QStringList &args, const char *sourceFile)
+inline qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile)
 {
     QStringList partitionPath;
     QFileInfo partitionsFile(QFINDTESTDATA("partitions.json"));
@@ -164,8 +163,7 @@ inline qint64 TestHelper::launchJsonDbDaemonDetached(const QString &basename, co
     ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
 
     QStringList argList = args;
-    argList << QLatin1String("-base-name") << basename
-            << QLatin1String("-reject-stale-updates");
+    argList << QLatin1String("-reject-stale-updates");
 
     qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
     qint64 pid;

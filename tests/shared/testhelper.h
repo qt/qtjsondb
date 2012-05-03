@@ -68,8 +68,8 @@ public:
 
     QJsonDocument readJsonFile(const QString &filename, QJsonParseError *error = 0);
 
-    void launchJsonDbDaemon(const QString &basename, const QStringList &args, const char *sourceFile);
-    qint64 launchJsonDbDaemonDetached(const QString &basename, const QStringList &args, const char *sourceFile);
+    void launchJsonDbDaemon(const QStringList &args, const char *sourceFile);
+    qint64 launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile);
     void stopDaemon();
 
     void connectToServer();

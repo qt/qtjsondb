@@ -45,8 +45,6 @@
 #include "testjsondbqueryobject.h"
 #include "../../shared/util.h"
 
-static const char dbfile[] = "dbFile-jsondb-partition";
-
 const QString qmlProgram = QLatin1String(
             "import QtQuick 2.0 \n"
             "import QtJsonDb 1.0 as JsonDb \n"
@@ -111,7 +109,7 @@ void TestJsonDbQueryObject::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList(), __FILE__);
 
     connection = QJsonDbConnection::defaultConnection();
     connection->connectToServer();

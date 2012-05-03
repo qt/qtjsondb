@@ -49,7 +49,6 @@
 #include <QQmlContext>
 #include <QDir>
 
-static const char dbfile[] = "dbFile-jsondb-listmodel";
 ModelData::ModelData(): engine(0), component(0), model(0)
 {
 }
@@ -104,7 +103,7 @@ void TestJsonDbListModel::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList(), __FILE__);
 
     mClient = new JsonDbClient(this);
     connect(mClient, SIGNAL(notified(QString,QtAddOn::JsonDb::JsonDbNotification)),

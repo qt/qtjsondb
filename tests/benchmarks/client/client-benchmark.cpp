@@ -45,8 +45,6 @@
 
 #include "util.h"
 
-static const char dbfile[] = "dbFile-test-jsondb";
-
 int gMany = ::getenv("BENCHMARK_MANY") ? ::atoi(::getenv("BENCHMARK_MANY")) : 1000;
 int gTransactionSize = ::getenv("BENCHMARK_TRANSACTION_SIZE") ? ::atoi(::getenv("BENCHMARK_TRANSACTION_SIZE")) : 100;
 bool gPerformanceLog = ::getenv("JSONDB_PERFORMANCE_LOG") ? (::memcmp(::getenv("JSONDB_PERFORMANCE_LOG"), "true", 4) == 0) : false;
@@ -92,7 +90,7 @@ void TestJson::initTestCase()
 #ifndef DONT_START_SERVER
     removeDbFiles();
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList(), __FILE__);
 #endif
 
     connectToServer();

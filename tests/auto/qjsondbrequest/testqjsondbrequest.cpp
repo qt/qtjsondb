@@ -60,8 +60,6 @@
 
 QT_USE_NAMESPACE_JSONDB
 
-static const char dbfileprefix[] = "test-jsondb-request";
-
 inline static const QString typeStr() { return QStringLiteral("_type"); }
 inline static const QString uuidStr() { return QStringLiteral("_uuid"); }
 inline static const QString versionStr() { return QStringLiteral("_version"); }
@@ -110,7 +108,7 @@ void TestQJsonDbRequest::initTestCase()
     removeDbFiles();
 
     QStringList arg_list = QStringList() << "-validate-schemas";
-    launchJsonDbDaemon(QString::fromLatin1(dbfileprefix), arg_list, __FILE__);
+    launchJsonDbDaemon(arg_list, __FILE__);
 }
 
 void TestQJsonDbRequest::cleanupTestCase()

@@ -52,8 +52,6 @@
 
 QT_USE_NAMESPACE_JSONDB
 
-static const char dbfileprefix[] = "test-jsondb-flushrequest";
-
 class TestQJsonDbFlushRequest: public TestHelper
 {
     Q_OBJECT
@@ -72,7 +70,7 @@ void TestQJsonDbFlushRequest::initTestCase()
     removeDbFiles();
 
     QStringList arg_list = QStringList() << "-validate-schemas";
-    launchJsonDbDaemon(QString::fromLatin1(dbfileprefix), arg_list, __FILE__);
+    launchJsonDbDaemon(arg_list, __FILE__);
 }
 
 void TestQJsonDbFlushRequest::cleanupTestCase()

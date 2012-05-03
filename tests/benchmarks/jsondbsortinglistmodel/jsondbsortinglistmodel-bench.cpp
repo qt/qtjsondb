@@ -46,7 +46,6 @@
 #include "util.h"
 #include <QQmlListReference>
 
-static const char dbfile[] = "dbFile-jsondb-cached-listmodel";
 ModelData::ModelData(): engine(0), component(0), model(0)
 {
 }
@@ -110,7 +109,7 @@ void JsonDbSortingListModelBench::initTestCase()
     deleteDbFiles();
 
     QString socketName = QString("testjsondb_%1").arg(getpid());
-    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList() << "-base-name" << dbfile, __FILE__);
+    mProcess = launchJsonDbDaemon(JSONDB_DAEMON_BASE, socketName, QStringList(), __FILE__);
 
     connection = new QJsonDbConnection();
     connection->connectToServer();
