@@ -72,6 +72,7 @@ class Q_JSONDB_PARTITION_EXPORT JsonDbSettings : public QObject
     Q_PROPERTY(bool debugQuery READ debugQuery WRITE setDebugQuery)
     Q_PROPERTY(QStringList configSearchPath READ configSearchPath WRITE setConfigSearchPath)
     Q_PROPERTY(int indexFieldValueSize READ indexFieldValueSize WRITE setIndexFieldValueSize)
+    Q_PROPERTY(int minimumRequiredSpace READ minimumRequiredSpace WRITE setMinimumRequiredSpace)
 
 public:
     static JsonDbSettings *instance();
@@ -127,6 +128,9 @@ public:
     // >= 76 because of map/reduce UUIDs which are 76 bytes (38 wide characters)
     inline void setIndexFieldValueSize(int size) { Q_ASSERT((size % 2) == 0 && size >= 76); mIndexFieldValueSize = size; }
 
+    inline int minimumRequiredSpace() const { return mMinimumRequiredSpace; }
+    inline void setMinimumRequiredSpace(int space) { mMinimumRequiredSpace = space; }
+
     JsonDbSettings();
 
 private:
@@ -148,6 +152,7 @@ private:
     bool mDebugQuery;
     QStringList mConfigSearchPath;
     int mIndexFieldValueSize;
+    int mMinimumRequiredSpace;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

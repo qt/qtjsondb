@@ -77,7 +77,7 @@ public:
     ~JsonDbPartitionPrivate();
 
     bool beginTransaction();
-    bool commitTransaction(quint32 stateNumber = 0);
+    JsonDbPartition::TxnCommitResult commitTransaction(quint32 stateNumber = 0);
     bool abortTransaction();
 
     void initIndexes();
@@ -120,6 +120,8 @@ public:
     void setSchema(const QString &schemaName, const QJsonObject &schema);
     void removeSchema(const QString &schemaName);
     void updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path=QStringList());
+    void updateSpaceStatus();
+    bool hasSpace();
 
     void _q_mainSyncTimer();
     void _q_indexSyncTimer();
@@ -140,6 +142,7 @@ public:
     QTimer      *mIndexSyncTimer;
     JsonDbOwner *mDefaultOwner;
     bool         mIsOpen;
+    JsonDbPartition::DiskSpaceStatus mDiskSpaceStatus;
 };
 
 class WithTransaction {
@@ -175,11 +178,13 @@ public:
         mPartition = 0;
     }
 
-    void commit(quint32 stateNumber = 0)
+    JsonDbPartition::TxnCommitResult commit(quint32 stateNumber = 0)
     {
+        JsonDbPartition::TxnCommitResult result;
         if (mPartition)
-            mPartition->commitTransaction(stateNumber);
+            result = mPartition->commitTransaction(stateNumber);
         mPartition = 0;
+        return result;
     }
 
 private:

@@ -116,6 +116,18 @@ public:
         ViewObject          // internal for view object
     };
 
+    enum DiskSpaceStatus {
+        UnknownStatus,  // Unknown, this happens between construction and open
+        HasSpace,         // Available space >= minimum required
+        OutOfSpace      // Available space < minimum required
+    };
+
+    enum TxnCommitResult {
+        TxnSucceeded,      // Everything ok
+        TxnOutOfSpace,     // Not enough space to write to disk
+        TxnStorageError    // Problems with the storage system
+    };
+
     JsonDbPartition(const QString &filename, const QString &name, JsonDbOwner *owner, QObject *parent = 0);
     ~JsonDbPartition();
 
@@ -124,6 +136,7 @@ public:
     bool close();
     bool isOpen() const;
     JsonDbOwner *defaultOwner() const;
+
 
     bool clear();
     void closeIndexes();

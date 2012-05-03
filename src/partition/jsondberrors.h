@@ -78,7 +78,9 @@ public:
         InvalidSchemaOperation = 19,
         InvalidIndexOperation = 20,
         InvalidType = 21,
-        FlushFailed = 22
+        FlushFailed = 22,
+        StorageProblem = 23,
+        OutOfSpace = 24
     };
 };
 

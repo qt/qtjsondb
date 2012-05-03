@@ -54,10 +54,12 @@
 #include <QStringBuilder>
 #include <QTimerEvent>
 #include <QMap>
+#include <QByteArray>
 
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/statvfs.h>
 
 #include "jsondbstrings.h"
 #include "jsondberrors.h"
@@ -84,6 +86,7 @@ JsonDbPartitionPrivate::JsonDbPartitionPrivate(JsonDbPartition *q)
     , mTransactionDepth(0)
     , mWildCardPrefixRegExp(QStringLiteral("([^*?\\[\\]\\\\]+).*"))
     , mIsOpen(false)
+    , mDiskSpaceStatus(JsonDbPartition::UnknownStatus)
 {
     mMainSyncTimer = new QTimer(q);
     mMainSyncTimer->setInterval(jsondbSettings->syncInterval() < 1000 ? 5000 : jsondbSettings->syncInterval());
@@ -260,6 +263,7 @@ bool JsonDbPartition::open()
         return false;
     }
 
+    d->updateSpaceStatus();
     if (!d->checkStateConsistency()) {
         qCritical() << "JsonDbPartition::open()" << "Unable to recover database";
         return false;
@@ -597,7 +601,10 @@ void JsonDbPartitionPrivate::removeView(const QString &viewType)
 
 void JsonDbPartition::updateView(const QString &objectType, quint32 stateNumber)
 {
+    // No point in updating the view if we are out of space.
     Q_D(JsonDbPartition);
+    if (!d->hasSpace())
+        return;
     if (JsonDbView *view = d->mViews.value(objectType))
         view->updateView(stateNumber);
 }
@@ -642,10 +649,10 @@ bool JsonDbPartitionPrivate::beginTransaction()
     return true;
 }
 
-bool JsonDbPartitionPrivate::commitTransaction(quint32 stateNumber)
+JsonDbPartition::TxnCommitResult JsonDbPartitionPrivate::commitTransaction(quint32 stateNumber)
 {
     if (--mTransactionDepth == 0) {
-        bool ret = true;
+        JsonDbPartition::TxnCommitResult ret = JsonDbPartition::TxnSucceeded;
         quint32 nextStateNumber = stateNumber ? stateNumber : (mObjectTable->stateNumber() + 1);
 
         if (jsondbSettings->debug())
@@ -656,9 +663,32 @@ bool JsonDbPartitionPrivate::commitTransaction(quint32 stateNumber)
 
         for (int i = 0; i < mTableTransactions.size(); i++) {
             JsonDbObjectTable *table = mTableTransactions.at(i);
-            if (!table->commit(nextStateNumber)) {
-                qCritical() << __FILE__ << __LINE__ << "Failed to commit transaction on object table";
-                ret = false;
+            if (hasSpace()) {
+                if (!table->commit(nextStateNumber)) {
+                    qCritical() << __FILE__ << __LINE__ << "Failed to commit transaction on object table";
+                    table->abort();
+                    updateSpaceStatus();
+                    /*
+                     * If the txn failed but there is space, we assume there is
+                     * a storage problem.
+                     * This is true in most cases, except when the txn that was
+                     * being written is larger than the minimumRequired. In that
+                     * case we will report StorageError when in reality it is
+                     * an OutOfMemory situation. To correctly identify that situation,
+                     * we would need to check all the way down the stack until
+                     * we get to the pwrite(...) call and find out how big was
+                     * the write that failed. In order to do that, we will need
+                     * to go all the way down to the btree implementation, which
+                     * will go beyond the JsonDbBtree interface which should
+                     * be our border (otherwise we will not be able to replace
+                     * the btree if needed).
+                     */
+                    ret = (mDiskSpaceStatus == JsonDbPartition::OutOfSpace) ?
+                                JsonDbPartition::TxnOutOfSpace :
+                                JsonDbPartition::TxnStorageError;
+                }
+            } else {
+                table->abort();
             }
         }
         mTableTransactions.clear();
@@ -670,7 +700,7 @@ bool JsonDbPartitionPrivate::commitTransaction(quint32 stateNumber)
 
         return ret;
     }
-    return true;
+    return JsonDbPartition::TxnSucceeded;
 }
 
 bool JsonDbPartitionPrivate::abortTransaction()
@@ -1277,6 +1307,11 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         result.message  = QStringLiteral("Partition unavailable");
         return result;
     }
+    if (!d->hasSpace()) {
+        result.code = JsonDbError::OutOfSpace;
+        result.message  = QStringLiteral("Out of space!");
+        return result;
+    }
 
     WithTransaction transaction(d);
     QList<JsonDbUpdate> updated;
@@ -1866,6 +1901,34 @@ void JsonDbPartitionPrivate::updateSchemaIndexes(const QString &schemaName, QJso
         if (propertyInfo.contains(QStringLiteral("properties")))
             updateSchemaIndexes(schemaName, propertyInfo, path + (QStringList() << k));
     }
+}
+
+void JsonDbPartitionPrivate::updateSpaceStatus()
+{
+    mDiskSpaceStatus = JsonDbPartition::UnknownStatus;
+    struct statvfs status;
+
+    QByteArray local8BitPath = mFilename.toLocal8Bit();
+    const char *path = local8BitPath.constData();
+    if (statvfs(path, &status) < 0) {
+        qCritical() << "statvfs failed" << mFilename;
+        return;
+    }
+    qint64 available = status.f_bsize * status.f_bavail;
+    if (available < jsondbSettings->minimumRequiredSpace()) {
+        qWarning() << "out of space";
+        mDiskSpaceStatus = JsonDbPartition::OutOfSpace;
+        return;
+    }
+    mDiskSpaceStatus = JsonDbPartition::HasSpace;
+}
+
+bool JsonDbPartitionPrivate::hasSpace()
+{
+    if (mDiskSpaceStatus == JsonDbPartition::HasSpace)
+        return true;
+    updateSpaceStatus();
+    return (mDiskSpaceStatus == JsonDbPartition::HasSpace);
 }
 
 bool WithTransaction::addObjectTable(JsonDbObjectTable *table)
