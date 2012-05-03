@@ -640,6 +640,12 @@ QVariant JsonDbListModel::data(const QModelIndex &modelIndex, int role) const
     return result;
 }
 
+QHash<int, QByteArray> JsonDbListModel::roleNames() const
+{
+    Q_D(const JsonDbListModel);
+    return d->roleNames;
+}
+
 void JsonDbListModel::set(int index, const QJSValue& valuemap,
                           const QJSValue &successCallback,
                           const QJSValue &errorCallback)
@@ -949,7 +955,6 @@ void JsonDbListModel::setScriptableRoleNames(const QVariant &vroles)
         }
     }
     DEBUG() << d->roleNames;
-    QAbstractItemModel::setRoleNames(d->roleNames);
 }
 
 QString JsonDbListModel::state() const

@@ -706,6 +706,12 @@ QVariant JsonDbSortingListModel::data(const QModelIndex &modelIndex, int role) c
     return pThis->d_func()->getItem(modelIndex.row(), role);
 }
 
+QHash<int, QByteArray> JsonDbSortingListModel::roleNames() const
+{
+    Q_D(const JsonDbSortingListModel);
+    return d->roleNames;
+}
+
 /*!
     \qmlproperty ListOrObject QtJsonDb::JsonDbSortingListModel::roleNames
 
@@ -789,7 +795,6 @@ void JsonDbSortingListModel::setScriptableRoleNames(const QVariant &vroles)
             d->properties.insert(i, removeArrayOperator(role).split('.'));
         }
     }
-    QAbstractItemModel::setRoleNames(d->roleNames);
 }
 
 /*!

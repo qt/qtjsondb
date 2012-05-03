@@ -1304,6 +1304,12 @@ QVariant JsonDbCachingListModel::data(const QModelIndex &modelIndex, int role) c
     return ret;
 }
 
+QHash<int, QByteArray> JsonDbCachingListModel::roleNames() const
+{
+    Q_D(const JsonDbCachingListModel);
+    return d->roleNames;
+}
+
 /*!
     \qmlproperty ListOrObject QtJsonDb::JsonDbCachingListModel::roleNames
 
@@ -1391,7 +1397,6 @@ void JsonDbCachingListModel::setScriptableRoleNames(const QVariant &vroles)
             d->properties.insert(i, removeArrayOperator(role).split('.'));
         }
     }
-    QAbstractItemModel::setRoleNames(d->roleNames);
 #ifdef JSONDB_LISTMODEL_BENCHMARK
     qint64 elap = elt.elapsed();
     if (elap > 3)
