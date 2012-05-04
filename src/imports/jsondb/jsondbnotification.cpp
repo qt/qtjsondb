@@ -72,7 +72,7 @@ QT_BEGIN_NAMESPACE_JSONDB
      }
     \endqml
 
-    You can also create notification as a child item of JsonDb.Partition.In this case the partiton
+    You can also create notification as a child item of JsonDb.Partition.In this case the partition
     property of the notification will be set to this parent JsonDb.Partition.
     \qml
     JsonDb.Partition {

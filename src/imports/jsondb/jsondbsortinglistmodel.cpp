@@ -642,7 +642,7 @@ void JsonDbSortingListModelPrivate::partitions_clear(QQmlListProperty<JsonDbPart
         id: contactsModel
         query: '[?_type="Contact"]'
         queryLimit: 100
-        partitions: [JsonDb.Partiton {
+        partitions: [JsonDb.Partition {
             name:"com.nokia.shared"
         }]
         sortOrder: "[/firstName]"
@@ -718,7 +718,7 @@ QVariant JsonDbSortingListModel::data(const QModelIndex &modelIndex, int role) c
     JsonDb.JsonDbSortingListModel {
         id: listModel
         query: "[?_type=\"MyType\"]"
-        partitions:[ JsonDb.Partiton {
+        partitions:[ JsonDb.Partition {
             name:"com.nokia.shared"
         }]
         roleNames: ['a', 'b']
@@ -745,7 +745,7 @@ QVariant JsonDbSortingListModel::data(const QModelIndex &modelIndex, int role) c
     JsonDb.JsonDbSortingListModel {
         id: listModel
         query: "[?_type=\"MyType\"]"
-        partitions: [JsonDb.Partiton {
+        partitions: [JsonDb.Partition {
             name:"com.nokia.shared"
         }]
         roleNames: makeRoleNames()
@@ -806,7 +806,7 @@ void JsonDbSortingListModel::setScriptableRoleNames(const QVariant &vroles)
     JsonDb.JsonDbSortingListModel {
         id: listModel
         query: "[?_type=\"CONTACT\"]"
-        partitions:[ JsonDb.Partiton {
+        partitions:[ JsonDb.Partition {
             name:"com.nokia.shared"
         }]
     }
@@ -850,7 +850,7 @@ void JsonDbSortingListModel::setQuery(const QString &newQuery)
     JsonDb.JsonDbSortingListModel {
         query: '[?_type="Contact"][?name=%firstName]'
         bindings :{'firstName':'Book'}
-        partitions:[ JsonDb.Partiton {
+        partitions:[ JsonDb.Partition {
             name:"com.nokia.shared"
         }]
     }
@@ -886,7 +886,7 @@ void JsonDbSortingListModel::setBindings(const QVariantMap &newBindings)
         id: listModel
         query: "[?_type=\"CONTACT\"]"
         queryLimit: 100
-        partitions: [JsonDb.Partiton {
+        partitions: [JsonDb.Partition {
             name:"com.nokia.shared"
         }]
     }
@@ -982,7 +982,7 @@ QQmlListProperty<JsonDbPartition> JsonDbSortingListModel::partitions()
     JsonDb.JsonDbSortingListModel {
         id: listModel
         query: "[?_type=\"CONTACT\"]"
-        partitions: [ JsonDb.Partiton {
+        partitions: [ JsonDb.Partition {
             name:"com.nokia.shared"
         }]
         sortOrder: "[/firstName]"

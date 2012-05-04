@@ -117,7 +117,7 @@ public:
     void setQuery(const QString &newQuery);
 
     JsonDbPartition* partition();
-    void setPartition(JsonDbPartition *newPartiton);
+    void setPartition(JsonDbPartition *newPartition);
 
     void setLimit(int newLimit);
     int limit() const;

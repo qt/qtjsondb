@@ -56,7 +56,7 @@ QPointer<QJsonDbConnection> JsonDatabase::connection(0);
     \inqmlmodule QtJsonDb
     \since 1.x
 
-    JsonDatabase allows to list and access different JsonDb partitons. This is exposed
+    JsonDatabase allows to list and access different JsonDb partitions. This is exposed
     as a QML module, so that it can be used without creating a QML element.
 */
 
@@ -72,7 +72,7 @@ JsonDatabase::~JsonDatabase()
 /*!
     \qmlmethod object QtJsonDb::JsonDatabase::partition(partitionName, parentItem)
 
-    Retrieve the Partition object for the specifed \a partitonName. The script engine
+    Retrieve the Partition object for the specifed \a partitionName. The script engine
     decides the life time of the returned object. The returned object can be saved
     in a 'property var' until it is required.
 
