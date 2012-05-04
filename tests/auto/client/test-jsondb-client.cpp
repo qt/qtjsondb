@@ -356,16 +356,8 @@ void TestJsonDbClient::initTestCase()
         delete mClient;
 
         // Create needed test users & groups
-        bool use_shadow = QFile::exists(QLatin1String(NSS_PREFIX "/etc/shadow")) &&
-                QFile::exists(QLatin1String(NSS_PREFIX "/etc/gshadow"));
-        QString etcipwd, etcigr;
-        if (use_shadow) {
-            etcipwd = QStringLiteral (NSS_PREFIX "/etc/shadow");
-            etcigr = QStringLiteral (NSS_PREFIX "/etc/gshadow");
-        } else {
-            etcipwd = QStringLiteral (NSS_PREFIX "/etc/passwd");
-            etcigr = QStringLiteral (NSS_PREFIX "/etc/group");
-        }
+        QString etcipwd = QStringLiteral (NSS_PREFIX "/etc/passwd");
+        QString etcigr = QStringLiteral (NSS_PREFIX "/etc/group");
         uid_t uid = 1042;
         errno = 0;
         struct passwd *old_pwd;
