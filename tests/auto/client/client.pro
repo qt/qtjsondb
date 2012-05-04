@@ -1,6 +1,6 @@
 TARGET = tst_client
 
-QT = network testlib jsondbcompat-private
+QT = network testlib jsondb-private
 CONFIG -= app_bundle
 CONFIG += testcase
 

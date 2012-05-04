@@ -67,6 +67,8 @@ public:
     explicit TestHelper(QObject *parent = 0);
 
     QJsonDocument readJsonFile(const QString &filename, QJsonParseError *error = 0);
+    QString findFile(const QString &filename);
+    QString findFile(const char *filename);
 
     void launchJsonDbDaemon(const QStringList &args, const char *sourceFile);
     qint64 launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile);
@@ -85,8 +87,14 @@ public:
                                          int lastStateChangedExpected = 0);
     bool waitForStatus(QtJsonDb::QJsonDbWatcher *watcher,
                        QtJsonDb::QJsonDbWatcher::Status status);
+    bool waitForStatusAndNotifications(QtJsonDb::QJsonDbWatcher *watcher,
+                                       QtJsonDb::QJsonDbWatcher::Status status,
+                                       int notificationsExpected);
     bool waitForError(QtJsonDb::QJsonDbWatcher *watcher,
                       QtJsonDb::QJsonDbWatcher::ErrorCode error);
+
+    QtJsonDb::QJsonDbConnection *connection() const
+    { return mConnection; }
 
 protected:
     QProcess *mProcess;
@@ -97,6 +105,8 @@ protected:
     int mLastStateChangedExpected;
     int mLastStateChangedReceived;
     QHash<QtJsonDb::QJsonDbRequest *, QtJsonDb::QJsonDbRequest::ErrorCode> mRequestErrors;
+
+    void blockWithTimeout();
 
 protected Q_SLOTS:
     void connectionError(QtJsonDb::QJsonDbConnection::ErrorCode code, QString msg);
@@ -116,7 +126,6 @@ protected Q_SLOTS:
 private:
     static bool dontLaunch();
     static bool useValgrind();
-    void blockWithTimeout();
 
     int mRequestsPending;
     QtJsonDb::QJsonDbWatcher::Status mReceivedStatus;

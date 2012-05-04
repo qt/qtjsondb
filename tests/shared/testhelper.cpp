@@ -65,6 +65,29 @@ TestHelper::TestHelper(QObject *parent) :
 {
 }
 
+QString TestHelper::findFile(const QString &filename)
+{
+    QString file = ":/json/" + filename;
+    if (QFile::exists(file))
+    {
+        return file;
+    }
+
+    file = QCoreApplication::applicationDirPath() + QDir::separator() + filename;
+    if (QFile::exists(file))
+        return file;
+
+    file = QDir::currentPath() + QDir::separator() + filename;
+    if (QFile::exists(file))
+        return file;
+    return "";
+}
+
+QString TestHelper::findFile(const char *filename)
+{
+    return findFile(QString::fromLocal8Bit(filename));
+}
+
 QJsonDocument TestHelper::readJsonFile(const QString &filename, QJsonParseError *error)
 {
     QString filepath = filename;
@@ -143,7 +166,7 @@ void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceF
         qFatal("Unable to connect to jsondb process");
 }
 
-inline qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile)
+qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile)
 {
     if (dontLaunch())
         return 0;
@@ -347,6 +370,41 @@ bool TestHelper::waitForStatus(QJsonDbWatcher *watcher, QJsonDbWatcher::Status s
     return mReceivedStatus == status;
 }
 
+bool TestHelper::waitForStatusAndNotifications(QJsonDbWatcher *watcher, QJsonDbWatcher::Status status, int notificationsExpected)
+{
+    mReceivedError = QJsonDbWatcher::NoError;
+    mReceivedStatus = watcher->status();
+    mExpectedStatus = status;
+    mNotificationsExpected = notificationsExpected;
+    mNotificationsReceived = 0;
+
+    bool checkStatus = mReceivedStatus == status;
+
+    if (!checkStatus) {
+        connect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
+                this, SLOT(watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+    }
+
+    connect(watcher, SIGNAL(notificationsAvailable(int)),
+            this, SLOT(watcherNotificationsAvailable(int)));
+    connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+            this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+
+    blockWithTimeout();
+
+    if (!checkStatus) {
+        disconnect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
+                   this, SLOT(watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+    }
+
+    disconnect(watcher, SIGNAL(notificationsAvailable(int)),
+               this, SLOT(watcherNotificationsAvailable(int)));
+    disconnect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+               this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+
+    return mReceivedStatus == status && mNotificationsReceived >= mNotificationsExpected;
+}
+
 bool TestHelper::waitForError(QJsonDbWatcher *watcher, QJsonDbWatcher::ErrorCode error)
 {
     mExpectedError = error;
@@ -373,11 +431,15 @@ bool TestHelper::useValgrind()
 
 void TestHelper::blockWithTimeout()
 {
+    int tout = 10000;
+    if (qgetenv("JSONDB_CLIENT_TIMEOUT").size())
+       tout = QString::fromLatin1(qgetenv("JSONDB_CLIENT_TIMEOUT")).toLong();
+
     QTimer t;
     connect(&t, SIGNAL(timeout()), &mEventLoop, SLOT(quit()));
     connect(&t, SIGNAL(timeout()), this, SLOT(timeout()));
 
-    t.start(10000);
+    t.start(tout);
     mEventLoop.exec(QEventLoop::AllEvents);
     t.stop();
 }
