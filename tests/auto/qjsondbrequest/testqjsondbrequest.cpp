@@ -298,12 +298,15 @@ void TestQJsonDbRequest::removablePartition()
 
     // dd a file to use with our loopback device
     QString tmpFile = QStringLiteral("/tmp/removablePartition.img");
-    QVERIFY(system(QString::fromLatin1("dd if=/dev/zero of=%1 bs=1024 count=2048 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
-    QVERIFY(system(QString::fromLatin1("mkfs -F -t ext3 %1 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
+    QVERIFY(system(QString::fromLatin1("dd if=/dev/zero of=%1 bs=1024 count=512 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
+    if (QFile::exists(QLatin1String("/sbin/mkfs")))
+        QVERIFY(system(QString::fromLatin1("mkfs -F -T ext3 %1 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
+    else
+        QVERIFY(system(QString::fromLatin1("mkfs.ext3 -F -T ext3 %1 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
 
     // mount
     QVERIFY(mnt.mkpath(QStringLiteral(".")));
-    QVERIFY(system(QString::fromLatin1("mount -o loop -t ext3 %1 %2 > /dev/null 2>&1").arg(tmpFile).arg(mnt.absolutePath()).toLatin1()) == 0);
+    QVERIFY(system(QString::fromLatin1("mount -o loop %1 %2 > /dev/null 2>&1").arg(tmpFile).arg(mnt.absolutePath()).toLatin1()) == 0);
 
     kill(mProcess->pid(), SIGHUP);
     QVERIFY(waitForResponseAndNotifications(0, &watcher, 1));
