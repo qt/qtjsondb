@@ -614,7 +614,7 @@ bool asciiCmpFuncForVec(const QByteArray &a, const QByteArray &b) {
 void newTestRow(QString name, int nItems, int szKeys, int szData, bool addCmpBool, bool addRandBool, bool addPreviousBool)
 {
     if (addRandBool)
-        Q_ASSERT(nItems < numTableSize);
+        Q_ASSERT(nItems <= numTableSize);
 
     QTest::newRow(name.toLatin1().constData()) << nItems << szKeys << szData << addCmpBool << addRandBool << addPreviousBool;
 }
@@ -1712,9 +1712,9 @@ bool multiBranchInsertData(HBtree *db, QMap<QByteArray, QByteArray> keyValues)
 
 void TestHBtree::multiBranchSplits_data()
 {
-    QList<int> itemCounts = QList<int>() << 1000 << 2000;
-    QList<int> keySizes = QList<int>() << 1000;
-    QList<int> dataSizes = QList<int>() << 200 << 1000;
+    QList<int> itemCounts = QList<int>() << 3000;
+    QList<int> keySizes = QList<int>() << 512;
+    QList<int> dataSizes = QList<int>() << 1000;
     setTestData(itemCounts, keySizes, dataSizes, false, true);
 }
 
@@ -2488,7 +2488,7 @@ void TestHBtree::corruptBothSyncMarkers()
 void TestHBtree::cursorWhileDelete_data()
 {
     QList<int> itemCounts = QList<int>() << 100 << 1000;
-    QList<int> keySizes = QList<int>() << 100 << 1000;
+    QList<int> keySizes = QList<int>() << 100 << 512;
     QList<int> dataSizes = QList<int>() << 100 << 1000 << 2000 << 5000;
     setTestData(itemCounts, keySizes, dataSizes, false, false, true);
 }

@@ -1077,8 +1077,8 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
         return false;
     }
 
-    if (keyData.size() > (int)spec_.overflowThreshold) {
-        HBTREE_ERROR("cannot insert keys larger than overflow threshold. Key size:" << keyData.size() << "Threshold:" << spec_.overflowThreshold);
+    if (keyData.size() > 512) {
+        HBTREE_ERROR("cannot insert keys larger than 512 bytes. Key size:" << keyData.size());
         return false;
     }
 
