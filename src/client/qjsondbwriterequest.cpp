@@ -293,35 +293,18 @@ void QJsonDbWriteRequestPrivate::_q_privatePartitionStarted(quint32 state)
     the given object and puts it into QJsonDbWriteRequest.
 */
 /*!
+    \fn QJsonDbCreateRequest::QJsonDbCreateRequest(const QJsonObject &object, QObject *parent)
+
     Creates a new QJsonDbCreateRequest object with the given \a parent to create
     the given \a object in the database.
 */
-QJsonDbCreateRequest::QJsonDbCreateRequest(const QJsonObject &object, QObject *parent)
-    : QJsonDbWriteRequest(parent)
-{
-    QJsonDbObject obj = object;
-    if (obj.uuid().isNull())
-        obj.setUuid(QJsonDbObject::createUuid());
-    QList<QJsonObject> list;
-    list.append(obj);
-    setObjects(list);
-}
 
 /*!
+    \fn QJsonDbCreateRequest::QJsonDbCreateRequest(const QList<QJsonObject> &objects, QObject *parent)
+
     Creates a new QJsonDbCreateRequest object with the given \a parent to create
     the given list of \a objects in the database.
 */
-QJsonDbCreateRequest::QJsonDbCreateRequest(const QList<QJsonObject> &objects, QObject *parent)
-    : QJsonDbWriteRequest(parent)
-{
-    QList<QJsonObject> objs = objects;
-    for (int i = 0; i < objs.size(); ++i) {
-        QJsonObject &obj = objs[i];
-        if (!obj.contains(JsonDbStrings::Property::uuid()))
-            obj.insert(JsonDbStrings::Property::uuid(), QUuid::createUuid().toString());
-    }
-    setObjects(objs);
-}
 
 /*!
     \class QJsonDbUpdateRequest
@@ -333,38 +316,18 @@ QJsonDbCreateRequest::QJsonDbCreateRequest(const QList<QJsonObject> &objects, QO
     objects to the write request.
 */
 /*!
+    \fn QJsonDbUpdateRequest::QJsonDbUpdateRequest(const QJsonObject &object, QObject *parent)
+
     Creates a new QJsonDbUpdateRequest object with the given \a parent to update
     the given \a object in the database.
 */
-QJsonDbUpdateRequest::QJsonDbUpdateRequest(const QJsonObject &object, QObject *parent)
-    : QJsonDbWriteRequest(parent)
-{
-    QJsonDbObject obj = object;
-    if (obj.uuid().isNull()) {
-        qWarning() << "QJsonDbUpdateRequest: couldn't update an object that doesn't have uuid";
-        return;
-    }
-    QList<QJsonObject> list;
-    list.append(obj);
-    setObjects(list);
-}
 
 /*!
+    \fn QJsonDbUpdateRequest::QJsonDbUpdateRequest(const QList<QJsonObject> &objects, QObject *parent)
+
     Creates a new QJsonDbUpdateRequest object with the given \a parent to update
     the given list of \a objects in the database.
 */
-QJsonDbUpdateRequest::QJsonDbUpdateRequest(const QList<QJsonObject> &objects, QObject *parent)
-    : QJsonDbWriteRequest(parent)
-{
-    for (int i = 0; i < objects.size(); ++i) {
-        QJsonDbObject obj = objects.at(i);
-        if (obj.uuid().isNull()) {
-            qWarning() << "QJsonDbUpdateRequest: couldn't update an object that doesn't have uuid";
-            return;
-        }
-    }
-    setObjects(objects);
-}
 
 /*!
     \class QJsonDbRemoveRequest
@@ -376,35 +339,18 @@ QJsonDbUpdateRequest::QJsonDbUpdateRequest(const QList<QJsonObject> &objects, QO
     objects to be deleted and puts them into QJsonDbWriteRequest.
 */
 /*!
+    \fn QJsonDbRemoveRequest::QJsonDbRemoveRequest(const QJsonObject &object, QObject *parent)
+
     Creates a new QJsonDbRemoveRequest object with the given \a parent to remove
     the given \a object from the database.
 */
-QJsonDbRemoveRequest::QJsonDbRemoveRequest(const QJsonObject &object, QObject *parent)
-    : QJsonDbWriteRequest(parent)
-{
-    QJsonObject obj =  object;
-    if (!obj.value(JsonDbStrings::Property::deleted()).toBool())
-        obj.insert(JsonDbStrings::Property::deleted(), QJsonValue(true));
-    QList<QJsonObject> list;
-    list.append(obj);
-    setObjects(list);
-}
 
 /*!
+    \fn QJsonDbRemoveRequest::QJsonDbRemoveRequest(const QList<QJsonObject> &objects, QObject *parent)
+
     Creates a new QJsonDbRemoveRequest object with the given \a parent to remove
     the given list of \a objects from the database.
 */
-QJsonDbRemoveRequest::QJsonDbRemoveRequest(const QList<QJsonObject> &objects, QObject *parent)
-    : QJsonDbWriteRequest(parent)
-{
-    QList<QJsonObject> objs = objects;
-    for (int i = 0; i < objs.size(); ++i) {
-        QJsonObject &obj = objs[i];
-        if (!obj.value(JsonDbStrings::Property::deleted()).toBool())
-            obj.insert(JsonDbStrings::Property::deleted(), QJsonValue(true));
-    }
-    setObjects(objs);
-}
 
 #include "moc_qjsondbwriterequest.cpp"
 
