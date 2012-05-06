@@ -44,6 +44,8 @@
 
 #ifndef NO_COLLATION_SUPPORT
 
+#include <QtCore/qglobal.h>
+
 #include "jsondbcollator.h"
 
 #include <unicode/utypes.h>
@@ -76,6 +78,9 @@ public:
     ~JsonDbCollatorPrivate();
 
     int compare(ushort *s1, int len1, ushort *s2, int len2);
+
+private:
+    Q_DISABLE_COPY(JsonDbCollatorPrivate)
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

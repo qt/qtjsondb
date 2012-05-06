@@ -209,9 +209,11 @@ void JsonDbCollator::detach()
     if (d->ref.load() != 1) {
         JsonDbCollatorPrivate *x = new JsonDbCollatorPrivate;
         x->ref.store(1);
+        x->modified = true;
+        x->locale = d->locale;
+        x->collation = d->collation;
         x->strength = d->strength;
         x->options = d->options;
-        x->modified = true;
         x->collator = 0;
         if (!d->ref.deref())
             delete d;
