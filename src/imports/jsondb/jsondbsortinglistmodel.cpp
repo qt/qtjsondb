@@ -1114,8 +1114,8 @@ JsonDbPartition* JsonDbSortingListModel::getPartition(int index) const
 
     This property holds the current error information for the object. It contains:
     \list
-    \o error.code -  code for the current error.
-    \o error.message - detailed explanation of the error
+    \li error.code -  code for the current error.
+    \li error.message - detailed explanation of the error
     \endlist
 */
 

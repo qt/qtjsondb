@@ -62,11 +62,29 @@ QT_BEGIN_NAMESPACE_JSONDB
     documentation - e.g. QJsonDbReadRequest::ErrorCode.
 
     \value NoError
-    \value MissingQuery Missing query field.
-    \value InvalidLimit Invalid limit field
+
+    \value InvalidRequest
+    \value OperationNotPermitted
     \value InvalidPartition Invalid partition.
+    \value DatabaseConnectionError
+    \value PartitionUnavailable
+    \value MissingQuery Missing query field.
+    \value InvalidMessage
+    \value InvalidLimit Invalid limit field
+    \value InvalidOffset
+    \value InvalidStateNumber
     \value MissingObject Invalid or missing "object" field.
+    \value DatabaseError
+    \value MissingUUID
     \value MissingType Missing _type field
+    \value UpdatingStaleVersion
+    \value FailedSchemaValidation
+    \value InvalidMap
+    \value InvalidReduce
+    \value InvalidSchemaOperation
+    \value InvalidIndexOperation
+    \value InvalidType
+
 */
 /*!
     \enum QJsonDbRequest::Status
@@ -240,7 +258,7 @@ bool QJsonDbRequest::isActive() const
     \sa finished(), statusChanged()
 */
 /*!
-    \fn void QJsonDbRequest::statusChanged(QtJsonDb::QJsonDbRequest::Status newStatus);
+    \fn void QJsonDbRequest::statusChanged(QtJsonDb::QJsonDbRequest::Status newStatus)
     This signal is emitted when state of the request changed to \a newStatus.
     \sa status, finished(), error()
 */

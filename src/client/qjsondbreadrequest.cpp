@@ -76,10 +76,14 @@ QT_BEGIN_NAMESPACE_JSONDB
     be emitted by the error() signal.
 
     \value NoError
-    \value MissingQuery Missing query field.
-    \value MissingType Missing _type field.
-    \value InvalidLimit Invalid limit field
+    \value InvalidRequest
+    \value OperationNotPermitted
     \value InvalidPartition Invalid partition.
+    \value DatabaseConnectionError
+    \value PartitionUnavailable
+    \value MissingQuery Missing query field.
+    \value InvalidMessage
+    \value InvalidLimit Invalid limit field
 
     \sa error(), QJsonDbRequest::ErrorCode
 */

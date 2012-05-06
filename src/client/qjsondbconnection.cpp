@@ -149,6 +149,7 @@ Q_GLOBAL_STATIC(QThreadStorage<QJsonDbConnection *>, _q_defaultConnection);
 
     \value Unconnected Not connected.
     \value Connecting Connection to the database is being established.
+    \value Authenticating Authentication is in process.
     \value Connected Connection established.
 */
 

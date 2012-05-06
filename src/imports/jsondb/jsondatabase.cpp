@@ -65,12 +65,15 @@ JsonDatabase::JsonDatabase(QObject *parent)
 {
 }
 
+/*!
+    \internal
+ */
 JsonDatabase::~JsonDatabase()
 {
 }
 
 /*!
-    \qmlmethod object QtJsonDb::JsonDatabase::partition(partitionName, parentItem)
+    \qmlmethod object QtJsonDb::JsonDatabase::partition(partitionName)
 
     Retrieve the Partition object for the specifed \a partitionName. The script engine
     decides the life time of the returned object. The returned object can be saved
@@ -81,8 +84,6 @@ JsonDatabase::~JsonDatabase()
     var nokiaDb = JsonDb.partition("com.nokia")
     \endcode
 */
-
-
 JsonDbPartition* JsonDatabase::partition(const QString &partitionName)
 {
     JsonDbPartition* newPartition = new JsonDbPartition(partitionName);

@@ -267,13 +267,11 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
 */
 /*!
     \qmlmethod int QtJsonDb::Partition::update(object updatedObject, function callback)
-    \overload QtJsonDbPartition::update(object,object,function)
 
     Update the object without specifying the update options.
 */
 /*!
     \qmlmethod int QtJsonDb::Partition::update(object updatedObject)
-    \overload QtJsonDbPartition::update(object,object,function)
 
     Update the object without specifying the update options or callback function.
 */
@@ -367,14 +365,12 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
 */
 /*!
     \qmlmethod int QtJsonDb::Partition::remove(object updatedObject, function callback)
-    \overload QtJsonDbPartition::remove(object,object,function)
 
     Remove the object without specifying the update options.
 */
 
 /*!
     \qmlmethod int QtJsonDb::Partition::remove(object updatedObject)
-    \overload QtJsonDbPartition::remove(object,object,function)
 
     Remove the object without specifying the update options or callback function.
 */

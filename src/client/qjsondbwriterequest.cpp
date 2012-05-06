@@ -88,10 +88,26 @@ QT_BEGIN_NAMESPACE_JSONDB
     be emitted by the error() signal.
 
     \value NoError
+
+
+    \value InvalidRequest
+    \value OperationNotPermitted
+    \value InvalidPartition
+    \value DatabaseConnectionError
+    \value PartitionUnavailable
     \value MissingObject Missing object field.
+    \value DatabaseError
+    \value MissingUUID
+    \value MissingType
     \value UpdatingStaleVersion The value of _version supplied to this write request
-    does not match the current value of _version stored for this object in the
-    database.
+        does not match the current value of _version stored for this object in the
+        database.
+    \value FailedSchemaValidation
+    \value InvalidMap
+    \value InvalidReduce
+    \value InvalidSchemaOperation
+    \value InvalidIndexOperation
+    \value InvalidType
 
     \sa error(), QJsonDbRequest::ErrorCode
 */

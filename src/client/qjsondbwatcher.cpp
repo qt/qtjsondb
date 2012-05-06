@@ -240,10 +240,12 @@ QJsonDbWatcherPrivate::QJsonDbWatcherPrivate(QJsonDbWatcher *q)
     This enum describes possible errors that can happen when activating the watcher.
 
     \value NoError
-    \value InvalidActions the set of actions that was given is incorrect.
-    \value InvalidQuery the given query is incorrect.
+    \value InvalidRequest
+    \value OperationNotPermitted
     \value InvalidPartition the given partition is incorrect.
-    \value InvalidStateNumber the given initialStateNumber is incorrect.
+    \value DatabaseConnectionError
+    \value MissingQuery
+    \value InvalidStateNumber
 */
 
 /*!
