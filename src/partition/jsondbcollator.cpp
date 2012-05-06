@@ -102,7 +102,7 @@ JsonDbCollator &JsonDbCollator::operator=(const JsonDbCollator &other)
     if (this != &other) {
         if (!d->ref.deref())
             delete d;
-        *d = *other.d;
+        d = other.d;
         d->ref.ref();
     }
     return *this;
