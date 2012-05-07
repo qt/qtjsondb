@@ -52,7 +52,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 QPointer<QJsonDbConnection> JsonDatabase::connection(0);
 
 /*!
-    \qmlclass JsonDatabase
+    \qmlclass JsonDatabase JsonDatabase
     \inqmlmodule QtJsonDb
     \since 1.x
 
@@ -60,6 +60,9 @@ QPointer<QJsonDbConnection> JsonDatabase::connection(0);
     as a QML module, so that it can be used without creating a QML element.
 */
 
+/*!
+    \internal
+ */
 JsonDatabase::JsonDatabase(QObject *parent)
     :QObject(parent)
 {

@@ -484,7 +484,10 @@ QString QJsonDbConnection::socketName() const
 /*!
     \property QJsonDbConnection::status
     Specifies the current connection state.
-    \sa statusChanged(), connected(), disconnected(), error()
+
+    The statusChanged() signal is emitted when the connection status changes.
+
+    \sa connected(), disconnected(), error()
 */
 QJsonDbConnection::Status QJsonDbConnection::status() const
 {
@@ -883,13 +886,6 @@ QJsonDbConnection *QJsonDbConnection::defaultConnection()
     attempt will be made.
 
     \sa autoReconnectEnabled, status, connectToServer()
-*/
-/*!
-    \fn void QJsonDbConnection::statusChanged(QtJsonDb::QJsonDbConnection::Status newStatus)
-
-    This signal is emitted when a connection state changes to \a newStatus.
-
-    \sa status
 */
 #include "moc_qjsondbconnection.cpp"
 

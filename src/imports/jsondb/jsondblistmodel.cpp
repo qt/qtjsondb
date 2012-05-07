@@ -501,7 +501,7 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
 */
 
 /*!
-    \qmlclass JsonDbListModel
+    \qmlclass JsonDbListModel JsonDbListModel
     \inqmlmodule QtJsonDb
     \inherits ListModel
     \since 1.x

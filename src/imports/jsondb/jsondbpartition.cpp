@@ -50,7 +50,7 @@
 QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
-    \qmlclass Partition
+    \qmlclass Partition JsonDbPartition
     \inqmlmodule QtJsonDb
     \since 1.x
 

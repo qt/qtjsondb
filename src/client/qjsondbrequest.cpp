@@ -124,7 +124,9 @@ QJsonDbRequest::~QJsonDbRequest()
 /*!
     \property QJsonDbRequest::status
     Specifies the current request status.
-    \sa statusChanged()
+
+    The statusChanged() signal is emitted when the status of the request is
+    changed.
 */
 QJsonDbRequest::Status QJsonDbRequest::status() const
 {
@@ -256,11 +258,6 @@ bool QJsonDbRequest::isActive() const
     \a code and \a message describe the error.
 
     \sa finished(), statusChanged()
-*/
-/*!
-    \fn void QJsonDbRequest::statusChanged(QtJsonDb::QJsonDbRequest::Status newStatus)
-    This signal is emitted when state of the request changed to \a newStatus.
-    \sa status, finished(), error()
 */
 
 #include "moc_qjsondbrequest.cpp"

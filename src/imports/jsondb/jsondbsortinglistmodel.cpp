@@ -619,7 +619,7 @@ void JsonDbSortingListModelPrivate::partitions_clear(QQmlListProperty<JsonDbPart
 }
 
 /*!
-    \qmlclass JsonDbSortingListModel
+    \qmlclass JsonDbSortingListModel JsonDbSortingListModel
     \inqmlmodule QtJsonDb
     \inherits ListModel
     \since 1.x

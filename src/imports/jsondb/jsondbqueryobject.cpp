@@ -49,7 +49,7 @@
 QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
-    \qmlclass Query
+    \qmlclass Query JsonDbQueryObject
     \inqmlmodule QtJsonDb
     \since 1.x
 

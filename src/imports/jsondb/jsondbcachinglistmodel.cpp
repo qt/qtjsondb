@@ -1185,7 +1185,7 @@ void JsonDbCachingListModelPrivate::partitions_clear(QQmlListProperty<JsonDbPart
 }
 
 /*!
-    \qmlclass JsonDbCachingListModel
+    \qmlclass JsonDbCachingListModel JsonDbCachingListModel
     \inqmlmodule QtJsonDb
     \since 1.x
 

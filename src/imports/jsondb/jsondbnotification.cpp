@@ -47,7 +47,7 @@
 QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
-    \qmlclass Notification
+    \qmlclass Notification JsonDbNotify
     \inqmlmodule QtJsonDb
     \since 1.x
 

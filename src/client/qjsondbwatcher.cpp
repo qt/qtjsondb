@@ -271,7 +271,8 @@ QJsonDbWatcher::~QJsonDbWatcher()
 /*!
     \property QJsonDbWatcher::status
     Specifies the current watcher status.
-    \sa statusChanged()
+
+    The statusChanged() signal is emitted when state of the watcher is changed.
 */
 QJsonDbWatcher::Status QJsonDbWatcher::status() const
 {
@@ -389,7 +390,10 @@ quint32 QJsonDbWatcher::initialStateNumber() const
 
     The lastStateNumber will be changed after receiving all notifications for that state number.
 
-    \sa lastStateNumberChanged(), status
+    This lastStateNumberChanged() signal is emitted when the given stateNumber
+    is fully processed - all notifications for it were successfully received.
+
+    \sa status
 */
 quint32 QJsonDbWatcher::lastStateNumber() const
 {
@@ -501,23 +505,10 @@ void QJsonDbWatcherPrivate::handleStateChange(quint32 stateNumber)
     \sa takeNotifications()
 */
 /*!
-    \fn void QJsonDbWatcher::statusChanged(QtJsonDb::QJsonDbWatcher::Status newStatus);
-    This signal is emitted when state of the watcher changed to \a newStatus.
-    \sa status
-*/
-/*!
     \fn void QJsonDbWatcher::error(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
 
     This signal is emitted when an error occured while activating the watcher.
     \a code and \a message describe the error.
-*/
-/*!
-    \fn void QJsonDbWatcher::lastStateNumberChanged(int stateNumber);
-
-    This signal is emitted when the given \a stateNumber is fully processed -
-    all notifications for it were successfully received.
-
-    \sa lastStateNumber
 */
 
 #include "moc_qjsondbwatcher.cpp"
