@@ -92,6 +92,7 @@ private slots:
     void bindings();
     void sortedQuery();
     void ordering();
+    void orderingCaseSensitive();
     void checkRemoveNotification();
     void checkUpdateNotification();
     void totalRowCount();
@@ -115,6 +116,7 @@ private:
     QVariant getProperty(QAbstractListModel *model, int index, const QByteArray &roleName);
     void createIndex(const QString &property, const QString &propertyType);
     void createIndexNoName(const QString &property, const QString &propertyType);
+    void createIndexCaseSensitive(const QString &name, const QString &property, const QString &propertyType, bool caseSensitive);
     QAbstractListModel *createModel();
     void deleteModel(QAbstractListModel *model);
     void resetWaitFlags();

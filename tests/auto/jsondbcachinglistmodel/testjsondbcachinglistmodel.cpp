@@ -232,6 +232,22 @@ void TestJsonDbCachingListModel::createIndexNoName(const QString &property, cons
     waitForResponse1(id);
 }
 
+void TestJsonDbCachingListModel::createIndexCaseSensitive(const QString &name, const QString &property, const QString &propertyType, bool caseSensitive)
+{
+    QVariantMap item;
+    item.insert("_type", "Index");
+    item.insert("name", name);
+    item.insert("propertyName", property);
+    item.insert("propertyType", propertyType);
+    item.insert("caseSensitive", caseSensitive);
+
+    int id = create(item, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    id = create(item, "com.nokia.shared.2");
+    waitForResponse1(id);
+}
+
 // Create items in the model.
 void TestJsonDbCachingListModel::createItem()
 {
@@ -718,6 +734,101 @@ void TestJsonDbCachingListModel::ordering()
     QCOMPARE(getOrderValues(listModel), expectedOrder);
 
     deleteModel(listModel);
+}
+
+void TestJsonDbCachingListModel::orderingCaseSensitive()
+{
+    resetWaitFlags();
+    int id;
+    QVariantMap item1;
+    item1.insert("_type", __FUNCTION__);
+    item1.insert("ordering", "aaa");
+    id = create(item1, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    QVariantMap item2;
+    item2.insert("_type", __FUNCTION__);
+    item2.insert("ordering", "aBB");
+    id = create(item2, "com.nokia.shared.2");
+    waitForResponse1(id);
+
+    QVariantMap item3;
+    item3.insert("_type", __FUNCTION__);
+    item3.insert("ordering", "Aba");
+    id = create(item3, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    QVariantMap item4;
+    item4.insert("_type", __FUNCTION__);
+    item4.insert("ordering", "Aab");
+    id = create(item4, "com.nokia.shared.2");
+    waitForResponse1(id);
+
+    QVariantMap item5;
+    item5.insert("_type", __FUNCTION__);
+    item5.insert("ordering", "AAA");
+    id = create(item5, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    QVariantMap item6;
+    item6.insert("_type", __FUNCTION__);
+    item6.insert("ordering", "Aaa");
+    id = create(item6, "com.nokia.shared.2");
+    waitForResponse1(id);
+
+    QVariantMap item7;
+    item7.insert("_type", __FUNCTION__);
+    item7.insert("ordering", "AAa");
+    id = create(item7, "com.nokia.shared.1");
+    waitForResponse1(id);
+
+    QStringList stringList1 = QStringList() << "AAA" << "AAa" << "Aaa" << "Aab" <<
+                                            "Aba" << "aBB" << "aaa";
+    QStringList stringList2 = QStringList() << "" << "" << "" << "" <<
+                                            "Aab" << "Aba" << "aBB";
+    QStringList roleNames = (QStringList() << "_type" << "_uuid" << "name" << "ordering" << "_version");
+
+    QAbstractListModel *listModel1 = createModel();
+    if (!listModel1) return;
+
+    createIndexCaseSensitive("caseSensitive", "ordering", "string", true);
+
+    listModel1->setProperty("sortOrder", "[/caseSensitive]");
+    listModel1->setProperty("roleNames", roleNames);
+    listModel1->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel1);
+
+    // now start it working
+    QCOMPARE(listModel1->rowCount(), 0);
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    mItemsUpdated = 0;
+    QCOMPARE(getOrderValues(listModel1), stringList1);
+
+    QAbstractListModel *listModel2 = createModel();
+    if (!listModel2) return;
+
+    createIndexCaseSensitive("caseInSensitive", "ordering", "string", false);
+
+    listModel2->setProperty("sortOrder", "[/caseInSensitive]");
+    listModel2->setProperty("roleNames", roleNames);
+    listModel2->setProperty("query", QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    connectListModel(listModel2);
+
+    // now start it working
+    QCOMPARE(listModel2->rowCount(), 0);
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    mItemsUpdated = 0;
+    QStringList result = getOrderValues(listModel2);
+    for (int i = 4; i < 7; i++)
+        QCOMPARE(result[i], stringList2[i]);
 }
 
 void TestJsonDbCachingListModel::checkRemoveNotification()

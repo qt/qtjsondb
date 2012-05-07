@@ -350,6 +350,8 @@ void JsonDbCachingListModelPrivate::verifyIndexSpec(const QList<QJsonObject> &it
                 if (indexSpec.name == indexName) {
                     if (!propertyType.compare(QLatin1String("string"), Qt::CaseInsensitive)) {
                         indexSpec.type = SortIndexSpec::String;
+                        if (spec.value(QLatin1String("caseSensitive")).isBool())
+                            indexSpec.caseSensitive = spec.value(QLatin1String("caseSensitive")).toBool();
                         validIndex = true;
                     } else if (!propertyType.compare(QLatin1String("number"), Qt::CaseInsensitive)) {
                         indexSpec.type = SortIndexSpec::Number;

@@ -78,7 +78,7 @@ struct SortIndexSpec
     enum Type { None, String, Number, UUID };
     Type type;
 
-    SortIndexSpec() : caseSensitive(false), type(SortIndexSpec::None) {}
+    SortIndexSpec() : caseSensitive(true), type(SortIndexSpec::None) {}
     SortIndexSpec(const SortIndexSpec &other)
         : propertyName(other.propertyName),
           name(other.name),
