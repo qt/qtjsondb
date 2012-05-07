@@ -49,8 +49,6 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-QPointer<QJsonDbConnection> JsonDatabase::connection(0);
-
 /*!
     \qmlclass JsonDatabase JsonDatabase
     \inqmlmodule QtJsonDb
@@ -204,13 +202,11 @@ void JsonDatabase::onQueryError(QtJsonDb::QJsonDbRequest::ErrorCode code, const 
 
 QJsonDbConnection& JsonDatabase::sharedConnection()
 {
-    if (!connection) {
-        connection = QJsonDbConnection::defaultConnection();
-        connection->connectToServer();
-    }
+    QJsonDbConnection *connection = QJsonDbConnection::defaultConnection();
+    Q_ASSERT(connection);
+    connection->connectToServer();
     return *connection;
 }
-
 
 #include "moc_jsondatabase.cpp"
 QT_END_NAMESPACE_JSONDB

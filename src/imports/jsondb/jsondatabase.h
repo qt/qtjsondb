@@ -63,6 +63,7 @@ public:
     Q_INVOKABLE JsonDbPartition* partition(const QString &partitionName);
     Q_INVOKABLE void listPartitions(const QJSValue &callback);
     Q_INVOKABLE QString uuidFromString(const QString &identifier);
+
     static QJsonDbConnection& sharedConnection();
 
 private Q_SLOTS:
@@ -71,7 +72,6 @@ private Q_SLOTS:
 
 private:
     QMap<QJsonDbReadRequest*, QJSValue> listCallbacks;
-    static QPointer<QJsonDbConnection> connection;
 };
 
 QT_END_NAMESPACE_JSONDB
