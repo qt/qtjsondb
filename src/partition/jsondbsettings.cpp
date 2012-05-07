@@ -53,6 +53,7 @@ JsonDbSettings::JsonDbSettings() :
     mRejectStaleUpdates(false)
   , mDebug(false)
   , mVerbose(false)
+  , mVerboseErrors(false)
   , mPerformanceLog(false)
   , mCacheSize(128)
   , mCompactRate(1000)
