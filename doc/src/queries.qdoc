@@ -119,9 +119,13 @@ list [3, 4, 5].
 \li All objects in the database with a "size" field that is not contained in the
 list [3, 4, 5].
 \row
-\li \c {[?name =~ "!fred.*!"]}
+\li \c {[?name =~ "/fred.*/"]}
 \li Objects with a name field matching the regular expression "fred.*", case
 sensitive.
+ \row
+ \li \c {[?name =~ "!fr/ed.*!"]}
+ \li Objects with a name field matching the regular expression "fr/ed.*", case
+ sensitive.
 \row
 \li \c {[?name =~ "!fred.*!i"]}
 \li Objects with a name field matching the regular expression "fred.*", case
@@ -133,6 +137,10 @@ sensitive.
 \row
 \li \c {[?name =~ "!fred*!wi"]}
 \li Objects with a name field matching the wildcard expression "fred*", case
+insensitive.
+\row
+\li \c {[?name !=~ "!fred*!wi"]}
+\li Objects with a name field not matching the wildcard expression "fred*", case
 insensitive.
 \row
 \li \c {[?name startsWith "fred"]}

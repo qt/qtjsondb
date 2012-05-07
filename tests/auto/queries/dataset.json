@@ -18,7 +18,9 @@
     "num-bunnies-age-8": 2,
     "num-fluffy-bunnies":4,
     "num-demon-bunnies":4,
-    "num-russian-bunnies":2
+    "num-russian-bunnies":2,
+
+    "num-dogs": 3
   },
   {
     "_uuid": "{e3384f3c-9c73-4b6a-8325-a466ce1e26a8}",

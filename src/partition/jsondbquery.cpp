@@ -55,7 +55,7 @@ QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 const char* JsonDbQueryTokenizer::sTokens[] = {
 "[", "]", "{", "}", "/", "?", ",", ":", "|", "\\"
 //operators are ordered by precedence
-, "!=", "<=", ">=", "=~", "->", "=", ">", "<"
+, "!=~", "=~", "!=", "<=", ">=", "->", "=", ">", "<"
 , ""//end of the token list
 };
 
@@ -141,7 +141,7 @@ QString JsonDbQueryTokenizer::getNextToken()
         //operators
         int i = 0;
         while (sTokens[i][0] != 0) {
-            if (mInput.midRef(mPos - 1,2).startsWith(QLatin1String(sTokens[i]))) {
+            if (mInput.midRef(mPos - 1,3).startsWith(QLatin1String(sTokens[i]))) {
                 if (!result.isEmpty()) {
                     mPos --;
                     return result;
@@ -349,7 +349,8 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                 else
                     term.setPropertyName(fieldSpec);
                 term.setOp(op);
-                if (op == QLatin1String("=~")) {
+                if (op == QLatin1String("=~")
+                        || op == QLatin1String("!=~")) {
                     QString tvs = tokenizer.pop();
                     int sepPos = 1; // assuming it's a literal "/regexp/modifiers"
                     if (tvs.startsWith(QLatin1Char('%'))) {
@@ -560,8 +561,14 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
             } else if (op == QLatin1String("=~")) {
                 QRegExp rx = term.regExpConst();
                 if (jsondbSettings->debug())
-                    qDebug() << objectFieldValue.toString() << rx.exactMatch(objectFieldValue.toString());
+                    qDebug() << "=~" << objectFieldValue.toString() << rx.exactMatch(objectFieldValue.toString());
                 if (rx.exactMatch(objectFieldValue.toString()))
+                    matches = true;
+            } else if (op == QLatin1String("!=~")) {
+                QRegExp rx = term.regExpConst();
+                if (jsondbSettings->debug())
+                    qDebug() << "!=~" << objectFieldValue.toString() << rx.exactMatch(objectFieldValue.toString());
+                if (!rx.exactMatch(objectFieldValue.toString()))
                     matches = true;
             } else if (op == QLatin1String("<=")) {
                 matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);

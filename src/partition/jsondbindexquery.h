@@ -227,12 +227,14 @@ private:
 };
 class QueryConstraintRegExp: public QueryConstraint {
 public:
-    QueryConstraintRegExp(const QRegExp &regexp) : mRegExp(regexp) {}
-    inline bool matches(const QJsonValue &v) { return mRegExp.exactMatch(v.toString()); }
+    QueryConstraintRegExp(const QRegExp &regexp, bool negated=false) : mRegExp(regexp), mNegated(negated) {}
+    inline void setNegated(bool negated) { mNegated = negated; }
+    inline bool matches(const QJsonValue &v) { bool matches = mRegExp.exactMatch(v.toString()); if (mNegated) return !matches; else return matches; }
     inline bool sparseMatchPossible() const { return true; }
 private:
     QString mValue;
     QRegExp mRegExp;
+    bool mNegated;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

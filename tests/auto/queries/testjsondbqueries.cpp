@@ -500,11 +500,20 @@ void TestJsonDbQueries::queryRegExp()
     QCOMPARE(queryResult.code, JsonDbError::NoError);
     QCOMPARE(queryResult.data.count(), 1);
 
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name !=~ \"/*ov*/w\" ]"));
+    QCOMPARE((int)queryResult.code, (int)JsonDbError::NoError);
+    QCOMPARE(queryResult.data.count(), mDataStats["num-dogs"].toInt()-1);
+
     QJsonObject bindings;
     bindings.insert(QLatin1String("regexp"), QLatin1String("/*ov*/w"));
     queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name =~ %regexp ]"), bindings);
     QCOMPARE(queryResult.code, JsonDbError::NoError);
     QCOMPARE(queryResult.data.count(), 1);
+
+    bindings.insert(QLatin1String("regexp"), QLatin1String("/*ov*/w"));
+    queryResult = find(mOwner, QLatin1String("[?_type = \"dog\"][?name !=~ %regexp ]"), bindings);
+    QCOMPARE(queryResult.code, JsonDbError::NoError);
+    QCOMPARE(queryResult.data.count(), mDataStats["num-dogs"].toInt()-1);
 }
 
 void TestJsonDbQueries::queryExtract()

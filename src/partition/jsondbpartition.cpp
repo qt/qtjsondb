@@ -853,12 +853,13 @@ void JsonDbPartition::compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const Que
         indexQuery->addConstraint(new QueryConstraintEq(fieldValue));
         indexQuery->setMin(fieldValue);
         indexQuery->setMax(fieldValue);
-    } else if (op == QLatin1String("=~")) {
+    } else if (op == QLatin1String("=~")
+               || op == QLatin1String("!=~")) {
         const QRegExp &re = queryTerm.regExpConst();
         QRegExp::PatternSyntax syntax = re.patternSyntax();
         Qt::CaseSensitivity cs = re.caseSensitivity();
         QString pattern = re.pattern();
-        indexQuery->addConstraint(new QueryConstraintRegExp(re));
+        indexQuery->addConstraint(new QueryConstraintRegExp(re, (op == QLatin1String("=~") ? false : true)));
         if (cs == Qt::CaseSensitive) {
             QString prefix;
             if ((syntax == QRegExp::Wildcard)
