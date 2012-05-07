@@ -55,27 +55,6 @@ QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 class JsonDbOwner;
 class JsonDbPartition;
 
-class Q_JSONDB_PARTITION_EXPORT JsonDbMapProxy : public QObject {
-    Q_OBJECT
-public:
-    JsonDbMapProxy(const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent=0);
-    ~JsonDbMapProxy();
-
-    Q_SCRIPTABLE void emitViewObject(const QString &key, const QJSValue &value );
-    Q_SCRIPTABLE void lookup(const QString &key, const QJSValue &value, const QJSValue &context );
-    Q_SCRIPTABLE void lookupWithType(const QString &key, const QJSValue &value, const QJSValue &objectType, const QJSValue &context);
-
-    void setOwner(const JsonDbOwner *owner) { mOwner = owner; }
-
- signals:
-    void viewObjectEmitted(const QJSValue &);
-    // to be removed when all map/lookup are converted to join/lookup
-    void lookupRequested(const QJSValue &, const QJSValue &);
-private:
-    const JsonDbOwner *mOwner;
-    JsonDbPartition *mPartition;
-};
-
 class Q_JSONDB_PARTITION_EXPORT JsonDbJoinProxy : public QObject {
     Q_OBJECT
 public:

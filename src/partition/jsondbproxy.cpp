@@ -50,42 +50,6 @@
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-JsonDbMapProxy::JsonDbMapProxy(const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent)
-  : QObject(parent)
-  , mOwner(owner)
-  , mPartition(partition)
-{
-}
-JsonDbMapProxy::~JsonDbMapProxy()
-{
-}
-
-void JsonDbMapProxy::emitViewObject(const QString &key, const QJSValue &v)
-{
-    QJSValue object = JsonDbScriptEngine::scriptEngine()->newObject();
-    object.setProperty(QStringLiteral("key"), key);
-    object.setProperty(QStringLiteral("value"), v);
-    emit viewObjectEmitted(object);
-}
-
-void JsonDbMapProxy::lookup(const QString &key, const QJSValue &value, const QJSValue &context)
-{
-    QJSValue query = JsonDbScriptEngine::scriptEngine()->newObject();
-    query.setProperty(QStringLiteral("index"), key);
-    query.setProperty(QStringLiteral("value"), value);
-
-    emit lookupRequested(query, context);
-}
-
-void JsonDbMapProxy::lookupWithType(const QString &key, const QJSValue &value, const QJSValue &objectType, const QJSValue &context)
-{
-    QJSValue query = JsonDbScriptEngine::scriptEngine()->newObject();
-    query.setProperty(QStringLiteral("index"), key);
-    query.setProperty(QStringLiteral("value"), value);
-    query.setProperty(QStringLiteral("objectType"), objectType);
-    emit lookupRequested(query, context);
-}
-
 JsonDbJoinProxy::JsonDbJoinProxy(const JsonDbOwner *owner, JsonDbPartition *partition, QObject *parent)
   : QObject(parent)
   , mOwner(owner)
