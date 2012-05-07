@@ -272,9 +272,9 @@ bool JsonDbObjectTable::addIndex(const JsonDbIndexSpec &indexSpec)
     index->open();
     mIndexes.insert(indexSpec.name, index);
 
-    if (index->stateNumber() == 0 || index->stateNumber() != mStateNumber) {
+    if (mStateNumber && (index->stateNumber() == 0 || index->stateNumber() != mStateNumber)) {
         if (jsondbSettings->verbose())
-            qDebug() << "Index" << indexSpec.name << "stateNumber" << index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing" << "clearing";
+            qDebug() << "Index" << indexSpec.name << "stateNumber" << index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing";
         index->clearData();
         reindexObjects(indexSpec.name, stateNumber());
     }
