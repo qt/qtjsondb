@@ -659,10 +659,8 @@ QList<QString> OrQueryTerm::findUnindexablePropertyNames() const
              && !unindexablePropertyNames.contains(propertyName))
             unindexablePropertyNames.append(propertyName);
         // if multiple properties are access in an disjunction ("|") then we cannot use an index on it
-        if (propertyName != firstPropertyName) {
-            qDebug() << "unindexable" << firstPropertyName << propertyName;
+        if (propertyName != firstPropertyName)
             unindexablePropertyNames.append(propertyName);
-        }
     }
     return unindexablePropertyNames;
 }
