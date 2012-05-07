@@ -463,7 +463,7 @@ void TestJsonDbSortingListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", QString::number(i));
-        int id = create(item, "com.nokia.shared.2");
+        int id = create(item, QString("com.nokia.shared.%1").arg(i%2+1).toAscii());
         waitForResponse1(id);
     }
 
@@ -543,7 +543,7 @@ void TestJsonDbSortingListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("order", "0");    // move it to the beginning
-        update(item, "com.nokia.shared.2");
+        update(item, "com.nokia.shared.1");
     }
     while (!mItemsUpdated) {
         mWaitingForChanged = true;

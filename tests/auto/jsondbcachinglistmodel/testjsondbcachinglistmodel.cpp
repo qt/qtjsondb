@@ -597,7 +597,7 @@ void TestJsonDbCachingListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("ordering", QString::number(i));
-        int id = create(item, "com.nokia.shared.2");
+        int id = create(item, QString("com.nokia.shared.%1").arg(i%2+1).toAscii());
         waitForResponse1(id);
     }
 
@@ -686,7 +686,7 @@ void TestJsonDbCachingListModel::ordering()
         item.insert("_type", __FUNCTION__);
         item.insert("name", "Charlie");
         item.insert("ordering", "0");    // move it to the beginning
-        int id = update(item, "com.nokia.shared.2");
+        int id = update(item, "com.nokia.shared.1");
         waitForResponse1(id);
     }
     while (!mItemsUpdated) {
