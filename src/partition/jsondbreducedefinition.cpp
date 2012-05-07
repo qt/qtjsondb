@@ -73,6 +73,7 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(const JsonDbOwner *owner, JsonDbP
     , mTargetType(mDefinition.value(QStringLiteral("targetType")).toString())
     , mTargetTable(mPartition->findObjectTable(mTargetType))
     , mSourceType(mDefinition.value(QStringLiteral("sourceType")).toString())
+    , mJoinProxy(0)
 {
     if (mDefinition.contains(QStringLiteral("targetKeyName")))
         mTargetKeyName = mDefinition.value(QStringLiteral("targetKeyName")).toString();
@@ -125,8 +126,10 @@ void JsonDbReduceDefinition::initScriptEngine()
         return;
 
     mScriptEngine = JsonDbScriptEngine::scriptEngine();
+    mJoinProxy = new JsonDbJoinProxy(mOwner, mPartition, this);
+
     QString message;
-    bool status = compileFunctions(mScriptEngine, mDefinition, mFunctions, message);
+    bool status = compileFunctions(mScriptEngine, mDefinition, mJoinProxy, mFunctions, message);
     if (!status)
         setError(message);
 
@@ -137,6 +140,10 @@ void JsonDbReduceDefinition::initScriptEngine()
 void JsonDbReduceDefinition::releaseScriptEngine()
 {
     mFunctions.clear();
+    if (mJoinProxy) {
+        delete mJoinProxy;
+        mJoinProxy = 0;
+    }
     mScriptEngine = 0;
 }
 
@@ -313,12 +320,12 @@ bool JsonDbReduceDefinition::validateDefinition(const JsonDbObject &reduce, Json
         QJSEngine *scriptEngine = JsonDbScriptEngine::scriptEngine();
         QVector<QJSValue> functions;
         // check for script errors
-        compileFunctions(scriptEngine, reduce, functions, message);
+        compileFunctions(scriptEngine, reduce, 0, functions, message);
     }
     return message.isEmpty();
 }
 
-bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObject definition,
+bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObject definition, JsonDbJoinProxy *proxy,
                                               QVector<QJSValue> &functions, QString &message)
 {
     bool status = true;
@@ -333,14 +340,28 @@ bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObje
         if (!definition.contains(functionName))
             continue;
         QString script = definition.value(functionName).toString();
-        QJSValue result = scriptEngine->evaluate(QString::fromLatin1("(%1)").arg(script));
 
-        if (result.isError() || !result.isCallable()) {
-            message = QString::fromLatin1("Unable to parse add function: %1").arg(result.toString());
+        // first, package it as a function that takes a jsondb proxy and returns the add/subtract function
+        QJSValue moduleFunction = scriptEngine->evaluate(QString::fromLatin1("(function (proxy) { jsondb = {createUuidFromString: proxy.createUuidFromString}; return (%1); })").arg(script));
+
+        if (moduleFunction.isError() || !moduleFunction.isCallable()) {
+            message = QString::fromLatin1("Unable to parse %1 function: %2").arg(functionName).arg(moduleFunction.toString());
             status = false;
             continue;
         }
-        functions[functionNumber] = result;
+
+        // now pass it the jsondb proxy to get the add/subtract function
+        QJSValueList args;
+        if (proxy)
+            args << scriptEngine->newQObject(proxy);
+        else
+            args << QJSValue(QJSValue::UndefinedValue);
+        QJSValue function = moduleFunction.call(args);
+        if (moduleFunction.isError() || !moduleFunction.isCallable()) {
+            message = QString::fromLatin1("Unable to evaluate %1 function: %2").arg(functionName).arg(moduleFunction.toString());
+            status = false;
+        }
+        functions[functionNumber] = function;
     }
     return status;
 }

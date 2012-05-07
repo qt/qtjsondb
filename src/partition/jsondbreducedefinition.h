@@ -99,7 +99,7 @@ private:
         Subtract = 1,
         SourceKeyValue = 2
     };
-    static bool compileFunctions(QJSEngine *scriptEngine, QJsonObject definition, QVector<QJSValue> &mFunctions, QString &message);
+    static bool compileFunctions(QJSEngine *scriptEngine, QJsonObject definition, JsonDbJoinProxy *joinProxy, QVector<QJSValue> &mFunctions, QString &message);
     QJsonValue sourceKeyValue(const JsonDbObject &object);
     QJsonValue addObject(FunctionNumber fn, const QJsonValue &keyValue, QJsonValue previousResult, JsonDbObject object);
 
@@ -118,6 +118,7 @@ private:
     QString        mSourceKeyName;
     // mSourceKeyName split on .
     QStringList    mSourceKeyNameList;
+    JsonDbJoinProxy *mJoinProxy;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION
