@@ -1,3 +1,3 @@
 TEMPLATE = subdirs
-SUBDIRS += jsondb-listmodel jsondb
+SUBDIRS += jsondb
 

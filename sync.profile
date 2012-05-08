@@ -1,7 +1,6 @@
 %modules = ( # path to module name map
     "QtJsonDb" => "$basedir/src/client",
     "QtJsonDbPartition" => "$basedir/src/partition",
-    "QtJsonDbCompat" => "$basedir/src/clientcompat",
 );
 %moduleheaders = ( # restrict the module headers to those found in relative path
 );

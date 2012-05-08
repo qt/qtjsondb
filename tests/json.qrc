@@ -2,7 +2,7 @@
     <qresource prefix="/json">
         <file alias="create-test.json">auto/client/create-test.json</file>
         <file alias="client">auto/client/json</file>
-        <file alias="list-objects.json">auto/jsondb-listmodel/list-objects.json</file>
+        <file alias="list-objects.json">shared/json/list-objects.json</file>
         <file>auto/jsondblistmodel/list-objects.json</file>
         <file>auto/jsondbsortinglistmodel/list-objects.json</file>
         <file alias="dataset.json">auto/queries/dataset.json</file>

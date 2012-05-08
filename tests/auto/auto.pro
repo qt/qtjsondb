@@ -5,7 +5,6 @@ SUBDIRS = \
     partition \
     accesscontrol \
     qbtree \
-    jsondb-listmodel \
     jsondblistmodel \
     jsondbsortinglistmodel \
     jsondbcachinglistmodel \
