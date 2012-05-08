@@ -51,6 +51,7 @@
 #include <QScopedPointer>
 #include <QJsonObject>
 #include <QtJsonDb/qjsondbglobal.h>
+#include <QJSValue>
 
 QT_BEGIN_HEADER
 
@@ -75,6 +76,7 @@ public:
     Q_PROPERTY(int rowCount READ rowCount NOTIFY rowCountChanged)
     Q_PROPERTY(QString sortOrder READ sortOrder WRITE setSortOrder)
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
+    Q_PROPERTY(QJSValue propertyInjector READ propertyInjector WRITE setPropertyInjector)
 
     QJsonDbQueryModel(QJsonDbConnection *dbConnection, QObject *parent = 0);
     virtual ~QJsonDbQueryModel();
@@ -86,6 +88,10 @@ public:
     virtual QHash<int,QByteArray> roleNames() const;
 
     QVariantMap error() const;
+
+    QJSValue propertyInjector() const;
+    void setPropertyInjector(const QJSValue &callback);
+    Q_INVOKABLE void refreshItems();
 
     QVariantMap bindings() const;
     void setBindings(const QVariantMap &newBindings);

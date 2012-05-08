@@ -49,6 +49,7 @@
 #ifdef JSONDB_LISTMODEL_BENCHMARK
 #include <QElapsedTimer>
 #endif
+#include <QJSEngine>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -60,6 +61,7 @@ QJsonDbQueryModelPrivate::QJsonDbQueryModelPrivate(QJsonDbQueryModel *q)
     , state(QJsonDbQueryModel::None)
     , errorCode(0)
     , lastQueriedIndex(-1)
+    , isCallable(false)
 {
     setCacheParams(INT_MAX/10);
 }
@@ -96,9 +98,12 @@ QJsonDbQueryModelPrivate::~QJsonDbQueryModelPrivate()
 
 // insert item notification handler
 // + add items, for chunked read
-void QJsonDbQueryModelPrivate::addItem(const QJsonObject &item, int partitionIndex)
+void QJsonDbQueryModelPrivate::addItem(const QJsonObject &newItem, int partitionIndex)
 {
     Q_Q(QJsonDbQueryModel);
+    QJsonObject item = newItem;
+    if (isCallable)
+        generateCustomData(item);
     const QString &uuid = item.value(QLatin1String("_uuid")).toString();
     // ignore duplicates.
     if (objectSortValues.contains(uuid))
@@ -154,9 +159,12 @@ void QJsonDbQueryModelPrivate::deleteItem(const QJsonObject &item, int partition
 }
 
 // updateitem notification handler
-void QJsonDbQueryModelPrivate::updateItem(const QJsonObject &item, int partitionIndex)
+void QJsonDbQueryModelPrivate::updateItem(const QJsonObject &changedItem, int partitionIndex)
 {
     Q_Q(QJsonDbQueryModel);
+    QJsonObject item = changedItem;
+    if (isCallable)
+        generateCustomData(item);
     QString uuid = item.value(QLatin1String("_uuid")).toString();
     QMap<QString, SortingKey>::const_iterator keyIndex = objectSortValues.constFind(uuid);
     if (keyIndex != objectSortValues.constEnd()) {
@@ -437,6 +445,30 @@ void QJsonDbQueryModelPrivate::emitDataChanged(int from, int to)
     emit q->dataChanged(modelIndexFrom, modelIndexTo);
 }
 
+void QJsonDbQueryModelPrivate::generateCustomData(QJsonObject &val)
+{
+    Q_Q(QJsonDbQueryModel);
+    QJSValueList args;
+    args << injectCallback.engine()->toScriptValue(val);
+    QJSValue retVal = injectCallback.call(args);
+    QJsonObject customData = qjsvalue_cast<QJsonObject>(retVal);
+    QJsonObject::const_iterator it = customData.constBegin(), e = customData.constEnd();
+    for (; it != e; ++it) {
+        val.insert(it.key(), it.value());
+    }
+}
+
+void QJsonDbQueryModelPrivate::generateCustomData(JsonDbModelObjectType &objects)
+{
+    if (!isCallable)
+        return;
+    JsonDbModelObjectType::iterator i = objects.begin();
+    while (i != objects.end()) {
+        generateCustomData(i.value());
+        i++;
+    }
+}
+
 void QJsonDbQueryModelPrivate::fillData(const QList<QJsonObject> &items, int partitionIndex)
 {
     Q_Q(QJsonDbQueryModel);
@@ -467,6 +499,7 @@ void QJsonDbQueryModelPrivate::fillData(const QList<QJsonObject> &items, int par
         qDebug()<<"Finished Req For:"<<currentCacheRequest.index<<currentCacheRequest.count;
         qDebug()<<"Finished Req received count: "<<tmpObjects.count()<<" Total Items:"<<objectUuids.count();
 #endif
+        generateCustomData(tmpObjects);
         objectCache.addObjects(currentCacheRequest.index, objectUuids, tmpObjects);
         tmpObjects.clear();
         JsonDbModelIndexNSize req = currentCacheRequest;
@@ -1788,6 +1821,31 @@ QVariantMap QJsonDbQueryModel::error() const
     errorMap.insert(QLatin1String("code"), d->errorCode);
     errorMap.insert(QLatin1String("message"), d->errorString);
     return errorMap;
+}
+
+QJSValue QJsonDbQueryModel::propertyInjector() const
+{
+    Q_D(const QJsonDbQueryModel);
+    return d->injectCallback;
+
+}
+
+void QJsonDbQueryModel::setPropertyInjector(const QJSValue &callback)
+{
+    Q_D(QJsonDbQueryModel);
+    d->injectCallback = callback;
+    d->isCallable = callback.isCallable();
+    refreshItems();
+}
+
+void QJsonDbQueryModel::refreshItems()
+{
+    Q_D(QJsonDbQueryModel);
+    if (d->objectUuids.count()) {
+        d->resetModel = true;
+        d->objectCache.clear();
+        d->createObjectRequests(0, qMin(d->objectCache.maxItems(), d->objectUuids.count()));
+    }
 }
 
 #include "moc_qjsondbquerymodel_p.cpp"

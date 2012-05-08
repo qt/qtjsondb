@@ -51,6 +51,7 @@
 #include <QPointer>
 #include <QUuid>
 #include <QJsonObject>
+#include <QJSValue>
 
 #include "qjsondbquerymodel_p.h"
 #include "qjsondbmodelutils_p.h"
@@ -133,13 +134,14 @@ public:
     QModelIndex parent;
     int errorCode;
     QString errorString;
-
     // data() is often called for each role in same index in a row
     // caching the last found object speeds this pattern quite a bit
     // as some time is spent on finding the object from cache
     // Note that this needs to be cleared on data changes
     int lastQueriedIndex;
     QJsonObject lastQueriedObject;
+    bool isCallable;
+    QJSValue injectCallback;
 
 public:
     QJsonDbQueryModelPrivate(QJsonDbQueryModel *q);
@@ -148,7 +150,6 @@ public:
     void setCacheParams(int maxItems);
 
     void createObjectRequests(int startIndex, int maxItems);
-    void clearCache();
 
     void removeLastItem();
     void addItem(const QJsonObject &item, int partitionIndex);
@@ -192,7 +193,8 @@ public:
     QString getItemPartition(int index);
     int indexOf(const QString &uuid) const;
     void sendNotification(int partitionIndex, const QJsonObject &object, QJsonDbWatcher::Action action);
-
+    void generateCustomData(QJsonObject &val);
+    void generateCustomData(JsonDbModelObjectType &objects);
     // private slots
     void _q_verifyDefaultIndexType(int index);
     void _q_notificationsAvailable();

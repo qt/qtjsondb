@@ -60,6 +60,7 @@ JsonDbSortingListModelPrivate::JsonDbSortingListModelPrivate(JsonDbSortingListMo
     , chunkSize(100)
     , state(JsonDbSortingListModel::None)
     , errorCode(0)
+    , isCallable(false)
 {
 }
 
@@ -89,9 +90,12 @@ void JsonDbSortingListModelPrivate::removeLastItem()
 
 // insert item notification handler
 // + add items, for chunked read
-void JsonDbSortingListModelPrivate::addItem(const QVariantMap &item, int partitionIndex)
+void JsonDbSortingListModelPrivate::addItem(const QVariantMap &newItem, int partitionIndex)
 {
     Q_Q(JsonDbSortingListModel);
+    QVariantMap item = newItem;
+    if (isCallable)
+        generateCustomData(item);
     const QString &uuid = item.value(QLatin1String("_uuid")).toString();
     // ignore duplicates.
     if (objects.contains(uuid))
@@ -152,9 +156,12 @@ void JsonDbSortingListModelPrivate::deleteItem(const QVariantMap &item, int part
 }
 
 // updateitem notification handler
-void JsonDbSortingListModelPrivate::updateItem(const QVariantMap &item, int partitionIndex)
+void JsonDbSortingListModelPrivate::updateItem(const QVariantMap &changedItem, int partitionIndex)
 {
     Q_Q(JsonDbSortingListModel);
+    QVariantMap item = changedItem;
+    if (isCallable)
+        generateCustomData(item);
     QString uuid = item.value(QLatin1String("_uuid")).toString();
     QMap<QString, SortingKey>::const_iterator keyIndex =  objectSortValues.constFind(uuid);
     if (keyIndex != objectSortValues.constEnd()) {
@@ -211,9 +218,36 @@ void JsonDbSortingListModelPrivate::updateItem(const QVariantMap &item, int part
     }
 }
 
-void JsonDbSortingListModelPrivate::fillData(const QVariantList &items, int partitionIndex)
+void JsonDbSortingListModelPrivate::generateCustomData(QVariantMap &valMap)
 {
     Q_Q(JsonDbSortingListModel);
+    QJSValueList args;
+    args << injectCallback.engine()->toScriptValue(valMap);
+    QJSValue retVal = injectCallback.call(args);
+    QVariantMap customData = qjsvalue_cast<QVariant>(retVal).toMap();
+    QVariantMap::const_iterator it = customData.constBegin(), e = customData.constEnd();
+    for (; it != e; ++it) {
+        valMap.insert(it.key(), it.value());
+    }
+}
+
+void JsonDbSortingListModelPrivate::generateCustomData(QVariantList &objects)
+{
+    if (!isCallable)
+        return;
+    int count = objects.count();
+    for (int i = 0; i < count; i++) {
+        QVariantMap val = objects[i].toMap();
+        generateCustomData(val);
+        objects[i] = val;
+    }
+}
+
+void JsonDbSortingListModelPrivate::fillData(const QVariantList &newItems, int partitionIndex)
+{
+    Q_Q(JsonDbSortingListModel);
+    QVariantList items = newItems;
+    generateCustomData(items);
     RequestInfo &r = partitionObjectDetails[partitionIndex];
     r.lastSize = items.size();
     if (resetModel) {
@@ -1133,5 +1167,27 @@ QVariantMap JsonDbSortingListModel::error() const
     return errorMap;
 }
 
+QJSValue JsonDbSortingListModel::propertyInjector() const
+{
+    Q_D(const JsonDbSortingListModel);
+    return d->injectCallback;
+
+}
+
+void JsonDbSortingListModel::setPropertyInjector(const QJSValue &callback)
+{
+    Q_D(JsonDbSortingListModel);
+    d->injectCallback = callback;
+    d->isCallable = callback.isCallable();
+    refreshItems();
+}
+
+void JsonDbSortingListModel::refreshItems()
+{
+    Q_D(JsonDbSortingListModel);
+    if (d->objectUuids.count()) {
+        d->fetchModel();
+    }
+}
 #include "moc_jsondbsortinglistmodel.cpp"
 QT_END_NAMESPACE_JSONDB

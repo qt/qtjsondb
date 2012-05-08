@@ -41,7 +41,7 @@
 import QtQuick 2.0
 import QtJsonDb 1.0 as JsonDb
 
-Item {
+Rectangle {
     width: 800
     height: 400
     id: topLevelItem
@@ -55,9 +55,16 @@ Item {
     JsonDb.JsonDbCachingListModel {
         id: contacts
         query: '[?_type="MyContacts"]'
-        roleNames: ["firstName", "lastName", "_uuid", "_version", "_type"]
+        roleNames: ["firstName", "lastName", "_uuid", "_version", "_type" , "Header"]
         sortOrder:"[/firstName]"
         cacheSize:150
+        propertyInjector : function (item) {
+            return { 'Header' : item.firstName+"-Section" };
+        }
+
+    }
+    function customFunction(item) {
+        return { 'Header' : item.firstName+"-$$$$Section" };
     }
 
     function indexCreateCallback(error, response) {
@@ -211,6 +218,7 @@ Item {
 
         onClicked: {
             contacts.get(listView.currentIndex, updateItemCallback);
+            contacts.propertyInjector = customFunction;
         }
     }
     Button {
@@ -224,6 +232,23 @@ Item {
             listView.positionViewAtIndex(rand(contacts.rowCount), ListView.Beginning);
         }
     }
+
+    Component {
+        id: sectionHeading
+        Rectangle {
+            width: parent.width
+            height: 20
+            color: "lightsteelblue"
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: section
+                font.bold: true
+                font.pixelSize: 20
+            }
+        }
+    }
+
     ListView {
         id: listView
         anchors.top: buttonAdd.bottom
@@ -232,12 +257,17 @@ Item {
         anchors.bottomMargin: 10
         width: parent.width
         model: contacts
-        highlight: Rectangle { color: "lightsteelblue"; radius: 5 ;width: 200;}
+        highlight: Rectangle { color: "lightsteelblue"; radius: 5 ;width: 200; height:20}
         focus: true
-        delegate: Row {
-            spacing: 10
+        section.property: "Header"
+        section.criteria: ViewSection.FullString
+        section.delegate: sectionHeading
+        delegate: Item {
+            height: 20
+            width: parent.width
             Text {
-                text: firstName + ", " + lastName + " " + index
+                anchors.verticalCenter: parent.verticalCenter
+                text: firstName + ", " + lastName + " " + index + " " + Header
                 MouseArea {
                     anchors.fill: parent;
                     onPressed: {

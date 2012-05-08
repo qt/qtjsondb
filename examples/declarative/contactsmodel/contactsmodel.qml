@@ -41,7 +41,7 @@
 import QtQuick 2.0
 import QtJsonDb 1.0 as JsonDb
 
-Item {
+Rectangle {
     width: 800
     height: 400
 
@@ -55,8 +55,14 @@ Item {
     JsonDb.JsonDbSortingListModel {
         id: contacts
         query: '[?_type="MyContacts"]'
-        roleNames: ["firstName", "lastName", "_uuid", "_version", "_type"]
+        roleNames: ["firstName", "lastName", "_uuid", "_version", "_type", "Header"]
         sortOrder:"[/firstName]"
+        propertyInjector: function (item) {
+            return { 'Header' : item.firstName+"-Section" };
+        }
+    }
+    function customFunction(item) {
+        return { 'Header' : item.firstName+"-$$$$Section" };
     }
 
     function checkForPartitions(error, result) {
@@ -161,6 +167,23 @@ Item {
             var item = contacts.get(listView.currentIndex);
             item.object.firstName = item.object.firstName+ "*";
             item.partition.update(item.object, updateCallback);
+            contacts.propertyInjector = customFunction;
+        }
+    }
+
+    Component {
+        id: sectionHeading
+        Rectangle {
+            width: parent.width
+            height: 20
+            color: "lightsteelblue"
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: section
+                font.bold: true
+                font.pixelSize: 20
+            }
         }
     }
 
@@ -172,12 +195,17 @@ Item {
         anchors.bottomMargin: 10
         width: parent.width
         model: contacts
-        highlight: Rectangle { color: "lightsteelblue"; radius: 5 ;width: 200;}
+        highlight: Rectangle { color: "lightsteelblue"; radius: 5 ;width: 200; height: 20}
         focus: true
-        delegate: Row {
-            spacing: 10
+        section.property: "Header"
+        section.criteria: ViewSection.FullString
+        section.delegate: sectionHeading
+        delegate: Item {
+            height: 20
+            width: parent.width
             Text {
-                text: firstName + ", " + lastName
+                anchors.verticalCenter: parent.verticalCenter
+                text: firstName + ", " + lastName+ "  " + Header
                 MouseArea {
                     anchors.fill: parent;
                     onPressed: {

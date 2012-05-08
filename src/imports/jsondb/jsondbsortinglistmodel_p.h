@@ -93,6 +93,8 @@ public:
     QModelIndex parent;
     int errorCode;
     QString errorString;
+    bool isCallable;
+    QJSValue injectCallback;
 
 public:
     JsonDbSortingListModelPrivate(JsonDbSortingListModel *q);
@@ -130,6 +132,8 @@ public:
                                      const QJSValue &successCallback,
                                      const QJSValue &errorCallback);
     void sendNotifications(int partitionIndex, const QVariantMap &v, QJsonDbWatcher::Action action);
+    void generateCustomData(QVariantMap &val);
+    void generateCustomData(QVariantList &objects);
 
     // private slots
     void _q_refreshModel();

@@ -81,6 +81,7 @@ public:
     Q_PROPERTY(bool overflow READ overflow)
     Q_PROPERTY(QQmlListProperty<JsonDbPartition> partitions READ partitions)
     Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
+    Q_PROPERTY(QJSValue propertyInjector READ propertyInjector WRITE setPropertyInjector)
 
     virtual void classBegin();
     virtual void componentComplete();
@@ -110,6 +111,10 @@ public:
 
 
     JsonDbSortingListModel::State state() const;
+
+    QJSValue propertyInjector() const;
+    void setPropertyInjector(const QJSValue &callback);
+    Q_INVOKABLE void refreshItems();
 
     Q_INVOKABLE int indexOf(const QString &uuid) const;
     Q_INVOKABLE QJSValue get(int index) const;
