@@ -78,6 +78,9 @@ private slots:
     void insert1000Items_data();
     void insert1000Items();
 
+    void insert1000ItemsInOneTransaction_data();
+    void insert1000ItemsInOneTransaction();
+
     void delete1000Items_data();
     void delete1000Items();
 
@@ -293,6 +296,42 @@ void TestBtrees::insert1000Items()
     }
 }
 
+void TestBtrees::insert1000ItemsInOneTransaction_data()
+{
+    QTest::addColumn<int>("btreeType");
+    QTest::newRow(hybridDataTag) << (int)Hybrid;
+    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
+}
+
+void TestBtrees::insert1000ItemsInOneTransaction()
+{
+    QFETCH(int, btreeType);
+    int numItems = 1000;
+
+    if (btreeType == Hybrid) {
+        QBENCHMARK {
+            HBtreeTransaction *txn = hybridDb->beginWrite();
+            QVERIFY(txn);
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QByteArray value = QByteArray::number(i);
+                QVERIFY(txn->put(key, value));
+            }
+            QVERIFY(txn->commit(42));
+        }
+    } else {
+        QBENCHMARK {
+            QBtreeTxn *txn = appendOnlyDb->beginWrite();
+            QVERIFY(txn);
+            for (int i = 0; i < numItems; ++i) {
+                QByteArray key = QByteArray::number(i);
+                QByteArray value = QByteArray::number(i);
+                QVERIFY(txn->put(key, value));
+            }
+            QVERIFY(txn->commit(42));
+        }
+    }
+}
 void TestBtrees::delete1000Items_data()
 {
     QTest::addColumn<int>("btreeType");
