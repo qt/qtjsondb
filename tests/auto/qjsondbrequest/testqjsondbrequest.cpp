@@ -257,9 +257,9 @@ void TestQJsonDbRequest::closeIndexes()
     }
 
     {
-        // create 1000 indexes
+        // create 3 indexes
         QList<QJsonObject> indexes;
-        for (int i = 0; i < 1000; ++i) {
+        for (int i = 0; i < 3; ++i) {
             QJsonDbObject index;
             index.setUuid(QJsonDbObject::createUuid());
             index.insert(QLatin1String("_type"), QLatin1String("Index"));
@@ -278,7 +278,7 @@ void TestQJsonDbRequest::closeIndexes()
     // query on one of the indexes
     {
         QJsonDbReadRequest readRequest;
-        readRequest.setQuery(QLatin1String("[?_type=\"duck\"][/closeIndexesTest666]"));
+        readRequest.setQuery(QLatin1String("[?_type=\"duck\"][/closeIndexesTest2]"));
         mConnection->send(&readRequest);
         waitForResponse(&readRequest);
         QList<QJsonObject> results = readRequest.takeResults();
@@ -291,7 +291,7 @@ void TestQJsonDbRequest::closeIndexes()
     // query again
     {
         QJsonDbReadRequest readRequest;
-        readRequest.setQuery(QLatin1String("[?_type=\"duck\"][/closeIndexesTest666]"));
+        readRequest.setQuery(QLatin1String("[?_type=\"duck\"][/closeIndexesTest2]"));
         mConnection->send(&readRequest);
         waitForResponse(&readRequest);
         QList<QJsonObject> results = readRequest.takeResults();
