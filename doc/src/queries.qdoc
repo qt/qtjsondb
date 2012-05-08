@@ -149,6 +149,19 @@ address from message objects.
 \li Count the number of objects of type "MESSAGE"]
 \endtable
 
+\section1 OR-queries
+
+Query constraints can be combined with OR-syntax, e.g.
+
+\table
+\row
+\li \c {[?_type="Person" | _type="Superman"]}
+\li Return all objects that are Person or Superman types.
+\row
+\li \c {[?_type="Person"][?name exists | age > 18]}
+\li All Person objects with a "name" field or with an age field greater than 18.
+\endtable
+
 \section1 Query optimization
 
 In general, sorting can only be done on properties for which JSON DB has an
