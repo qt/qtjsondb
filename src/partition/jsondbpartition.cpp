@@ -723,6 +723,9 @@ void JsonDbPartition::flushCaches()
 
 void JsonDbPartition::closeIndexes()
 {
+    if (!mIsOpen)
+        return;
+
     mObjectTable->closeIndexes();
     QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin(), e = mViews.end();
     for (; it != e; ++it) {
