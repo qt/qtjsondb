@@ -48,6 +48,8 @@
 #include "qjsondbprivatepartition_p.h"
 #include "qjsondbreadrequest.h"
 
+#include "jsondbsocketname_p.h"
+
 #include <qcoreevent.h>
 #include <qtimer.h>
 #include <qjsonarray.h>
@@ -175,6 +177,15 @@ QJsonDbConnectionPrivate::QJsonDbConnectionPrivate(QJsonDbConnection *q)
     stream->setDevice(socket, true);
     QObject::connect(stream, SIGNAL(receive(QJsonObject)),
                      q_ptr, SLOT(_q_onReceivedObject(QJsonObject)));
+}
+
+QString QJsonDbConnectionPrivate::serverSocketName() const
+{
+    if (socketName.isEmpty()) {
+        QByteArray ba = qgetenv("JSONDB_SOCKET");
+        return ba.isEmpty() ? QLatin1String(JSONDB_SOCKET_NAME_STRING) : QString::fromLatin1(ba.constData(), ba.size());
+    }
+    return socketName;
 }
 
 void QJsonDbConnectionPrivate::_q_onConnected()

@@ -44,6 +44,7 @@
 #include "jsondb-oneshot_p.h"
 #include "jsondb-connection_p.h"
 #include "jsondb-connection_p_p.h"
+#include "jsondbsocketname_p.h"
 
 #include "qjsonobject.h"
 #include "qjsonarray.h"
@@ -230,7 +231,7 @@ void JsonDbConnection::connectToServer(const QString &socketName)
     if (name.isEmpty())
         name = QLatin1String(::getenv("JSONDB_SOCKET"));
     if (name.isEmpty())
-        name = QLatin1String("qt5jsondb");
+        name = QStringLiteral(JSONDB_SOCKET_NAME_STRING);
 
     d->socket = new QLocalSocket(this);
     connect(d->socket, SIGNAL(disconnected()), this, SLOT(_q_onDisconnected()));

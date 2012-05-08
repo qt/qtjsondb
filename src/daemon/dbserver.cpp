@@ -51,6 +51,7 @@
 #include "jsondbobjecttable.h"
 #include "jsondbsettings.h"
 #include "jsondbview.h"
+#include "jsondbsocketname_p.h"
 #include "dbserver.h"
 
 #ifdef Q_OS_UNIX
@@ -168,7 +169,7 @@ bool DBServer::socket()
 {
     QString socketName = ::getenv("JSONDB_SOCKET");
     if (socketName.isEmpty())
-        socketName = "qt5jsondb";
+        socketName = QStringLiteral(JSONDB_SOCKET_NAME_STRING);
     if (jsondbSettings->debug())
         qDebug() << "Listening on socket" << socketName;
     QLocalServer::removeServer(socketName);

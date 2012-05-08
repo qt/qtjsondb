@@ -15,6 +15,7 @@ CONFIG += module create_prl
 MODULE_PRI = ../../modules/qt_jsondb.pri
 
 include(../jsonstream/jsonstream.pri)
+INCLUDEPATH += $$PWD/../common
 
 HEADERS += qtjsondbversion.h
 

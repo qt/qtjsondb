@@ -229,10 +229,7 @@ Client::~Client()
 
 bool Client::connectToServer()
 {
-    QString socketName = ::getenv("JSONDB_SOCKET");
     mConnection = new QtJsonDb::QJsonDbConnection(this);
-    if (!socketName.isEmpty())
-        mConnection->setSocketName(socketName);
 
     connect(mConnection, SIGNAL(error(QtJsonDb::QJsonDbConnection::ErrorCode,QString)),
             this, SLOT(error(QtJsonDb::QJsonDbConnection::ErrorCode,QString)));

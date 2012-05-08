@@ -16,6 +16,8 @@ MODULE_PRI = ../../modules/qt_jsondbcompat.pri
 
 include(../jsonstream/jsonstream.pri)
 
+INCLUDEPATH += $$PWD/../common
+
 HEADERS += qtjsondbcompatversion.h
 
 HEADERS += \
