@@ -1,5 +1,6 @@
 [
   {
+    "_uuid": "{7ac3e083-46b7-4ab4-8235-1e29153c7368}",
     "_type": "data-stats",
     "num-objects":20,
 
@@ -20,6 +21,7 @@
     "num-russian-bunnies":2
   },
   {
+    "_uuid": "{e3384f3c-9c73-4b6a-8325-a466ce1e26a8}",
     "_type" : "dragon",
     "name": "marcia d'arcy",
     "color": "blue",
@@ -27,6 +29,7 @@
     "eye-color": "green"
   },
   {
+    "_uuid": "{14989475-e00d-4476-8679-33412b1e7406}",
     "_type" : "dragon",
     "name": "jeffrey samuels",
     "color": "blue",
@@ -34,6 +37,7 @@
     "eye-color": "hazel"
   },
   {
+    "_uuid": "{314fe682-30ca-4e93-be70-f1a93d0f6c81}",
     "_type" : "dragon",
     "name": "robert demmon",
     "color": "blue",
@@ -41,6 +45,7 @@
     "eye-color": "blue"
   },
   {
+    "_uuid": "{fcd091f1-9fcc-475b-b494-38ec41fe2ed1}",
     "_type" : "dragon",
     "name": "heidi motika",
     "color": "blue",
@@ -48,6 +53,7 @@
     "eye-color": "blue"
   },
   {
+    "_uuid": "{601574a7-7b22-47b6-8c3c-dcac357b713f}",
     "_type" : "dragon",
     "name": "leslie pugh",
     "color": "blue",
@@ -55,6 +61,7 @@
     "eye-color": "hazel"
   },
   {
+    "_uuid": "{b4e5948c-a8ce-4203-ac22-427311d1068a}",
     "_type" : "dragon",
     "name": "ryan houlette",
     "color": "blue",
@@ -62,6 +69,7 @@
     "eye-color": "green"
   },
   {
+    "_uuid": "{133c7bba-116d-4aef-8f68-72095ab76a43}",
     "_type" : "dragon",
     "name": "kenton kossan",
     "color": "red",
@@ -69,6 +77,7 @@
     "eye-color": "red"
   },
   {
+    "_uuid": "{17b01f5b-f8c4-4d37-91ef-09f52c50b7e5}",
     "_type" : "dragon",
     "name": "connie goddard",
     "color": "red",
@@ -76,6 +85,7 @@
     "eye-color": "red"
   },
   {
+    "_uuid": "{8148516b-78a0-4909-82a3-80a81c2c09ef}",
     "_type" : "dragon",
     "name": "andrew keopraseuth",
     "color": "red",
@@ -83,6 +93,7 @@
     "eye-color": "green"
   },
   {
+    "_uuid": "{643135d2-7b8d-4889-853c-0962bd20dbb3}",
     "_type" : "dragon",
     "name": "charlie stern",
     "color": "red",
@@ -92,76 +103,93 @@
 
 
   {
+    "_uuid": "{1752cb99-b59c-4848-9b1f-05b413d19bda}",
     "_type" : "bunny",
     "name": "alex free",
     "type": "fluffy",
     "age": 1
   },
   {
+    "_uuid": "{64dadf0e-ac34-4e90-a6f6-5f6487e338b7}",
     "_type" : "bunny",
     "name": "glenn legros",
     "type":"fluffy",
     "age": 1
   },
   {
+    "_uuid": "{8a9fe13e-ae5f-4730-87b6-2ded92b7d52c}",
     "_type" : "bunny",
     "name": "sean joyce",
     "type":"fluffy",
     "age": 2
   },
   {
+    "_uuid": "{58068d65-15ec-43b0-837e-cdf8f397b914}",
     "_type" : "bunny",
     "name": "bruce toth",
     "type":"fluffy",
     "age": 2
   },
   {
+    "_uuid": "{018164a3-7717-46a1-8085-f120fee0330c}",
     "_type" : "bunny",
     "name": "amanda vaneffen",
     "type":"demon",
     "age": 4
   },
   {
+    "_uuid": "{2da1b405-5332-464b-9fd5-0e855d07b5e4}",
     "_type" : "bunny",
     "name": "gary huss",
     "type":"demon",
     "age": 4
   },
   {
+    "_uuid": "{b41db706-1120-43b0-b3da-01fa7773c208}",
     "_type" : "bunny",
     "name": "stan young",
     "type":"demon",
     "age": 6
   },
   {
+    "_uuid": "{8f4cdf9e-0a46-49a5-a779-dac789f5e960}",
     "_type" : "bunny",
     "name": "jaclyn gregory",
     "type":"demon",
     "age": 6
   },
   {
+    "_uuid": "{dcbd2dc8-dd9c-4287-8f66-dc22b44f6685}",
     "_type" : "bunny",
     "name": "ryan sepulveda",
     "type":"russian",
-    "age": 8
+    "age": 8,
+    "link2":"{b41db706-1120-43b0-b3da-01fa7773c208}"
   },
   {
+    "_uuid": "{a58f8d1a-bc0d-484f-8fed-803144f5df83}",
     "_type" : "bunny",
     "name": "thomas reim",
     "type":"russian",
-    "age": 8
+    "age": 8,
+    "one": {"two": {"three":{"four":{"five":{"foobar":"bazinga"}}}}},
+    "link" : "{40e4823c-d45e-4ba6-8c3c-faaaf3a8495f}"
   },
   {
+    "_uuid": "{9f4d47f5-c915-49e6-a762-fbfa7e1cd4f8}",
     "_type" : "dog",
     "name" : "rover",
     "friends" : ["spike", "reggie"]
   },
   {
+    "_uuid": "{40e4823c-d45e-4ba6-8c3c-faaaf3a8495f}",
     "_type" : "dog",
     "name" : "spike",
-    "friends" : [ { "name" : "rover", "dog" : true }, { "name" : "puffy", "dog" : false } ]
+    "friends" : [ { "name" : "rover", "dog" : true }, { "name" : "puffy", "dog" : false } ],
+    "link2": "{dcbd2dc8-dd9c-4287-8f66-dc22b44f6685}"
   },
   {
+    "_uuid": "{03be64a9-569b-45c0-889b-9f9d7617bf5d}",
     "_type" : "dog",
     "name" : "reggie",
     "friends" : [ ["larrry", "curly", "moe"], ["spike", "rover"] ]

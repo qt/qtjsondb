@@ -379,40 +379,33 @@ JsonDbObject JsonDbIndexQuery::next()
 
 JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
 {
-    int numExpressions = mResultExpressionList.length();
     QJsonObject result;
     JsonDbObject baseObject(object);
 
     // insert the computed index value
     baseObject.insert(JsonDbString::kIndexValueStr, mFieldValue);
 
+    Q_ASSERT(mResultKeyList.size() == mResultExpressionList.size());
     if (mResultKeyList.isEmpty())
-        result = baseObject;
+        return baseObject;
 
-    if (!numExpressions)
-        return result;
+    for (int i = 0; i < mResultExpressionList.size(); ++i) {
+        JsonDbObject object(baseObject);
 
-    for (int i = 0; i < numExpressions; i++) {
-        QJsonValue v;
-
-        QVector<QStringList> &joinPath = mJoinPaths[i];
-        int joinPathSize = joinPath.size();
-        for (int j = 0; j < joinPathSize-1; j++) {
-            QJsonValue uuidQJsonValue = baseObject.valueByPath(joinPath[j]).toString();
-            QString uuid = uuidQJsonValue.toString();
+        const QVector<QStringList> &joinPath = mJoinPaths.at(i);
+        for (int j = 0; j < joinPath.size()-1; j++) {
+            QString uuid = object.valueByPath(joinPath.at(j)).toString();
             if (uuid.isEmpty()) {
-                baseObject = JsonDbObject();
+                object = JsonDbObject();
             } else if (mObjectCache.contains(uuid)) {
-                baseObject = mObjectCache.value(uuid);
+                object = mObjectCache.value(uuid);
             } else {
-                ObjectKey objectKey(uuid);
-                bool gotBaseObject = mPartition->getObject(objectKey, baseObject);
-                if (gotBaseObject)
-                    mObjectCache.insert(uuid, baseObject);
+                 if (mPartition->getObject(ObjectKey(uuid), object))
+                    mObjectCache.insert(uuid, object);
             }
         }
-        v = baseObject.valueByPath(joinPath[joinPathSize-1]);
-        result.insert(mResultKeyList[i], v);
+        QJsonValue v = object.valueByPath(joinPath.last());
+        result.insert(mResultKeyList.at(i), v);
     }
 
     return result;
