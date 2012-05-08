@@ -602,10 +602,7 @@ QJsonValue JsonDbObject::propertyLookup(const QStringList &path) const
                 value = QJsonValue(QJsonValue::Undefined);
         } else if (value.isObject()) {
             QJsonObject o = value.toObject();
-            if (o.contains(key))
-                value = o.value(key);
-            else
-                value = QJsonValue(QJsonValue::Undefined);
+            value = o.value(key);
         } else {
             value = QJsonValue(QJsonValue::Undefined);
         }
