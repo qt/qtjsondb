@@ -1,2 +1,2 @@
 TEMPLATE = subdirs
-SUBDIRS += partition client jsondbcachinglistmodel jsondbsortinglistmodel btrees
+SUBDIRS += partition client jsondbcachinglistmodel jsondbsortinglistmodel btrees jsondbobject

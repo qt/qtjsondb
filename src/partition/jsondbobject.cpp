@@ -581,29 +581,26 @@ QJsonValue JsonDbObject::valueByPath(const QString &path) const
 
 QJsonValue JsonDbObject::valueByPath(const QStringList &path) const
 {
-    if (!path.size()) {
-        qCritical() << "JsonDb::propertyLookup empty path";
-        abort();
+    Q_ASSERT(!path.isEmpty());
+    if (path.size() == 0)
         return QJsonValue(QJsonValue::Undefined);
-    }
-    // TODO: one malloc here
+    if (path.size() == 1)
+        return value(path.at(0));
     QJsonValue value(*this);
-    for (int i = 0; i < path.size(); i++) {
+    for (int i = 0; i < path.size(); ++i) {
         const QString &key = path.at(i);
         // this part of the property is a list
         if (value.isArray()) {
             QJsonArray objectList = value.toArray();
             bool ok = false;
             int index = key.toInt(&ok);
-            if (ok && (index >= 0) && (objectList.size() > index))
-                value = objectList.at(index);
-            else
-                value = QJsonValue(QJsonValue::Undefined);
+            if (!ok || index < 0 || index >= objectList.size())
+                return QJsonValue(QJsonValue::Undefined);
+            value = objectList.at(index);
         } else if (value.isObject()) {
-            QJsonObject o = value.toObject();
-            value = o.value(key);
+            value = value.toObject().value(key);
         } else {
-            value = QJsonValue(QJsonValue::Undefined);
+            return QJsonValue(QJsonValue::Undefined);
         }
     }
     return value;
