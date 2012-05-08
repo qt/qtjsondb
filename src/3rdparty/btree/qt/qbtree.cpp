@@ -263,7 +263,7 @@ QBtreeTxn *QBtree::writeTransaction()
 
 QString QBtree::errorMessage()
 {
-    return QString(QLatin1String("QBtree: %1, %2")).arg(fileName(), strerror(errno));
+    return QString(QLatin1String("QBtree: %1, %2")).arg(fileName()).arg(QLatin1String(strerror(errno)));
 }
 
 bool QBtree::commit(QBtreeTxn *txn, quint32 tag)
