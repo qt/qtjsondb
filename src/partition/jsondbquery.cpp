@@ -535,7 +535,7 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                         if (jsondbSettings->debug())
                             qDebug() << term.joinField() << term.joinPaths();
                     }
-                    QString uuidValue = joinedObject.propertyLookup(joinPaths[j]).toString();
+                    QString uuidValue = joinedObject.valueByPath(joinPaths[j]).toString();
                     if (objectCache && objectCache->contains(uuidValue))
                         joinedObject = objectCache->value(uuidValue);
                     else if (partition) {
@@ -544,12 +544,12 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                         if (objectCache) objectCache->insert(uuidValue, joinedObject);
                     }
                 }
-                objectFieldValue = joinedObject.propertyLookup(term.fieldPath());
+                objectFieldValue = joinedObject.valueByPath(term.fieldPath());
             } else {
                 if (term.propertyName().isEmpty())
                     objectFieldValue = binding(term.propertyVariable());
                 else
-                    objectFieldValue = object.propertyLookup(term.fieldPath());
+                    objectFieldValue = object.valueByPath(term.fieldPath());
             }
             if (op == QLatin1Char('=') || op == QLatin1String("==")) {
                 if (objectFieldValue == termValue)

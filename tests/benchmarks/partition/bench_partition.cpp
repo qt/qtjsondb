@@ -701,7 +701,7 @@ void TestPartition::benchmarkFindEQ()
   QString query = QString("[?name.first=\"%3\"][?%1=\"%2\"]")
           .arg(JsonDbString::kTypeStr)
           .arg("contact")
-          .arg(item.propertyLookup("name.first").toString());
+          .arg(item.valueByPath("name.first").toString());
   QBENCHMARK {
       QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
       JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
@@ -721,7 +721,7 @@ void TestPartition::benchmarkFindLE()
         QString query = QString("[?name.first<=\"%3\"][?%1=\"%2\"]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
-                .arg(item.propertyLookup("name.first").toString());
+                .arg(item.valueByPath("name.first").toString());
         QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
         JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
         verifyGoodQueryResult(queryResult);
@@ -807,7 +807,7 @@ void TestPartition::benchmarkFind20()
         QString query = QString("[?name.first<=\"%3\"][?%1=\"%2\"]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
-                .arg(item.propertyLookup("name.first").toString());
+                .arg(item.valueByPath("name.first").toString());
         QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
         JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 20);
         verifyGoodQueryResult(queryResult);

@@ -325,14 +325,14 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
     if (!d->mScriptEngine) {
         int size = d->mPropertyNamePath.size();
         if (d->mPropertyNamePath.at(size-1) == QLatin1Char('*')) {
-            QJsonValue v = object.propertyLookup(d->mPropertyNamePath.mid(0, size-1));
+            QJsonValue v = object.valueByPath(d->mPropertyNamePath.mid(0, size-1));
             QJsonArray array = v.toArray();
             d->mFieldValues.reserve(array.size());
             for (int i = 0; i < array.size(); ++i) {
                 d->mFieldValues.append(indexValue(array.at(i)));
             }
         } else {
-            QJsonValue v = object.propertyLookup(d->mPropertyNamePath);
+            QJsonValue v = object.valueByPath(d->mPropertyNamePath);
             if (!v.isUndefined()) {
                 d->mFieldValues.append(indexValue(v));
             }

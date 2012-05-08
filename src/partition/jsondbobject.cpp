@@ -574,13 +574,12 @@ bool JsonDbObject::operator <(const JsonDbObject &other) const
     return myHash < otherHash;
 }
 
-
-QJsonValue JsonDbObject::propertyLookup(const QString &path) const
+QJsonValue JsonDbObject::valueByPath(const QString &path) const
 {
-    return propertyLookup(path.split(QLatin1Char('.')));
+    return valueByPath(path.split(QLatin1Char('.')));
 }
 
-QJsonValue JsonDbObject::propertyLookup(const QStringList &path) const
+QJsonValue JsonDbObject::valueByPath(const QStringList &path) const
 {
     if (!path.size()) {
         qCritical() << "JsonDb::propertyLookup empty path";

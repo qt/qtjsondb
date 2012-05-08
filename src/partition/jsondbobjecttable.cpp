@@ -345,7 +345,7 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNu
         JsonDbObject object = QJsonDocument::fromBinaryData(baObject).object();
         if (object.value(JsonDbString::kDeletedStr).toBool())
             continue;
-        QJsonValue fieldValue = object.propertyLookup(index->indexSpec().propertyName);
+        QJsonValue fieldValue = object.valueByPath(index->indexSpec().propertyName);
         if (!fieldValue.isNull())
             index->indexObject(objectKey, object, stateNumber);
     }

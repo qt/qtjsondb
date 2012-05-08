@@ -398,7 +398,7 @@ JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
         QVector<QStringList> &joinPath = mJoinPaths[i];
         int joinPathSize = joinPath.size();
         for (int j = 0; j < joinPathSize-1; j++) {
-            QJsonValue uuidQJsonValue = baseObject.propertyLookup(joinPath[j]).toString();
+            QJsonValue uuidQJsonValue = baseObject.valueByPath(joinPath[j]).toString();
             QString uuid = uuidQJsonValue.toString();
             if (uuid.isEmpty()) {
                 baseObject = JsonDbObject();
@@ -411,7 +411,7 @@ JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
                     mObjectCache.insert(uuid, baseObject);
             }
         }
-        v = baseObject.propertyLookup(joinPath[joinPathSize-1]);
+        v = baseObject.valueByPath(joinPath[joinPathSize-1]);
         result.insert(mResultKeyList[i], v);
     }
 

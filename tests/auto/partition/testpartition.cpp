@@ -3610,8 +3610,8 @@ void TestPartition::findEQ()
     JsonDbObject item(mContactList.at(itemNumber));
 
     JsonDbQueryResult queryResult = find(mOwner, QString("[?name.first=\"%1\"][?name.last=\"%2\"][?_type=\"contact\"]")
-                                         .arg(item.propertyLookup("name.first").toString())
-                                         .arg(item.propertyLookup("name.last").toString()));
+                                         .arg(item.valueByPath("name.first").toString())
+                                         .arg(item.valueByPath("name.last").toString()));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
     mJsonDbPartition->removeIndex("name.first");
@@ -3631,7 +3631,7 @@ void TestPartition::find10()
     JsonDbObject item(mContactList.at(itemNumber));
 
     QString query = QString("[?name.first<=\"%1\"][?_type=\"contact\"]")
-            .arg(item.propertyLookup("name.first").toString());
+            .arg(item.valueByPath("name.first").toString());
     JsonDbQuery *parsedQuery = JsonDbQuery::parse(query);
     JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 10);
     delete parsedQuery;
@@ -3948,8 +3948,8 @@ void TestPartition::indexQueryOnCommonValues()
     int itemNumber = (int)((double)qrand() * count / RAND_MAX);
 
     JsonDbObject item(mContactList.at(itemNumber));
-    QString first = item.propertyLookup("name.first").toString();
-    QString last = item.propertyLookup("name.last").toString();
+    QString first = item.valueByPath("name.first").toString();
+    QString last = item.valueByPath("name.last").toString();
 
     JsonDbQueryResult queryResult= find(mOwner, QString("[?name.first=\"%1\"][?name.last=\"%2\"][?_type=\"contact\"]")
                                         .arg(first)

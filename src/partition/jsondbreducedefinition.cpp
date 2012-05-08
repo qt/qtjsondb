@@ -355,7 +355,7 @@ QJsonValue JsonDbReduceDefinition::sourceKeyValue(const JsonDbObject &object)
         QJsonValue keyValue = mScriptEngine->fromScriptValue<QJsonValue>(mFunctions[JsonDbReduceDefinition::SourceKeyValue].call(args));
         return keyValue;
     } else
-        return mSourceKeyName.contains('.') ? JsonDbObject(object).propertyLookup(mSourceKeyNameList) : object.value(mSourceKeyName);
+        return mSourceKeyName.contains('.') ? JsonDbObject(object).valueByPath(mSourceKeyNameList) : object.value(mSourceKeyName);
 
 }
 

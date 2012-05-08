@@ -363,7 +363,7 @@ void JsonDbMapDefinition::viewObjectEmitted(const QJSValue &value)
         else {
             QString targetKeyString;
             if (!mTargetKeyName.isEmpty())
-                targetKeyString = JsonDbObject(newItem).propertyLookup(mTargetKeyName).toString();
+                targetKeyString = JsonDbObject(newItem).valueByPath(mTargetKeyName).toString();
 
             // colon separated sorted source uuids
             QString sourceUuidString = mSourceUuids.join(QStringLiteral(":"));

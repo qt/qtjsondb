@@ -82,8 +82,8 @@ public:
     bool operator <(const JsonDbObject &other) const;
     bool isAncestorOf(const JsonDbObject &other) const;
 
-    QJsonValue propertyLookup(const QString &path) const;
-    QJsonValue propertyLookup(const QStringList &path) const;
+    QJsonValue valueByPath(const QString &path) const;
+    QJsonValue valueByPath(const QStringList &path) const;
 
 private:
     bool populateMerge(QMap<JsonDbObject, bool> *documents, const QUuid &id, const JsonDbObject &source, bool validateSource = false, bool recurse = true) const;

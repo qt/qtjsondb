@@ -1455,7 +1455,7 @@ void JsonDbPartition::sortValues(const JsonDbQuery *parsedQuery, JsonDbObjectLis
         for (int i = 0; i < resultsSize; i++) {
             QJsonSortable *p = &valuesToSort[i];
             JsonDbObject r = results.at(i);
-            p->key = r.propertyLookup(path0);
+            p->key = r.valueByPath(path0);
             p->result = r;
             if (joinedResultsSize > i)
                 p->joinedResult = joinedResults.at(i);
