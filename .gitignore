@@ -31,5 +31,10 @@ tests/*/*/tst_*
 /module-paths/
 src/client/qtjsondbversion.h
 src/clientcompat/qtjsondbcompatversion.h
+src/partition/qtjsondbpartitionversion.h
 *.pro.user
 *.qmlproject.user
+config.log
+config.tests/icu/icu
+config.tests/libedit/libedit
+
