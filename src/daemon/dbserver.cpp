@@ -1233,9 +1233,6 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
         }
         foreach (const QString matchedType, matchedTypes) {
             JsonDbObjectTable *objectTable = partition->findObjectTable(matchedType);
-            if (objectTables.contains(objectTable))
-                continue;
-            objectTables.append(objectTable);
             if (jsondbSettings->verbose() && lastStateNumber != objectTable->stateNumber())
                 qDebug() << "old object table for type" << matchedType << objectTable->stateNumber() << lastStateNumber;
 
@@ -1248,19 +1245,23 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
 
             lastStateNumber = objectTable->stateNumber();
             QScopedPointer<JsonDbIndexQuery> indexQuery(JsonDbIndexQuery::indexQuery(partition, objectTable,
-                                                                        indexName, QString("string"),
-                                                                        n->owner()));
-            if (!matchAnyType) {
+                                                                                     indexName, QString("string"),
+                                                                                     n->owner()));
+
+            if (!matchAnyType && indexName == JsonDbString::kTypeStr) {
                 indexQuery.data()->setMin(matchedType);
                 indexQuery.data()->setMax(matchedType);
+                indexQuery.data()->addConstraint(new QueryConstraintEq(matchedType));
             }
 
             JsonDbObject oldObject;
-            int c = 0;
             for (JsonDbObject o = indexQuery.data()->first(); !o.isEmpty(); o = indexQuery.data()->next()) {
+                // in case the query matches on fields in addition to _type
+                if (!parsedQuery->match(o, 0, 0))
+                    continue;
+
                 JsonDbNotification::Action action = JsonDbNotification::Create;
                 objectUpdated(partition->name(), lastStateNumber, n, action, oldObject, o);
-                c++;
             }
         }
     } else {
@@ -1269,21 +1270,26 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
             if (objectTables.contains(objectTable))
                 continue;
             objectTables.append(objectTable);
-            if (objectTable->stateNumber() == stateNumber)
-                continue;
+            //if (objectTable->stateNumber() == stateNumber)
+            //    continue;
             QList<JsonDbUpdate> updateList;
             quint32 objectTableStateNumber = objectTable->changesSince(stateNumber, matchedTypes, &updateList);
             if (jsondbSettings->verbose() && lastStateNumber != objectTableStateNumber)
                 qDebug() << "old object table for type" << matchedType << objectTableStateNumber << lastStateNumber;
             foreach (const JsonDbUpdate &update, updateList) {
-                QJsonObject before = update.oldObject;
-                QJsonObject after = update.newObject;
-
+                JsonDbObject before = update.oldObject;
+                JsonDbObject after = update.newObject;
+                bool beforeMatch = before.isEmpty() ? false : parsedQuery->match(before, 0, 0);
+                bool afterMatch = after.isDeleted() ? false : parsedQuery->match(after, 0, 0);
                 JsonDbNotification::Action action = JsonDbNotification::Update;
-                if (before.isEmpty())
+
+                if (!beforeMatch && !afterMatch)
+                    continue;
+                if (!beforeMatch)
                     action = JsonDbNotification::Create;
-                else if (after.contains(JsonDbString::kDeletedStr))
+                else if (!afterMatch)
                     action = JsonDbNotification::Delete;
+
                 objectUpdated(partition->name(), lastStateNumber, n, action, before, after);
             }
         }
