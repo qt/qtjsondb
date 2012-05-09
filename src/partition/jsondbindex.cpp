@@ -50,6 +50,7 @@
 #include "jsondbindex.h"
 #include "jsondbindex_p.h"
 
+#include "jsondbpartition_p.h"
 #include "jsondbstrings.h"
 #include "jsondbproxy.h"
 #include "jsondbbtree.h"

@@ -52,6 +52,7 @@
 #include "jsondbbtree.h"
 #include "jsondbobjecttable.h"
 #include "jsondbpartition.h"
+#include "private/jsondbpartition_p.h"
 #include "jsondbindex.h"
 #include "jsondbsettings.h"
 #include "jsondbstrings.h"
@@ -317,7 +318,7 @@ void TestPartition::cleanupTestCase()
 
 void TestPartition::cleanup()
 {
-    QCOMPARE(mJsonDbPartition->mTransactionDepth, 0);
+    QCOMPARE(mJsonDbPartition->d_func()->mTransactionDepth, 0);
 }
 
 void TestPartition::reopen()
@@ -1753,7 +1754,7 @@ void TestPartition::map()
     verifyGoodResult(result);
 
     // get results with getObjects()
-    GetObjectsResult getObjectsResult = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    GetObjectsResult getObjectsResult = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     if (jsondbSettings->verbose()) {
         JsonDbObjectList vs = getObjectsResult.data;
         for (int i = 0; i < vs.size(); i++)
@@ -1776,7 +1777,7 @@ void TestPartition::map()
     QCOMPARE(queryResult.data.size(), 3);
 
     QSet<QString> versions;
-    GetObjectsResult gor = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    GetObjectsResult gor = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(gor.data.size(), 3);
     foreach (const JsonDbObject &o, gor.data)
         versions.insert(o.value(JsonDbString::kVersionStr).toString());
@@ -1797,7 +1798,7 @@ void TestPartition::map()
     verifyGoodResult(result);
     toDelete[firstItem.uuid().toString()] = firstItem;
 
-    gor = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    gor = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(gor.data.size(), 4);
     // verify only one object got updated
     int numChanges = 0;
@@ -1851,7 +1852,7 @@ void TestPartition::mapDuplicateSourceAndTarget()
         verifyGoodResult(remove(mOwner, maps.at(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(remove(mOwner, toDelete.at(ii)));
-    mJsonDbPartition->removeIndex("ContactView");
+    mJsonDbPartition->d_func()->removeIndex("ContactView");
 }
 
 void TestPartition::mapRemoval()
@@ -1985,7 +1986,7 @@ void TestPartition::mapJoin()
     addIndex("foaf", "string", "FoafPerson");
     addIndex("friend", "string", "Person");
 
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));
+    GetObjectsResult getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));
     QCOMPARE(getObjects.data.size(), 0);
 
     // set some friends
@@ -2000,7 +2001,7 @@ void TestPartition::mapJoin()
         verifyGoodResult(update(mOwner, person));
     }
 
-    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Person"));
+    getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("Person"));
     JsonDbObjectList peopleWithFriends = getObjects.data;
 
     // sort the list by key to make ordering deterministic
@@ -2032,7 +2033,7 @@ void TestPartition::mapJoin()
     fr.insert("friend", QJsonValue(QJsonValue::Undefined));
     verifyGoodResult(update(mOwner, fr));
 
-    GetObjectsResult foafRes = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));
+    GetObjectsResult foafRes = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("FoafPerson"));
     JsonDbObjectList foafs = foafRes.data;
     QString query = QString("[?_type=\"FoafPerson\"][?name=\"%1\"]").arg(p.value("name").toString());
 
@@ -2059,8 +2060,8 @@ void TestPartition::mapJoin()
             continue;
         remove(mOwner, object);
     }
-    mJsonDbPartition->removeIndex("value.friend", "FoafPerson");
-    mJsonDbPartition->removeIndex("value.foaf", "FoafPerson");
+    mJsonDbPartition->d_func()->removeIndex("value.friend", "FoafPerson");
+    mJsonDbPartition->d_func()->removeIndex("value.foaf", "FoafPerson");
 }
 
 void TestPartition::mapSelfJoinSourceUuids()
@@ -2101,7 +2102,7 @@ void TestPartition::mapSelfJoinSourceUuids()
     verifyGoodResult(remove(mOwner, toUpdate));
     for (int i = toDelete.size() - 1; i >= 0; i--)
         verifyGoodResult(remove(mOwner, toDelete.at(i)));
-    mJsonDbPartition->removeIndex("magic", "string");
+    mJsonDbPartition->d_func()->removeIndex("magic", "string");
 }
 
 void TestPartition::mapMapFunctionError()
@@ -2134,7 +2135,7 @@ void TestPartition::mapMapFunctionError()
     mJsonDbPartition->updateView("MapFunctionErrorViewType");
 
     // see if the map definition is still active
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", defRes.objectsWritten[0].uuid().toString());
+    GetObjectsResult getObjects = mJsonDbPartition->d_func()->getObjects("_uuid", defRes.objectsWritten[0].uuid().toString());
     mapDefinition = getObjects.data.at(0);
     QVERIFY(mapDefinition.contains(JsonDbString::kActiveStr) && !mapDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(mapDefinition.value(JsonDbString::kErrorStr).toString().contains("invalidobject"));
@@ -2147,7 +2148,7 @@ void TestPartition::mapSchemaViolation()
 {
     jsondbSettings->setValidateSchemas(true);
 
-    GetObjectsResult contactsRes = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
+    GetObjectsResult contactsRes = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
     if (contactsRes.data.size() > 0) {
         foreach (const JsonDbObject &toRemove, contactsRes.data)
             remove(mOwner, toRemove);
@@ -2181,20 +2182,20 @@ void TestPartition::mapSchemaViolation()
 
     mJsonDbPartition->updateView(map.value("targetType").toString());
 
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
+    GetObjectsResult getObjects = mJsonDbPartition->d_func()->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
     QCOMPARE(getObjects.data.size(), 1);
     JsonDbObject mapDefinition = getObjects.data.at(0);
     QVERIFY(mapDefinition.contains(JsonDbString::kActiveStr));
     QVERIFY(!mapDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(mapDefinition.value(JsonDbString::kErrorStr).toString().contains("Schema"));
 
-    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjects.data.size(), 0);
 
     // get the version out of the database since the Map erroring out causes a
     //_version increment
     JsonDbObject updatedMap;
-    QVERIFY(mJsonDbPartition->getObject(map.uuid().toString(), updatedMap));
+    QVERIFY(mJsonDbPartition->d_func()->getObject(map.uuid().toString(), updatedMap));
 
     // fix the map function
     map.insert("map", workingMap);
@@ -2206,12 +2207,12 @@ void TestPartition::mapSchemaViolation()
 
     mJsonDbPartition->updateView(map.value("targetType").toString());
 
-    getObjects = mJsonDbPartition->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
+    getObjects = mJsonDbPartition->d_func()->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
     mapDefinition = getObjects.data.at(0);
     QVERIFY(!mapDefinition.contains(JsonDbString::kActiveStr)|| mapDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(!mapDefinition.contains(JsonDbString::kErrorStr) || mapDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
 
-    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjects.data.size(), 5);
 
     verifyGoodResult(remove(mOwner, map));
@@ -2226,7 +2227,7 @@ void TestPartition::mapMultipleEmitNoTargetKeyName()
 {
     jsondbSettings->setValidateSchemas(true);
 
-    GetObjectsResult contactsRes = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
+    GetObjectsResult contactsRes = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("Contact"));
     if (contactsRes.data.size() > 0) {
         foreach (const JsonDbObject &toRemove, contactsRes.data)
             remove(mOwner, toRemove);
@@ -2255,12 +2256,12 @@ void TestPartition::mapMultipleEmitNoTargetKeyName()
 
     mJsonDbPartition->updateView(map.value("targetType").toString());
 
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
+    GetObjectsResult getObjects = mJsonDbPartition->d_func()->getObjects("_uuid", map.value(JsonDbString::kUuidStr).toString());
     QJsonObject mapDefinition = getObjects.data.at(0);
     QVERIFY(!mapDefinition.contains(JsonDbString::kActiveStr)|| mapDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(!mapDefinition.contains(JsonDbString::kErrorStr) || mapDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
 
-    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
+    getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("Phone"));
     QCOMPARE(getObjects.data.size(), 2);
 
     verifyGoodResult(remove(mOwner, map));
@@ -2425,7 +2426,7 @@ void TestPartition::reduce()
         verifyGoodResult(remove(mOwner, reduces.at(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(remove(mOwner, toDelete.at(ii)));
-    mJsonDbPartition->removeIndex("MyContactCount");
+    mJsonDbPartition->d_func()->removeIndex("MyContactCount");
 }
 
 void TestPartition::reduceFlattened()
@@ -2474,7 +2475,7 @@ void TestPartition::reduceFlattened()
         verifyGoodResult(remove(mOwner, reduces.at(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(remove(mOwner, toDelete.at(ii)));
-    mJsonDbPartition->removeIndex("MyContactCount");
+    mJsonDbPartition->d_func()->removeIndex("MyContactCount");
 }
 
 void TestPartition::reduceSourceKeyFunction()
@@ -2523,7 +2524,7 @@ void TestPartition::reduceSourceKeyFunction()
         verifyGoodResult(remove(mOwner, reduces.at(ii)));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(remove(mOwner, toDelete.at(ii)));
-    mJsonDbPartition->removeIndex("MyContactCount");
+    mJsonDbPartition->d_func()->removeIndex("MyContactCount");
 }
 
 void TestPartition::reduceRemoval()
@@ -2565,7 +2566,7 @@ void TestPartition::reduceRemoval()
 
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(remove(mOwner, toDelete.at(ii).toObject()));
-    mJsonDbPartition->removeIndex("MyContactCount");
+    mJsonDbPartition->d_func()->removeIndex("MyContactCount");
 }
 
 void TestPartition::reduceUpdate()
@@ -2628,7 +2629,7 @@ void TestPartition::reduceUpdate()
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(remove(mOwner, toDelete.at(ii).toObject()));
     verifyGoodResult(remove(mOwner, schema));
-    mJsonDbPartition->removeIndex("MyContactCount");
+    mJsonDbPartition->d_func()->removeIndex("MyContactCount");
 }
 
 void TestPartition::reduceDuplicate()
@@ -2699,7 +2700,7 @@ void TestPartition::reduceDuplicate()
     verifyGoodResult(remove(mOwner, reduce));
     for (int ii = 0; ii < toDelete.size(); ii++)
         verifyGoodResult(remove(mOwner, toDelete.at(ii)));
-    mJsonDbPartition->removeIndex("MyContactCount");
+    mJsonDbPartition->d_func()->removeIndex("MyContactCount");
 }
 
 void TestPartition::reduceFunctionError()
@@ -2732,7 +2733,7 @@ void TestPartition::reduceFunctionError()
     verifyGoodResult(res);
 
     mJsonDbPartition->updateView(viewTypeStr);
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", defRes.objectsWritten[0].uuid().toString(), JsonDbString::kReduceTypeStr);
+    GetObjectsResult getObjects = mJsonDbPartition->d_func()->getObjects("_uuid", defRes.objectsWritten[0].uuid().toString(), JsonDbString::kReduceTypeStr);
     reduceDefinition = getObjects.data.at(0);
     QVERIFY(!reduceDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(reduceDefinition.value(JsonDbString::kErrorStr).toString().contains("invalidobject"));
@@ -2776,19 +2777,19 @@ void TestPartition::reduceSchemaViolation()
 
     mJsonDbPartition->updateView(reduce.value("targetType").toString());
 
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects("_uuid", reduce.value(JsonDbString::kUuidStr).toString());
+    GetObjectsResult getObjects = mJsonDbPartition->d_func()->getObjects("_uuid", reduce.value(JsonDbString::kUuidStr).toString());
     QCOMPARE(getObjects.data.size(), 1);
     JsonDbObject reduceDefinition = getObjects.data.at(0);
     QVERIFY(reduceDefinition.contains(JsonDbString::kActiveStr) && !reduceDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(reduceDefinition.value(JsonDbString::kErrorStr).toString().contains("Schema"));
 
-    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(getObjects.data.size(), 0);
 
     // get the version out of the database since the Reduce erroring out causes a
     //_version increment
     JsonDbObject updatedReduce;
-    QVERIFY(mJsonDbPartition->getObject(reduce.uuid().toString(), updatedReduce ));
+    QVERIFY(mJsonDbPartition->d_func()->getObject(reduce.uuid().toString(), updatedReduce ));
 
     // fix the add function
     reduce.insert("add", workingAdd);
@@ -2800,12 +2801,12 @@ void TestPartition::reduceSchemaViolation()
 
     mJsonDbPartition->updateView(reduce.value("targetType").toString());
 
-    getObjects = mJsonDbPartition->getObjects("_uuid", reduce.value(JsonDbString::kUuidStr).toString());
+    getObjects = mJsonDbPartition->d_func()->getObjects("_uuid", reduce.value(JsonDbString::kUuidStr).toString());
     reduceDefinition = getObjects.data.at(0);
     QVERIFY(!reduceDefinition.contains(JsonDbString::kActiveStr)|| reduceDefinition.value(JsonDbString::kActiveStr).toBool());
     QVERIFY(!reduceDefinition.contains(JsonDbString::kErrorStr) || reduceDefinition.value(JsonDbString::kErrorStr).toString().isEmpty());
 
-    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
+    getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("PhoneCount"));
     QCOMPARE(getObjects.data.size(), 4);
 
     verifyGoodResult(remove(mOwner, reduce));
@@ -2853,7 +2854,7 @@ void TestPartition::reduceSubObjectProp()
         JsonDbObject object(toDelete.at(i).toObject());
         verifyGoodResult(remove(mOwner, object));
     }
-    mJsonDbPartition->removeIndex("NameCount");
+    mJsonDbPartition->d_func()->removeIndex("NameCount");
 }
 
 void TestPartition::reduceArray()
@@ -2901,7 +2902,7 @@ void TestPartition::reduceArray()
     verifyGoodResult(remove(mOwner, human));
     for (int i = toDelete.size() - 1; i >= 0; i--)
         verifyGoodResult(remove(mOwner, toDelete.at(i).toObject()));
-    mJsonDbPartition->removeIndex("ArrayView");
+    mJsonDbPartition->d_func()->removeIndex("ArrayView");
 }
 
 void TestPartition::changesSinceCreate()
@@ -3261,10 +3262,10 @@ void TestPartition::findInContains()
         verifyGoodQueryResult(queryResult);
     }
 
-    mJsonDbPartition->removeIndex("stringlist");
-    mJsonDbPartition->removeIndex("intlist");
-    mJsonDbPartition->removeIndex("str");
-    mJsonDbPartition->removeIndex("i");
+    mJsonDbPartition->d_func()->removeIndex("stringlist");
+    mJsonDbPartition->d_func()->removeIndex("intlist");
+    mJsonDbPartition->d_func()->removeIndex("str");
+    mJsonDbPartition->d_func()->removeIndex("i");
 }
 
 void TestPartition::findFields()
@@ -3292,7 +3293,7 @@ void TestPartition::findFields()
     QJsonObject data = queryResult.data.at(0);
     QCOMPARE(data.value(QLatin1String("firstName")).toString(), QString("Wilma"));
     QCOMPARE(data.value(QLatin1String("lastName")).toString(), QString("Flintstone"));
-    mJsonDbPartition->removeIndex(QLatin1String("firstName"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("firstName"));
 }
 
 void TestPartition::orderedFind1_data()
@@ -3344,9 +3345,9 @@ void TestPartition::orderedFind1()
         QVERIFY(names != orderedNames);
         QVERIFY(names == disorderedNames);
     }
-    mJsonDbPartition->removeIndex(QLatin1String("orderedFind1"));
-    mJsonDbPartition->removeIndex(QLatin1String("orderedFindName"));
-    mJsonDbPartition->removeIndex(QLatin1String("_type"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("orderedFind1"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("orderedFindName"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("_type"));
 }
 
 void TestPartition::orderedFind2_data()
@@ -3415,7 +3416,7 @@ void TestPartition::wildcardIndex()
 
     queryResult = find(mOwner, QString("[?%1=\"%2\"][? telephoneNumbers[*].number exists ]").arg(JsonDbString::kTypeStr).arg(kContactStr));
     verifyGoodQueryResult(queryResult);
-    mJsonDbPartition->removeIndex("telephoneNumbers.*.number");
+    mJsonDbPartition->d_func()->removeIndex("telephoneNumbers.*.number");
 }
 
 void TestPartition::uuidJoin()
@@ -3494,10 +3495,10 @@ void TestPartition::uuidJoin()
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.at(0).value(QLatin1String("thumbnailUuid")).toString(),
              thumbnail.value("url").toString());
-    mJsonDbPartition->removeIndex("name");
-    mJsonDbPartition->removeIndex("thumbnailUuid");
-    mJsonDbPartition->removeIndex("url");
-    mJsonDbPartition->removeIndex("bettyUuid");
+    mJsonDbPartition->d_func()->removeIndex("name");
+    mJsonDbPartition->d_func()->removeIndex("thumbnailUuid");
+    mJsonDbPartition->d_func()->removeIndex("url");
+    mJsonDbPartition->d_func()->removeIndex("bettyUuid");
 }
 
 void TestPartition::orQuery_data()
@@ -3549,8 +3550,8 @@ void TestPartition::orQuery_data()
             create(mOwner, item);
         }
     }
-    mJsonDbPartition->removeIndex(QLatin1String("key1"));
-    mJsonDbPartition->removeIndex(QLatin1String("key2"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("key1"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("key2"));
 }
 
 void TestPartition::orQuery()
@@ -3575,8 +3576,8 @@ void TestPartition::orQuery()
         count++;
     }
     QVERIFY(count > 0);
-    mJsonDbPartition->removeIndex("key1");
-    mJsonDbPartition->removeIndex("key2");
+    mJsonDbPartition->d_func()->removeIndex("key1");
+    mJsonDbPartition->d_func()->removeIndex("key2");
 }
 
 void TestPartition::findByName()
@@ -3614,8 +3615,8 @@ void TestPartition::findEQ()
                                          .arg(item.valueByPath("name.last").toString()));
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 1);
-    mJsonDbPartition->removeIndex("name.first");
-    mJsonDbPartition->removeIndex("name.last");
+    mJsonDbPartition->d_func()->removeIndex("name.first");
+    mJsonDbPartition->d_func()->removeIndex("name.last");
 }
 
 void TestPartition::find10()
@@ -3637,8 +3638,8 @@ void TestPartition::find10()
     delete parsedQuery;
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 10);
-    mJsonDbPartition->removeIndex("name.first");
-    mJsonDbPartition->removeIndex("contact");
+    mJsonDbPartition->d_func()->removeIndex("name.first");
+    mJsonDbPartition->d_func()->removeIndex("contact");
 }
 
 void TestPartition::startsWith()
@@ -3734,7 +3735,7 @@ void TestPartition::comparison()
     queryResult = find(mOwner, QLatin1String("[?_type=\"comparison\"][?latitude < 0]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("latitude").toDouble(), (double)(-64));
-    mJsonDbPartition->removeIndex(QLatin1String("latitude"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("latitude"));
 }
 
 void TestPartition::removedObjects()
@@ -3779,8 +3780,8 @@ void TestPartition::removedObjects()
 
     queryResult = find(mOwner, QLatin1String("[?_type=\"removedObjects\"][/foo]"));
     QCOMPARE(queryResult.data.size(), 0);
-    mJsonDbPartition->removeIndex(QLatin1String("foo"));
-    mJsonDbPartition->removeIndex(QLatin1String("name"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("foo"));
+    mJsonDbPartition->d_func()->removeIndex(QLatin1String("name"));
 }
 
 void TestPartition::arrayIndexQuery()
@@ -3970,7 +3971,7 @@ void TestPartition::removeIndexes()
     addIndex("wacky_index");
     QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->index("wacky_index") != 0);
 
-    QVERIFY(mJsonDbPartition->removeIndex("wacky_index"));
+    QVERIFY(mJsonDbPartition->d_func()->removeIndex("wacky_index"));
     QVERIFY(mJsonDbPartition->findObjectTable(JsonDbString::kSchemaTypeStr)->index("wacky_index") == 0);
 
     JsonDbObject indexObject;
@@ -4004,7 +4005,7 @@ void TestPartition::setOwner()
     JsonDbWriteResult result = create(mOwner, item);
     verifyGoodResult(result);
 
-    GetObjectsResult getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType"));
+    GetObjectsResult getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType"));
     QCOMPARE(getObjects.data.at(0).value(JsonDbString::kOwnerStr).toString(), fooOwnerStr);
 
     result = remove(mOwner, item);
@@ -4022,7 +4023,7 @@ void TestPartition::setOwner()
     result = create(unauthOwner.data(), item);
     verifyGoodResult(result);
 
-    getObjects = mJsonDbPartition->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));
+    getObjects = mJsonDbPartition->d_func()->getObjects(JsonDbString::kTypeStr, QLatin1String("SetOwnerType2"));
     QVERIFY(getObjects.data.at(0).value(JsonDbString::kOwnerStr).toString()
             != fooOwnerStr);
     result = remove(unauthOwner.data(), item);

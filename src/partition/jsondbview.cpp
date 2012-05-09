@@ -47,6 +47,7 @@
 #include <QElapsedTimer>
 
 #include "jsondbpartition.h"
+#include "jsondbpartition_p.h"
 #include "jsondbobject.h"
 #include "jsondbview.h"
 #include "jsondbmapdefinition.h"
@@ -101,20 +102,20 @@ void JsonDbView::initViews(JsonDbPartition *partition)
     if (jsondbSettings->verbose())
         qDebug() << "Initializing views on partition" << partition->name();
     {
-        JsonDbObjectList mrdList = partition->getObjects(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr).data;
+        JsonDbObjectList mrdList = partition->d_func()->getObjects(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr).data;
 
         for (int i = 0; i < mrdList.size(); ++i) {
             JsonDbObject mrd = mrdList.at(i);
-            JsonDbView *view = partition->addView(mrd.value(QStringLiteral("targetType")).toString());
+            JsonDbView *view = partition->d_func()->addView(mrd.value(QStringLiteral("targetType")).toString());
             view->createMapDefinition(mrd);
         }
     }
     {
-        JsonDbObjectList mrdList = partition->getObjects(JsonDbString::kTypeStr, JsonDbString::kReduceTypeStr).data;
+        JsonDbObjectList mrdList = partition->d_func()->getObjects(JsonDbString::kTypeStr, JsonDbString::kReduceTypeStr).data;
 
         for (int i = 0; i < mrdList.size(); ++i) {
             JsonDbObject mrd = mrdList.at(i);
-            JsonDbView *view = partition->addView(mrd.value(QStringLiteral("targetType")).toString());
+            JsonDbView *view = partition->d_func()->addView(mrd.value(QStringLiteral("targetType")).toString());
             view->createReduceDefinition(mrd);
         }
     }

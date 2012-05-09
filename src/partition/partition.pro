@@ -49,7 +49,8 @@ HEADERS += \
     jsondbstrings.h \
     jsondbpartitionglobal.h \
     jsondbcollator.h \
-    jsondbcollator_p.h
+    jsondbcollator_p.h \
+    jsondbpartition_p.h
 
 SOURCES += \
     jsondbowner.cpp \

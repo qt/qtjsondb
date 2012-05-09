@@ -1,7 +1,7 @@
 TARGET = tst_partition
 CONFIG += debug
 
-QT = network qml testlib jsondbpartition
+QT = network qml testlib jsondbpartition jsondbpartition-private
 CONFIG -= app_bundle
 CONFIG += testcase
 

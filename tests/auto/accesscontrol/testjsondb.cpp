@@ -48,6 +48,7 @@
 #include <QTime>
 
 #include "jsondbpartition.h"
+#include "private/jsondbpartition_p.h"
 #include "jsondbsettings.h"
 
 #include "../../shared/util.h"
@@ -168,7 +169,7 @@ void TestJsonDb::cleanupTestCase()
 
 void TestJsonDb::cleanup()
 {
-    QCOMPARE(mJsonDbPartition->mTransactionDepth, 0);
+    QCOMPARE(mJsonDbPartition->d_func()->mTransactionDepth, 0);
 }
 
 JsonDbQueryResult TestJsonDb::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
@@ -223,7 +224,7 @@ void TestJsonDb::capabilities()
             verifyGoodResult(result);
         }
     }
-    mJsonDbPartition->removeIndex("CapabilitiesTest");
+    mJsonDbPartition->d_func()->removeIndex("CapabilitiesTest");
 }
 
 /*
@@ -251,7 +252,7 @@ void TestJsonDb::allowAll()
     result =  create(owner.data(), toPut2);
     verifyGoodResult(result);
 
-    mJsonDbPartition->removeIndex("TestObject");
+    mJsonDbPartition->d_func()->removeIndex("TestObject");
 
     jsondbSettings->setEnforceAccessControl(false);
 }

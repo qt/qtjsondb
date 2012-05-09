@@ -43,6 +43,7 @@
 #include "jsondbindexquery.h"
 #include "jsondbobjecttable.h"
 #include "jsondbpartition.h"
+#include "jsondbpartition_p.h"
 #include "jsondbsettings.h"
 #include "qbtree.h"
 #include "qbtreecursor.h"
@@ -400,7 +401,7 @@ JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
             } else if (mObjectCache.contains(uuid)) {
                 object = mObjectCache.value(uuid);
             } else {
-                 if (mPartition->getObject(ObjectKey(uuid), object))
+                 if (mPartition->d_func()->getObject(ObjectKey(uuid), object))
                     mObjectCache.insert(uuid, object);
             }
         }

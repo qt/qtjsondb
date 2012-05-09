@@ -45,6 +45,7 @@
 #include <QJsonDocument>
 
 #include "jsondbobjecttable.h"
+#include "jsondbpartition_p.h"
 #include "jsondbindex.h"
 #include "jsondbstrings.h"
 #include "jsondbbtree.h"

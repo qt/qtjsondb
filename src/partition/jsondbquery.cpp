@@ -45,6 +45,7 @@
 #include "jsondbstrings.h"
 #include "jsondbindexquery.h"
 #include "jsondbpartition.h"
+#include "jsondbpartition_p.h"
 #include "jsondbquery.h"
 #include "jsondbsettings.h"
 
@@ -540,7 +541,7 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                         joinedObject = objectCache->value(uuidValue);
                     else if (partition) {
                         ObjectKey objectKey(uuidValue);
-                        partition->getObject(objectKey, joinedObject);
+                        partition->d_func()->getObject(objectKey, joinedObject);
                         if (objectCache) objectCache->insert(uuidValue, joinedObject);
                     }
                 }

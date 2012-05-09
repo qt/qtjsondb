@@ -48,6 +48,7 @@
 #include <QTime>
 
 #include "jsondbpartition.h"
+#include "private/jsondbpartition_p.h"
 #include "jsondbindex.h"
 #include "jsondbindexquery.h"
 #include "jsondbsettings.h"
@@ -248,7 +249,7 @@ void TestPartition::cleanupTestCase()
 
 void TestPartition::cleanup()
 {
-    QCOMPARE(mJsonDbPartition->mTransactionDepth, 0);
+    QCOMPARE(mJsonDbPartition->d_func()->mTransactionDepth, 0);
 }
 
 void TestPartition::addSchema(const QString &schemaName)
@@ -624,7 +625,7 @@ void TestPartition::benchmarkSchemaValidation()
     QBENCHMARK_ONCE {
         foreach (QJsonObject object, objects) {
             QString error;
-            bool result = mJsonDbPartition->validateSchema(personSchemaName, object, error);
+            bool result = mJsonDbPartition->d_func()->validateSchema(personSchemaName, object, error);
 
             if (isPerson) {
                 QVERIFY(result && error.isEmpty());
@@ -969,7 +970,7 @@ void TestPartition::benchmarkCursorCount()
     QJsonObject bindings;
     foreach (QString query, queries) {
         QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
-        QScopedPointer<JsonDbIndexQuery> indexQuery(mJsonDbPartition->compileIndexQuery(mOwner, parsedQuery.data()));
+        QScopedPointer<JsonDbIndexQuery> indexQuery(mJsonDbPartition->d_func()->compileIndexQuery(mOwner, parsedQuery.data()));
         int count = 0;
         //qDebug() << "query" << query;
         QBENCHMARK {

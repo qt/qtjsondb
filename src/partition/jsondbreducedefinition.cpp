@@ -50,6 +50,7 @@
 #include <stdlib.h>
 
 #include "jsondbpartition.h"
+#include "jsondbpartition_p.h"
 #include "jsondbstrings.h"
 #include "jsondberrors.h"
 
@@ -95,7 +96,7 @@ void JsonDbReduceDefinition::definitionCreated()
     initScriptEngine();
     initIndexes();
 
-    GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, mSourceType);
+    GetObjectsResult getObjectResponse = mPartition->d_func()->getObjects(JsonDbString::kTypeStr, mSourceType);
     if (!getObjectResponse.error.isNull()) {
         if (jsondbSettings->verbose())
             qDebug() << "createReduceDefinition" << mTargetType << getObjectResponse.error.toString();

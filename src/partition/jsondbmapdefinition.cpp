@@ -51,6 +51,7 @@
 #include <stdlib.h>
 
 #include "jsondbpartition.h"
+#include "jsondbpartition_p.h"
 #include "jsondbstrings.h"
 #include "jsondberrors.h"
 
@@ -93,7 +94,7 @@ void JsonDbMapDefinition::definitionCreated()
     initIndexes();
 
     foreach (const QString &sourceType, mSourceTypes) {
-        GetObjectsResult getObjectResponse = mPartition->getObjects(JsonDbString::kTypeStr, sourceType);
+        GetObjectsResult getObjectResponse = mPartition->d_func()->getObjects(JsonDbString::kTypeStr, sourceType);
         if (!getObjectResponse.error.isNull()) {
             if (jsondbSettings->verbose())
                 qDebug() << "createMapDefinition" << mSourceTypes << sourceType << mTargetType << getObjectResponse.error.toString();
@@ -317,7 +318,7 @@ void JsonDbMapDefinition::lookupRequested(const QJSValue &query, const QJSValue 
     QString findKey = query.property(QStringLiteral("index")).toString();
     QJSValue findValue = query.property(QStringLiteral("value"));
     GetObjectsResult getObjectResponse =
-        mPartition->getObjects(findKey, mScriptEngine->fromScriptValue<QJsonValue>(findValue), objectType, false);
+        mPartition->d_func()->getObjects(findKey, mScriptEngine->fromScriptValue<QJsonValue>(findValue), objectType, false);
     if (!getObjectResponse.error.isNull()) {
         if (jsondbSettings->verbose())
             qDebug() << "lookupRequested" << mSourceTypes << mTargetType
