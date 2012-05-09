@@ -400,6 +400,7 @@ public:
     mutable QByteArray pageBuffer_;
 
     bool verifyIntegrity(const Page *pPage) const;
+    int forceCommitFail_;
 };
 
 QT_BEGIN_NAMESPACE

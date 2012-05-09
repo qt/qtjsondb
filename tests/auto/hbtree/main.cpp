@@ -560,6 +560,8 @@ private slots:
     void deleteAlotNoSyncReopen();
     void customBlockSize();
     void clearData();
+    void failedCommits_data();
+    void failedCommits();
 
 private:
     void setTestData(QList<int> itemCounts, QList<int> keySizes, QList<int> dataSizes, bool addCmpBool = false, bool addRandBool = false, bool addPreviousBool = false);
@@ -2715,6 +2717,65 @@ void TestHBtree::clearData()
         QCOMPARE(transaction->get(QByteArray::number(i)), QByteArray());
         transaction->abort();
     }
+}
+
+void TestHBtree::failedCommits_data()
+{
+    QList<int> itemCounts = QList<int>() << 100 << 1000;
+    QList<int> dataSizes = QList<int>() << 100 << 1000 << 2000 << 5000;
+    QList<int> keySizes = QList<int>() << 1 << 2 << 4 << 8 << 16;
+    setTestData(itemCounts, keySizes, dataSizes, false, true);
+}
+
+void TestHBtree::failedCommits()
+{
+    QFETCH(int, numItems);
+    QFETCH(int, valueSize);
+    QFETCH(bool, randomize);
+    QFETCH(int, keySize); // keySize used for commit failure
+
+    // Insert numItems
+    for (int i = 0; i < numItems; ++i) {
+        HBtreeTransaction *txn = db->beginWrite();
+        QByteArray key = QByteArray::number(randomize ? numTable[i] : i);
+        QByteArray value = QByteArray(valueSize, '0' + (i % ('z' - '0')));
+        QVERIFY(txn);
+        QVERIFY(txn->put(key, value));
+        QVERIFY(txn->commit(i));
+    }
+
+    // Add some more items in one transaction and fail
+    HBtreeTransaction *txn = db->beginWrite();
+    QVERIFY(txn);
+    for (int i = numItems; i < numItems + numItems; ++i) {
+        QByteArray key = QByteArray::number(randomize ? numTable[i] : i);
+        QByteArray value = QByteArray(valueSize, '0' + (i % ('z' - '0')));
+        QVERIFY(txn->put(key, value));
+    }
+    d->forceCommitFail_ = keySize;
+    bool ok = txn->commit(999999);
+    if (!ok)
+        txn->abort();
+    d->forceCommitFail_ = 0;
+
+    // Verify
+    txn = db->beginRead();
+    QVERIFY(txn);
+    for (int i = 0; i < numItems; ++i) {
+        QByteArray key = QByteArray::number(randomize ? numTable[i] : i);
+        QByteArray expectedValue = QByteArray(valueSize, '0' + (i % ('z' - '0')));
+        QByteArray value;
+        QVERIFY(txn->get(key, &value));
+        QCOMPARE(expectedValue, value);
+    }
+
+    for (int i = numItems; i < numItems + numItems; ++i) {
+        QByteArray key = QByteArray::number(randomize ? numTable[i] : i);
+        QByteArray value;
+        QVERIFY(txn->get(key, &value) == ok);
+    }
+
+    txn->abort();
 }
 
 QTEST_MAIN(TestHBtree)
