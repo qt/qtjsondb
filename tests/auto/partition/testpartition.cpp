@@ -3725,6 +3725,12 @@ void TestPartition::comparison()
     QCOMPARE(queryResult.data.at(0).value("latitude").toDouble(), (double)(10));
     QCOMPARE(queryResult.data.at(1).value("latitude").toDouble(), (double)(42));
 
+    queryResult = find(mOwner, QLatin1String("[?_type=\"comparison\"][?latitude < 0 | latitude > 10][/_type]"));
+    QCOMPARE(queryResult.data.size(), 2);
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"comparison\"][?latitude < 0 | latitude > 10][/latitude]"));
+    QCOMPARE(queryResult.data.size(), 2);
+
     queryResult = find(mOwner, QLatin1String("[?_type=\"comparison\"][?latitude < 0]"));
     QCOMPARE(queryResult.data.size(), 1);
     QCOMPARE(queryResult.data.at(0).value("latitude").toDouble(), (double)(-64));
