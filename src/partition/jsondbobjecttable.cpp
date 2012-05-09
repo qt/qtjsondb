@@ -624,23 +624,27 @@ quint32 JsonDbObjectTable::changesSince(quint32 startingStateNumber, QMap<Object
     for (QMultiMap<quint32,JsonDbUpdate>::const_iterator it = mChangeCache.lowerBound(startingStateNumber);
          it != mChangeCache.end(); ++it) {
         const JsonDbUpdate &change = it.value();
-        JsonDbNotification::Action action = change.action;
         const JsonDbObject newObject = change.newObject;
         ObjectKey objectKey(newObject.uuid());
 
         if (changeMap.contains(objectKey)) {
-            JsonDbUpdate oldChange = changeMap.value(objectKey);
+            const JsonDbUpdate &oldChange = changeMap.value(objectKey);
             // create followed by delete cancels out
-            JsonDbNotification::Action newAction = JsonDbNotification::Action(action);
+            JsonDbNotification::Action newAction = change.action;
             JsonDbNotification::Action oldAction = oldChange.action;
+
             if ((oldAction == JsonDbNotification::Create)
                 && (newAction == JsonDbNotification::Delete)) {
                 changeMap.remove(objectKey);
             } else {
-                if ((oldAction == JsonDbNotification::Delete)
-                    && (newAction == JsonDbNotification::Create))
-                    oldChange.action = JsonDbNotification::Update;
-                changeMap.insert(objectKey, oldChange);
+                JsonDbUpdate combinedChange;
+                if (newAction == JsonDbNotification::Delete)
+                    combinedChange.action = JsonDbNotification::Delete;
+                else
+                    combinedChange.action = JsonDbNotification::Update;
+                combinedChange.oldObject = oldChange.oldObject;
+                combinedChange.newObject = change.newObject;
+                changeMap.insert(objectKey, combinedChange);
             }
         } else {
             changeMap.insert(objectKey, change);

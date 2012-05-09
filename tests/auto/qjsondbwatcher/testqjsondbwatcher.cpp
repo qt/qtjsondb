@@ -482,6 +482,22 @@ void TestQJsonDbWatcher::history()
         QCOMPARE(notifications22.size(), 1);
     }
 
+    {
+        // now verify that queries are being tested for stateNumber > 0
+        // and that changes are being summarized properly
+        QJsonDbWatcher watcher22;
+        watcher22.setWatchedActions(QJsonDbWatcher::All);
+        watcher22.setQuery(QLatin1String("[?_type=\"com.test.qjsondbwatcher-test\"][?anotherone = \"def\"]"));
+        watcher22.setInitialStateNumber(stateNumberBeforeLastCreate);
+
+        mConnection->addWatcher(&watcher22);
+        QVERIFY(waitForResponseAndNotifications(0, &watcher22, 1));
+
+        QList<QJsonDbNotification> notifications22 = watcher22.takeNotifications();
+        QCOMPARE(notifications22.size(), 1);
+        QCOMPARE(notifications22[0].action(), QJsonDbWatcher::Created);
+    }
+
     QJsonDbRemoveRequest remove(objects);
     mConnection->send(&remove);
     QVERIFY(waitForResponse(&remove));
