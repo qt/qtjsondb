@@ -1,0 +1,2 @@
+This test checks if JsonDb handles out of space situations.
+Make sure jsondb and jsondb-client are in your PATH and then run runTest.sh
