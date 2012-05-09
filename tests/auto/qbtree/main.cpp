@@ -1298,6 +1298,8 @@ void TestQBtree::markerFileSizeCheck()
     btree_txn_abort(txn);
 
     btree_close(bt2);
+
+    QFile::remove(filename);
 }
 
 void TestQBtree::markerChecksumRollCheck()
