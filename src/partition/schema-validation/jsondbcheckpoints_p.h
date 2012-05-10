@@ -39,15 +39,16 @@
 **
 ****************************************************************************/
 
+#ifndef JSONDB_CHECKPOINTS_P_H
+#define JSONDB_CHECKPOINTS_P_H
+
 #include <QtCore/qhash.h>
 #include <QtCore/qlist.h>
 #include <QtCore/qregexp.h>
 #include <QtCore/qregularexpression.h>
 #include <QtCore/qurl.h>
 #include <QtCore/quuid.h>
-#include "object.h"
-#ifndef CHECKPOINTS_H
-#define CHECKPOINTS_H
+#include "jsondbschema_p.h"
 
 QT_BEGIN_HEADER
 
@@ -927,4 +928,4 @@ bool SchemaPrivate<T>::check(const Value &value) const
 
 QT_END_HEADER
 
-#endif // CHECKPOINTS_H
+#endif // JSONDB_CHECKPOINTS_P_H

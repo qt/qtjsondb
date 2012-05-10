@@ -45,57 +45,12 @@
 #include <QtCore/qhash.h>
 #include <QtCore/qshareddata.h>
 
-#ifndef OBJECT_H
-#define OBJECT_H
+#ifndef JSONDB_SCHEMA_P_H
+#define JSONDB_SCHEMA_P_H
 
 QT_BEGIN_HEADER
 
 namespace SchemaValidation {
-
-///**
-//    Interface for object like classes. Instances of specialization for this class would be
-//    used as input data for schema validation
-//    \internal
-//*/
-//template<class T>
-//class Object
-//{
-//public:
-//    /**
-//        Should return value of a property with the given \a name
-//    */
-//    Value<T> property(const Key<T>& name) const;
-
-//    /**
-//        Should return list of all properties name
-//        \todo replace to iterator syntax
-//    */
-//    QList<Key<T> > propertyNames() const;
-
-//};
-
-///**
-//  Interface for value like classes. A value can be one of types defined types in JSON
-//  \internal
-//*/
-//template<class T>
-//class Value {
-//public:
-//    int toInt(bool *ok) const;
-//    double toDouble(bool *ok) const;
-//    ValueList toList(bool *ok) const;
-//    QString toString(bool *ok) const;
-//    bool toBool(bool *ok) const;
-//    void toNull(bool *ok) const;
-//    Object<T> toObject(bool *ok) const;
-//};
-// ValueList::count()
-// ValueList::constBegin()
-// ValueList::constEnd()
-// ValueList::const_iterator()
-//
-// void Service::setError(const QString &message)
-// Schema<T> Service::loadSchema(const QString &name)
 
 template<class T>
 class SchemaPrivate;
@@ -252,8 +207,8 @@ private:
 
 }
 
-#include "checkpoints.h"
+#include "jsondbcheckpoints_p.h"
 
 QT_END_HEADER
 
-#endif // OBJECT_H
+#endif // JSONDB_SCHEMA_P_H

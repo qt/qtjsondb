@@ -43,7 +43,7 @@
 #define JSONDB_SCHEMA_MANAGER_IMPL_P_H
 
 #include "jsondbschemamanager_p.h"
-#include "schema-validation/object.h"
+#include "schema-validation/jsondbschema_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 

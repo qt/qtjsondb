@@ -38,8 +38,6 @@ HEADERS += \
     jsondbobjecttypes_impl_p.h \
     jsondbobjecttypes_p.h \
     jsondbreducedefinition.h \
-    schema-validation/checkpoints.h \
-    schema-validation/object.h \
     jsondbschemamanager_impl_p.h \
     jsondbschemamanager_p.h \
     jsondbscriptengine.h \
@@ -50,7 +48,9 @@ HEADERS += \
     jsondbpartitionglobal.h \
     jsondbcollator.h \
     jsondbcollator_p.h \
-    jsondbpartition_p.h
+    jsondbpartition_p.h \
+    schema-validation/jsondbschema_p.h \
+    schema-validation/jsondbcheckpoints_p.h
 
 SOURCES += \
     jsondbowner.cpp \
