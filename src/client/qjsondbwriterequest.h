@@ -90,6 +90,8 @@ public:
         //Merge = 2
     };
 
+    void setObject(const QJsonObject &object)
+    { setObjects(QList<QJsonObject>() << object); }
     void setObjects(const QList<QJsonObject> &);
     QList<QJsonObject> objects() const;
 

@@ -175,6 +175,16 @@ void QJsonDbWriteRequest::setObjects(const QList<QJsonObject> &objects)
     d->objects = objects;
 }
 
+/*!
+    \fn QJsonDbWriteRequest::setObject(const QJsonObject &object)
+
+    Sets the object to be processsed by JsonDb
+
+    \warning it is inefficient to process one object.
+
+    \sa setObjects()
+*/
+
 QList<QJsonObject> QJsonDbWriteRequest::objects() const
 {
     Q_D(const QJsonDbWriteRequest);
