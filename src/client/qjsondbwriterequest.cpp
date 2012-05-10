@@ -167,7 +167,31 @@ QJsonDbWriteRequest::~QJsonDbWriteRequest()
     \property QJsonDbWriteRequest::objects
 
     \brief the list of objects to be written to the database
+
+    There are essentially 3 different types of requests which depend on the properties of the \a object being passed in.
+    \list
+    \li Create: To create an object you have to set the object's \c{_uuid} property. The object
+    will then be created if it does not exist in JsonDb. If it exists then what you want is
+    an update.
+    \li Update: To update an existing object you have to supply the \c{_uuid} and \c{_version}
+    properties that tell JsonDb which object and which version of the object to update. You
+    may also set the conflict resolution mode to tell JsonDb how to update the object.
+    \li Remove: To remove an object from JsonDb you have to ensure the \c{_deleted} property is
+    set to true, and you have to also ensure the \c{_uuid} and \c{_version} properties are supplied.
+    \endlist
+
+    \note If you pass an object or list of objects as input to convenience class QJsonDbCreateRequest,
+    the constructor ensures that \c{_uuid} is defined.
+
+    \note If you pass an object or list of objects as input to convenience class QJsonDbRemoveRequest,
+    the constructor ensures that \c{_deleted} is set to true.
+
+    \warning it is much more efficient to pass in a list of objects to be batch processed then to add a single
+    object to the database.
+
+    \sa setConflictResolutionMode(), setObject()
 */
+
 void QJsonDbWriteRequest::setObjects(const QList<QJsonObject> &objects)
 {
     Q_D(QJsonDbWriteRequest);
