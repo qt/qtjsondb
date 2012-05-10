@@ -82,10 +82,10 @@ private:
 };
 
 class JsonDbQuery;
-class Q_JSONDB_PARTITION_EXPORT QueryTerm {
+class Q_JSONDB_PARTITION_EXPORT JsonDbQueryTerm {
 public:
-    QueryTerm(const JsonDbQuery *query);
-    ~QueryTerm();
+    JsonDbQueryTerm(const JsonDbQuery *query);
+    ~JsonDbQueryTerm();
     QString propertyName() const { return mPropertyName; }
     void setPropertyName(QString propertyName) { mPropertyName = propertyName; mFieldPath = propertyName.split('.'); }
     const QStringList &fieldPath() const { return mFieldPath; }
@@ -130,23 +130,23 @@ public:
     QRegExp mRegExp;
 };
 
-class OrQueryTerm {
+class JsonDbOrQueryTerm {
 public:
-    OrQueryTerm();
-    OrQueryTerm(const QueryTerm &term);
-    ~OrQueryTerm();
-    const QList<QueryTerm> &terms() const { return mTerms; }
-    void addTerm(const QueryTerm &term) { mTerms.append(term); }
+    JsonDbOrQueryTerm();
+    JsonDbOrQueryTerm(const JsonDbQueryTerm &term);
+    ~JsonDbOrQueryTerm();
+    const QList<JsonDbQueryTerm> &terms() const { return mTerms; }
+    void addTerm(const JsonDbQueryTerm &term) { mTerms.append(term); }
     QList<QString> propertyNames() const;
     QList<QString> findUnindexablePropertyNames() const;
 private:
-    QList<QueryTerm> mTerms;
+    QList<JsonDbQueryTerm> mTerms;
 };
 
-class Q_JSONDB_PARTITION_EXPORT OrderTerm {
+class Q_JSONDB_PARTITION_EXPORT JsonDbOrderTerm {
 public:
-    OrderTerm();
-    ~OrderTerm();
+    JsonDbOrderTerm() : ascending(false) { }
+    ~JsonDbOrderTerm() { }
     bool ascending;
     QString propertyName;
 };
@@ -154,10 +154,10 @@ public:
 class Q_JSONDB_PARTITION_EXPORT JsonDbQuery {
 public:
     JsonDbQuery() { }
-    JsonDbQuery(const QList<OrQueryTerm> &qt, const QList<OrderTerm> &ot);
+    JsonDbQuery(const QList<JsonDbOrQueryTerm> &qt, const QList<JsonDbOrderTerm> &ot);
     ~JsonDbQuery();
-    QList<OrQueryTerm> queryTerms;
-    QList<OrderTerm> orderTerms;
+    QList<JsonDbOrQueryTerm> queryTerms;
+    QList<JsonDbOrderTerm> orderTerms;
     QString query;
     QStringList mapExpressionList;
     QStringList mapKeyList;
@@ -169,7 +169,7 @@ public:
     void bind(QString variable, QJsonValue &binding) { mBindings[variable] = binding; }
     bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbPartition *partition = 0) const;
 
-    static QJsonValue parseJsonLiteral(const QString &json, QueryTerm *term, const QJsonObject &bindings, bool *ok);
+    static QJsonValue parseJsonLiteral(const QString &json, JsonDbQueryTerm *term, const QJsonObject &bindings, bool *ok);
     static QJsonArray parseJsonArray(JsonDbQueryTokenizer &tokenizer, const QJsonObject &bindings, bool *ok);
     static QJsonObject parseJsonObject(JsonDbQueryTokenizer &tokenizer, const QJsonObject &bindings, bool *ok);
     static JsonDbQuery *parse(const QString &query, const QJsonObject &bindings = QJsonObject());

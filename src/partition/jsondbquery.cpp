@@ -158,7 +158,7 @@ QString JsonDbQueryTokenizer::getNextToken()
     return QString();
 }
 
-QJsonValue QueryTerm::value() const
+QJsonValue JsonDbQueryTerm::value() const
 {
     if (mVariable.size())
         return mQuery->binding(mVariable);
@@ -166,7 +166,7 @@ QJsonValue QueryTerm::value() const
         return mValue;
 }
 
-JsonDbQuery::JsonDbQuery(const QList<OrQueryTerm> &qt, const QList<OrderTerm> &ot) :
+JsonDbQuery::JsonDbQuery(const QList<JsonDbOrQueryTerm> &qt, const QList<JsonDbOrderTerm> &ot) :
     queryTerms(qt)
   , orderTerms(ot)
 {
@@ -178,7 +178,7 @@ JsonDbQuery::~JsonDbQuery()
     orderTerms.clear();
 }
 
-QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, QueryTerm *term, const QJsonObject &bindings, bool *ok)
+QJsonValue JsonDbQuery::parseJsonLiteral(const QString &json, JsonDbQueryTerm *term, const QJsonObject &bindings, bool *ok)
 {
     const ushort trueLiteral[] = {'t','r','u','e', 0};
     const ushort falseLiteral[] = {'f','a','l','s','e', 0};
@@ -316,7 +316,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
         }
         token = tokenizer.pop();
         if (token == QLatin1Char('?')) {
-            OrQueryTerm oqt;
+            JsonDbOrQueryTerm oqt;
             do {
                 QString fieldSpec = tokenizer.popIdentifier();
                 if (fieldSpec == QLatin1Char('|'))
@@ -336,7 +336,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
                 op = opOrJoin;
 
 
-                QueryTerm term(parsedQuery);
+                JsonDbQueryTerm term(parsedQuery);
                 if (!joinField.isEmpty())
                     term.setJoinField(joinField);
                 if (fieldSpec.startsWith(QLatin1Char('%'))) {
@@ -463,7 +463,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
         } else if (token == QLatin1Char('/') || token == QLatin1Char('\\') ||
                    token == QLatin1Char('>') || token == QLatin1Char('<')) {
             QString ordering = token;
-            OrderTerm term;
+            JsonDbOrderTerm term;
             term.propertyName = tokenizer.popIdentifier();
             term.ascending = ordering == QLatin1Char('/') || ordering == QLatin1Char('>');
             parsedQuery->orderTerms.append(term);
@@ -492,8 +492,8 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
         return parsedQuery;
     }
 
-    foreach (const OrQueryTerm &oqt, parsedQuery->queryTerms) {
-        foreach (const QueryTerm &term, oqt.terms()) {
+    foreach (const JsonDbOrQueryTerm &oqt, parsedQuery->queryTerms) {
+        foreach (const JsonDbQueryTerm &term, oqt.terms()) {
             if (term.propertyName() == JsonDbString::kTypeStr) {
                 if (term.op() == QLatin1Char('=')) {
                     parsedQuery->mMatchedTypes.insert(term.value().toString());
@@ -509,7 +509,7 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
 
     if (!parsedQuery->queryTerms.size() && !parsedQuery->orderTerms.size()) {
         // match everything -- sort on type
-        OrderTerm term;
+        JsonDbOrderTerm term;
         term.propertyName = JsonDbString::kTypeStr;
         term.ascending = true;
         parsedQuery->orderTerms.append(term);
@@ -521,9 +521,9 @@ JsonDbQuery *JsonDbQuery::parse(const QString &query, const QJsonObject &binding
 bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbPartition *partition) const
 {
     for (int i = 0; i < queryTerms.size(); i++) {
-        const OrQueryTerm &orQueryTerm = queryTerms[i];
+        const JsonDbOrQueryTerm &orQueryTerm = queryTerms[i];
         bool matches = false;
-        foreach (const QueryTerm &term, orQueryTerm.terms()) {
+        foreach (const JsonDbQueryTerm &term, orQueryTerm.terms()) {
             const QString &joinPropertyName = term.joinField();
             const QString &op = term.op();
             const QJsonValue &termValue = term.value();
@@ -609,34 +609,34 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
 
 
 
-QueryTerm::QueryTerm(const JsonDbQuery *query)
+JsonDbQueryTerm::JsonDbQueryTerm(const JsonDbQuery *query)
     : mQuery(query), mJoinPaths()
 {
 }
 
-QueryTerm::~QueryTerm()
+JsonDbQueryTerm::~JsonDbQueryTerm()
 {
     mValue = QJsonValue();
     mJoinPaths.clear();
 }
 
-OrQueryTerm::OrQueryTerm()
+JsonDbOrQueryTerm::JsonDbOrQueryTerm()
 {
 }
 
-OrQueryTerm::OrQueryTerm(const QueryTerm &term)
+JsonDbOrQueryTerm::JsonDbOrQueryTerm(const JsonDbQueryTerm &term)
 {
     mTerms.append(term);
 }
 
-OrQueryTerm::~OrQueryTerm()
+JsonDbOrQueryTerm::~JsonDbOrQueryTerm()
 {
 }
 
-QList<QString> OrQueryTerm::propertyNames() const
+QList<QString> JsonDbOrQueryTerm::propertyNames() const
 {
     QList<QString> propertyNames;
-    foreach (const QueryTerm &term, mTerms) {
+    foreach (const JsonDbQueryTerm &term, mTerms) {
         QString propertyName = term.propertyName();
         if (!propertyNames.contains(propertyName))
             propertyNames.append(propertyName);
@@ -644,13 +644,13 @@ QList<QString> OrQueryTerm::propertyNames() const
     return propertyNames;
 }
 
-QList<QString> OrQueryTerm::findUnindexablePropertyNames() const
+QList<QString> JsonDbOrQueryTerm::findUnindexablePropertyNames() const
 {
     QList<QString> unindexablePropertyNames;
     QString firstPropertyName;
     if (!mTerms.isEmpty())
         firstPropertyName = mTerms[0].propertyName();
-    foreach (const QueryTerm &term, mTerms) {
+    foreach (const JsonDbQueryTerm &term, mTerms) {
         const QString propertyName = term.propertyName();
         const QString op = term.op();
         // notExists is unindexable because there would be no value to index
@@ -664,15 +664,6 @@ QList<QString> OrQueryTerm::findUnindexablePropertyNames() const
             unindexablePropertyNames.append(propertyName);
     }
     return unindexablePropertyNames;
-}
-
-OrderTerm::OrderTerm()
-    : ascending(false)
-{
-}
-
-OrderTerm::~OrderTerm()
-{
 }
 
 QT_END_NAMESPACE_JSONDB_PARTITION

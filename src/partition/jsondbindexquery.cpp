@@ -471,7 +471,7 @@ JsonDbObject JsonDbIndexQuery::next()
     return QJsonObject();
 }
 
-void JsonDbIndexQuery::compileOrQueryTerm(const QueryTerm &queryTerm)
+void JsonDbIndexQuery::compileOrQueryTerm(const JsonDbQueryTerm &queryTerm)
 {
     static const QRegExp wildCardPrefixRegExp(QStringLiteral("([^*?\\[\\]\\\\]+).*"));
 

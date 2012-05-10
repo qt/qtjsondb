@@ -102,7 +102,7 @@ public:
     void setResidualQuery(JsonDbQuery *residualQuery) { mResidualQuery = residualQuery; }
     virtual quint32 stateNumber() const;
 
-    void compileOrQueryTerm(const QueryTerm &queryTerm);
+    void compileOrQueryTerm(const JsonDbQueryTerm &queryTerm);
     JsonDbObject resultObject(const JsonDbObject &object);
 
     static bool lessThan(const QJsonValue &a, const QJsonValue &b);

@@ -1033,10 +1033,10 @@ void DBServer::processLog(JsonStream *stream, const QString &message, int id)
 
 void DBServer::debugQuery(JsonDbQuery *query, int limit, int offset, const JsonDbQueryResult &result)
 {
-    const QList<OrQueryTerm> &orQueryTerms = query->queryTerms;
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = query->queryTerms;
     for (int i = 0; i < orQueryTerms.size(); i++) {
-        const OrQueryTerm &orQueryTerm = orQueryTerms[i];
-        foreach (const QueryTerm &queryTerm, orQueryTerm.terms()) {
+        const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
+        foreach (const JsonDbQueryTerm &queryTerm, orQueryTerm.terms()) {
             if (jsondbSettings->verbose()) {
                 qDebug() << __FILE__ << __LINE__
                          << QString("    %1%2%3 %4")
@@ -1049,9 +1049,9 @@ void DBServer::debugQuery(JsonDbQuery *query, int limit, int offset, const JsonD
         }
     }
 
-    QList<OrderTerm> &orderTerms = query->orderTerms;
+    QList<JsonDbOrderTerm> &orderTerms = query->orderTerms;
     for (int i = 0; i < orderTerms.size(); i++) {
-        const OrderTerm &orderTerm = orderTerms[i];
+        const JsonDbOrderTerm &orderTerm = orderTerms[i];
         if (jsondbSettings->verbose())
             qDebug() << __FILE__ << __LINE__ << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending ? "ascending" : "descending");
     }
@@ -1136,14 +1136,14 @@ void DBServer::createNotification(const JsonDbObject &object, JsonStream *stream
 
     JsonDbQuery *parsedQuery = JsonDbQuery::parse(query, bindings);
     n->setCompiledQuery(parsedQuery);
-    const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
 
     bool generic = true;
     for (int i = 0; i < orQueryTerms.size(); i++) {
-        const OrQueryTerm &orQueryTerm = orQueryTerms[i];
-        const QList<QueryTerm> &terms = orQueryTerm.terms();
+        const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
+        const QList<JsonDbQueryTerm> &terms = orQueryTerm.terms();
         if (terms.size() == 1) {
-            const QueryTerm &term = terms[0];
+            const JsonDbQueryTerm &term = terms[0];
             if (term.op() == "=") {
                 if (term.propertyName() == JsonDbString::kUuidStr) {
                     mKeyedNotifications.insert(term.value().toString(), n);
@@ -1178,12 +1178,12 @@ void DBServer::removeNotification(const JsonDbObject &object)
         mNotificationMap.remove(object.uuid().toString());
         mNotifications.remove(object.uuid().toString());
         const JsonDbQuery *parsedQuery = n->parsedQuery();
-        const QList<OrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
+        const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
         for (int i = 0; i < orQueryTerms.size(); i++) {
-            const OrQueryTerm &orQueryTerm = orQueryTerms[i];
-            const QList<QueryTerm> &terms = orQueryTerm.terms();
+            const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
+            const QList<JsonDbQueryTerm> &terms = orQueryTerm.terms();
             if (terms.size() == 1) {
-                const QueryTerm &term = terms[0];
+                const JsonDbQueryTerm &term = terms[0];
                 if (term.op() == "=") {
                     if (term.propertyName() == JsonDbString::kTypeStr) {
                         mKeyedNotifications.remove(term.value().toString(), n);

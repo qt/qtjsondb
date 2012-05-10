@@ -654,8 +654,8 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
     JsonDbQuery *residualQuery = new JsonDbQuery();
     QString orderField;
     QSet<QString> typeNames;
-    const QList<OrderTerm> &orderTerms = query->orderTerms;
-    const QList<OrQueryTerm> &orQueryTerms = query->queryTerms;
+    const QList<JsonDbOrderTerm> &orderTerms = query->orderTerms;
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = query->queryTerms;
     QString indexCandidate;
     int indexedQueryTermCount = 0;
     JsonDbObjectTable *table = mObjectTable; //TODO fix me
@@ -666,14 +666,14 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
         for (int i = 0; i < orQueryTerms.size(); i++)
             unindexablePropertyNames.append(orQueryTerms[i].findUnindexablePropertyNames());
         for (int i = 0; i < orQueryTerms.size(); i++) {
-            const OrQueryTerm orQueryTerm = orQueryTerms[i];
+            const JsonDbOrQueryTerm orQueryTerm = orQueryTerms[i];
             const QList<QString> &querypropertyNames = orQueryTerm.propertyNames();
             if (querypropertyNames.size() == 1) {
                 //QString fieldValue = queryTerm.value().toString();
                 QString propertyName = querypropertyNames[0];
 
-                const QList<QueryTerm> &queryTerms = orQueryTerm.terms();
-                const QueryTerm &queryTerm = queryTerms[0];
+                const QList<JsonDbQueryTerm> &queryTerms = orQueryTerm.terms();
+                const JsonDbQueryTerm &queryTerm = queryTerms[0];
 
                 if ((typeNames.size() == 1)
                     && mViews.contains(typeNames.toList()[0])) {
@@ -741,7 +741,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
     }
 
     for (int i = 0; i < orderTerms.size(); i++) {
-        const OrderTerm &orderTerm = orderTerms[i];
+        const JsonDbOrderTerm &orderTerm = orderTerms[i];
         QString propertyName = orderTerm.propertyName;
         if (!table->index(propertyName)) {
             if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
@@ -772,10 +772,10 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
     }
 
     for (int i = 0; i < orQueryTerms.size(); i++) {
-        const OrQueryTerm &orQueryTerm = orQueryTerms[i];
-        const QList<QueryTerm> &queryTerms = orQueryTerm.terms();
+        const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
+        const QList<JsonDbQueryTerm> &queryTerms = orQueryTerm.terms();
         if (queryTerms.size() == 1) {
-            QueryTerm queryTerm = queryTerms[0];
+            JsonDbQueryTerm queryTerm = queryTerms[0];
             QString propertyName = queryTerm.propertyName();
             QString op = queryTerm.op();
 
@@ -835,8 +835,8 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
             qCritical() << "searching all objects" << query->query;
 
         if (defaultIndex == JsonDbString::kTypeStr) {
-            foreach (const OrQueryTerm &term, orQueryTerms) {
-                QList<QueryTerm> terms = term.terms();
+            foreach (const JsonDbOrQueryTerm &term, orQueryTerms) {
+                QList<JsonDbQueryTerm> terms = term.terms();
                 if (terms.size() == 1 && terms[0].propertyName() == JsonDbString::kTypeStr) {
                     indexQuery->compileOrQueryTerm(terms[0]);
                     break;
@@ -1210,10 +1210,10 @@ bool sortableGreaterThan(const QJsonSortable &a, const QJsonSortable &b)
 
 void JsonDbPartitionPrivate::sortValues(const JsonDbQuery *parsedQuery, JsonDbObjectList &results, JsonDbObjectList &joinedResults)
 {
-    const QList<OrderTerm> &orderTerms = parsedQuery->orderTerms;
+    const QList<JsonDbOrderTerm> &orderTerms = parsedQuery->orderTerms;
     if (!orderTerms.size() || (results.size() < 2))
         return;
-    const OrderTerm &orderTerm0 = orderTerms[0];
+    const JsonDbOrderTerm &orderTerm0 = orderTerms[0];
     QString field0 = orderTerm0.propertyName;
     bool ascending = orderTerm0.ascending;
     QStringList path0 = field0.split('.');
