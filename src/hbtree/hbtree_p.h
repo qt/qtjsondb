@@ -398,9 +398,10 @@ public:
     QList<Page *> lru_;
     bool cursorDisrupted_;
     mutable QByteArray pageBuffer_;
-
     bool verifyIntegrity(const Page *pPage) const;
     int forceCommitFail_;
+    mutable int lastWriteError_;
+    int lastReadError_;
 };
 
 QT_BEGIN_NAMESPACE

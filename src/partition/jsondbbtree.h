@@ -119,6 +119,10 @@ public:
     Stat stats() const;
     bool sync()
     { Q_ASSERT(mBtree); return mBtree->sync(); }
+    int lastWriteError() const
+    { Q_ASSERT(mBtree); return mBtree->lastWriteError(); }
+    int lastReadError() const
+    { Q_ASSERT(mBtree); return mBtree->lastReadError(); }
 
     bool putOne(const QByteArray &key, const QByteArray &value);
     bool getOne(const QByteArray &key, QByteArray *value);

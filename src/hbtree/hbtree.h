@@ -134,6 +134,8 @@ public:
     bool open();
     void close();
     bool isOpen() const;
+    int lastWriteError() const;
+    int lastReadError() const;
 
     bool open(OpenMode mode) { setOpenMode(mode); return open(); }
 

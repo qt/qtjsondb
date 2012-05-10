@@ -44,6 +44,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <stddef.h>
+#include <errno.h>
 
 #include <QDebug>
 
@@ -95,7 +96,7 @@ HBtreePrivate::HBtreePrivate(HBtree *q, const QString &name)
     : q_ptr(q), fileName_(name), fd_(-1), openMode_(HBtree::ReadOnly), size_(0), lastSyncedId_(0), cacheSize_(20),
       compareFunction_(0),
       writeTransaction_(0), readTransaction_(0), lastPage_(PageInfo::INVALID_PAGE), cursorDisrupted_(false),
-      forceCommitFail_(0)
+      forceCommitFail_(0), lastWriteError_(0), lastReadError_(0)
 {
 }
 
@@ -154,6 +155,7 @@ bool HBtreePrivate::open(int fd)
             lastSyncedId_ = 0;
             size_ = initSize;
         } else {
+            lastReadError_ = errno;
             HBTREE_ERROR("failed to read spec page - rc:" << rc);
             return false;
         }
@@ -202,7 +204,7 @@ bool HBtreePrivate::open(int fd)
                  << ", residueHistory_:" << residueHistory_
                  << ", size_:" << size_
                  << "]");
-
+    lastReadError_ = 0;
     return true;
 }
 
@@ -265,9 +267,11 @@ bool HBtreePrivate::readSpec(const QByteArray &binaryData)
         int rc = pread(fd_, (void *)buffer.data(), spec.pageSize, 0);
 
         if (rc != spec.pageSize) {
+            lastReadError_ = errno;
             HBTREE_DEBUG("failed to read" << spec.pageSize << "bytes for spec page. Spec:" << spec);
             return false;
         }
+        lastReadError_ = 0;
     }
 
     quint32 crc = calculateChecksum(buffer);
@@ -730,9 +734,11 @@ QByteArray HBtreePrivate::readPage(quint32 pageNumber)
 
     ssize_t rc = read(fd_, (void *)pageBuffer_.data(), spec_.pageSize);
     if (rc != spec_.pageSize) {
+        lastReadError_ = errno;
         HBTREE_DEBUG("failed to read @" << offset << "for page" << pageNumber << "- rc:" << rc);
         return QByteArray();
     }
+    lastReadError_ = 0;
 
     PageInfo pageInfo = deserializePageInfo(pageBuffer_);
 
@@ -781,10 +787,11 @@ bool HBtreePrivate::writePage(QByteArray *buffer) const
     const off_t offset = pageNumber * spec_.pageSize;
     ssize_t rc = pwrite(fd_, (const void *)buffer->constData(), spec_.pageSize, offset);
     if (rc != spec_.pageSize) {
+        lastWriteError_ = errno;
         HBTREE_DEBUG("failed pwrite. Expected page size" << spec_.pageSize << "- rc:" << rc);
         return false;
     }
-
+    lastWriteError_ = 0;
     HBTREE_DEBUG("wrote page" << deserializePageInfo(*buffer));
 
     const Q_Q(HBtree);
@@ -2830,6 +2837,18 @@ bool HBtree::isOpen() const
 {
     Q_D(const HBtree);
     return d->fd_ != -1;
+}
+
+int HBtree::lastWriteError() const
+{
+    Q_D(const HBtree);
+    return d->lastWriteError_;
+}
+
+int HBtree::lastReadError() const
+{
+    Q_D(const HBtree);
+    return d->lastReadError_;
 }
 
 size_t HBtree::size() const
