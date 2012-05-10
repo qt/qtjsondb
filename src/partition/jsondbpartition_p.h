@@ -43,7 +43,6 @@
 #define JSONDB_PARTITION_P_H
 
 #include <QStringList>
-#include <QRegExp>
 #include <QSet>
 #include <QTimer>
 #include <QVector>
@@ -98,7 +97,6 @@ public:
                                 bool updateViews = true);
 
     JsonDbIndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
-    void compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const QueryTerm &queryTerm);
 
     void doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
                       JsonDbIndexQuery *indexQuery);
@@ -134,7 +132,6 @@ public:
     QHash<QString,QPointer<JsonDbView> > mViews;
     QSet<QString> mViewTypes;
     JsonDbSchemaManager   mSchemas;
-    QRegExp      mWildCardPrefixRegExp;
     QTimer      *mMainSyncTimer;
     QTimer      *mIndexSyncTimer;
     JsonDbOwner *mDefaultOwner;

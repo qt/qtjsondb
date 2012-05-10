@@ -45,7 +45,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
-#include <QRegExp>
 #include <QString>
 #include <QElapsedTimer>
 #include <QUuid>
@@ -86,7 +85,6 @@ JsonDbPartitionPrivate::JsonDbPartitionPrivate(JsonDbPartition *q)
     : q_ptr(q)
     , mObjectTable(0)
     , mTransactionDepth(0)
-    , mWildCardPrefixRegExp(QStringLiteral("([^*?\\[\\]\\\\]+).*"))
     , mDefaultOwner(0)
     , mIsOpen(false)
     , mDiskSpaceStatus(JsonDbPartition::UnknownStatus)
@@ -648,67 +646,6 @@ QHash<QString, qint64> JsonDbPartition::fileSizes() const
     return result;
 }
 
-void JsonDbPartitionPrivate::compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const QueryTerm &queryTerm)
-{
-    QString op = queryTerm.op();
-    QJsonValue fieldValue = queryTerm.value();
-
-    if (indexQuery->propertyName() != JsonDbString::kUuidStr)
-        JsonDbIndexPrivate::truncateFieldValue(&fieldValue, indexQuery->propertyType());
-
-    if (op == QLatin1Char('>')) {
-        indexQuery->addConstraint(new QueryConstraintGt(fieldValue));
-        indexQuery->setMin(fieldValue);
-    } else if (op == QLatin1String(">=")) {
-        indexQuery->addConstraint(new QueryConstraintGe(fieldValue));
-        indexQuery->setMin(fieldValue);
-    } else if (op == QLatin1Char('<')) {
-        indexQuery->addConstraint(new QueryConstraintLt(fieldValue));
-        indexQuery->setMax(fieldValue);
-    } else if (op == QLatin1String("<=")) {
-        indexQuery->addConstraint(new QueryConstraintLe(fieldValue));
-        indexQuery->setMax(fieldValue);
-    } else if (op == QLatin1Char('=')) {
-        indexQuery->addConstraint(new QueryConstraintEq(fieldValue));
-        indexQuery->setMin(fieldValue);
-        indexQuery->setMax(fieldValue);
-    } else if (op == QLatin1String("=~")
-               || op == QLatin1String("!=~")) {
-        const QRegExp &re = queryTerm.regExpConst();
-        QRegExp::PatternSyntax syntax = re.patternSyntax();
-        Qt::CaseSensitivity cs = re.caseSensitivity();
-        QString pattern = re.pattern();
-        indexQuery->addConstraint(new QueryConstraintRegExp(re, (op == QLatin1String("=~") ? false : true)));
-        if (cs == Qt::CaseSensitive) {
-            QString prefix;
-            if ((syntax == QRegExp::Wildcard)
-                && mWildCardPrefixRegExp.exactMatch(pattern)) {
-                prefix = mWildCardPrefixRegExp.cap(1);
-                if (jsondbSettings->debug())
-                    qDebug() << "wildcard regexp prefix" << pattern << prefix;
-            }
-            indexQuery->setMin(prefix);
-            indexQuery->setMax(prefix);
-        }
-    } else if (op == QLatin1String("!=")) {
-        indexQuery->addConstraint(new QueryConstraintNe(fieldValue));
-    } else if (op == QLatin1String("exists")) {
-        indexQuery->addConstraint(new QueryConstraintExists);
-    } else if (op == QLatin1String("notExists")) {
-        indexQuery->addConstraint(new QueryConstraintNotExists);
-    } else if (op == QLatin1String("in")) {
-        QJsonArray value = queryTerm.value().toArray();
-        if (value.size() == 1)
-            indexQuery->addConstraint(new QueryConstraintEq(value.at(0)));
-        else
-            indexQuery->addConstraint(new QueryConstraintIn(queryTerm.value()));
-    } else if (op == QLatin1String("notIn")) {
-        indexQuery->addConstraint(new QueryConstraintNotIn(queryTerm.value()));
-    } else if (op == QLatin1String("startsWith")) {
-        indexQuery->addConstraint(new QueryConstraintStartsWith(queryTerm.value().toString()));
-    }
-}
-
 JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query)
 {
     Q_Q(JsonDbPartition);
@@ -871,8 +808,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
             }
 
             if (propertyName == orderField) {
-                Q_ASSERT(indexQuery);
-                compileOrQueryTerm(indexQuery, queryTerm);
+                indexQuery->compileOrQueryTerm(queryTerm);
             } else {
                 residualQuery->queryTerms.append(orQueryTerm);
             }
@@ -902,7 +838,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
             foreach (const OrQueryTerm &term, orQueryTerms) {
                 QList<QueryTerm> terms = term.terms();
                 if (terms.size() == 1 && terms[0].propertyName() == JsonDbString::kTypeStr) {
-                    compileOrQueryTerm(indexQuery, terms[0]);
+                    indexQuery->compileOrQueryTerm(terms[0]);
                     break;
                 }
             }

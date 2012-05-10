@@ -43,7 +43,6 @@
 #define JSONDB_INDEXQUERY_H
 
 #include <QJsonValue>
-#include <QRegExp>
 #include <QSet>
 #include <QVector>
 #include <QStringList>
@@ -51,6 +50,7 @@
 #include "jsondbpartitionglobal.h"
 #include "jsondbobject.h"
 #include "jsondbobjectkey.h"
+#include "jsondbquery.h"
 #include "jsondbbtree.h"
 
 QT_BEGIN_HEADER
@@ -62,9 +62,9 @@ class JsonDbOwner;
 class JsonDbPartition;
 class JsonDbQuery;
 
-class QueryConstraint {
+class Q_JSONDB_PARTITION_EXPORT JsonDbQueryConstraint {
 public:
-    virtual ~QueryConstraint() { }
+    virtual ~JsonDbQueryConstraint() { }
     virtual bool matches(const QJsonValue &value) = 0;
     virtual bool sparseMatchPossible() const { return false; }
 };
@@ -82,7 +82,7 @@ public:
 
     JsonDbObjectTable *objectTable() const { return mObjectTable; }
     QString partition() const;
-    void addConstraint(QueryConstraint *qc) { mQueryConstraints.append(qc); }
+    void addConstraint(JsonDbQueryConstraint *qc) { mQueryConstraints.append(qc); }
     bool ascending() const { return mAscending; }
     QString propertyName() const { return mPropertyName; }
     QString propertyType() const { return mPropertyType; }
@@ -102,6 +102,7 @@ public:
     void setResidualQuery(JsonDbQuery *residualQuery) { mResidualQuery = residualQuery; }
     virtual quint32 stateNumber() const;
 
+    void compileOrQueryTerm(const QueryTerm &queryTerm);
     JsonDbObject resultObject(const JsonDbObject &object);
 
     static bool lessThan(const QJsonValue &a, const QJsonValue &b);
@@ -124,7 +125,7 @@ protected:
     QSet<QString> mTypeNames;
     bool          mAscending;
     QString       mUuid;
-    QVector<QueryConstraint*> mQueryConstraints;
+    QVector<JsonDbQueryConstraint*> mQueryConstraints;
     QString       mAggregateOperation;
     QString       mPropertyName;
     QString       mPropertyType;
@@ -147,96 +148,6 @@ protected:
     virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
     virtual quint32 stateNumber() const;
     friend class JsonDbIndexQuery;
-};
-
-class QueryConstraintGt: public QueryConstraint {
-public:
-    QueryConstraintGt(const QJsonValue &v) { mValue = v; }
-    inline bool matches(const QJsonValue &v) { return JsonDbIndexQuery::greaterThan(v, mValue); }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintGe: public QueryConstraint {
-public:
-    QueryConstraintGe(const QJsonValue &v) { mValue = v; }
-    inline bool matches(const QJsonValue &v) { return JsonDbIndexQuery::greaterThan(v, mValue) || (v == mValue); }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintLt: public QueryConstraint {
-public:
-    QueryConstraintLt(const QJsonValue &v) { mValue = v; }
-    inline bool matches(const QJsonValue &v) { return JsonDbIndexQuery::lessThan(v, mValue); }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintLe: public QueryConstraint {
-public:
-    QueryConstraintLe(const QJsonValue &v) { mValue = v; }
-    inline bool matches(const QJsonValue &v) { return JsonDbIndexQuery::lessThan(v, mValue) || (v == mValue); }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintEq: public QueryConstraint {
-public:
-    QueryConstraintEq(const QJsonValue &v) { mValue = v; }
-    inline bool matches(const QJsonValue &v) { return v == mValue; }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintNe: public QueryConstraint {
-public:
-    QueryConstraintNe(const QJsonValue &v) { mValue = v; }
-    inline bool sparseMatchPossible() const { return true; }
-    inline bool matches(const QJsonValue &v) { return v != mValue; }
-private:
-    QJsonValue mValue;
-};
-class QueryConstraintExists: public QueryConstraint {
-public:
-    QueryConstraintExists() { }
-    inline bool matches(const QJsonValue &v) { return !v.isUndefined(); }
-};
-class QueryConstraintNotExists: public QueryConstraint {
-public:
-    QueryConstraintNotExists() { }
-    // this will never match
-    inline bool matches(const QJsonValue &v) { return v.isUndefined(); }
-};
-class QueryConstraintIn: public QueryConstraint {
-public:
-    QueryConstraintIn(const QJsonValue &v) { mList = v.toArray();}
-    inline bool sparseMatchPossible() const { return true; }
-    inline bool matches(const QJsonValue &v) { return mList.contains(v); }
-private:
-    QJsonArray mList;
-};
-class QueryConstraintNotIn: public QueryConstraint {
-public:
-    QueryConstraintNotIn(const QJsonValue &v) { mList = v.toArray();}
-    inline bool sparseMatchPossible() const { return true; }
-    inline bool matches(const QJsonValue &v) { return !mList.contains(v); }
-private:
-    QJsonArray mList;
-};
-class QueryConstraintStartsWith: public QueryConstraint {
-public:
-    QueryConstraintStartsWith(const QString &v) { mValue = v;}
-    inline bool sparseMatchPossible() const { return true; }
-    inline bool matches(const QJsonValue &v) { return (v.type() == QJsonValue::String) && v.toString().startsWith(mValue); }
-private:
-    QString mValue;
-};
-class QueryConstraintRegExp: public QueryConstraint {
-public:
-    QueryConstraintRegExp(const QRegExp &regexp, bool negated=false) : mRegExp(regexp), mNegated(negated) {}
-    inline void setNegated(bool negated) { mNegated = negated; }
-    inline bool matches(const QJsonValue &v) { bool matches = mRegExp.exactMatch(v.toString()); if (mNegated) return !matches; else return matches; }
-    inline bool sparseMatchPossible() const { return true; }
-private:
-    QString mValue;
-    QRegExp mRegExp;
-    bool mNegated;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

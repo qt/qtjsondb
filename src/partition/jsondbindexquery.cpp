@@ -46,13 +46,105 @@
 #include "jsondbpartition.h"
 #include "jsondbpartition_p.h"
 #include "jsondbsettings.h"
+#include "jsondbutils_p.h"
 #include "qbtree.h"
 #include "qbtreecursor.h"
 #include "qbtreetxn.h"
 
 #include <QJsonDocument>
+#include <QRegExp>
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
+
+class QueryConstraintGt: public JsonDbQueryConstraint {
+public:
+    QueryConstraintGt(const QJsonValue &v) { mValue = v; }
+    inline bool matches(const QJsonValue &v) { return JsonDbIndexQuery::greaterThan(v, mValue); }
+private:
+    QJsonValue mValue;
+};
+class QueryConstraintGe: public JsonDbQueryConstraint {
+public:
+    QueryConstraintGe(const QJsonValue &v) { mValue = v; }
+    inline bool matches(const QJsonValue &v) { return JsonDbIndexQuery::greaterThan(v, mValue) || (v == mValue); }
+private:
+    QJsonValue mValue;
+};
+class QueryConstraintLt: public JsonDbQueryConstraint {
+public:
+    QueryConstraintLt(const QJsonValue &v) { mValue = v; }
+    inline bool matches(const QJsonValue &v) { return JsonDbIndexQuery::lessThan(v, mValue); }
+private:
+    QJsonValue mValue;
+};
+class QueryConstraintLe: public JsonDbQueryConstraint {
+public:
+    QueryConstraintLe(const QJsonValue &v) { mValue = v; }
+    inline bool matches(const QJsonValue &v) { return JsonDbIndexQuery::lessThan(v, mValue) || (v == mValue); }
+private:
+    QJsonValue mValue;
+};
+class QueryConstraintEq: public JsonDbQueryConstraint {
+public:
+    QueryConstraintEq(const QJsonValue &v) { mValue = v; }
+    inline bool matches(const QJsonValue &v) { return v == mValue; }
+private:
+    QJsonValue mValue;
+};
+class QueryConstraintNe: public JsonDbQueryConstraint {
+public:
+    QueryConstraintNe(const QJsonValue &v) { mValue = v; }
+    inline bool sparseMatchPossible() const { return true; }
+    inline bool matches(const QJsonValue &v) { return v != mValue; }
+private:
+    QJsonValue mValue;
+};
+class QueryConstraintExists: public JsonDbQueryConstraint {
+public:
+    QueryConstraintExists() { }
+    inline bool matches(const QJsonValue &v) { return !v.isUndefined(); }
+};
+class QueryConstraintNotExists: public JsonDbQueryConstraint {
+public:
+    QueryConstraintNotExists() { }
+    // this will never match
+    inline bool matches(const QJsonValue &v) { return v.isUndefined(); }
+};
+class QueryConstraintIn: public JsonDbQueryConstraint {
+public:
+    QueryConstraintIn(const QJsonValue &v) { mList = v.toArray();}
+    inline bool sparseMatchPossible() const { return true; }
+    inline bool matches(const QJsonValue &v) { return mList.contains(v); }
+private:
+    QJsonArray mList;
+};
+class QueryConstraintNotIn: public JsonDbQueryConstraint {
+public:
+    QueryConstraintNotIn(const QJsonValue &v) { mList = v.toArray();}
+    inline bool sparseMatchPossible() const { return true; }
+    inline bool matches(const QJsonValue &v) { return !mList.contains(v); }
+private:
+    QJsonArray mList;
+};
+class QueryConstraintStartsWith: public JsonDbQueryConstraint {
+public:
+    QueryConstraintStartsWith(const QString &v) { mValue = v;}
+    inline bool sparseMatchPossible() const { return true; }
+    inline bool matches(const QJsonValue &v) { return (v.type() == QJsonValue::String) && v.toString().startsWith(mValue); }
+private:
+    QString mValue;
+};
+class QueryConstraintRegExp: public JsonDbQueryConstraint {
+public:
+    QueryConstraintRegExp(const QRegExp &regexp, bool negated=false) : mRegExp(regexp), mNegated(negated) {}
+    inline void setNegated(bool negated) { mNegated = negated; }
+    inline bool matches(const QJsonValue &v) { bool matches = mRegExp.exactMatch(v.toString()); if (mNegated) return !matches; else return matches; }
+    inline bool sparseMatchPossible() const { return true; }
+private:
+    QString mValue;
+    QRegExp mRegExp;
+    bool mNegated;
+};
 
 JsonDbIndexQuery *JsonDbIndexQuery::indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                                    const QString &propertyName, const QString &propertyType,
@@ -377,6 +469,69 @@ JsonDbObject JsonDbIndexQuery::next()
     }
     mUuid.clear();
     return QJsonObject();
+}
+
+void JsonDbIndexQuery::compileOrQueryTerm(const QueryTerm &queryTerm)
+{
+    static const QRegExp wildCardPrefixRegExp(QStringLiteral("([^*?\\[\\]\\\\]+).*"));
+
+    QString op = queryTerm.op();
+    QJsonValue fieldValue = queryTerm.value();
+
+    if (propertyName() != JsonDbString::kUuidStr)
+        JsonDbIndexPrivate::truncateFieldValue(&fieldValue, propertyType());
+
+    if (op == QLatin1Char('>')) {
+        addConstraint(new QueryConstraintGt(fieldValue));
+        setMin(fieldValue);
+    } else if (op == QLatin1String(">=")) {
+        addConstraint(new QueryConstraintGe(fieldValue));
+        setMin(fieldValue);
+    } else if (op == QLatin1Char('<')) {
+        addConstraint(new QueryConstraintLt(fieldValue));
+        setMax(fieldValue);
+    } else if (op == QLatin1String("<=")) {
+        addConstraint(new QueryConstraintLe(fieldValue));
+        setMax(fieldValue);
+    } else if (op == QLatin1Char('=')) {
+        addConstraint(new QueryConstraintEq(fieldValue));
+        setMin(fieldValue);
+        setMax(fieldValue);
+    } else if (op == QLatin1String("=~")
+               || op == QLatin1String("!=~")) {
+        const QRegExp &re = queryTerm.regExpConst();
+        QRegExp::PatternSyntax syntax = re.patternSyntax();
+        Qt::CaseSensitivity cs = re.caseSensitivity();
+        QString pattern = re.pattern();
+        addConstraint(new QueryConstraintRegExp(re, (op == QLatin1String("=~") ? false : true)));
+        if (cs == Qt::CaseSensitive) {
+            QString prefix;
+            if ((syntax == QRegExp::Wildcard)
+                && wildCardPrefixRegExp.exactMatch(pattern)) {
+                prefix = wildCardPrefixRegExp.cap(1);
+                if (jsondbSettings->debug())
+                    qDebug() << "wildcard regexp prefix" << pattern << prefix;
+            }
+            setMin(prefix);
+            setMax(prefix);
+        }
+    } else if (op == QLatin1String("!=")) {
+        addConstraint(new QueryConstraintNe(fieldValue));
+    } else if (op == QLatin1String("exists")) {
+        addConstraint(new QueryConstraintExists);
+    } else if (op == QLatin1String("notExists")) {
+        addConstraint(new QueryConstraintNotExists);
+    } else if (op == QLatin1String("in")) {
+        QJsonArray value = queryTerm.value().toArray();
+        if (value.size() == 1)
+            addConstraint(new QueryConstraintEq(value.at(0)));
+        else
+            addConstraint(new QueryConstraintIn(queryTerm.value()));
+    } else if (op == QLatin1String("notIn")) {
+        addConstraint(new QueryConstraintNotIn(queryTerm.value()));
+    } else if (op == QLatin1String("startsWith")) {
+        addConstraint(new QueryConstraintStartsWith(queryTerm.value().toString()));
+    }
 }
 
 JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
