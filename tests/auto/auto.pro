@@ -18,3 +18,5 @@ SUBDIRS = \
     jsonstream \
     hbtree \
     headersclean
+
+testcocoon: SUBDIRS -= headersclean
