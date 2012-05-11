@@ -474,7 +474,7 @@ bool HBtreePrivate::writeMarker(HBtreePrivate::MarkerPage *page)
         char *ptr = buffer.data() + sizeof(PageInfo) + sizeof(MarkerPage::Meta);
 
         if (useOverflow && mp.info.number == 1) {
-            extra.resize(mp.info.upperOffset);
+            extra.fill((char)0, mp.info.upperOffset);
             ptr = extra.data();
         }
 
