@@ -60,12 +60,14 @@ private slots:
 
     void createOneItem();
     void createThousandItems();
+    void createThousandItemsInOneTransaction();
     void queryOneItem();
     void queryThousandItems_data();
     void queryThousandItems();
     void queryThousandItemsSorted();
     void updateOneItem();
     void updateThousandItems();
+    void updateThousandItemsInOneTransaction();
     void removeOneItem();
     void removeThousandItems();
 
@@ -218,6 +220,26 @@ void ClientBenchmark::createThousandItems()
     }
 }
 
+void ClientBenchmark::createThousandItemsInOneTransaction()
+{
+    QList<QJsonObject> objects;
+    for (int i = 0; i < gMany; ++i) {
+        QJsonDbObject item;
+        item.setUuid(QUuid::createUuid());
+        item.insert(QLatin1String("_type"), QLatin1String("createThousandItemsInOneTransaction"));
+        item.insert(QLatin1String("number"), qrand()%100);
+        item.insert(QLatin1String("idNumber"), i);
+        objects.append(item);
+    }
+
+    QBENCHMARK {
+        QJsonDbWriteRequest request;
+        request.setObjects(objects);
+        mConnection->send(&request);
+        waitForResponse(&request);
+    }
+}
+
 void ClientBenchmark::queryOneItem()
 {
     QJsonDbReadRequest read;
@@ -356,6 +378,52 @@ void ClientBenchmark::updateThousandItems()
     mConnection->send(&remove);
     QVERIFY(waitForResponse(&remove));
     QVERIFY(!mRequestErrors.contains(&remove));
+}
+
+void ClientBenchmark::updateThousandItemsInOneTransaction()
+{
+    // create thousand items
+    QList<QJsonObject> objects;
+    for (int i = 0; i < gMany; i++) {
+        QJsonDbObject item;
+        item.setUuid(QUuid::createUuid());
+        item.insert(QLatin1String("_type"), QLatin1String("updateThousandItemsInOneTransaction"));
+        item.insert(QLatin1String("number"), qrand()%gMany);
+        item.insert(QLatin1String("idNumber"), i);
+        objects.append(item);
+    }
+    QJsonDbWriteRequest request;
+    request.setObjects(objects);
+    mConnection->send(&request);
+    waitForResponse(&request);
+
+    QList<QJsonObject> items;
+    QBENCHMARK {
+        QJsonDbReadRequest readRequest;
+        readRequest.setQuery(QLatin1String("[?_type=\"updateThousandItemsInOneTransaction\"]"));
+        mConnection->send(&readRequest);
+        waitForResponse(&readRequest);
+
+        items = readRequest.takeResults();
+        QCOMPARE(items.count(), gMany);
+        for (int i = 0; i < gMany; i++) {
+            QJsonObject &item = items[i];
+            item.insert(QLatin1String("number"), gMany+i);
+        }
+        QJsonDbUpdateRequest request(items);
+        mConnection->send(&request);
+        waitForResponse(&request);
+    }
+
+    // remove those items
+    QJsonDbReadRequest readRequest;
+    readRequest.setQuery(QLatin1String("[?_type=\"updateThousandItemsInOneTransaction\"]"));
+    mConnection->send(&readRequest);
+    waitForResponse(&readRequest);
+
+    QJsonDbRemoveRequest removeRequest(readRequest.takeResults());
+    mConnection->send(&removeRequest);
+    waitForResponse(&removeRequest);
 }
 
 void ClientBenchmark::removeOneItem()
