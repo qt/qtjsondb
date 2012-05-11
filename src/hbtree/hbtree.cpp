@@ -2806,8 +2806,8 @@ void HBtree::setCompareFunction(HBtree::CompareFunction compareFunction)
 
 void HBtree::setCacheSize(int size)
 {
-    Q_UNUSED(size);
-    // TODO...
+    Q_D(HBtree);
+    d->cacheSize_ = size;
 }
 
 HBtree::OpenMode HBtree::openMode() const
