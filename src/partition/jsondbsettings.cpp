@@ -55,7 +55,7 @@ JsonDbSettings::JsonDbSettings() :
   , mVerbose(false)
   , mVerboseErrors(false)
   , mPerformanceLog(false)
-  , mCacheSize(128)
+  , mCacheSize(20)
   , mCompactRate(1000)
   , mEnforceAccessControl(false)
   , mTransactionSize(100)
