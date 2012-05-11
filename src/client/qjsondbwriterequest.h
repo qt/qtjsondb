@@ -44,10 +44,8 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QJsonObject>
-#include <QtCore/QDebug>
 
 #include <QtJsonDb/qjsondbrequest.h>
-#include <QtJsonDb/qjsondbobject.h>
 
 QT_BEGIN_HEADER
 
@@ -108,98 +106,29 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_privatePartitionStarted(quint32))
 };
 
-class QJsonDbCreateRequest : public QJsonDbWriteRequest
+class Q_JSONDB_EXPORT QJsonDbCreateRequest : public QJsonDbWriteRequest
 {
+    Q_OBJECT
 public:
-    inline QJsonDbCreateRequest(const QJsonObject &object, QObject *parent = 0);
-    inline QJsonDbCreateRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
+    QJsonDbCreateRequest(const QJsonObject &object, QObject *parent = 0);
+    QJsonDbCreateRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
 };
 
-class QJsonDbUpdateRequest : public QJsonDbWriteRequest
+class Q_JSONDB_EXPORT QJsonDbUpdateRequest : public QJsonDbWriteRequest
 {
+    Q_OBJECT
 public:
-    inline QJsonDbUpdateRequest(const QJsonObject &object, QObject *parent = 0);
-    inline QJsonDbUpdateRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
+    QJsonDbUpdateRequest(const QJsonObject &object, QObject *parent = 0);
+    QJsonDbUpdateRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
 };
 
-class QJsonDbRemoveRequest : public QJsonDbWriteRequest
+class Q_JSONDB_EXPORT QJsonDbRemoveRequest : public QJsonDbWriteRequest
 {
+    Q_OBJECT
 public:
-    inline QJsonDbRemoveRequest(const QJsonObject &object, QObject *parent = 0);
-    inline QJsonDbRemoveRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
+    QJsonDbRemoveRequest(const QJsonObject &object, QObject *parent = 0);
+    QJsonDbRemoveRequest(const QList<QJsonObject> &objects, QObject *parent = 0);
 };
-
-inline QJsonDbCreateRequest::QJsonDbCreateRequest(const QJsonObject &objectToCreate, QObject *parentObject)
-    : QJsonDbWriteRequest(parentObject)
-{
-    QJsonDbObject obj = objectToCreate;
-    if (obj.uuid().isNull())
-        obj.setUuid(QJsonDbObject::createUuid());
-    QList<QJsonObject> list;
-    list.append(obj);
-    setObjects(list);
-}
-
-inline QJsonDbCreateRequest::QJsonDbCreateRequest(const QList<QJsonObject> &objectsToCreate, QObject *parentObject)
-    : QJsonDbWriteRequest(parentObject)
-{
-    QList<QJsonObject> objs = objectsToCreate;
-    for (int i = 0; i < objs.size(); ++i) {
-        QJsonObject &obj = objs[i];
-        if (!obj.contains(QStringLiteral("_uuid")))
-            obj.insert(QStringLiteral("_uuid"), QUuid::createUuid().toString());
-    }
-    setObjects(objs);
-}
-
-inline QJsonDbUpdateRequest::QJsonDbUpdateRequest(const QJsonObject &objectToUpdate, QObject *parentObject)
-    : QJsonDbWriteRequest(parentObject)
-{
-    QJsonDbObject obj = objectToUpdate;
-    if (obj.uuid().isNull()) {
-        qWarning() << "QJsonDbUpdateRequest: couldn't update an object that doesn't have uuid";
-        return;
-    }
-    QList<QJsonObject> list;
-    list.append(obj);
-    setObjects(list);
-}
-
-inline QJsonDbUpdateRequest::QJsonDbUpdateRequest(const QList<QJsonObject> &objectsToUpdate, QObject *parentObject)
-    : QJsonDbWriteRequest(parentObject)
-{
-    for (int i = 0; i < objectsToUpdate.size(); ++i) {
-        QJsonDbObject obj = objectsToUpdate.at(i);
-        if (obj.uuid().isNull()) {
-            qWarning() << "QJsonDbUpdateRequest: couldn't update an object that doesn't have uuid";
-            return;
-        }
-    }
-    setObjects(objectsToUpdate);
-}
-
-inline QJsonDbRemoveRequest::QJsonDbRemoveRequest(const QJsonObject &objectToRemove, QObject *parentObject)
-    : QJsonDbWriteRequest(parentObject)
-{
-    QJsonObject obj = objectToRemove;
-    if (!obj.value(QStringLiteral("_deleted")).toBool())
-        obj.insert(QStringLiteral("_deleted"), QJsonValue(true));
-    QList<QJsonObject> list;
-    list.append(obj);
-    setObjects(list);
-}
-
-inline QJsonDbRemoveRequest::QJsonDbRemoveRequest(const QList<QJsonObject> &objectsToRemove, QObject *parentObject)
-    : QJsonDbWriteRequest(parentObject)
-{
-    QList<QJsonObject> objs = objectsToRemove;
-    for (int i = 0; i < objs.size(); ++i) {
-        QJsonObject &obj = objs[i];
-        if (!obj.value(QStringLiteral("_deleted")).toBool())
-            obj.insert(QStringLiteral("_deleted"), QJsonValue(true));
-    }
-    setObjects(objs);
-}
 
 QT_END_NAMESPACE_JSONDB
 

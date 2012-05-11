@@ -44,6 +44,7 @@
 #include "testhelper.h"
 #include "qjsondbreadrequest.h"
 #include "qjsondbwriterequest.h"
+#include "qjsondbobject.h"
 #include "private/qjsondblogrequest_p.h"
 
 QT_USE_NAMESPACE_JSONDB
