@@ -121,7 +121,7 @@ private:
     void removeNotification(const JsonDbObject &object);
     JsonDbError::ErrorCode validateNotification(const JsonDbObject &notificationDef, QString &message);
 
-    void notifyHistoricalChanges(JsonDbNotification *n);
+    void notifyHistoricalChanges(JsonDbOwner *owner, JsonDbNotification *n);
     void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber, int weight=1);
     void updateEagerViewStateNumbers(JsonDbPartition *partition, quint32 partitionStateNumber);
 

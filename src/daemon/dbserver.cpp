@@ -47,7 +47,6 @@
 #include "jsondberrors.h"
 
 #include "jsondbephemeralpartition.h"
-#include "jsondbindexquery.h"
 #include "jsondbobjecttable.h"
 #include "jsondbsettings.h"
 #include "jsondbview.h"
@@ -1169,7 +1168,7 @@ void DBServer::createNotification(const JsonDbObject &object, JsonStream *stream
         updateEagerViewTypes(objectType, mPartitions.value(partitionName, mDefaultPartition), stateNumber, 1);
 
     if (partition)
-        notifyHistoricalChanges(n);
+        notifyHistoricalChanges(getOwner(stream), n);
 }
 
 void DBServer::removeNotification(const JsonDbObject &object)
@@ -1233,7 +1232,7 @@ JsonDbError::ErrorCode DBServer::validateNotification(const JsonDbObject &notifi
     return JsonDbError::NoError;
 }
 
-void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
+void DBServer::notifyHistoricalChanges(JsonDbOwner *owner, JsonDbNotification *n)
 {
     JsonDbPartition *partition = findPartition(n->partition());
     JsonDbObjectTable *mainObjectTable = partition->mainObjectTable();
@@ -1241,47 +1240,14 @@ void DBServer::notifyHistoricalChanges(JsonDbNotification *n)
     quint32 lastStateNumber = mainObjectTable->stateNumber();
     JsonDbQuery *parsedQuery = n->parsedQuery();
     QSet<QString> matchedTypes = parsedQuery->matchedTypes();
-    bool matchAnyType = matchedTypes.isEmpty();
     QList<JsonDbObjectTable*> objectTables;
+
     if (stateNumber == 0) {
-        QString indexName = JsonDbString::kTypeStr;
-        if (matchAnyType) {
-            matchedTypes.insert(QString());
-            // faster to walk the _uuid index if no type is specified
-            indexName = JsonDbString::kUuidStr;
-        }
-        foreach (const QString matchedType, matchedTypes) {
-            JsonDbObjectTable *objectTable = partition->findObjectTable(matchedType);
-            if (jsondbSettings->verbose() && lastStateNumber != objectTable->stateNumber())
-                qDebug() << "old object table for type" << matchedType << objectTable->stateNumber() << lastStateNumber;
-
-            if (lastStateNumber == stateNumber)
-                continue;
-
-            // views dont have a _type index
-            if (partition->findView(matchedType))
-                indexName = JsonDbString::kUuidStr;
-
-            lastStateNumber = objectTable->stateNumber();
-            QScopedPointer<JsonDbIndexQuery> indexQuery(JsonDbIndexQuery::indexQuery(partition, objectTable,
-                                                                                     indexName, QString("string"),
-                                                                                     n->owner()));
-
-            if (!matchAnyType && indexName == JsonDbString::kTypeStr) {
-                indexQuery.data()->setMin(matchedType);
-                indexQuery.data()->setMax(matchedType);
-                indexQuery.data()->addConstraint(new QueryConstraintEq(matchedType));
-            }
-
-            JsonDbObject oldObject;
-            for (JsonDbObject o = indexQuery.data()->first(); !o.isEmpty(); o = indexQuery.data()->next()) {
-                // in case the query matches on fields in addition to _type
-                if (!parsedQuery->match(o, 0, 0))
-                    continue;
-
-                JsonDbNotification::Action action = JsonDbNotification::Create;
-                objectUpdated(partition->name(), lastStateNumber, n, action, oldObject, o);
-            }
+        JsonDbObject oldObject;
+        JsonDbQueryResult queryRes = partition->queryObjects(owner, parsedQuery);
+        foreach (const JsonDbObject &o, queryRes.data) {
+            JsonDbNotification::Action action = JsonDbNotification::Create;
+            objectUpdated(partition->name(), lastStateNumber, n, action, oldObject, o);
         }
     } else {
         foreach (const QString matchedType, matchedTypes) {
