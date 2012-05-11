@@ -399,7 +399,9 @@ public:
     bool cursorDisrupted_;
     mutable QByteArray pageBuffer_;
     bool verifyIntegrity(const Page *pPage) const;
+#ifdef QT_TESTLIB_LIB
     int forceCommitFail_;
+#endif
     mutable int lastWriteError_;
     int lastReadError_;
 };

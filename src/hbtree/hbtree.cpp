@@ -96,7 +96,10 @@ HBtreePrivate::HBtreePrivate(HBtree *q, const QString &name)
     : q_ptr(q), fileName_(name), fd_(-1), openMode_(HBtree::ReadOnly), size_(0), lastSyncedId_(0), cacheSize_(20),
       compareFunction_(0),
       writeTransaction_(0), readTransaction_(0), lastPage_(PageInfo::INVALID_PAGE), cursorDisrupted_(false),
-      forceCommitFail_(0), lastWriteError_(0), lastReadError_(0)
+#ifdef QT_TESTLIB_LIB
+      forceCommitFail_(0),
+#endif
+      lastWriteError_(0), lastReadError_(0)
 {
 }
 
@@ -908,11 +911,19 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
 
     quint32 sizeBefore = lseek(fd_, 0, SEEK_END);
     PageMap::iterator it = dirtyPages_.begin();
+#ifdef QT_TESTLIB_LIB
     int numCommited = 0;
+#endif
     while (it != dirtyPages_.constEnd()) {
         HBTREE_ASSERT(verifyIntegrity(it.value()))(*it.value());
         pageBuffer_ = serializePage(*it.value());
-        if ((forceCommitFail_ && numCommited++ >= forceCommitFail_) || !writePage(&pageBuffer_)) {
+        bool ok = true;
+#ifdef QT_TESTLIB_LIB
+        ok = !(forceCommitFail_ && numCommited++ >= forceCommitFail_);
+        if (ok)
+#endif
+            ok = writePage(&pageBuffer_);
+        if (!ok) {
             HBTREE_DEBUG("failed to commit page" << *it.value());
             if (lseek(fd_, 0, SEEK_END) != sizeBefore) {
                 HBTREE_DEBUG("size increased to" << lseek(fd_, 0, SEEK_END) << "- truncating to" << sizeBefore);
