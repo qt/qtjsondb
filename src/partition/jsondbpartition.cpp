@@ -60,6 +60,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/statvfs.h>
+#include <errno.h>
 
 #include "jsondbstrings.h"
 #include "jsondberrors.h"
@@ -667,25 +668,18 @@ JsonDbPartition::TxnCommitResult JsonDbPartitionPrivate::commitTransaction(quint
                 if (!table->commit(nextStateNumber)) {
                     qCritical() << __FILE__ << __LINE__ << "Failed to commit transaction on object table";
                     table->abort();
-                    updateSpaceStatus();
                     /*
-                     * If the txn failed but there is space, we assume there is
-                     * a storage problem.
-                     * This is true in most cases, except when the txn that was
-                     * being written is larger than the minimumRequired. In that
-                     * case we will report StorageError when in reality it is
-                     * an OutOfMemory situation. To correctly identify that situation,
-                     * we would need to check all the way down the stack until
-                     * we get to the pwrite(...) call and find out how big was
-                     * the write that failed. In order to do that, we will need
-                     * to go all the way down to the btree implementation, which
-                     * will go beyond the JsonDbBtree interface which should
-                     * be our border (otherwise we will not be able to replace
-                     * the btree if needed).
+                     * At this point we check the error from the pwrite call.
+                     * To do that we instantiate the btree and ask what was the
+                     * error. Any error that is not ENOSPC will be considered
+                     * a storage error.
                      */
-                    ret = (mDiskSpaceStatus == JsonDbPartition::OutOfSpace) ?
-                                JsonDbPartition::TxnOutOfSpace :
-                                JsonDbPartition::TxnStorageError;
+                    JsonDbBtree *btree = table->bdb();
+                    if (btree->lastWriteError() == ENOSPC)
+                        ret = JsonDbPartition::TxnOutOfSpace;
+                    else
+                        ret = JsonDbPartition::TxnStorageError;
+                    return ret;
                 }
             } else {
                 table->abort();
