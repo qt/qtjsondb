@@ -47,6 +47,7 @@
 #include "jsondbobjecttable.h"
 #include "jsondbpartition_p.h"
 #include "jsondbindex.h"
+#include "jsondbindex_p.h"
 #include "jsondbstrings.h"
 #include "jsondbbtree.h"
 #include "jsondbobject.h"
@@ -498,9 +499,9 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
 
     JsonDbIndex *index = mIndexes.value(keyName);
     Q_ASSERT(index != 0);
-    QJsonValue fieldValue = makeFieldValue(keyValue, index->indexSpec().propertyType);
-    truncateFieldValue(&fieldValue, index->indexSpec().propertyType);
-    QByteArray forwardKey(makeForwardKey(fieldValue, ObjectKey()));
+    QJsonValue fieldValue = JsonDbIndexPrivate::makeFieldValue(keyValue, index->indexSpec().propertyType);
+    JsonDbIndexPrivate::truncateFieldValue(&fieldValue, index->indexSpec().propertyType);
+    QByteArray forwardKey = JsonDbIndexPrivate::makeForwardKey(fieldValue, ObjectKey());
     bool isInTransaction = index->bdb()->writeTransaction();
     JsonDbBtree::Transaction *txn = index->bdb()->writeTransaction() ? index->bdb()->writeTransaction() : index->bdb()->beginWrite();
     JsonDbBtree::Cursor cursor(txn);
@@ -510,12 +511,12 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
             QByteArray forwardValue;
             bool ok = cursor.current(&checkKey, &forwardValue);
             QJsonValue checkValue;
-            forwardKeySplit(checkKey, checkValue);
+            JsonDbIndexPrivate::forwardKeySplit(checkKey, checkValue);
             if (checkValue != fieldValue)
                 break;
 
             ObjectKey objectKey;
-            forwardValueSplit(forwardValue, objectKey);
+            JsonDbIndexPrivate::forwardValueSplit(forwardValue, objectKey);
             if (jsondbSettings->debug() && jsondbSettings->verbose())
                 qDebug() << "ok" << ok << "forwardValue" << forwardValue << "objectKey" << objectKey;
 

@@ -64,7 +64,7 @@ QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 class JsonDbIndex;
 class JsonDbObjectTable;
 
-class JsonDbIndexPrivate
+class Q_JSONDB_PARTITION_EXPORT JsonDbIndexPrivate
 {
     Q_DECLARE_PUBLIC(JsonDbIndex)
 public:
@@ -87,6 +87,15 @@ public:
     quint32 mCacheSize;
 
     QString fileName() const;
+
+    static int indexCompareFunction(const QByteArray &ab, const QByteArray &bb);
+    static QByteArray makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectKey);
+    static QByteArray makeForwardValue(const ObjectKey &objectKey);
+    static void truncateFieldValue(QJsonValue *value, const QString &type);
+    static QJsonValue makeFieldValue(const QJsonValue &value, const QString &type);
+    static void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue);
+    static void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue, ObjectKey &objectKey);
+    static void forwardValueSplit(const QByteArray &forwardValue, ObjectKey &objectKey);
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

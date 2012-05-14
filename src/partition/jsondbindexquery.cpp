@@ -39,8 +39,9 @@
 **
 ****************************************************************************/
 
-#include "jsondbindex.h"
 #include "jsondbindexquery.h"
+#include "jsondbindex.h"
+#include "jsondbindex_p.h"
 #include "jsondbobjecttable.h"
 #include "jsondbpartition.h"
 #include "jsondbpartition_p.h"
@@ -126,27 +127,27 @@ bool JsonDbIndexQuery::matches(const QJsonValue &fieldValue)
 
 void JsonDbIndexQuery::setMin(const QJsonValue &value)
 {
-    mMin = makeFieldValue(value, mPropertyType);
+    mMin = JsonDbIndexPrivate::makeFieldValue(value, mPropertyType);
     if (mPropertyName != JsonDbString::kUuidStr)
-        truncateFieldValue(&mMin, mPropertyType);
+        JsonDbIndexPrivate::truncateFieldValue(&mMin, mPropertyType);
 }
 
 void JsonDbIndexQuery::setMax(const QJsonValue &value)
 {
-    mMax = makeFieldValue(value, mPropertyType);
+    mMax = JsonDbIndexPrivate::makeFieldValue(value, mPropertyType);
     if (mPropertyName != JsonDbString::kUuidStr)
-        truncateFieldValue(&mMax, mPropertyType);
+        JsonDbIndexPrivate::truncateFieldValue(&mMax, mPropertyType);
 }
 
 bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
 {
     QByteArray forwardKey;
     if (mAscending) {
-        forwardKey = makeForwardKey(mMin, ObjectKey());
+        forwardKey = JsonDbIndexPrivate::makeForwardKey(mMin, ObjectKey());
         if (jsondbSettings->debugQuery())
             qDebug() << __FUNCTION__ << __LINE__ << "mMin" << mMin << "key" << forwardKey.toHex();
     } else {
-        forwardKey = makeForwardKey(mMax, ObjectKey());
+        forwardKey = JsonDbIndexPrivate::makeForwardKey(mMax, ObjectKey());
         if (jsondbSettings->debugQuery())
             qDebug() << __FUNCTION__ << __LINE__ << "mMax" << mMin << "key" << forwardKey.toHex();
     }
@@ -168,7 +169,7 @@ bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
     if (ok) {
         QByteArray baKey;
         mCursor->current(&baKey, 0);
-        forwardKeySplit(baKey, fieldValue);
+        JsonDbIndexPrivate::forwardKeySplit(baKey, fieldValue);
     }
     //qDebug() << "IndexQuery::seekToStart" << (mAscending ? mMin : mMax) << "ok" << ok << fieldValue;
     return ok;
@@ -180,7 +181,7 @@ bool JsonDbIndexQuery::seekToNext(QJsonValue &fieldValue)
     if (ok) {
         QByteArray baKey;
         mCursor->current(&baKey, 0);
-        forwardKeySplit(baKey, fieldValue);
+        JsonDbIndexPrivate::forwardKeySplit(baKey, fieldValue);
     }
     //qDebug() << "IndexQuery::seekToNext" << "ok" << ok << fieldValue;
     return ok;
@@ -190,7 +191,7 @@ JsonDbObject JsonDbIndexQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
 {
     QByteArray baValue;
     mCursor->current(0, &baValue);
-    forwardValueSplit(baValue, objectKey);
+    JsonDbIndexPrivate::forwardValueSplit(baValue, objectKey);
 
     if (jsondbSettings->debugQuery())
         qDebug() << __FILE__ << __LINE__ << "objectKey" << objectKey << baValue.toHex();

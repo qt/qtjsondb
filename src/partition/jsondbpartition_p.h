@@ -188,15 +188,6 @@ private:
     JsonDbPartitionPrivate *mPartition;
 };
 
-void truncateFieldValue(QJsonValue *value, const QString &type);
-QJsonValue makeFieldValue(const QJsonValue &value, const QString &type);
-Q_JSONDB_PARTITION_EXPORT QByteArray makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectKey);
-Q_JSONDB_PARTITION_EXPORT int forwardKeyCmp(const QByteArray &ab, const QByteArray &bb);
-void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue);
-void forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue, ObjectKey &objectKey);
-QByteArray makeForwardValue(const ObjectKey &);
-void forwardValueSplit(const QByteArray &forwardValue, ObjectKey &objectKey);
-
 QDebug &operator<<(QDebug &, const ObjectKey &);
 
 QT_END_NAMESPACE_JSONDB_PARTITION

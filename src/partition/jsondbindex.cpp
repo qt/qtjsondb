@@ -227,7 +227,7 @@ bool JsonDbIndex::open()
         return false;
     }
 
-    d->mBdb.setCompareFunction(forwardKeyCmp);
+    d->mBdb.setCompareFunction(JsonDbIndexPrivate::indexCompareFunction);
 
     if (jsondbSettings->verbose())
         qDebug() << "JsonDbIndex::open" << d->mBdb.tag() << d->mBdb.fileName();
@@ -379,12 +379,12 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
     JsonDbBtree::Transaction *txn = d->mBdb.writeTransaction();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
-        fieldValue = makeFieldValue(fieldValue, d->mSpec.propertyType);
+        fieldValue = d->makeFieldValue(fieldValue, d->mSpec.propertyType);
         if (fieldValue.isUndefined())
             continue;
-        truncateFieldValue(&fieldValue, d->mSpec.propertyType);
-        QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
-        QByteArray forwardValue(makeForwardValue(objectKey));
+        d->truncateFieldValue(&fieldValue, d->mSpec.propertyType);
+        QByteArray forwardKey = JsonDbIndexPrivate::makeForwardKey(fieldValue, objectKey);
+        QByteArray forwardValue = JsonDbIndexPrivate::makeForwardValue(objectKey);
 
         if (jsondbSettings->debug())
             qDebug() << "indexing" << objectKey << d->mSpec.propertyName << fieldValue
@@ -419,13 +419,13 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
     JsonDbBtree::Transaction *txn = d->mBdb.writeTransaction();
     for (int i = 0; i < fieldValues.size(); i++) {
         QJsonValue fieldValue = fieldValues.at(i);
-        fieldValue = makeFieldValue(fieldValue, d->mSpec.propertyType);
+        fieldValue = d->makeFieldValue(fieldValue, d->mSpec.propertyType);
         if (fieldValue.isUndefined())
             continue;
-        truncateFieldValue(&fieldValue, d->mSpec.propertyType);
+        d->truncateFieldValue(&fieldValue, d->mSpec.propertyType);
         if (jsondbSettings->debug())
             qDebug() << "deindexing" << objectKey << d->mSpec.propertyName << fieldValue;
-        QByteArray forwardKey(makeForwardKey(fieldValue, objectKey));
+        QByteArray forwardKey = JsonDbIndexPrivate::makeForwardKey(fieldValue, objectKey);
         if (!txn->remove(forwardKey)) {
             qDebug() << "deindexing failed" << objectKey << d->mSpec.propertyName << fieldValue << object << forwardKey.toHex();
         }
@@ -515,6 +515,281 @@ JsonDbIndexSpec JsonDbIndexSpec::fromIndexObject(const QJsonObject &indexObject)
     Q_ASSERT(!indexSpec.name.isEmpty());
 
     return indexSpec;
+}
+
+static int intcmp(const uchar *aptr, const uchar *bptr)
+{
+    qint32 a = qFromBigEndian<qint32>((const uchar *)aptr);
+    qint32 b = qFromBigEndian<qint32>((const uchar *)bptr);
+    if (a < b)
+        return -1;
+    if (a > b)
+        return 1;
+    return 0;
+}
+
+static int doublecmp(const uchar *aptr, const uchar *bptr)
+{
+    union {
+        double d;
+        quint64 ui;
+    } a, b;
+    a.ui = qFromBigEndian<quint64>((const uchar *)aptr);
+    b.ui = qFromBigEndian<quint64>((const uchar *)bptr);
+    if (a.d < b.d)
+        return -1;
+    if (a.d > b.d)
+        return 1;
+    return 0;
+}
+
+static int qstringcmp(const quint16 *achar, quint32 acount, const quint16 *bchar, quint32 bcount)
+{
+    int rv = 0;
+    quint32 minCount = qMin(acount, bcount);
+    for (quint32 i = 0; i < minCount; i++) {
+        if ((rv = (achar[i] - bchar[i])) != 0)
+            return rv;
+    }
+    return acount-bcount;
+}
+
+int JsonDbIndexPrivate::indexCompareFunction(const QByteArray &ab, const QByteArray &bb)
+{
+    const char *aptr = ab.constData();
+    size_t asiz = ab.size();
+    const char *bptr = bb.constData();
+    size_t bsiz = bb.size();
+
+    if (!bsiz && !asiz)
+        return 0;
+    if (!bsiz)
+        return 1;
+    if (!asiz)
+        return -1;
+
+    int rv = 0;
+    QJsonValue::Type avt = (QJsonValue::Type)qFromBigEndian<quint32>((const uchar *)&aptr[0]);
+    QJsonValue::Type bvt = (QJsonValue::Type)qFromBigEndian<quint32>((const uchar *)&bptr[0]);
+    Q_ASSERT(avt <= QJsonValue::Undefined);
+    Q_ASSERT(bvt <= QJsonValue::Undefined);
+    quint32 asize = asiz - 4 - 16;
+    quint32 bsize = bsiz - 4 - 16;
+    if (avt != bvt)
+        return avt - bvt;
+
+    const char *aData = aptr + 4;
+    const char *bData = bptr + 4;
+    switch (avt) {
+    case QJsonValue::Bool:
+        rv = intcmp((const uchar *)aData, (const uchar *)bData);
+        break;
+    case QJsonValue::Double:
+        rv = doublecmp((const uchar *)aData, (const uchar *)bData);
+        break;
+    case QJsonValue::String:
+        rv = qstringcmp((const quint16 *)aData, asize/2, (const quint16 *)bData, bsize/2);
+        break;
+    case QJsonValue::Undefined:
+    case QJsonValue::Null:
+    case QJsonValue::Array:
+    case QJsonValue::Object:
+        rv = 0;
+        break;
+    }
+    if (rv != 0)
+        return rv;
+    ObjectKey aObjectKey = qFromBigEndian<ObjectKey>((const uchar *)aptr+4+asize);
+    ObjectKey bObjectKey = qFromBigEndian<ObjectKey>((const uchar *)bptr+4+bsize);
+    if (aObjectKey == bObjectKey)
+        return 0;
+    return aObjectKey < bObjectKey ? -1 : 1;
+}
+
+inline static quint16 fieldValueSize(QJsonValue::Type vt, const QJsonValue &fieldValue)
+{
+    switch (vt) {
+    case QJsonValue::Undefined:
+    case QJsonValue::Null:
+    case QJsonValue::Array:
+    case QJsonValue::Object:
+        return 0;
+    case QJsonValue::Bool:
+        return 4;
+    case QJsonValue::Double:
+        return 8;
+    case QJsonValue::String: {
+        quint16 size = 2 * fieldValue.toString().count();
+        Q_ASSERT(size <= JsonDbSettings::instance()->indexFieldValueSize());
+        return (quint16)size;
+        }
+    }
+    return 0;
+}
+
+static void serializeFieldValue(char *data, QJsonValue::Type vt, const QJsonValue &fieldValue)
+{
+    switch (vt) {
+    case QJsonValue::Undefined:
+    case QJsonValue::Null:
+    case QJsonValue::Array:
+    case QJsonValue::Object:
+        break;
+    case QJsonValue::Bool: {
+        quint32 value = fieldValue.toBool() ? 1 : 0;
+        qToBigEndian(value, (uchar *)data);
+    } break;
+    case QJsonValue::Double: {
+        union {
+            double d;
+            quint64 ui;
+        };
+        d = fieldValue.toDouble();
+        qToBigEndian<quint64>(ui, (uchar *)data);
+    } break;
+    case QJsonValue::String: {
+        QString str = fieldValue.toString();
+        quint16 size = 2 * str.count();
+        Q_ASSERT(size <= JsonDbSettings::instance()->indexFieldValueSize());
+        memcpy(data, (const char *)str.constData(), size);
+    }
+    }
+}
+
+static void deserializeFieldValue(QJsonValue::Type vt, QJsonValue &fieldValue, const char *data, quint16 size)
+{
+    Q_ASSERT(size <= JsonDbSettings::instance()->indexFieldValueSize());
+    switch (vt) {
+    case QJsonValue::Undefined:
+    case QJsonValue::Array:
+    case QJsonValue::Object:
+        break;
+    case QJsonValue::Null:
+        fieldValue = QJsonValue();
+        break;
+    case QJsonValue::Bool: {
+        fieldValue = qFromBigEndian<qint32>((const uchar *)data) == 1 ? true : false;
+    } break;
+    case QJsonValue::Double: {
+        union {
+            double d;
+            quint64 ui;
+        };
+        ui = qFromBigEndian<quint64>((const uchar *)data);
+        fieldValue = d;
+    } break;
+    case QJsonValue::String: {
+        fieldValue = QString((const QChar *)data, size/2);
+    }
+    }
+}
+
+void JsonDbIndexPrivate::truncateFieldValue(QJsonValue *value, const QString &type)
+{
+    Q_ASSERT(value);
+    if ((type.isEmpty() || type == QLatin1String("string")) && value->type() == QJsonValue::String) {
+        QString str = value->toString();
+        int maxSize = JsonDbSettings::instance()->indexFieldValueSize() / 2;
+        if (str.size() > maxSize)
+            *value = str.left(maxSize);
+    }
+}
+
+QJsonValue JsonDbIndexPrivate::makeFieldValue(const QJsonValue &value, const QString &type)
+{
+    if (type.isEmpty() || type == QLatin1String("string")) {
+        switch (value.type()) {
+        case QJsonValue::Null: return QLatin1String("null");
+        case QJsonValue::Bool: return QLatin1String(value.toBool() ? "true" : "false");
+        case QJsonValue::Double: return QString::number(value.toDouble());
+        case QJsonValue::String: return value.toString();
+        case QJsonValue::Array: {
+            QJsonArray array = value.toArray();
+            if (array.size() == 1)
+                return makeFieldValue(array.at(0), type);
+            return QJsonValue(QJsonValue::Undefined);
+        }
+        case QJsonValue::Object: break;
+        case QJsonValue::Undefined: break;
+        }
+    } else if ((type == QLatin1String("number"))
+               || (type == QLatin1String("integer"))) {
+        switch (value.type()) {
+        case QJsonValue::Null: return 0;
+        case QJsonValue::Bool: return value.toBool() ? 1 : 0;
+        case QJsonValue::Double: return value.toDouble();
+        case QJsonValue::String: {
+            QString str = value.toString();
+            bool ok = false;
+            double dval = str.toDouble(&ok);
+            if (ok)
+                return dval;
+            int ival = str.toInt(&ok);
+            if (ok)
+                return ival;
+            break;
+        }
+        case QJsonValue::Array: {
+            QJsonArray array = value.toArray();
+            if (array.size() == 1)
+                return makeFieldValue(array.at(0), type);
+            return QJsonValue(QJsonValue::Undefined);
+        }
+        case QJsonValue::Object: break;
+        case QJsonValue::Undefined: break;
+        }
+    } else {
+        qWarning() << "qtjsondb: makeFieldValue: unsupported index type" << type;
+    }
+    return QJsonValue(QJsonValue::Undefined);
+}
+
+QByteArray JsonDbIndexPrivate::makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectKey)
+{
+    QJsonValue::Type vt = fieldValue.type();
+    Q_ASSERT(vt <= QJsonValue::Undefined);
+    quint32 size = fieldValueSize(vt, fieldValue);
+
+    QByteArray forwardKey(4+size+16, 0);
+    char *data = forwardKey.data();
+    qToBigEndian<quint32>(vt, (uchar *)&data[0]);
+    serializeFieldValue(data+4, vt, fieldValue);
+    qToBigEndian(objectKey, (uchar *)&data[4+size]);
+
+    return forwardKey;
+}
+
+void JsonDbIndexPrivate::forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue)
+{
+    const char *data = forwardKey.constData();
+    QJsonValue::Type vt = (QJsonValue::Type)qFromBigEndian<quint32>((const uchar *)&data[0]);
+    Q_ASSERT(vt <= QJsonValue::Undefined);
+    quint32 fvSize = forwardKey.size()-4-16;
+    deserializeFieldValue(vt, fieldValue, data+4, fvSize);
+}
+
+void JsonDbIndexPrivate::forwardKeySplit(const QByteArray &forwardKey, QJsonValue &fieldValue, ObjectKey &objectKey)
+{
+    const char *data = forwardKey.constData();
+    QJsonValue::Type vt = (QJsonValue::Type)qFromBigEndian<quint32>((const uchar *)&data[0]);
+    Q_ASSERT(vt <= QJsonValue::Undefined);
+    quint32 fvSize = forwardKey.size()-4-16;
+    deserializeFieldValue(vt, fieldValue, data+4, fvSize);
+    objectKey = qFromBigEndian<ObjectKey>((const uchar *)&data[4+fvSize]);
+}
+
+QByteArray JsonDbIndexPrivate::makeForwardValue(const ObjectKey &objectKey)
+{
+    QByteArray forwardValue(16, 0);
+    char *data = forwardValue.data();
+    qToBigEndian(objectKey,  (uchar *)&data[0]);
+    return forwardValue;
+}
+
+void JsonDbIndexPrivate::forwardValueSplit(const QByteArray &forwardValue, ObjectKey &objectKey)
+{
+    const uchar *data = (const uchar *)forwardValue.constData();
+    objectKey = qFromBigEndian<ObjectKey>(&data[0]);
 }
 
 #include "moc_jsondbindex.cpp"
