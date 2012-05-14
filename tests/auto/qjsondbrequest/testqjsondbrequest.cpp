@@ -98,6 +98,7 @@ private slots:
     void invalidPrivatePartition();
     void removeRequest();
     void forced();
+    void bindings();
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
@@ -1008,6 +1009,73 @@ void TestQJsonDbRequest::forced()
     mConnection->send(&read);
     QVERIFY(waitForResponse(&read));
     QVERIFY(read.takeResults().isEmpty());
+}
+
+void TestQJsonDbRequest::bindings()
+{
+    {
+        QJsonDbObject object;
+        object.setUuid(QUuid::createUuid());
+        object.insert(QLatin1String("_type"), QLatin1String("bindingstest"));
+        object.insert(QLatin1String("foo"), QLatin1String("[?_type=\"bunny\"]"));
+        object.insert(QLatin1String("bar"), QLatin1String("Julia"));
+        QJsonDbCreateRequest request(object);
+        mConnection->send(&request);
+        waitForResponse(&request);
+    }
+
+    {
+        QJsonDbReadRequest request;
+        request.setQuery(QStringLiteral("[?_type=\"bindingstest\"][?foo=%blah]"));
+        request.bindValue(QLatin1String("blah"), QLatin1String("[?_type=\"bunny\"]"));
+        mConnection->send(&request);
+        waitForResponse(&request);
+        QList<QJsonObject> results = request.takeResults();
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).value(QLatin1String("_type")).toString(), QLatin1String("bindingstest"));
+        QCOMPARE(results.at(0).value(QLatin1String("foo")).toString(), QLatin1String("[?_type=\"bunny\"]"));
+    }
+
+    {
+        // first check that the real regexp works:
+        QJsonDbReadRequest request;
+        request.setQuery(QStringLiteral("[?_type=\"bindingstest\"][?bar =~ \"/J*/wi\"]"));
+        mConnection->send(&request);
+        waitForResponse(&request);
+        QList<QJsonObject> results = request.takeResults();
+        QCOMPARE(results.size(), 1);
+
+        request.setQuery(QStringLiteral("[?_type=\"bindingstest\"][?bar=%blah]"));
+        request.bindValue(QLatin1String("blah"), QLatin1String("~/J*/wi"));
+        mConnection->send(&request);
+        waitForResponse(&request);
+        results = request.takeResults();
+        QCOMPARE(results.size(), 0);
+
+        request.setQuery(QStringLiteral("[?_type=\"bindingstest\"][?bar=%blah]"));
+        request.bindValue(QLatin1String("blah"), QLatin1String("~\"/J*/wi\""));
+        mConnection->send(&request);
+        waitForResponse(&request);
+        results = request.takeResults();
+        QCOMPARE(results.size(), 0);
+    }
+
+    {
+        QJsonDbReadRequest request;
+        request.setQuery(QStringLiteral("[?_type=\"bindingstest\"][?bar =~ %blah]"));
+        request.bindValue(QLatin1String("blah"), QLatin1String("/J*/wi"));
+        mConnection->send(&request);
+        waitForResponse(&request);
+        QList<QJsonObject> results = request.takeResults();
+        QCOMPARE(results.size(), 1);
+
+        request.setQuery(QStringLiteral("[?_type=\"bindingstest\"][?bar =~ %blah]"));
+        request.bindValue(QLatin1String("blah"), QLatin1String("/Z*/wi"));
+        mConnection->send(&request);
+        waitForResponse(&request);
+        results = request.takeResults();
+        QCOMPARE(results.size(), 0);
+    }
 }
 
 QTEST_MAIN(TestQJsonDbRequest)
