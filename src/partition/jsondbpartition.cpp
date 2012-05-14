@@ -265,10 +265,6 @@ bool JsonDbPartition::open()
     }
 
     d->updateSpaceStatus();
-    if (!d->checkStateConsistency()) {
-        qCritical() << "JsonDbPartition::open()" << "Unable to recover database";
-        return false;
-    }
     d->mIsOpen = true;
 
     d->initSchemas();
@@ -890,30 +886,6 @@ bool JsonDbPartitionPrivate::removeIndex(const QString &indexName, const QString
     if (!table->index(indexName))
         return false;
     return table->removeIndex(indexName);
-}
-
-bool JsonDbPartitionPrivate::checkStateConsistency()
-{
-    return true;
-}
-
-void JsonDbPartitionPrivate::checkIndexConsistency(JsonDbObjectTable *objectTable, JsonDbIndex *index)
-{
-    quint32 indexStateNumber = index->bdb()->tag();
-    quint32 objectStateNumber = objectTable->stateNumber();
-    if (indexStateNumber > objectTable->stateNumber()) {
-        qCritical() << "reverting index" << index->indexSpec().propertyName << indexStateNumber << objectStateNumber;
-        while (indexStateNumber > objectTable->stateNumber()) {
-            int rc = index->bdb()->rollback();
-            quint32 newIndexStateNumber = index->bdb()->tag();
-            if (newIndexStateNumber == indexStateNumber) {
-                qDebug() << "failed to revert. clearing" << rc;
-                index->bdb()->clearData();
-                break;
-            }
-            qCritical() << "   reverted index to state" << indexStateNumber;
-        }
-    }
 }
 
 QHash<QString, qint64> JsonDbPartition::fileSizes() const

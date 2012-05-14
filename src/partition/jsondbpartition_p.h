@@ -97,9 +97,6 @@ public:
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(),
                                 bool updateViews = true);
 
-    bool checkStateConsistency();
-    void checkIndexConsistency(JsonDbObjectTable *table, JsonDbIndex *index);
-
     JsonDbIndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
     void compileOrQueryTerm(JsonDbIndexQuery *indexQuery, const QueryTerm &queryTerm);
 
