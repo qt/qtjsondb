@@ -136,7 +136,12 @@ void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceF
     argList << QLatin1String("-reject-stale-updates");
     argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
 
-    qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
+    if (!mWorkingDirectory.isEmpty())
+        // We specified a particular directory
+        mProcess->setWorkingDirectory(mWorkingDirectory);
+
+    qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName
+             << "with working directory" << mProcess->workingDirectory();
 
     if (useValgrind()) {
         QStringList args1 = argList;
@@ -188,7 +193,14 @@ qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const cha
     argList << QLatin1String("-reject-stale-updates");
     argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
 
-    qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
+    if (!mWorkingDirectory.isEmpty()) {
+        // We specified a particular directory
+        mProcess->setWorkingDirectory(mWorkingDirectory);
+        qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName
+                    << "with working directory" << mProcess->workingDirectory();
+    } else
+        qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
+
     qint64 pid;
     if (useValgrind()) {
         QStringList args1 = argList;

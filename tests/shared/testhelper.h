@@ -95,6 +95,8 @@ public:
 
     QtJsonDb::QJsonDbConnection *connection() const
     { return mConnection; }
+    const QString &workingDirectory() const { return mWorkingDirectory; }
+    void setWorkingDirectory(const QString &workingDirectory) { mWorkingDirectory = workingDirectory; }
 
 protected:
     QProcess *mProcess;
@@ -127,6 +129,7 @@ private:
     static bool dontLaunch();
     static bool useValgrind();
 
+    QString mWorkingDirectory;
     int mRequestsPending;
     QtJsonDb::QJsonDbWatcher::Status mReceivedStatus;
     QtJsonDb::QJsonDbWatcher::Status mExpectedStatus;
