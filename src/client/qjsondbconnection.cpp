@@ -50,6 +50,8 @@
 
 #include "jsondbsocketname_p.h"
 
+#include "jsonstream.h"
+
 #include <qcoreevent.h>
 #include <qtimer.h>
 #include <qjsonarray.h>

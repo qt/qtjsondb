@@ -58,7 +58,7 @@
 
 #include "qjsondbglobal.h"
 #include "qjsondbrequest.h"
-#include "jsondbpartitionglobal.h"
+#include <QtJsonDbPartition/jsondbpartitionglobal.h>
 
 QT_BEGIN_HEADER
 

@@ -63,9 +63,11 @@
 #include "qjsondbconnection.h"
 #include "qjsondbrequest.h"
 
-#include "jsonstream.h"
-
-#include "jsondbpartitionglobal.h"
+QT_BEGIN_NAMESPACE
+namespace QtJsonDbJsonStream {
+class JsonStream;
+}
+QT_END_NAMESPACE
 
 QT_BEGIN_NAMESPACE_JSONDB
 
