@@ -325,7 +325,7 @@ public:
     bool walkOverflowPages(quint32 startPage, QByteArray *data, QList<quint32> *pages);
     bool getOverflowData(quint32 startPage, QByteArray *data);
     bool getOverflowPageNumbers(quint32 startPage, QList<quint32> *pages);
-    quint16 collectHistory(NodePage *page);
+    QSet<quint32> collectHistory(NodePage *page);
     Page *cacheFind(quint32 pgno) const;
     Page *cacheRemove(quint32 pgno);
     void cacheDelete(quint32 pgno);

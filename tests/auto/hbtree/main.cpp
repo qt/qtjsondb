@@ -2352,15 +2352,15 @@ void TestHBtree::cursors()
 
 void TestHBtree::markerOnReopen_data()
 {
-    // This test won't work if numCommits results in an auto sync or a split
     QTest::addColumn<quint32>("numCommits");
-    QTest::newRow("Even commits") << 10u;
-    QTest::newRow("Odd Commits") << 13u;
+    QTest::newRow("Even commits") << 4u;
+    QTest::newRow("Odd Commits") << 5u;
 }
 
 void TestHBtree::markerOnReopen()
 {
     QFETCH(quint32, numCommits);
+    bool even = numCommits % 2 == 0;
     const quint32 pageSize = d->spec_.pageSize;
 
     for (quint32 i = 0; i < numCommits; ++i) {
@@ -2371,11 +2371,11 @@ void TestHBtree::markerOnReopen()
     }
 
     QCOMPARE(d->marker_.info.number, 1u);
-    QCOMPARE(d->collectiblePages_.size(), 0);
+    QCOMPARE(d->collectiblePages_.size(), 1);
     QCOMPARE(d->size_, quint32(pageSize * 6)); // Header page + 2 markers + current page + num of commit chain (which is 1) + synced page
     QCOMPARE(d->marker_.meta.revision, numCommits);
     QCOMPARE(d->marker_.meta.syncId, 1u);
-    QCOMPARE(d->marker_.meta.root, 3u);
+    QCOMPARE(d->marker_.meta.root, even ? 3u : 4u);
     QCOMPARE(d->marker_.meta.tag, (quint64)numCommits - 1);
 
     db->close();
@@ -2386,7 +2386,7 @@ void TestHBtree::markerOnReopen()
     QCOMPARE(d->size_, quint32(pageSize * 6));
     QCOMPARE(d->marker_.meta.revision, numCommits);
     QCOMPARE(d->marker_.meta.syncId, 1u);
-    QCOMPARE(d->marker_.meta.root, 3u);
+    QCOMPARE(d->marker_.meta.root, even ? 3u : 4u);
     QCOMPARE(d->marker_.meta.tag, (quint64)numCommits - 1);
 
     HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
@@ -2396,11 +2396,11 @@ void TestHBtree::markerOnReopen()
 
     // Synced page should not be used
     QCOMPARE(d->marker_.info.number, 1u);
-    QCOMPARE(d->collectiblePages_.size(), 0);
-    QCOMPARE(d->size_, quint32(pageSize * 6));
+    QCOMPARE(d->collectiblePages_.size(), 1);
+    QCOMPARE(d->size_, quint32(pageSize * 7));
     QCOMPARE(d->marker_.meta.revision, numCommits + 1);
     QCOMPARE(d->marker_.meta.syncId, 2u);
-    QCOMPARE(d->marker_.meta.root, 4u); // root 3 was synced so should not be reused
+    QCOMPARE(d->marker_.meta.root, 6u); // root 3 was synced so should not be reused
     QCOMPARE(d->marker_.meta.tag, (quint64)1000);
 
     QVERIFY(db->sync());
@@ -2411,19 +2411,19 @@ void TestHBtree::markerOnReopen()
     QVERIFY(txn->commit(2000));
 
     QCOMPARE(d->marker_.info.number, 1u);
-    QCOMPARE(d->collectiblePages_.size(), 0);
-    QCOMPARE(d->size_, quint32(pageSize * 6));
+    QCOMPARE(d->collectiblePages_.size(), 1);
+    QCOMPARE(d->size_, quint32(pageSize * 7));
     QCOMPARE(d->marker_.meta.revision, numCommits + 2);
     QCOMPARE(d->marker_.meta.syncId, 3u);
-    QCOMPARE(d->marker_.meta.root, 5u); // root 4 was synced so should not be reused
+    QCOMPARE(d->marker_.meta.root, even ? 5u : 3u); // root 4 was synced so should not be reused
     QCOMPARE(d->marker_.meta.tag, (quint64)2000);
 }
 
 void TestHBtree::corruptSyncMarker1_data()
 {
     QTest::addColumn<quint32>("numCommits");
-    QTest::newRow("Even commits") << 10u;
-    QTest::newRow("Odd Commits") << 13u;
+    QTest::newRow("Even commits") << 4u;
+    QTest::newRow("Odd Commits") << 5u;
 }
 
 void TestHBtree::corruptSyncMarker1()
@@ -2438,7 +2438,7 @@ void TestHBtree::corruptSyncMarker1()
         QVERIFY(txn->commit(i));
     }
 
-    QCOMPARE(d->collectiblePages_.size(), 0);
+    QCOMPARE(d->collectiblePages_.size(), 1);
 
     for (int i = 0; i < 5; ++i) {
         db->close();
@@ -2461,8 +2461,8 @@ void TestHBtree::corruptSyncMarker1()
 void TestHBtree::corruptBothSyncMarkers_data()
 {
     QTest::addColumn<quint32>("numCommits");
-    QTest::newRow("Even commits") << 10u;
-    QTest::newRow("Odd Commits") << 13u;
+    QTest::newRow("Even commits") << 4u;
+    QTest::newRow("Odd Commits") << 5u;
 }
 
 void TestHBtree::corruptBothSyncMarkers()

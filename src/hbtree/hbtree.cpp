@@ -909,9 +909,10 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
     HBTREE_ASSERT(transaction)(tag);
     HBTREE_DEBUG("commiting" << dirtyPages_.size() << "pages");
 
-    quint32 sizeBefore = lseek(fd_, 0, SEEK_END);
+    off_t sizeBefore = lseek(fd_, 0, SEEK_END);
     PageMap::iterator it = dirtyPages_.begin();
     QVector<Page *> commitedPages;
+    QSet<quint32> collectedPages;
 #ifdef QT_TESTLIB_LIB
     int numCommited = 0;
 #endif
@@ -920,7 +921,7 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
         HBTREE_ASSERT(verifyIntegrity(it.value()))(*it.value());
 
         if (it.value()->info.type == PageInfo::Branch || it.value()->info.type == PageInfo::Leaf)
-            collectHistory(static_cast<NodePage *>(it.value()));
+            collectedPages.unite(collectHistory(static_cast<NodePage *>(it.value())));
 
         pageBuffer_ = serializePage(*it.value());
 
@@ -955,6 +956,9 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
             cacheDelete(p->info.number);
         return false;
     }
+
+    HBTREE_DEBUG("adding" << collectedPages << "to collectible list");
+    collectiblePages_.unite(collectedPages);
 
     size_ = lseek(fd_, 0, SEEK_END);
     dirtyPages_.clear();
@@ -1255,6 +1259,7 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
     Page *page = cacheRemove(pageNumber);
 
     if (page) {
+        HBTREE_ASSERT(page->dirty == false)(*page);
         if (page->info.type == type) {
             destructPage(page);
         } else {
@@ -1316,6 +1321,7 @@ HBtreePrivate::NodePage *HBtreePrivate::touchNodePage(HBtreePrivate::NodePage *p
 
     HBTREE_DEBUG("touching page" << page->info);
     NodePage *touched = static_cast<NodePage *>(newPage(PageInfo::Type(page->info.type)));
+    HBTREE_ASSERT(touched->info.number != page->info.number)(page->info);
     copy(*page, touched);
     touched->meta.syncId = lastSyncedId_ + 1;
     touched->meta.commitId = marker_.meta.revision + 1;
@@ -1427,8 +1433,9 @@ bool HBtreePrivate::getOverflowPageNumbers(quint32 startPage, QList<quint32> *pa
     return walkOverflowPages(startPage, 0, pages);
 }
 
-quint16 HBtreePrivate::collectHistory(NodePage *page)
+QSet<quint32> HBtreePrivate::collectHistory(NodePage *page)
 {
+    QSet<quint32> pages;
     int numBeforeSync = 0;
     int numBetweenSyncAndCommit = 0;
     quint16 numRemoved = 0;
@@ -1447,7 +1454,7 @@ quint16 HBtreePrivate::collectHistory(NodePage *page)
 
         if (canCollect) {
             HBTREE_DEBUG("marking" << *it << "as collectible. Last sync =" << lastSyncedId_);
-            collectiblePages_.insert(it->pageNumber);
+            pages.insert(it->pageNumber);
             numRemoved++;
             it = page->history.erase(it);
             continue;
@@ -1455,7 +1462,7 @@ quint16 HBtreePrivate::collectHistory(NodePage *page)
         ++it;
     }
     page->meta.historySize -= numRemoved;
-    return numRemoved;
+    return pages;
 }
 
 HBtreePrivate::Page *HBtreePrivate::cacheFind(quint32 pgno) const
