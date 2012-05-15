@@ -911,13 +911,14 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
 
     quint32 sizeBefore = lseek(fd_, 0, SEEK_END);
     PageMap::iterator it = dirtyPages_.begin();
+    QVector<Page *> commitedPages;
 #ifdef QT_TESTLIB_LIB
     int numCommited = 0;
 #endif
+    bool ok = true;
     while (it != dirtyPages_.constEnd()) {
         HBTREE_ASSERT(verifyIntegrity(it.value()))(*it.value());
         pageBuffer_ = serializePage(*it.value());
-        bool ok = true;
 #ifdef QT_TESTLIB_LIB
         ok = !(forceCommitFail_ && numCommited++ >= forceCommitFail_);
         if (ok)
@@ -930,13 +931,24 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
                 if (ftruncate(fd_, sizeBefore) != 0)
                     HBTREE_DEBUG("failed to truncate");
             }
-            return false;
+            break;
         }
+
         it.value()->dirty = false;
 
         if (it.value()->info.type == PageInfo::Overflow)
             cacheDelete(it.value()->info.number);
+        else
+            commitedPages.append(it.value());
+
         it = dirtyPages_.erase(it);
+    }
+
+    if (!ok) {
+        HBTREE_DEBUG("Failed to commit pages. Successfully commited" << commitedPages.size() << "pages");
+        foreach (Page *p, commitedPages)
+            cacheDelete(p->info.number);
+        return false;
     }
 
     size_ = lseek(fd_, 0, SEEK_END);
