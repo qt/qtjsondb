@@ -679,7 +679,6 @@ JsonDbPartition::TxnCommitResult JsonDbPartitionPrivate::commitTransaction(quint
                         ret = JsonDbPartition::TxnOutOfSpace;
                     else
                         ret = JsonDbPartition::TxnStorageError;
-                    return ret;
                 }
             } else {
                 table->abort();
@@ -687,10 +686,12 @@ JsonDbPartition::TxnCommitResult JsonDbPartitionPrivate::commitTransaction(quint
         }
         mTableTransactions.clear();
 
-        if (!mMainSyncTimer->isActive())
-            mMainSyncTimer->start();
-        if (!mIndexSyncTimer->isActive())
-            mIndexSyncTimer->start();
+        if (ret == JsonDbPartition::TxnSucceeded) {
+            if (!mMainSyncTimer->isActive())
+                mMainSyncTimer->start();
+            if (!mIndexSyncTimer->isActive())
+                mIndexSyncTimer->start();
+        }
 
         return ret;
     }

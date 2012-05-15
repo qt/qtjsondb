@@ -86,7 +86,7 @@ sleep 10
 
 # Populate the database and fill the available space
 echo "Creating items on the DB"
-./create.sh 75
+./create.sh 200
 
 # Check that the db is still responding to queries
 echo "Issuing queries to test if the DB is responding"
