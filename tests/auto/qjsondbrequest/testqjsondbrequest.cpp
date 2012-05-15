@@ -99,6 +99,8 @@ private slots:
     void removeRequest();
     void forced();
     void bindings();
+    void replaceFromNull();
+    void multiplerequests();
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
@@ -1009,6 +1011,76 @@ void TestQJsonDbRequest::forced()
     mConnection->send(&read);
     QVERIFY(waitForResponse(&read));
     QVERIFY(read.takeResults().isEmpty());
+}
+
+void TestQJsonDbRequest::replaceFromNull()
+{
+    QJsonDbObject object;
+    object.setUuid(QUuid::createUuid());
+    object.insert(QLatin1String("_type"), QLatin1String("replaceFromNull"));
+    object.insert(QLatin1String("bar"), QLatin1String("Julia"));
+
+    QJsonDbUpdateRequest replace(object);
+    replace.setConflictResolutionMode(QJsonDbWriteRequest::Replace);
+    mConnection->send(&replace);
+    QVERIFY(waitForResponse(&replace));
+
+    // now read the object, it should be there
+    QJsonDbReadRequest read;
+    read.setQuery(QStringLiteral("[?_type=\"replaceFromNull\"]"));
+    mConnection->send(&read);
+    QVERIFY(waitForResponse(&read));
+    QCOMPARE((int)read.status(), (int)QJsonDbReadRequest::Finished);
+    QList<QJsonObject> results = read.takeResults();
+    QCOMPARE(results.size(), 1);
+}
+
+void TestQJsonDbRequest::multiplerequests()
+{
+    QJsonDbObject object;
+    object.setUuid(QUuid::createUuid());
+    object.insert(QLatin1String("_type"), QLatin1String("multiplerequests"));
+    object.insert(QLatin1String("bar"), QLatin1String("Julia"));
+
+    {
+        QJsonDbCreateRequest request(object);
+        mConnection->send(&request);
+        QVERIFY(waitForResponse(&request));
+
+        // now read the object, it should be there
+        QJsonDbReadRequest read;
+        read.setQuery(QStringLiteral("[?_type=\"multiplerequests\"]"));
+        mConnection->send(&read);
+        QVERIFY(waitForResponse(&read));
+        QCOMPARE((int)read.status(), (int)QJsonDbReadRequest::Finished);
+        QList<QJsonObject> results = read.takeResults();
+        QCOMPARE(results.size(), 1);
+    }
+
+    QJsonDbRemoveRequest remove1(object);
+    remove1.setConflictResolutionMode(QJsonDbWriteRequest::Replace);
+    mConnection->send(&remove1);
+
+    QJsonDbUpdateRequest update(object);
+    update.setConflictResolutionMode(QJsonDbWriteRequest::Replace);
+    mConnection->send(&update);
+
+    QJsonDbRemoveRequest remove2(object);
+    remove2.setConflictResolutionMode(QJsonDbWriteRequest::Replace);
+    mConnection->send(&remove2);
+
+    QList<QJsonDbRequest *> requests;
+    requests << &remove1 << &update << &remove2;
+    QVERIFY(waitForResponse(requests));
+
+    // now read the object, it shouldn't exist
+    QJsonDbReadRequest read;
+    read.setQuery(QStringLiteral("[?_type=\"multiplerequests\"]"));
+    mConnection->send(&read);
+    QVERIFY(waitForResponse(&read));
+    QCOMPARE((int)read.status(), (int)QJsonDbReadRequest::Finished);
+    QList<QJsonObject> results = read.takeResults();
+    QCOMPARE(results.size(), 0);
 }
 
 void TestQJsonDbRequest::bindings()
