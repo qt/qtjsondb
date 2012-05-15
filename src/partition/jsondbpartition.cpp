@@ -653,7 +653,20 @@ bool JsonDbPartitionPrivate::beginTransaction()
 JsonDbPartition::TxnCommitResult JsonDbPartitionPrivate::commitTransaction(quint32 stateNumber)
 {
     if (--mTransactionDepth == 0) {
-        JsonDbPartition::TxnCommitResult ret = JsonDbPartition::TxnSucceeded;
+        JsonDbPartition::TxnCommitResult ret;
+        switch (mDiskSpaceStatus) {
+        case JsonDbPartition::UnknownStatus:
+            ret = JsonDbPartition::TxnStorageError;
+            break;
+        case JsonDbPartition::HasSpace:
+            ret = JsonDbPartition::TxnSucceeded;
+            break;
+        case JsonDbPartition::OutOfSpace:
+        default:
+            ret = JsonDbPartition::TxnOutOfSpace;
+            break;
+        }
+
         quint32 nextStateNumber = stateNumber ? stateNumber : (mObjectTable->stateNumber() + 1);
 
         if (jsondbSettings->debug())
