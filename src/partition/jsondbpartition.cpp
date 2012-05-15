@@ -1441,8 +1441,8 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
                 if (jsondbSettings->debug())
                     qDebug() << "Stale update detected - expected version:" << oldMaster.version() << object;
                 result.code = JsonDbError::UpdatingStaleVersion;
-                result.message = QString(QStringLiteral("Updating stale version of object. Expected version %1, received %2"))
-                        .arg(oldMaster.version()).arg(object.version());
+                result.message = QString(QStringLiteral("Updating stale version of %1 object. Expected version %2, received %3"))
+                        .arg(oldMaster.type()).arg(oldMaster.version()).arg(object.version());
             }
             return result;
         }
