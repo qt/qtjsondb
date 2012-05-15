@@ -1558,6 +1558,7 @@ void DBServer::receiveMessage(const QJsonObject &message)
         }
         qDebug().nospace() << ":[action]" << action
                            << "[action]:[ms]" << timer.elapsed() << "[ms]:[details]" << additionalInfo << "[details]"
+                           << ":[partition]" << partitionName << "[partition]"
                            << ":[reads]" << stats.reads << "[reads]:[hits]" << stats.hits << "[hits]:[writes]" << stats  .writes << "[writes]";
         if (jsondbSettings->verbose() && partitionName != mEphemeralPartition->name()) {
             QHash<QString, qint64> newSizes = partition->fileSizes();
