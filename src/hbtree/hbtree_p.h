@@ -289,11 +289,11 @@ public:
     bool serializeAndWrite(const Page &page) const;
 
     void serializeChecksum(quint32 checksum, QByteArray *buffer) const;
+    void serializePageNumber(quint32 pgno, QByteArray *buffer) const;
     quint32 deserializePageNumber(const QByteArray &buffer) const;
     quint32 deserializePageType(const QByteArray &buffer) const;
 
-    bool writeMarker(MarkerPage *page);
-    bool readMarker(quint32 pgno, MarkerPage *markerOut);
+    bool readMarker(quint32 pgno, MarkerPage *markerOut, QList<quint32> *overflowPages);
 
     NodePage deserializeNodePage(const QByteArray &buffer) const;
     QByteArray serializeNodePage(const NodePage &page) const;
@@ -312,7 +312,7 @@ public:
     bool commit(HBtreeTransaction *transaction, quint64 tag);
     void abort(HBtreeTransaction *transaction);
     bool sync();
-    bool readSyncedMarker(MarkerPage *markerOut);
+    bool readSyncedMarker(MarkerPage *markerOut, QList<quint32> *overflowPages);
     bool rollback();
 
     Page *newPage(PageInfo::Type type);
@@ -320,7 +320,7 @@ public:
     void deletePage(Page *page) const;
     void destructPage(Page *page) const;
     NodePage *touchNodePage(NodePage *page);
-    quint32 putDataOnOverflow(const QByteArray &value);
+    quint32 putDataOnOverflow(const QByteArray &value, QList<quint32> *pagesUsed = NULL);
     QByteArray getDataFromNode(const NodeValue &nval);
     bool walkOverflowPages(quint32 startPage, QByteArray *data, QList<quint32> *pages);
     bool getOverflowData(quint32 startPage, QByteArray *data);

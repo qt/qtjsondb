@@ -1155,7 +1155,7 @@ void TestHBtree::addDeleteNodes()
         QCOMPARE(numItems - i - 1, db->stats().numEntries);
     }
 
-    for (int i = 0; i < numItems; ++i) {
+    for (int i = 0; i < 1; ++i) {
         HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadOnly);
         QVERIFY(transaction);
         QCOMPARE(transaction->get(QByteArray::number(randomize ? numTable[i] : i)), QByteArray());
@@ -2353,8 +2353,10 @@ void TestHBtree::cursors()
 void TestHBtree::markerOnReopen_data()
 {
     QTest::addColumn<quint32>("numCommits");
-    QTest::newRow("Even commits") << 4u;
-    QTest::newRow("Odd Commits") << 5u;
+    // The test below is made for 4 and 5 commits respectively. Changing the number of commits requires
+    // changing all the verifications in the test.
+    QTest::newRow("Even test") << 4u;
+    QTest::newRow("Odd test") << 5u;
 }
 
 void TestHBtree::markerOnReopen()
@@ -2370,53 +2372,108 @@ void TestHBtree::markerOnReopen()
         QVERIFY(txn->commit(i));
     }
 
+    /* What happens to the pages on the commit rounds:
+     * commit 1: Collectible(empty). Root invalid -> create Page 3. Put on page 3. History(empty). Root = 3.
+     * commit 2: Collectible(empty). Root 3 -> touch to Page 4. Put on Page 4. History(3). Commit chain is 1 so does not put 3 in collectible. Root = 4.
+     * commit 3: Collectible(empty). Root 4 -> touch to Page 5. Put on Page 5. History(4, 3). Commit chain is 1 -> leave Page 4, put 3 in collectible. Root = 5.
+     * commit 4: Collectible(3). Root 5 -> touch to Page 3. Put on Page 3. History(5, 4). Commit chain is 1 -> leave page 5, put 4 in collectible. Root = 3.
+     * commit 5: Collectible(4). Root 3 -> touch to Page 4. Put on page 4. History(3, 5). Commit chain is 1 -> leave Page 3, put 5 in collectible. Root = 4.
+     */
     QCOMPARE(d->marker_.info.number, 1u);
     QCOMPARE(d->collectiblePages_.size(), 1);
-    QCOMPARE(d->size_, quint32(pageSize * 6)); // Header page + 2 markers + current page + num of commit chain (which is 1) + synced page
+    QCOMPARE(*d->collectiblePages_.constBegin(), even ? 4u : 5u);
+    QCOMPARE(d->size_, quint32(pageSize * 6)); // Header page + 2 markers + current page + num of commit chain (which is 1) + the reusable page
     QCOMPARE(d->marker_.meta.revision, numCommits);
     QCOMPARE(d->marker_.meta.syncId, 1u);
     QCOMPARE(d->marker_.meta.root, even ? 3u : 4u);
     QCOMPARE(d->marker_.meta.tag, (quint64)numCommits - 1);
 
-    db->close();
+    db->close(); // syncs root 3 is even, 4 if odd.
     QVERIFY(db->open());
 
+    /* On open after 4 commits:
+     * |Header|Marker1|Marker2|Page 3 is root|Page 4 is reusable|Page 5 is copy of Page 3|
+     *
+     * On open after 5 commits:
+     * |Header|Marker1|Marker2|Page 3 is copy of Page 4|Page 4 is root|Page 5 is reusable|
+     */
     QCOMPARE(d->marker_.info.number, 1u);
-    QCOMPARE(d->collectiblePages_.size(), 0);
+    QCOMPARE(d->collectiblePages_.size(), 1);
+    QCOMPARE(*d->collectiblePages_.constBegin(), even ? 4u : 5u);
     QCOMPARE(d->size_, quint32(pageSize * 6));
     QCOMPARE(d->marker_.meta.revision, numCommits);
     QCOMPARE(d->marker_.meta.syncId, 1u);
     QCOMPARE(d->marker_.meta.root, even ? 3u : 4u);
     QCOMPARE(d->marker_.meta.tag, (quint64)numCommits - 1);
+    QCOMPARE(d->lastSyncedId_, 1u);
 
+    /* Test (even) commits:
+     * commit 5: Collectible(4). Root 3 -> touch to Page 4. Put on page 4. History(3, 5). Commit chain is 1 -> leave Page 3, put 5 in collectible. Root = 4.
+     * note: Page 3 is synced.
+     *
+     * Test (odd) commits:
+     * commit 6: Collectible(5). Root 4 -> touch to Page 5. Put on page 5. History(4, 3). Commit chain is 1 -> leave Page 4, put 3 in collectible. Root = 5.
+     * note: Page 4 is synced.
+     */
     HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray::number(1000), QByteArray("1000")));
     QVERIFY(txn->commit(1000));
 
-    // Synced page should not be used
     QCOMPARE(d->marker_.info.number, 1u);
     QCOMPARE(d->collectiblePages_.size(), 1);
-    QCOMPARE(d->size_, quint32(pageSize * 7));
+    QCOMPARE(*d->collectiblePages_.constBegin(), even ? 5u : 3u);
+    QCOMPARE(d->size_, quint32(pageSize * 6));
     QCOMPARE(d->marker_.meta.revision, numCommits + 1);
     QCOMPARE(d->marker_.meta.syncId, 2u);
-    QCOMPARE(d->marker_.meta.root, 6u); // root 3 was synced so should not be reused
+    QCOMPARE(d->marker_.meta.root, even ? 4u : 5u);
     QCOMPARE(d->marker_.meta.tag, (quint64)1000);
+    QCOMPARE(d->lastSyncedId_, 1u);
 
-    QVERIFY(db->sync());
-
+    /* Test (even) commits:
+     * commit 6: Collectible(5). Root 4 -> touch to Page 5. Put on page 5. History(4, 3). Commit chain is 1 -> leave Page 4, leave Page 3 because it's synced. Root = 5.
+     *
+     * Test (odd) commits:
+     * commit 7: Collectible(3). Root 5 -> touch to Page 3. Put on page 3. History(5, 4). Commit chain is 1 -> leave Page 5, leave Page 4 because it's synced. Root = 3.
+     */
     txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
     QVERIFY(txn);
     QVERIFY(txn->put(QByteArray::number(2000), QByteArray("2000")));
     QVERIFY(txn->commit(2000));
 
     QCOMPARE(d->marker_.info.number, 1u);
-    QCOMPARE(d->collectiblePages_.size(), 1);
-    QCOMPARE(d->size_, quint32(pageSize * 7));
+    QCOMPARE(d->collectiblePages_.size(), 0);
+    QCOMPARE(d->size_, quint32(pageSize * 6));
     QCOMPARE(d->marker_.meta.revision, numCommits + 2);
-    QCOMPARE(d->marker_.meta.syncId, 3u);
-    QCOMPARE(d->marker_.meta.root, even ? 5u : 3u); // root 4 was synced so should not be reused
+    QCOMPARE(d->marker_.meta.syncId, 2u);
+    QCOMPARE(d->marker_.meta.root, even ? 5u : 3u);
     QCOMPARE(d->marker_.meta.tag, (quint64)2000);
+    QCOMPARE(d->lastSyncedId_, 1u);
+
+    QVERIFY(db->sync()); // syncs root 5 if even, 3 if odd.
+
+    QCOMPARE(d->lastSyncedId_, 2u);
+
+    /* Test (even) commits:
+     * commit 7: Collectible(empty). Root 5 -> touch to Page 6. Put on page 6. History(5, 4, 3). Leave Page 5 because it's synced, collect 4, 3. Root = 6.
+     *
+     * Test (odd) commits:
+     * commit 8: Collectible(empty). Root 3 -> touch to Page 6. Put on page 6. History(3, 5, 4). Leave Page 3 because it's synced, collect 5, 4. Root = 6.
+     */
+    txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(txn);
+    QVERIFY(txn->put(QByteArray::number(3000), QByteArray("3000")));
+    QVERIFY(txn->commit(3000));
+
+    QCOMPARE(d->marker_.info.number, 1u);
+    QCOMPARE(d->collectiblePages_.size(), 2);
+    QCOMPARE(d->collectiblePages_, even ? (QSet<quint32>() << 4 << 3) : (QSet<quint32>() << 5 << 4));
+    QCOMPARE(d->size_, quint32(pageSize * 7));
+    QCOMPARE(d->marker_.meta.revision, numCommits + 3);
+    QCOMPARE(d->marker_.meta.syncId, 3u);
+    QCOMPARE(d->marker_.meta.root, 6u);
+    QCOMPARE(d->marker_.meta.tag, (quint64)3000);
+    QCOMPARE(d->lastSyncedId_, 2u);
 }
 
 void TestHBtree::corruptSyncMarker1_data()
@@ -2447,7 +2504,7 @@ void TestHBtree::corruptSyncMarker1()
 
         QVERIFY(db->open());
 
-        QCOMPARE(d->collectiblePages_.size(), 0);
+        QCOMPARE(d->collectiblePages_.size(), 1);
 
         for (quint32 i = 0; i < numCommits; ++i) {
             HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadOnly);
