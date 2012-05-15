@@ -17,6 +17,7 @@ SUBDIRS = \
     qjsondbflushrequest \
     jsonstream \
     hbtree \
-    headersclean
+    headersclean \
+    storage
 
 testcocoon: SUBDIRS -= headersclean
