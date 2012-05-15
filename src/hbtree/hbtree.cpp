@@ -918,7 +918,12 @@ bool HBtreePrivate::commit(HBtreeTransaction *transaction, quint64 tag)
     bool ok = true;
     while (it != dirtyPages_.constEnd()) {
         HBTREE_ASSERT(verifyIntegrity(it.value()))(*it.value());
+
+        if (it.value()->info.type == PageInfo::Branch || it.value()->info.type == PageInfo::Leaf)
+            collectHistory(static_cast<NodePage *>(it.value()));
+
         pageBuffer_ = serializePage(*it.value());
+
 #ifdef QT_TESTLIB_LIB
         ok = !(forceCommitFail_ && numCommited++ >= forceCommitFail_);
         if (ok)
@@ -1308,7 +1313,6 @@ HBtreePrivate::NodePage *HBtreePrivate::touchNodePage(HBtreePrivate::NodePage *p
 
     HBTREE_ASSERT(cacheFind(page->info.number))(page->info);
     HBTREE_ASSERT(!dirtyPages_.contains(page->info.number))(page->info);
-    collectHistory(page);
 
     HBTREE_DEBUG("touching page" << page->info);
     NodePage *touched = static_cast<NodePage *>(newPage(PageInfo::Type(page->info.type)));
@@ -1508,6 +1512,7 @@ void HBtreePrivate::cachePrune()
             Page *page = *it;
             if (!page->dirty) {
                 HBTREE_ASSERT(page);
+                HBTREE_DEBUG("pruning page" << page->info);
                 cache_.remove(page->info.number);
                 it = lru_.erase(it);
                 deletePage(page);
