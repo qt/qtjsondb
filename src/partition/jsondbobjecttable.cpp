@@ -562,60 +562,73 @@ quint32 JsonDbObjectTable::changesSince(quint32 startingStateNumber, QMap<Object
     if (jsondbSettings->performanceLog())
         timer.start();
 
-    // read in the changes we need
-    if (!mChangeCache.contains(startingStateNumber)) {
-        quint32 stateNumber = startingStateNumber;
+    // prune older changes
+    // TODO: should do this more systematically
+    if (!mChangeCache.isEmpty()) {
+        quint32 firstChangeInCache = mChangeCache.begin().key();
+        quint32 extraVersions = jsondbSettings->changeLogCacheVersions();
+        if (firstChangeInCache + extraVersions < startingStateNumber) {
+            if (jsondbSettings->verbose())
+                qDebug() << "ChangeCache" << "dropping" << firstChangeInCache
+                         << "to" << startingStateNumber - extraVersions << mFilename;
+            for (quint32 i = firstChangeInCache; i < startingStateNumber - extraVersions; i++)
+                while (mChangeCache.contains(i))
+                    mChangeCache.remove(i);
+        }
+    }
+    if (jsondbSettings->verbose() && !mChangeCache.contains(startingStateNumber) && startingStateNumber <= currentStateNumber) {
+        if (!mChangeCache.isEmpty())
+            qDebug() << "ChangesSince" << "fetching" << startingStateNumber << "to" << mChangeCache.begin().key() << "/" << currentStateNumber << mFilename;
+        else
+            qDebug() << "ChangesSince" << "fetching" << startingStateNumber << "to" << currentStateNumber << mFilename;
+    }
+    {
         bool inTransaction = mBdb->writeTransaction();
         JsonDbBtree::Transaction *txn = mBdb->writeTransaction() ? mBdb->writeTransaction() : mBdb->beginWrite();
-        JsonDbBtree::Cursor cursor(txn);
-        QByteArray baStateKey(5, 0);
-        makeStateKey(baStateKey, stateNumber);
-        if (cursor.seekRange(baStateKey)) {
-            do {
-                QByteArray baObject;
-                bool ok = cursor.current(&baStateKey, &baObject);
-                if (!ok)
-                    break;
 
-                if (!isStateKey(baStateKey))
-                    continue;
-                stateNumber = qFromBigEndian<quint32>((const uchar *)baStateKey.constData());
-                // stop if we've already fetched this state number
-                if (mChangeCache.contains(stateNumber))
-                    break;
+        // read in the changes we need
+        for (quint32 stateNumber = startingStateNumber; stateNumber <= currentStateNumber; stateNumber++) {
 
-                if (baObject.size() % 20 != 0) {
-                    qWarning() << __FUNCTION__ << __LINE__ << "state size must be a multiplier 20"
-                               << baObject.size() << baObject.toHex();
-                    continue;
-                }
+            // skip this one if we've already fetched this state number
+            if (mChangeCache.contains(stateNumber))
+                continue;
 
-                for (int i = 0; i < baObject.size() / 20; ++i) {
-                    const uchar *data = (const uchar *)baObject.constData() + i*20;
-                    ObjectKey objectKey = qFromBigEndian<ObjectKey>(data);
-                    QByteArray baObjectKey(objectKey.key.toRfc4122());
-                    quint32 action = qFromBigEndian<quint32>(data + 16);
-                    QByteArray baValue;
-                    QJsonObject oldObject;
-                    if ((action != JsonDbNotification::Create)
+            QByteArray baStateKey(5, 0);
+            makeStateKey(baStateKey, stateNumber);
+            QByteArray baObject;
+            bool ok = txn->get(baStateKey, &baObject);
+            // if this table did not have a transaction on this state number, then continue
+            if (!ok)
+                continue;
+
+            if (baObject.size() % 20 != 0) {
+                qWarning() << __FUNCTION__ << __LINE__ << "state size must be a multiplier 20"
+                           << baObject.size() << baObject.toHex();
+                continue;
+            }
+
+            for (int i = 0; i < baObject.size() / 20; ++i) {
+                const uchar *data = (const uchar *)baObject.constData() + i*20;
+                ObjectKey objectKey = qFromBigEndian<ObjectKey>(data);
+                QByteArray baObjectKey(objectKey.key.toRfc4122());
+                quint32 action = qFromBigEndian<quint32>(data + 16);
+                QByteArray baValue;
+                QJsonObject oldObject;
+                if ((action != JsonDbNotification::Create)
                         && mBdb->getOne(baStateKey + baObjectKey, &baValue)) {
-                        oldObject = QJsonDocument::fromBinaryData(baValue).object();
-                        Q_ASSERT(objectKey == ObjectKey(oldObject.value(JsonDbString::kUuidStr).toString()));
-                    }
-                    QJsonObject newObject;
-                    mBdb->getOne(baObjectKey, &baValue);
-                    newObject = QJsonDocument::fromBinaryData(baValue).object();
-                    if (jsondbSettings->debug())
-                        qDebug() << "change" << action << endl << oldObject << endl << newObject;
-
-                    JsonDbUpdate change(oldObject, newObject, JsonDbNotification::Action(action));
-                    mChangeCache.insert(stateNumber, change);
+                    oldObject = QJsonDocument::fromBinaryData(baValue).object();
+                    Q_ASSERT(objectKey == ObjectKey(oldObject.value(JsonDbString::kUuidStr).toString()));
                 }
+                QJsonObject newObject;
+                mBdb->getOne(baObjectKey, &baValue);
+                newObject = QJsonDocument::fromBinaryData(baValue).object();
+                if (jsondbSettings->debug())
+                    qDebug() << "change" << action << endl << oldObject << endl << newObject;
 
-                // stop if we've reached the latest state number
-                if (stateNumber == currentStateNumber)
-                    break;
-            } while (cursor.next());
+                JsonDbUpdate change(oldObject, newObject, JsonDbNotification::Action(action));
+                mChangeCache.insert(stateNumber, change);
+            }
+
         }
         if (!inTransaction)
             txn->abort();

@@ -66,6 +66,7 @@ JsonDbSettings::JsonDbSettings() :
   , mDebugQuery(false)
   , mIndexFieldValueSize(512 - 20) // Should be even and no bigger than maxBtreeKeySize - 20 (the 20 for uuid + index type data)
   , mMinimumRequiredSpace(16384) // By default we resort to 16K, which is the minimum needed by HBTree.
+  , mChangeLogCacheVersions(10)  // 10 versions more than compulsory
 {
     loadEnvironment();
 }
