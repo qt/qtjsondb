@@ -103,6 +103,7 @@ private slots:
     void queryRegExp();
     void queryExtract();
     void queryExtractLink();
+    void queryJoinedObject();
 
 private:
     void removeDbFiles();
@@ -305,6 +306,7 @@ void TestJsonDbQueries::queryUnion()
     // verify it still works if one of the fields has an index
     // verify can use notExists on an indexed field
     JsonDbObject index;
+    index.insert("_uuid", QString("{df462800-ba09-470f-b3f6-9af39a64f9bb}"));
     index.insert("_type", QString("Index"));
     index.insert("name", QString("age"));
     index.insert("propertyName", QString("age"));
@@ -317,7 +319,8 @@ void TestJsonDbQueries::queryUnion()
     QVERIFY(confirmEachObject(queryResult.data, CheckObjectFieldEqualTo<QString>("_type", QStringList() << "bunny")));
 
     index.markDeleted();
-    mJsonDbPartition->updateObject(mOwner, index);
+    result = mJsonDbPartition->updateObject(mOwner, index, JsonDbPartition::Replace);
+    verifyGoodWriteResult(result);
 }
 
 void TestJsonDbQueries::queryFieldExists()
@@ -614,6 +617,46 @@ void TestJsonDbQueries::queryExtractLink()
         QCOMPARE(bunny.value(QLatin1String("firstName")).toString(), QLatin1String("stan"));
         QCOMPARE(bunny.value(QLatin1String("lastName")).toString(), QLatin1String("young"));
         QCOMPARE(bunny.keys().size(), 3);
+    }
+}
+
+void TestJsonDbQueries::queryJoinedObject()
+{
+    {
+        QString query = QLatin1String("[?_type = \"bunny\"][?link exists][?link->name = \"spike\"]");
+        JsonDbQueryResult queryResult = find(mOwner, query);
+        QCOMPARE((int)queryResult.code, (int)JsonDbError::NoError);
+        QCOMPARE(queryResult.data.count(), 1);
+        QJsonObject bunny = queryResult.data.at(0);
+        QCOMPARE(bunny.value(QLatin1String("name")).toObject().value(QLatin1String("first")).toString(), QLatin1String("thomas"));
+        QVERIFY(!bunny.contains(QLatin1String("link2")));
+    }
+
+    {
+        QString query = QLatin1String("[?_type = \"bunny\"][?link exists][?link->name = \"spike\"][?age = 8]");
+        JsonDbQueryResult queryResult = find(mOwner, query);
+        QCOMPARE((int)queryResult.code, (int)JsonDbError::NoError);
+        QCOMPARE(queryResult.data.count(), 1);
+        QJsonObject bunny = queryResult.data.at(0);
+        QCOMPARE(bunny.value(QLatin1String("name")).toObject().value(QLatin1String("first")).toString(), QLatin1String("thomas"));
+        QVERIFY(!bunny.contains(QLatin1String("link2")));
+    }
+
+    {
+        QString query = QLatin1String("[?_type = \"bunny\"][?link exists][?link->name = \"spike\"][?friends exists]");
+        JsonDbQueryResult queryResult = find(mOwner, query);
+        QCOMPARE((int)queryResult.code, (int)JsonDbError::NoError);
+        QCOMPARE(queryResult.data.count(), 0);
+    }
+
+    {
+        QString query = QLatin1String("[?_type = \"bunny\"][?link exists][?link->name = \"spike\"][?link->friends exists]");
+        JsonDbQueryResult queryResult = find(mOwner, query);
+        QCOMPARE((int)queryResult.code, (int)JsonDbError::NoError);
+        QCOMPARE(queryResult.data.count(), 1);
+        QJsonObject bunny = queryResult.data.at(0);
+        QCOMPARE(bunny.value(QLatin1String("name")).toObject().value(QLatin1String("first")).toString(), QLatin1String("thomas"));
+        QVERIFY(!bunny.contains(QLatin1String("link2")));
     }
 }
 
