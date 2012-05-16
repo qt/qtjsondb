@@ -308,6 +308,9 @@ void TestQJsonDbRequest::removablePartition()
     if (geteuid())
         QSKIP("This test only works as root");
 
+    if (!(QFile::exists(QLatin1String("/sbin/mkfs.ext2")) || QFile::exists(QLatin1String("/sbin/mkfs"))))
+        QSKIP("This test requires mkfs.ext2 or mkfs");
+
     // create a notification on Partitions
     QJsonDbWatcher watcher;
     watcher.setPartition(QLatin1String("Ephemeral"));
@@ -361,9 +364,9 @@ void TestQJsonDbRequest::removablePartition()
     QString tmpFile = QStringLiteral("/tmp/removablePartition.img");
     QVERIFY(system(QString::fromLatin1("dd if=/dev/zero of=%1 bs=1024 count=512 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
     if (QFile::exists(QLatin1String("/sbin/mkfs")))
-        QVERIFY(system(QString::fromLatin1("mkfs -F -T ext3 %1 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
+        QVERIFY(system(QString::fromLatin1("mkfs -F -T ext2 %1 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
     else
-        QVERIFY(system(QString::fromLatin1("mkfs.ext3 -F -T ext3 %1 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
+        QVERIFY(system(QString::fromLatin1("mkfs.ext2 -F -T ext2 %1 > /dev/null 2>&1").arg(tmpFile).toLatin1()) == 0);
 
     // mount
     QVERIFY(mnt.mkpath(QStringLiteral(".")));
