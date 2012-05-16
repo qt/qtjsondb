@@ -424,18 +424,20 @@ void TestJsonDbQueries::queryQuotedProperties()
 void TestJsonDbQueries::querySortedByIndexName()
 {
     JsonDbObject index;
+    index.insert("_uuid", QString("{fee2baf1-a2f8-4a43-b717-ab32408bdbdb}"));
     index.insert("_type", QString("Index"));
     index.insert("name", QString("dragonSort"));
     index.insert("propertyName", QString("age"));
     index.insert("propertyType", QString("number"));
     verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
 
-    index = JsonDbObject();
-    index.insert("_type", QString("Index"));
-    index.insert("name", QString("age"));
-    index.insert("propertyName", QString("age"));
-    index.insert("propertyType", QString("number"));
-    verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index));
+    JsonDbObject index2;
+    index2.insert("_uuid", QString("{23765dcd-0d43-47f3-820d-2407bfb4e5f0}"));
+    index2.insert("_type", QString("Index"));
+    index2.insert("name", QString("age"));
+    index2.insert("propertyName", QString("age"));
+    index2.insert("propertyType", QString("number"));
+    verifyGoodWriteResult(mJsonDbPartition->updateObject(mOwner, index2));
 
     JsonDbQueryResult queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][/age]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
@@ -452,6 +454,13 @@ void TestJsonDbQueries::querySortedByIndexName()
     queryResult = find(mOwner, QLatin1String("[?_type = \"dragon\"][\\dragonSort]"));
     QCOMPARE(queryResult.data.size(), mDataStats["num-dragons"].toInt());
     QVERIFY(confirmEachObject(queryResult.data, CheckSortOrder<double>("age", QList<double>() << 8 << 8 << 6 << 6 << 4 << 4 << 2 << 2 << 0 << 0)));
+
+    index.markDeleted();
+    index2.markDeleted();
+    QList<JsonDbObject> objects;
+    objects << index << index2;
+    JsonDbWriteResult result = mJsonDbPartition->updateObjects(mOwner, objects, JsonDbPartition::Replace);
+    verifyGoodWriteResult(result);
 }
 
 void TestJsonDbQueries::queryContains()
