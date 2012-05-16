@@ -44,6 +44,7 @@
 #include "plugin.h"
 #include "jsondbqueryobject.h"
 #include <QJsonDbCreateRequest>
+#include <QJsonDbWatcher>
 #include <private/qjsondbstrings_p.h>
 #include <qdebug.h>
 
@@ -65,13 +66,63 @@ QT_BEGIN_NAMESPACE_JSONDB
 JsonDbPartition::JsonDbPartition(const QString &partitionName, QObject *parent)
     :QObject(parent)
     ,_name(partitionName)
+    ,_state(None)
 {
+    init();
 }
 
 
 JsonDbPartition::~JsonDbPartition()
 {
+    if (partitionWatcher) {
+        JsonDatabase::sharedConnection().removeWatcher(partitionWatcher);
+        delete partitionWatcher;
+    }
 }
+
+void JsonDbPartition::init()
+{
+    QString query;
+    if (_name.isEmpty())
+        query= QLatin1String("[?_type=\"Partition\"][?default=true]");
+    else
+        query = QStringLiteral("[?_type=\"Partition\"][?name=\"%1\"]").arg(_name);
+
+    // Create a watcher to watch changes in partition state
+    partitionWatcher = new QJsonDbWatcher();
+    partitionWatcher->setQuery(query);
+    partitionWatcher->setWatchedActions(QJsonDbWatcher::Created | QJsonDbWatcher::Removed | QJsonDbWatcher::Updated);
+    partitionWatcher->setPartition(QStringLiteral("Ephemeral"));
+    QObject::connect(partitionWatcher, SIGNAL(notificationsAvailable(int)),
+                     this, SLOT(notificationsAvailable()));
+    QObject::connect(partitionWatcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+                     this, SLOT(notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
+    JsonDatabase::sharedConnection().addWatcher(partitionWatcher);
+
+    // Create a query to ephemeral partition to find out the state (&name) of the partition
+    QJsonDbReadRequest *request = new QJsonDbReadRequest;
+    request->setQuery(query);
+    request->setPartition(QStringLiteral("Ephemeral"));
+    connect(request, SIGNAL(finished()), this, SLOT(partitionQueryFinished()));
+    connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(partitionQueryError()));
+    connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            request, SLOT(deleteLater()));
+    JsonDatabase::sharedConnection().send(request);
+}
+
+
+/*!
+    \qmlproperty State QtJsonDb::Partition::state
+    The current state of the Partition.
+    \list
+    \li State.None - The partition object is not initialized
+    \li State.Online - Partition is online and working
+    \li State.Offline - Partition is offline and can not be accessed
+    \li State.Error - No partition of given name was found
+    \endlist
+*/
 
 /*!
     \qmlproperty string QtJsonDb::Partition::name
@@ -86,12 +137,16 @@ QString JsonDbPartition::name() const
 void JsonDbPartition::setName(const QString &partitionName)
 {
     if (partitionName != _name) {
+        _state = None;
+        emit stateChanged(_state);
+
         _name = partitionName;
-        foreach (QPointer<QJsonDbWatcher> watcher, watchers) {
-            JsonDatabase::sharedConnection().removeWatcher(watcher);
+        if (partitionWatcher) {
+            JsonDatabase::sharedConnection().removeWatcher(partitionWatcher);
+            delete partitionWatcher;
+            partitionWatcher = 0;
         }
-        watchers.clear();
-        // tell notifications to resubscribe
+        init();
         emit nameChanged(partitionName);
     }
 }
@@ -684,6 +739,67 @@ void JsonDbPartition::requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, con
         callErrorCallback(writeCallbacks, request, code, message);
     }
 
+}
+
+void JsonDbPartition::partitionQueryFinished()
+{
+    QJsonDbReadRequest *request = qobject_cast<QJsonDbReadRequest *>(sender());
+    if (request) {
+        QList<QJsonObject> objects = request->takeResults();
+        int count = objects.count();
+        if (count) {
+            QString name = objects[0].value(QStringLiteral("name")).toString();
+            // Skip this  if name has been changed already
+            if (!_name.isEmpty() && name != _name)
+                return;
+            State state = objects[0].value(QStringLiteral("available")).toBool() ? Online : Offline;
+            if (state != _state) {
+                _state = state;
+                emit stateChanged(_state);
+            }
+            if (_name.isEmpty()) {
+                _name = name;
+                emit nameChanged(_name);
+            }
+        }
+    }
+}
+
+void JsonDbPartition::partitionQueryError()
+{
+    qWarning() << "Partition query error";
+    _state = Error;
+    emit stateChanged(_state);
+}
+
+
+void JsonDbPartition::notificationsAvailable()
+{
+    QJsonDbWatcher *watcher = qobject_cast<QJsonDbWatcher *>(sender());
+    if (!watcher)
+        return;
+    QList<QJsonDbNotification> list = watcher->takeNotifications();
+    for (int i = 0; i < list.count(); i++) {
+        const QJsonDbNotification & notification = list[i];
+        QJsonObject object = notification.object();
+        QJsonDbWatcher::Action action = notification.action();
+        State state;
+        if (action == QJsonDbWatcher::Removed)
+            state = Offline;
+        else
+            state = object.value(QStringLiteral("available")).toBool() ? Online : Offline;
+        if (state != _state) {
+            _state = state;
+            emit stateChanged(_state);
+        }
+    }
+}
+
+void JsonDbPartition::notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message)
+{
+    qWarning() << QString("JsonDbPartition Notification error: %1 %2").arg(code).arg(message);
+    _state = Error;
+    emit stateChanged(_state);
 }
 
 #include "moc_jsondbpartition.cpp"

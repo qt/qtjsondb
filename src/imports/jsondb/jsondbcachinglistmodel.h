@@ -133,6 +133,7 @@ private:
     Q_PRIVATE_SLOT(d_func(), void _q_valueResponse(int, QList<QJsonObject>))
     Q_PRIVATE_SLOT(d_func(), void _q_indexResponse(int, QList<QJsonObject>))
     Q_PRIVATE_SLOT(d_func(), void _q_readError(QtJsonDb::QJsonDbRequest::ErrorCode, QString))
+    Q_PRIVATE_SLOT(d_func(), void _q_partitionStateChanged(JsonDbPartition::State))
 };
 
 QT_END_NAMESPACE_JSONDB

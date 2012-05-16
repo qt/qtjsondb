@@ -51,6 +51,7 @@
 #include <QQmlListProperty>
 #include <QJsonDbConnection>
 #include <QJsonDbWriteRequest>
+#include <QJsonDbWatcher>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
@@ -68,11 +69,13 @@ public:
         RejectStale = QJsonDbWriteRequest::RejectStale,
         Replace = QJsonDbWriteRequest::Replace
     };
+    enum State { None, Online, Offline, Error };
 
     JsonDbPartition(const QString &partitionName=QString(), QObject *parent=0);
     ~JsonDbPartition();
 
     Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
+    Q_PROPERTY(State state READ state NOTIFY stateChanged)
 
     Q_INVOKABLE int create(const QJSValue &object,
                            const QJSValue &options = QJSValue(QJSValue::UndefinedValue),
@@ -97,18 +100,23 @@ public:
     QString name() const;
     void setName(const QString &partitionName);
 
+    State state() const { return _state; }
+
     Q_PROPERTY(QQmlListProperty<QObject> childElements READ childElements)
     Q_CLASSINFO("DefaultProperty", "childElements")
     QQmlListProperty<QObject> childElements();
     Q_ENUMS(ConflictResolutionMode)
 Q_SIGNALS:
     void nameChanged(const QString &partitionName);
+    void stateChanged(JsonDbPartition::State state);
 
 private:
     QString _name;
     QString _file;
     QString _uuid;
+    State _state;
 
+    QJsonDbWatcher *partitionWatcher;
     QList<QPointer<QJsonDbWatcher> > watchers;
     QList<QObject*> childQMLElements;
     QMap<JsonDbQueryObject*, QJSValue> findCallbacks;
@@ -118,15 +126,20 @@ private:
     void updateNotification(JsonDbNotify *notify);
     void removeNotification(JsonDbNotify *notify);
 
+    void init();
     void call(QMap<QJsonDbWriteRequest*, QJSValue> &callbacks, QJsonDbWriteRequest *request);
     void callErrorCallback(QMap<QJsonDbWriteRequest*, QJSValue> &callbacks, QJsonDbWriteRequest *request,
                            QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
 private Q_SLOTS:
     void queryFinished();
+    void partitionQueryFinished();
+    void partitionQueryError();
     void queryStatusChanged();
     void requestFinished();
     void requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
+    void notificationsAvailable();
+    void notificationError(QtJsonDb::QJsonDbWatcher::ErrorCode code, const QString &message);
 
     friend class JsonDatabase;
     friend class JsonDbNotify;

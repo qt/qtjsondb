@@ -135,6 +135,7 @@ public:
     JsonDbCachingListModelPrivate(JsonDbCachingListModel *q);
     ~JsonDbCachingListModelPrivate();
     void init();
+    bool partitionsReady();
     void setCacheParams(int maxItems);
 
     void createObjectRequests(int startIndex, int maxItems);
@@ -170,6 +171,7 @@ public:
 
     int indexOfWatcher(QJsonDbWatcher *watcher);
 
+    void initPartition(JsonDbPartition *v);
     void appendPartition(JsonDbPartition *v);
     void clearPartitions();
     QJsonObject getJsonObject(int index);
@@ -192,6 +194,7 @@ public:
     void _q_keyResponse(int , const QList<QJsonObject>&, const QString&);
     void _q_valueResponse(int , const QList<QJsonObject>&);
     void _q_indexResponse(int , const QList<QJsonObject>&);
+    void _q_partitionStateChanged(JsonDbPartition::State state);
 
     static void partitions_append(QQmlListProperty<JsonDbPartition> *p, JsonDbPartition *v);
     static int partitions_count(QQmlListProperty<JsonDbPartition> *p);
