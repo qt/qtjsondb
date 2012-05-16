@@ -1209,6 +1209,10 @@ JsonDbError::ErrorCode DBServer::validateNotification(const JsonDbObject &notifi
             message = QString::fromLatin1("Invalid partition specified: %1").arg(partitionName);
             return JsonDbError::InvalidPartition;
         }
+        else if (!partition->open()) {
+            message  = QStringLiteral("Partition unavailable");
+            return JsonDbError::PartitionUnavailable;
+        }
     }
 
     return JsonDbError::NoError;
