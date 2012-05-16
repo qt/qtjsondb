@@ -194,6 +194,7 @@ bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
 
     if (flags & SyncIndexes) {
         foreach (JsonDbIndex *index, mIndexes) {
+            bool wasOpen = index->isOpen();
             if (index->bdb()) {
                 quint32 stateNumber = index->stateNumber();
                 if (flags & SyncStateNumbers && stateNumber != mStateNumber) {
@@ -204,6 +205,8 @@ bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
                 if (!index->bdb()->sync())
                     return false;
             }
+            if (!wasOpen && index->bdb())
+                index->close();
         }
     }
 
@@ -270,7 +273,7 @@ bool JsonDbObjectTable::addIndex(const JsonDbIndexSpec &indexSpec)
     JsonDbIndex *index = new JsonDbIndex(mFilename, this);
     index->setIndexSpec(indexSpec);
     index->setCacheSize(jsondbSettings->cacheSize());
-    index->open();
+    index->open(); // open it to read the state number
     mIndexes.insert(indexSpec.name, index);
 
     if (mStateNumber && (index->stateNumber() == 0 || index->stateNumber() != mStateNumber)) {
@@ -279,6 +282,7 @@ bool JsonDbObjectTable::addIndex(const JsonDbIndexSpec &indexSpec)
         index->clearData();
         reindexObjects(indexSpec.name, stateNumber());
     }
+    index->close(); // close it until it's actually needed
 
     return true;
 }

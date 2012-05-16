@@ -229,7 +229,7 @@ bool JsonDbIndex::open()
 
     d->mBdb.setCompareFunction(forwardKeyCmp);
 
-    if (jsondbSettings->debug() && jsondbSettings->verbose())
+    if (jsondbSettings->verbose())
         qDebug() << "JsonDbIndex::open" << d->mBdb.tag() << d->mBdb.fileName();
     return true;
 }
@@ -237,6 +237,10 @@ bool JsonDbIndex::open()
 void JsonDbIndex::close()
 {
     Q_D(JsonDbIndex);
+    if (!d->mBdb.isOpen())
+        return;
+    if (jsondbSettings->verbose())
+        qDebug() << "JsonDbIndex::close" << d->mBdb.tag() << d->mBdb.fileName();
     d->mBdb.close();
 }
 
