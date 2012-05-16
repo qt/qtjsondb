@@ -54,6 +54,15 @@ QT_BEGIN_NAMESPACE_JSONDB
 
     \brief The QJsonDbWriteRequest class allows to put objects into the database.
 
+    Every write request to JsonDb is essentially an update to the object store. You can
+    update the database by adding a new object, modifying an existing object
+    or removing an existing object.
+
+    All updates are carried out by passing a QJsonObject list to the setObjects() function
+    and then sending the write request object to the server via the QJsonDbConnection::send()
+    function. How JsonDb processes each object depends on which properties the object has.
+    For a description of these properties, please see the setObjects() function.
+
     \code
         QJsonObject object;
         object.insert(QStringLiteral("_type"), QLatin1String("Foo"));
@@ -80,6 +89,7 @@ QT_BEGIN_NAMESPACE_JSONDB
     objects.
 
     \sa QJsonDbObject
+    \sa setObjects()
 */
 /*!
     \enum QJsonDbWriteRequest::ErrorCode
