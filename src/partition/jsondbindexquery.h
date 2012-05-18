@@ -135,6 +135,8 @@ protected:
     QStringList  mResultKeyList;
     QVector<QVector<QStringList> > mJoinPaths;
     JsonDbQuery  *mResidualQuery;
+
+    Q_DISABLE_COPY(JsonDbIndexQuery)
 };
 
 class JsonDbUuidQuery : public JsonDbIndexQuery {

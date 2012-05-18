@@ -44,7 +44,7 @@
 #include "hbtreetransaction.h"
 
 HBtreeTransaction::HBtreeTransaction(HBtree *btree, HBtreeTransaction::Type type)
-    : btree_(btree), type_(type)
+    : btree_(btree), type_(type), rootPage_(0xFFFFFFFF), tag_(0), revision_(0)
 {
     Q_ASSERT(btree_);
 }

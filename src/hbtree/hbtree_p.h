@@ -182,7 +182,7 @@ public:
     struct NodePage;
     struct HistoryNode {
         HistoryNode()
-            : pageNumber(PageInfo::INVALID_PAGE), syncId(0)
+            : pageNumber(PageInfo::INVALID_PAGE), syncId(0), commitId(0)
         {}
         HistoryNode(quint32 pageNo, quint32 syncNo, quint32 commitNo)
             : pageNumber(pageNo), syncId(syncNo), commitId(commitNo)
@@ -293,7 +293,7 @@ public:
     quint32 deserializePageNumber(const QByteArray &buffer) const;
     quint32 deserializePageType(const QByteArray &buffer) const;
 
-    bool readMarker(quint32 pgno, MarkerPage *markerOut, QList<quint32> *overflowPages);
+    bool readMarker(quint32 pageNumber, MarkerPage *markerOut, QList<quint32> *overflowPages);
 
     NodePage deserializeNodePage(const QByteArray &buffer) const;
     QByteArray serializeNodePage(const NodePage &page) const;

@@ -1174,6 +1174,7 @@ void TestHBtree::last()
     QByteArray value2("bar");
 
     HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(transaction);
     // write first entry
     QVERIFY(transaction->put(key1, value1));
 
@@ -1223,6 +1224,8 @@ void TestHBtree::first()
     QByteArray value2("bar");
 
     HBtreeTransaction *transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(transaction);
+
     // write first entry
     QVERIFY(transaction->put(key1, value1));
 
@@ -1621,6 +1624,8 @@ void TestHBtree::prev()
     QByteArray value2("bar");
 
     HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(txn);
+
     // write entries
     QVERIFY(txn->put(key0, value0));
     QVERIFY(txn->put(key1, value1));
@@ -1752,6 +1757,7 @@ void TestHBtree::multiBranchSplits()
         // Remove all in permuted order
         foreach (QByteArray key, keys) {
             transaction = db->beginTransaction(HBtreeTransaction::ReadWrite);
+            QVERIFY(transaction);
             QVERIFY(transaction->remove(key));
             transaction->commit(999999);
         }
@@ -1949,6 +1955,8 @@ void TestHBtree::variableSizeKeysAndData()
         QVERIFY(txn->commit(0));
     }
     HBtreeTransaction *txn = db->beginTransaction(HBtreeTransaction::ReadWrite);
+    QVERIFY(txn);
+
     // Delete every second object
     HBtreeCursor cursor(txn);
     QVERIFY(usePrevious ? cursor.last() : cursor.first());

@@ -391,21 +391,21 @@ JsonDbObject JsonDbIndexQuery::resultObject(const JsonDbObject &object)
         return baseObject;
 
     for (int i = 0; i < mResultExpressionList.size(); ++i) {
-        JsonDbObject object(baseObject);
+        JsonDbObject obj(baseObject);
 
         const QVector<QStringList> &joinPath = mJoinPaths.at(i);
         for (int j = 0; j < joinPath.size()-1; j++) {
-            QString uuid = object.valueByPath(joinPath.at(j)).toString();
+            QString uuid = obj.valueByPath(joinPath.at(j)).toString();
             if (uuid.isEmpty()) {
-                object = JsonDbObject();
+                obj = JsonDbObject();
             } else if (mObjectCache.contains(uuid)) {
-                object = mObjectCache.value(uuid);
+                obj = mObjectCache.value(uuid);
             } else {
-                 if (mPartition->d_func()->getObject(ObjectKey(uuid), object))
-                    mObjectCache.insert(uuid, object);
+                 if (mPartition->d_func()->getObject(ObjectKey(uuid), obj))
+                    mObjectCache.insert(uuid, obj);
             }
         }
-        QJsonValue v = object.valueByPath(joinPath.last());
+        QJsonValue v = obj.valueByPath(joinPath.last());
         result.insert(mResultKeyList.at(i), v);
     }
 

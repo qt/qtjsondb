@@ -101,8 +101,8 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDbPa
     for (int i = 0; i < translations.size(); ++i) {
         JsonDbObject translation = translations.at(i);
         QString name = translation.value(QStringLiteral("name")).toString();
-        QString partition = translation.value(QStringLiteral("partition")).toString();
-        partition = partition.replace(QStringLiteral("%owner"), ownerId());
+        QString partitionName = translation.value(QStringLiteral("partition")).toString();
+        partitionName = partitionName.replace(QStringLiteral("%owner"), ownerId());
         if (applicationCapabilities.contains(name)) {
             QJsonObject accessRules = translation.value(QStringLiteral("accessRules")).toObject();
             QVariantList accessTypesAllowed =
@@ -124,7 +124,7 @@ void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDbPa
         }
         foreach (const QString op, ops) {
             if (!allowedObjects.value(op).empty())
-                setAllowedObjects(partition, op, allowedObjects.value(op).toList());
+                setAllowedObjects(partitionName, op, allowedObjects.value(op).toList());
         }
         allowedObjects.clear();
     }

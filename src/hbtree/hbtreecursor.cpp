@@ -45,7 +45,7 @@
 
 
 HBtreeCursor::HBtreeCursor()
-    : transaction_(0), btree_(0)
+    : transaction_(0), btree_(0), lastLeaf_(0xFFFFFFFF), valid_(false)
 {
 }
 

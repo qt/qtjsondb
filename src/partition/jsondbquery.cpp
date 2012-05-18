@@ -667,6 +667,7 @@ QList<QString> OrQueryTerm::findUnindexablePropertyNames() const
 }
 
 OrderTerm::OrderTerm()
+    : ascending(false)
 {
 }
 

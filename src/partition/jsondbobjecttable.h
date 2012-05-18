@@ -160,6 +160,8 @@ private:
     // intermediate state changes until the commit is called
     QByteArray mStateChanges;
     QList<JsonDbUpdate> mStateObjectChanges;
+
+    Q_DISABLE_COPY(JsonDbObjectTable)
 };
 
 void makeStateKey(QByteArray &baStateKey, quint32 stateNumber);

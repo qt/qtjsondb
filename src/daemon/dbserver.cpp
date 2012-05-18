@@ -562,8 +562,10 @@ void DBServer::objectsUpdated(bool viewUpdated, const QList<JsonDbUpdate> &chang
         if (partition) {
             JsonDbObjectTable *objectTable = partition->findObjectTable(objectType);
             stateNumber = objectTable->stateNumber();
-        } else if (partitionName != mEphemeralPartition->name())
+        } else if (partitionName != mEphemeralPartition->name()) {
+            Q_ASSERT(mDefaultPartition);
             stateNumber = mDefaultPartition->mainObjectTable()->stateNumber();
+        }
 
         QStringList notificationKeys;
         if (!oldObjectType.isEmpty() || !objectType.isEmpty()) {

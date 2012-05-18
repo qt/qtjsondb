@@ -86,6 +86,7 @@ JsonDbPartitionPrivate::JsonDbPartitionPrivate(JsonDbPartition *q)
     , mObjectTable(0)
     , mTransactionDepth(0)
     , mWildCardPrefixRegExp(QStringLiteral("([^*?\\[\\]\\\\]+).*"))
+    , mDefaultOwner(0)
     , mIsOpen(false)
     , mDiskSpaceStatus(JsonDbPartition::UnknownStatus)
 {
@@ -755,13 +756,15 @@ bool JsonDbPartitionPrivate::getObject(const ObjectKey &objectKey, JsonDbObject 
     QHash<QString,QPointer<JsonDbView> >::const_iterator it = mViews.begin();
     for (; it != mViews.end(); ++it) {
         JsonDbView *view = it.value();
-        if (!view)
+        if (!view) {
             qDebug() << "no view";
-        if (!view->objectTable())
-            qDebug() << "no object table for view";
-        bool ok = view->objectTable()->get(objectKey, &object);
-        if (ok)
-            return ok;
+        } else {
+            if (!view->objectTable())
+                qDebug() << "no object table for view";
+            bool ok = view->objectTable()->get(objectKey, &object);
+            if (ok)
+                return ok;
+        }
     }
     return false;
 }
@@ -875,6 +878,8 @@ bool JsonDbPartitionPrivate::addIndex(const JsonDbIndexSpec &indexSpec)
             table = t;
         }
     }
+    if (!table)
+        return false;
     if (table->index(indexSpec.name))
         return true;
     return table->addIndex(indexSpec);
@@ -1141,6 +1146,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
             }
 
             if (propertyName == orderField) {
+                Q_ASSERT(indexQuery);
                 compileOrQueryTerm(indexQuery, queryTerm);
             } else {
                 residualQuery->queryTerms.append(orQueryTerm);

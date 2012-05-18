@@ -48,7 +48,6 @@
 #include <QtCore/qregularexpression.h>
 #include <QtCore/qurl.h>
 #include <QtCore/quuid.h>
-#include "jsondbschema_p.h"
 
 QT_BEGIN_HEADER
 

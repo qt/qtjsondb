@@ -400,8 +400,7 @@ HBtreePrivate::Page *HBtreePrivate::newDeserializePage(const QByteArray &buffer)
         case PageInfo::Overflow:
             page = new OverflowPage;
             break;
-        case PageInfo::Marker:
-        case PageInfo::Spec:
+        default:
             HBTREE_ASSERT(0)(pi).message(QStringLiteral("unknown type"));
             return 0;
     }
@@ -467,17 +466,17 @@ quint32 HBtreePrivate::deserializePageType(const QByteArray &buffer) const
     return pageType;
 }
 
-bool HBtreePrivate::readMarker(quint32 pgno, HBtreePrivate::MarkerPage *markerOut, QList<quint32> *overflowPages)
+bool HBtreePrivate::readMarker(quint32 pageNumber, HBtreePrivate::MarkerPage *markerOut, QList<quint32> *overflowPages)
 {
-    HBTREE_ASSERT(markerOut)(pgno);
-    HBTREE_ASSERT(overflowPages)(pgno);
-    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE)(pgno);
-    HBTREE_ASSERT(pgno == 1 || pgno == 2)(pgno);
+    HBTREE_ASSERT(markerOut)(pageNumber);
+    HBTREE_ASSERT(overflowPages)(pageNumber);
+    HBTREE_ASSERT(spec_.pageSize >= HBTREE_DEFAULT_PAGE_SIZE)(spec_)(HBTREE_DEFAULT_PAGE_SIZE)(pageNumber);
+    HBTREE_ASSERT(pageNumber == 1 || pageNumber == 2)(pageNumber);
 
-    pageBuffer_ = readPage(pgno);
+    pageBuffer_ = readPage(pageNumber);
 
     if (pageBuffer_.isEmpty()) {
-        HBTREE_DEBUG("failed to read marker" << pgno);
+        HBTREE_DEBUG("failed to read marker" << pageNumber);
         return false;
     }
 
@@ -1123,6 +1122,7 @@ HBtreeTransaction *HBtreePrivate::beginTransaction(HBtreeTransaction::Type type)
 
 bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyData, const QByteArray &valueData)
 {
+    HBTREE_ASSERT(transaction)(keyData)(valueData);
     HBTREE_DEBUG( "put => [" << keyData
               #if HBTREE_VERBOSE_OUTPUT
                   << "," << valueData
@@ -1208,6 +1208,7 @@ QByteArray HBtreePrivate::get(HBtreeTransaction *transaction, const QByteArray &
 
 bool HBtreePrivate::del(HBtreeTransaction *transaction, const QByteArray &keyData)
 {
+    HBTREE_ASSERT(transaction)(keyData);
     HBTREE_DEBUG( "del => [" << keyData << "] @" << transaction);
 
     if (transaction->isReadOnly()) {
@@ -1561,10 +1562,12 @@ bool HBtreePrivate::searchPage(HBtreeCursor *cursor, HBtreeTransaction *transact
 {
     quint32 root = 0;
 
-    if (!transaction)
+    if (!transaction) {
+        HBTREE_ASSERT(modify == false)(key)(searchType);
         root = marker_.meta.root;
-    else
+    } else {
         root = transaction->rootPage_;
+    }
 
     if (root == PageInfo::INVALID_PAGE) {
         HBTREE_DEBUG("btree is empty");
