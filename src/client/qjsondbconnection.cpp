@@ -600,11 +600,11 @@ bool QJsonDbConnection::send(QJsonDbRequest *request)
     Q_D(QJsonDbConnection);
     if (!request)
         return false;
-    QJsonDbRequestPrivate *drequest = request->d_func();
-    if (drequest->status >= QJsonDbRequest::Queued) {
-        qWarning("QJsonDbConnection: cannot send request that is already being processed.");
+    if (request->isActive()) {
+        qWarning("QJsonDbConnection: cannot send request that is currently active.");
         return false;
     }
+    QJsonDbRequestPrivate *drequest = request->d_func();
     drequest->setStatus(QJsonDbRequest::Queued);
     if (drequest->internal)
         d->pendingRequests.prepend(QWeakPointer<QJsonDbRequest>(request));
