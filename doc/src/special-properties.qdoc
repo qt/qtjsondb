@@ -73,7 +73,7 @@ removed from the database.
 
 \row
 \li _meta
-\li JSON DB uses \c _meta to stores a variety of internal metadata, like the history of versions, which
+\li JSON DB uses \c _meta to store a variety of internal metadata, like the history of versions, which
 is needed for conflict detection and resolution. This is a read-only property, client changes to this
 property are ignored.
 
