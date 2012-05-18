@@ -156,6 +156,10 @@ void ChatClient::message(const QStringList &args)
     message.insert(QLatin1String("_type"), QLatin1String("ChatMessage"));
     message.insert(QLatin1String("from"), m_username);
     message.insert(QLatin1String("to"), messageArgs.takeFirst());
+    if (message.value(QLatin1String("from")) == message.value(QLatin1String("to"))) {
+        fprintf(stderr, "Talking to oneself is not supported\n");
+        return;
+    }
     message.insert(QLatin1String("message"), messageArgs.join(QLatin1String(" ")));
     message.insert(QLatin1String("time"), QDateTime::currentDateTime().toString("ddMMyyyy hh:mm:ss"));
 
