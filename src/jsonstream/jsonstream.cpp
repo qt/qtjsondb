@@ -151,7 +151,10 @@ void JsonStream::deviceBytesWritten(qint64 bytes)
     Q_UNUSED(bytes);
     if (!mWriteBuffer.isEmpty()) {
         int didWrite = mDevice->write(mWriteBuffer);
-        mWriteBuffer = mWriteBuffer.mid(didWrite);
+        if (didWrite < 0)
+            qWarning() << "Error writing to socket" << mDevice->errorString();
+        else
+            mWriteBuffer = mWriteBuffer.mid(didWrite);
     }
 }
 
