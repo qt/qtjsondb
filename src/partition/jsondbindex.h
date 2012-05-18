@@ -77,6 +77,7 @@ public:
     inline JsonDbIndexSpec()
         : caseSensitivity(Qt::CaseSensitive)
     { }
+    inline bool hasPropertyFunction() const { return !propertyFunction.isEmpty(); }
     static JsonDbIndexSpec fromIndexObject(const QJsonObject &indexObject);
 };
 
@@ -115,15 +116,11 @@ public:
     static QString determineName(const JsonDbObject &index);
 
 private:
-    QJsonValue indexValue(const QJsonValue &v);
-
-private slots:
-    void propertyValueEmitted(QJSValue);
-
-private:
     Q_DECLARE_PRIVATE(JsonDbIndex)
     Q_DISABLE_COPY(JsonDbIndex)
     QScopedPointer<JsonDbIndexPrivate> d_ptr;
+
+    Q_PRIVATE_SLOT(d_func(), void _q_propertyValueEmitted(QJSValue))
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

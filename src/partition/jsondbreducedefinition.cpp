@@ -69,12 +69,10 @@ JsonDbReduceDefinition::JsonDbReduceDefinition(const JsonDbOwner *owner, JsonDbP
     , mOwner(owner)
     , mPartition(partition)
     , mDefinition(definition)
-    , mScriptEngine(0)
     , mUuid(mDefinition.value(JsonDbString::kUuidStr).toString())
     , mTargetType(mDefinition.value(QStringLiteral("targetType")).toString())
     , mTargetTable(mPartition->findObjectTable(mTargetType))
     , mSourceType(mDefinition.value(QStringLiteral("sourceType")).toString())
-    , mJoinProxy(0)
 {
     if (mDefinition.contains(QStringLiteral("targetKeyName")))
         mTargetKeyName = mDefinition.value(QStringLiteral("targetKeyName")).toString();
@@ -127,10 +125,10 @@ void JsonDbReduceDefinition::initScriptEngine()
         return;
 
     mScriptEngine = JsonDbScriptEngine::scriptEngine();
-    mJoinProxy = new JsonDbJoinProxy(mOwner, mPartition, this);
+    JsonDbJoinProxy *joinProxy = new JsonDbJoinProxy(mOwner, mPartition, mScriptEngine);
 
     QString message;
-    bool status = compileFunctions(mScriptEngine, mDefinition, mJoinProxy, mFunctions, message);
+    bool status = compileFunctions(mScriptEngine, mDefinition, joinProxy, mFunctions, message);
     if (!status)
         setError(message);
 
@@ -141,11 +139,6 @@ void JsonDbReduceDefinition::initScriptEngine()
 void JsonDbReduceDefinition::releaseScriptEngine()
 {
     mFunctions.clear();
-    if (mJoinProxy) {
-        delete mJoinProxy;
-        mJoinProxy = 0;
-    }
-    mScriptEngine = 0;
 }
 
 void JsonDbReduceDefinition::initIndexes()

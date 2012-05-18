@@ -65,7 +65,6 @@ QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 JsonDbIndexPrivate::JsonDbIndexPrivate(JsonDbIndex *q)
     : q_ptr(q)
     , mObjectTable(0)
-    , mScriptEngine(0)
     , mCacheSize(0)
 {
 }
@@ -77,6 +76,32 @@ JsonDbIndexPrivate::~JsonDbIndexPrivate()
 QString JsonDbIndexPrivate::fileName() const
 {
     return QString::fromLatin1("%1/%2-%3-Index.db").arg(mPath).arg(mBaseName).arg(mSpec.name);
+}
+
+bool JsonDbIndexPrivate::initScriptEngine()
+{
+    if (mScriptEngine)
+        return true;
+
+    Q_Q(JsonDbIndex);
+
+    mScriptEngine = JsonDbScriptEngine::scriptEngine();
+
+    JsonDbJoinProxy *mapProxy = new JsonDbJoinProxy(0, 0, mScriptEngine);
+    QObject::connect(mapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
+                     q, SLOT(_q_propertyValueEmitted(QJSValue)));
+    QString proxyName(QStringLiteral("_jsondbIndexProxy%1").arg(mSpec.name));
+    proxyName.replace(QLatin1Char('.'), QLatin1Char('$'));
+    mScriptEngine->globalObject().setProperty(proxyName, mScriptEngine->newQObject(mapProxy));
+
+    QString script(QStringLiteral("(function() { var jsondb={emit: %2.create, lookup: %2.lookup }; var fcn = (%1); return fcn})()")
+                   .arg(mSpec.propertyFunction, proxyName));
+    mPropertyFunction = mScriptEngine->evaluate(script);
+    if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
+        qDebug() << "Unable to parse index value function: " << mPropertyFunction.toString();
+        return false;
+    }
+    return true;
 }
 
 static const int collationStringsCount = 13;
@@ -184,24 +209,8 @@ void JsonDbIndex::setIndexSpec(const JsonDbIndexSpec &spec)
     d->mCollator.setCasePreference(_q_correctCasePreferenceString(d->mSpec.casePreference));
 #endif
 
-    if (spec.propertyName.isEmpty() && !spec.propertyFunction.isEmpty()) {
-        if (!d->mScriptEngine)
-            d->mScriptEngine = JsonDbScriptEngine::scriptEngine();
-
-        // for "emit"
-        JsonDbJoinProxy *mapProxy = new JsonDbJoinProxy(0, 0, this);
-        connect(mapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
-                this, SLOT(propertyValueEmitted(QJSValue)));
-        QString proxyName(QString::fromLatin1("_jsondbIndexProxy%1").arg(d->mSpec.name));
-        proxyName.replace(QLatin1Char('.'), QLatin1Char('$'));
-        d->mScriptEngine->globalObject().setProperty(proxyName, d->mScriptEngine->newQObject(mapProxy));
-
-        QString script(QString::fromLatin1("(function() { var jsondb={emit: %2.create, lookup: %2.lookup }; var fcn = (%1); return fcn})()")
-                       .arg(spec.propertyFunction).arg(proxyName));
-        d->mPropertyFunction = d->mScriptEngine->evaluate(script);
-        if (d->mPropertyFunction.isError() || !d->mPropertyFunction.isCallable())
-            qDebug() << "Unable to parse index value function: " << d->mPropertyFunction.toString();
-    }
+    if (!d->mSpec.propertyName.isEmpty() && !d->mSpec.propertyFunction.isEmpty())
+        d->mSpec.propertyFunction = QString();
 
     setObjectName(d->mSpec.name);
 }
@@ -303,21 +312,20 @@ JsonDbBtree *JsonDbIndex::bdb()
     return &d->mBdb;
 }
 
-QJsonValue JsonDbIndex::indexValue(const QJsonValue &v)
+QJsonValue JsonDbIndexPrivate::indexValue(const QJsonValue &v)
 {
-    Q_D(JsonDbIndex);
     if (!v.isString())
         return v;
 
     QJsonValue result;
-    if (d->mSpec.caseSensitivity == Qt::CaseInsensitive)
+    if (mSpec.caseSensitivity == Qt::CaseInsensitive)
         result = v.toString().toLower();
     else
         result = v;
 
 #ifndef NO_COLLATION_SUPPORT
-    if (!d->mSpec.collation.isEmpty() && !d->mSpec.locale.isEmpty())
-        result = _q_bytesToHexString(d->mCollator.sortKey(v.toString()));
+    if (!mSpec.collation.isEmpty() && !mSpec.locale.isEmpty())
+        result = _q_bytesToHexString(mCollator.sortKey(v.toString()));
 #endif
 
     return result;
@@ -326,35 +334,37 @@ QJsonValue JsonDbIndex::indexValue(const QJsonValue &v)
 QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 {
     Q_D(JsonDbIndex);
+
     d->mFieldValues.clear();
-    if (!d->mScriptEngine) {
+
+    if (!d->mSpec.hasPropertyFunction()) {
         int size = d->mPropertyNamePath.size();
         if (d->mPropertyNamePath.at(size-1) == QLatin1Char('*')) {
             QJsonValue v = object.valueByPath(d->mPropertyNamePath.mid(0, size-1));
             QJsonArray array = v.toArray();
             d->mFieldValues.reserve(array.size());
-            for (int i = 0; i < array.size(); ++i) {
-                d->mFieldValues.append(indexValue(array.at(i)));
-            }
+            for (int i = 0; i < array.size(); ++i)
+                d->mFieldValues.append(d->indexValue(array.at(i)));
         } else {
             QJsonValue v = object.valueByPath(d->mPropertyNamePath);
-            if (!v.isUndefined()) {
-                d->mFieldValues.append(indexValue(v));
-            }
+            if (!v.isUndefined())
+                d->mFieldValues.append(d->indexValue(v));
         }
     } else {
+        if (!d->initScriptEngine())
+            return d->mFieldValues;
+
         QJSValueList args;
-        args << d->mScriptEngine->toScriptValue(object.toVariantMap());
+        args << d->mScriptEngine->toScriptValue(static_cast<QJsonObject>(object));
         d->mPropertyFunction.call(args);
     }
     return d->mFieldValues;
 }
 
-void JsonDbIndex::propertyValueEmitted(QJSValue value)
+void JsonDbIndexPrivate::_q_propertyValueEmitted(QJSValue value)
 {
-    Q_D(JsonDbIndex);
     if (!value.isUndefined())
-        d->mFieldValues.append(d->mScriptEngine->fromScriptValue<QJsonValue>(value));
+        mFieldValues.append(mScriptEngine->fromScriptValue<QJsonValue>(value));
 }
 
 void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 objectStateNumber)
@@ -405,10 +415,13 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
 void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 objectStateNumber)
 {
     Q_D(JsonDbIndex);
+
     if (d->mSpec.propertyName == JsonDbString::kUuidStr)
         return;
+
     if (!d->mSpec.objectTypes.isEmpty() && !d->mSpec.objectTypes.contains(object.value(JsonDbString::kTypeStr).toString()))
         return;
+
     if (!d->mBdb.isOpen())
         open();
     QList<QJsonValue> fieldValues = indexValues(object);

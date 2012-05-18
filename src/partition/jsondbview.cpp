@@ -511,14 +511,10 @@ void JsonDbView::reduceMemoryUsage()
 {
     mViewObjectTable->flushCaches();
 
-    for (QMap<QString,JsonDbMapDefinition*>::iterator it = mMapDefinitions.begin();
-         it != mMapDefinitions.end();
-         ++it)
-        it.value()->releaseScriptEngine();
-    for (QMap<QString,JsonDbReduceDefinition*>::iterator it = mReduceDefinitions.begin();
-         it != mReduceDefinitions.end();
-         ++it)
-        it.value()->releaseScriptEngine();
+    foreach (JsonDbMapDefinition *map, mMapDefinitions)
+        map->releaseScriptEngine();
+    foreach (JsonDbReduceDefinition *reduce, mReduceDefinitions)
+        reduce->releaseScriptEngine();
 }
 
 void JsonDbView::closeIndexes()

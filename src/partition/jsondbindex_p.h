@@ -81,12 +81,17 @@ public:
     JsonDbCollator mCollator;
 #endif
     JsonDbBtree mBdb;
-    QJSEngine *mScriptEngine;
+    QPointer<QJSEngine> mScriptEngine;
     QJSValue   mPropertyFunction;
     QList<QJsonValue> mFieldValues;
     quint32 mCacheSize;
 
     QString fileName() const;
+    bool initScriptEngine();
+    QJsonValue indexValue(const QJsonValue &v);
+
+    // private slots
+    void _q_propertyValueEmitted(QJSValue value);
 
     static int indexCompareFunction(const QByteArray &ab, const QByteArray &bb);
     static QByteArray makeForwardKey(const QJsonValue &fieldValue, const ObjectKey &objectKey);

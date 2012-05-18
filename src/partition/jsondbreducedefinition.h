@@ -107,7 +107,7 @@ private:
     const JsonDbOwner *mOwner;
     JsonDbPartition *mPartition;
     QJsonObject    mDefinition;
-    QJSEngine *mScriptEngine;
+    QPointer<QJSEngine> mScriptEngine;
     QVector<QJSValue> mFunctions;
     QString        mUuid;
     QString        mTargetType;
@@ -118,7 +118,6 @@ private:
     QString        mSourceKeyName;
     // mSourceKeyName split on .
     QStringList    mSourceKeyNameList;
-    JsonDbJoinProxy *mJoinProxy;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

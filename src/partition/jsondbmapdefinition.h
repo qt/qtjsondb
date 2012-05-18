@@ -103,9 +103,7 @@ private:
     const JsonDbOwner *mOwner;
     QJsonObject     mDefinition;
     QString         mTargetKeyName;
-    QJSEngine     *mScriptEngine;
-    JsonDbMapProxy *mMapProxy; // to be removed when old map/lookup converted to join/lookup
-    JsonDbJoinProxy *mJoinProxy;
+    QPointer<QJSEngine> mScriptEngine;
     QMap<QString,QJSValue> mMapFunctions;
     QString        mUuid;
     QString        mMapId; // uuid with special characters converted to '$'

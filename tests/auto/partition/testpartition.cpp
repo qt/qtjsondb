@@ -4098,6 +4098,18 @@ void TestPartition::indexPropertyFunction()
     QVERIFY(queryResult.data.at(0).contains("_indexValue"));
     QCOMPARE(queryResult.data.at(0).value("_indexValue").toDouble(), (double)42);
 
+    // now cleanup QJSEngine and verify that propertyFunction is still invoked
+    mJsonDbPartition->flushCaches();
+
+    item = JsonDbObject();
+    item.insert(JsonDbString::kTypeStr, QLatin1String("IndexPropertyFunction"));
+    item.insert("from", 128);
+    result = create(mOwner, item);
+    verifyGoodResult(result);
+
+    queryResult = find(mOwner, QLatin1String("[?_type=\"IndexPropertyFunction\"][/propertyFunctionIndex]"));
+    QCOMPARE(queryResult.data.size(), 5);
+    QCOMPARE((int)queryResult.data.at(4).value(QLatin1String("from")).toDouble(), 128);
 }
 
 void TestPartition::indexCollation()

@@ -69,7 +69,6 @@ JsonDbMapDefinition::JsonDbMapDefinition(const JsonDbOwner *owner, JsonDbPartiti
     , mPartition(partition)
     , mOwner(owner)
     , mDefinition(definition)
-    , mScriptEngine(0)
     , mUuid(definition.value(JsonDbString::kUuidStr).toString())
     , mTargetType(definition.value(QStringLiteral("targetType")).toString())
     , mTargetTable(mPartition->findObjectTable(mTargetType))
@@ -132,14 +131,14 @@ void JsonDbMapDefinition::initScriptEngine()
         return;
 
     mScriptEngine = JsonDbScriptEngine::scriptEngine();
-    mJoinProxy = new JsonDbJoinProxy(mOwner, mPartition, this);
-    connect(mJoinProxy, SIGNAL(lookupRequested(QJSValue,QJSValue)),
+    JsonDbJoinProxy *joinProxy = new JsonDbJoinProxy(mOwner, mPartition, mScriptEngine);
+    connect(joinProxy, SIGNAL(lookupRequested(QJSValue,QJSValue)),
             this, SLOT(lookupRequested(QJSValue,QJSValue)));
-    connect(mJoinProxy, SIGNAL(viewObjectEmitted(QJSValue)),
+    connect(joinProxy, SIGNAL(viewObjectEmitted(QJSValue)),
             this, SLOT(viewObjectEmitted(QJSValue)));
 
     QString message;
-    bool compiled = compileMapFunctions(mScriptEngine, mDefinition, mJoinProxy, mMapFunctions, message);
+    bool compiled = compileMapFunctions(mScriptEngine, mDefinition, joinProxy, mMapFunctions, message);
     if (!compiled)
       setError(message);
 }
@@ -188,7 +187,6 @@ bool JsonDbMapDefinition::compileMapFunctions(QJSEngine *scriptEngine, QJsonObje
 void JsonDbMapDefinition::releaseScriptEngine()
 {
     mMapFunctions.clear();
-    mScriptEngine = 0;
 }
 
 

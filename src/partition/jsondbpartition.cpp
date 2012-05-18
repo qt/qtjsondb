@@ -551,10 +551,10 @@ void JsonDbPartition::flushCaches()
         return;
 
     d->mObjectTable->flushCaches();
-    for (QHash<QString,QPointer<JsonDbView> >::const_iterator it = d->mViews.begin();
-         it != d->mViews.end();
-         ++it)
-        it.value()->reduceMemoryUsage();
+    foreach (QPointer<JsonDbView> view, d->mViews) {
+        Q_ASSERT(view.data());
+        view->reduceMemoryUsage();
+    }
     JsonDbScriptEngine::releaseScriptEngine();
 }
 
