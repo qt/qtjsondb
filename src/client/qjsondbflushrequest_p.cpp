@@ -67,7 +67,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 */
 
 QJsonDbFlushRequestPrivate::QJsonDbFlushRequestPrivate(QJsonDbFlushRequest *q)
-    : QJsonDbRequestPrivate(q)
+    : QJsonDbRequestPrivate(q), stateNumber(0)
 {
 }
 

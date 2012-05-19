@@ -360,7 +360,7 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
         QString notifyUuid = object.value(JsonDbStrings::Property::uuid()).toString();
         QJsonObject sub = object.value(JsonDbStrings::Property::notify()).toObject();
         QString action = sub.value(JsonDbStrings::Protocol::action()).toString();
-        QJsonObject object = sub.value(JsonDbStrings::Protocol::object()).toObject();
+        QJsonObject notificationObject = sub.value(JsonDbStrings::Protocol::object()).toObject();
         quint32 stateNumber = sub.value(JsonDbStrings::Protocol::stateNumber()).toDouble();
         QMap<QString, QWeakPointer<QJsonDbWatcher> >::iterator it = watchers.find(notifyUuid);
         if (it != watchers.end()) {
@@ -387,7 +387,7 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
             if (stateChanged)
                 watcher->d_func()->handleStateChange(stateNumber);
             else if (actionType != QJsonDbWatcher::All)
-                watcher->d_func()->handleNotification(stateNumber, actionType, object);
+                watcher->d_func()->handleNotification(stateNumber, actionType, notificationObject);
         } else {
             // received notification for unknown watcher, just ignore it.
         }

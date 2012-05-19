@@ -89,7 +89,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 */
 
 QJsonDbReadRequestPrivate::QJsonDbReadRequestPrivate(QJsonDbReadRequest *q)
-    : QJsonDbRequestPrivate(q), queryLimit(-1)
+    : QJsonDbRequestPrivate(q), queryLimit(-1), stateNumber(0)
 {
 }
 

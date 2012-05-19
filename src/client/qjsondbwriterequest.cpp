@@ -144,7 +144,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 */
 
 QJsonDbWriteRequestPrivate::QJsonDbWriteRequestPrivate(QJsonDbWriteRequest *q)
-    : QJsonDbRequestPrivate(q), conflictResolutionMode(QJsonDbWriteRequest::RejectStale)
+    : QJsonDbRequestPrivate(q), conflictResolutionMode(QJsonDbWriteRequest::RejectStale), stateNumber(0)
 {
 }
 

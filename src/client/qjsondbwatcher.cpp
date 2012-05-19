@@ -63,7 +63,7 @@ QT_BEGIN_NAMESPACE_JSONDB
     \internal
 */
 QJsonDbNotification::QJsonDbNotification(const QJsonObject &object, QJsonDbWatcher::Action action, quint32 stateNumber)
-    : obj(object), act(action), state(stateNumber)
+    : obj(object), act(action), state(stateNumber), reserved(0)
 {
 }
 
