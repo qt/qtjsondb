@@ -303,10 +303,10 @@ int main(int argc, char * argv[])
     if (!server.socket())
         return -1;
 
-    cout << "Ready" << endl << flush;
-
     if (!server.start())
         return -2;
+
+    cout << "Ready" << endl << flush;
 
     if (detach)
         daemonize();
