@@ -39,19 +39,14 @@
 **
 ****************************************************************************/
 
-#include "jsondbobject.h"
+#include "jsondbscriptengine.h"
 
 #include <QJSValue>
-#include <QJSValueIterator>
-#include <QStringBuilder>
-#include <QStringList>
-#include <QCryptographicHash>
+#include <QJSEngine>
+#include <QDebug>
 
-#include <qjsondocument.h>
-
-#include "jsondbstrings.h"
+#include "jsondbsettings.h"
 #include "jsondbproxy.h"
-#include "jsondbscriptengine.h"
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
@@ -69,7 +64,8 @@ QJSEngine *JsonDbScriptEngine::scriptEngine()
 
 void JsonDbScriptEngine::releaseScriptEngine()
 {
-    qDebug() << "JsonDbScriptEngine::releaseScriptEngine";
+    if (jsondbSettings->verbose())
+        qDebug() << "JsonDbScriptEngine::releaseScriptEngine";
     delete sScriptEngine;
     sScriptEngine = 0;
 }

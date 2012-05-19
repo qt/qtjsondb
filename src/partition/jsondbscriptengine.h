@@ -43,11 +43,6 @@
 #define JSONDB_SCRIPT_ENGINE_H
 
 #include <QJSEngine>
-#include <QUuid>
-
-#include <qjsonarray.h>
-#include <qjsonobject.h>
-#include <qjsonvalue.h>
 
 #include "jsondbpartitionglobal.h"
 
@@ -55,7 +50,7 @@ QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-class JsonDbScriptEngine
+class Q_JSONDB_PARTITION_EXPORT JsonDbScriptEngine
 {
 public:
     static QJSEngine *scriptEngine();
@@ -66,4 +61,4 @@ QT_END_NAMESPACE_JSONDB_PARTITION
 
 QT_END_HEADER
 
-#endif // JSONDB_OBJECT_H
+#endif // JSONDB_SCRIPT_ENGINE_H

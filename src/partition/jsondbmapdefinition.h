@@ -81,8 +81,6 @@ public:
     static void definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
     void definitionCreated();
 
-    void initScriptEngine();
-    void releaseScriptEngine();
     void initIndexes();
 
     void setError(const QString &errorMsg);
@@ -97,6 +95,10 @@ public slots:
 private:
     void mapObject(JsonDbObject object);
     void unmapObject(const JsonDbObject &object);
+
+public slots:
+    void initScriptEngine();
+    void releaseScriptEngine();
 
 private:
     JsonDbPartition *mPartition;

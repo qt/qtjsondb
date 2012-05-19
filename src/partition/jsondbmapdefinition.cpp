@@ -131,6 +131,8 @@ void JsonDbMapDefinition::initScriptEngine()
         return;
 
     mScriptEngine = JsonDbScriptEngine::scriptEngine();
+    QObject::connect(mScriptEngine.data(), SIGNAL(destroyed()), this, SLOT(releaseScriptEngine()));
+
     JsonDbJoinProxy *joinProxy = new JsonDbJoinProxy(mOwner, mPartition, mScriptEngine);
     connect(joinProxy, SIGNAL(lookupRequested(QJSValue,QJSValue)),
             this, SLOT(lookupRequested(QJSValue,QJSValue)));

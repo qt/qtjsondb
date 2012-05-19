@@ -125,6 +125,8 @@ void JsonDbReduceDefinition::initScriptEngine()
         return;
 
     mScriptEngine = JsonDbScriptEngine::scriptEngine();
+    QObject::connect(mScriptEngine.data(), SIGNAL(destroyed()), this, SLOT(releaseScriptEngine()));
+
     JsonDbJoinProxy *joinProxy = new JsonDbJoinProxy(mOwner, mPartition, mScriptEngine);
 
     QString message;

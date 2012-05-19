@@ -83,8 +83,6 @@ public:
     static void definitionRemoved(JsonDbPartition *partition, JsonDbObjectTable *table, const QString targetType, const QString &definitionUuid);
     void definitionCreated();
 
-    void initScriptEngine();
-    void releaseScriptEngine();
     void initIndexes();
 
     void updateObject(JsonDbObject before, JsonDbObject after, JsonDbUpdateList *changeList = 0);
@@ -92,6 +90,10 @@ public:
     void setError(const QString &errorMsg);
 
     static bool validateDefinition(const JsonDbObject &reduce, JsonDbPartition *partition, QString &message);
+
+public slots:
+    void initScriptEngine();
+    void releaseScriptEngine();
 
 private:
     enum FunctionNumber {

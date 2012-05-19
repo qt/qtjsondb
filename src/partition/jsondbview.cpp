@@ -510,11 +510,6 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
 void JsonDbView::reduceMemoryUsage()
 {
     mViewObjectTable->flushCaches();
-
-    foreach (JsonDbMapDefinition *map, mMapDefinitions)
-        map->releaseScriptEngine();
-    foreach (JsonDbReduceDefinition *reduce, mReduceDefinitions)
-        reduce->releaseScriptEngine();
 }
 
 void JsonDbView::closeIndexes()
