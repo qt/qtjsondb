@@ -149,7 +149,7 @@ void DBServer::sigHUP()
     loadPartitions();
 }
 
-void DBServer::sigTerm()
+void DBServer::sigTERM()
 {
     if (jsondbSettings->debug())
         qDebug() << "SIGTERM received";

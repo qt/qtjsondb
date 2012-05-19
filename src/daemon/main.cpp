@@ -279,7 +279,7 @@ int main(int argc, char * argv[])
     if (port)
         server.setTcpServerPort(port);
     JsonDbSignals handler;
-    QObject::connect(&handler, SIGNAL(sigTerm()), &server, SLOT(sigTerm()));
+    QObject::connect(&handler, SIGNAL(sigTERM()), &server, SLOT(sigTERM()));
     QObject::connect(&handler, SIGNAL(sigHUP()), &server, SLOT(sigHUP()));
     QObject::connect(&handler, SIGNAL(sigINT()), &server, SLOT(sigINT()));
     QObject::connect(&handler, SIGNAL(sigUSR1()), &server, SLOT(sigUSR1()));

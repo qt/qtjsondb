@@ -61,7 +61,7 @@ public:
     static void signalHandler(int unused);
     
 Q_SIGNALS:
-    void sigTerm();
+    void sigTERM();
     void sigHUP();
     void sigINT();
     void sigUSR1();
@@ -73,6 +73,7 @@ private slots:
 private:
     static int sSigFD[2];
     QSocketNotifier *mNotifier;
+    void listen(int sig);
 };
 
 QT_END_HEADER

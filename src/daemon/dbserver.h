@@ -82,7 +82,7 @@ public:
     inline void setCompactOnClose(bool compact) { mCompactOnClose = compact; }
 
 public slots:
-    void sigTerm();
+    void sigTERM();
     void sigHUP();
     void sigINT();
     void sigUSR1();

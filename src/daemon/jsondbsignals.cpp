@@ -60,58 +60,20 @@ JsonDbSignals::JsonDbSignals( QObject *parent )
 
 void JsonDbSignals::start()
 {
-    struct sigaction action;
+    if (receivers(SIGNAL(sigTERM())) > 0)
+        listen(SIGTERM);
 
-    if (receivers(SIGNAL(sigTerm())) > 0) {
-        action.sa_handler = JsonDbSignals::signalHandler;
-        sigemptyset(&action.sa_mask);
-        action.sa_flags = 0;
-        action.sa_flags |= SA_RESTART;
+    if (receivers(SIGNAL(sigHUP())) > 0)
+        listen(SIGHUP);
 
-        if (::sigaction(SIGTERM, &action, 0) < 0)
-            qFatal("Unable to set sigaction on TERM");
-    }
+    if (receivers(SIGNAL(sigINT())) > 0)
+        listen(SIGINT);
 
-    if (receivers(SIGNAL(sigHUP())) > 0) {
-        action.sa_handler = JsonDbSignals::signalHandler;
-        sigemptyset(&action.sa_mask);
-        action.sa_flags = 0;
-        action.sa_flags |= SA_RESTART;
+    if (receivers(SIGNAL(sigUSR1())) > 0)
+        listen(SIGUSR1);
 
-        if (::sigaction(SIGHUP, &action, 0) < 0)
-            qFatal("Unable to set sigaction on HUP");
-    }
-
-    if (receivers(SIGNAL(sigINT())) > 0) {
-        action.sa_handler = JsonDbSignals::signalHandler;
-        sigemptyset(&action.sa_mask);
-        action.sa_flags = 0;
-        action.sa_flags |= SA_RESTART;
-
-        if (::sigaction(SIGINT, &action, 0) < 0)
-            qFatal("Unable to set sigaction on INT");
-    }
-
-    if (receivers(SIGNAL(sigUSR1())) > 0) {
-        action.sa_handler = JsonDbSignals::signalHandler;
-        sigemptyset(&action.sa_mask);
-        action.sa_flags = 0;
-        action.sa_flags |= SA_RESTART;
-
-        if (::sigaction(SIGUSR1, &action, 0) < 0)
-            qFatal("Unable to set sigaction on USR1");
-    }
-
-    if (receivers(SIGNAL(sigUSR2())) > 0) {
-        action.sa_handler = JsonDbSignals::signalHandler;
-        sigemptyset(&action.sa_mask);
-        action.sa_flags = 0;
-        action.sa_flags |= SA_RESTART;
-
-        if (::sigaction(SIGUSR2, &action, 0) < 0)
-            qFatal("Unable to set sigaction on USR2");
-    }
-
+    if (receivers(SIGNAL(sigUSR2())) > 0)
+        listen(SIGUSR2);
 }
 
 void JsonDbSignals::signalHandler(int number)
@@ -127,7 +89,7 @@ void JsonDbSignals::handleSig()
     ::read(sSigFD[1], &tmp, sizeof(tmp));
     switch (tmp) {
     case SIGTERM:
-        emit sigTerm();
+        emit sigTERM();
         break;
     case SIGHUP:
         emit sigHUP();
@@ -145,4 +107,16 @@ void JsonDbSignals::handleSig()
         break;
     }
     mNotifier->setEnabled(true);
+}
+
+void JsonDbSignals::listen(int sig)
+{
+    struct sigaction action;
+    action.sa_handler = JsonDbSignals::signalHandler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    action.sa_flags |= SA_RESTART;
+
+    if (::sigaction(sig, &action, 0) < 0)
+        qFatal("Unable to set sigaction on signal %d", sig);
 }
