@@ -289,7 +289,7 @@ void TestQJsonDbRequest::closeIndexes()
     }
 
     // close indexes
-    kill(mProcess->pid(), SIGHUP);
+    kill(mProcess->pid(), SIGUSR1);
 
     // query again
     {

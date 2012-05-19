@@ -282,6 +282,7 @@ int main(int argc, char * argv[])
     QObject::connect(&handler, SIGNAL(sigTerm()), &server, SLOT(sigTerm()));
     QObject::connect(&handler, SIGNAL(sigHUP()), &server, SLOT(sigHUP()));
     QObject::connect(&handler, SIGNAL(sigINT()), &server, SLOT(sigINT()));
+    QObject::connect(&handler, SIGNAL(sigUSR1()), &server, SLOT(sigUSR1()));
     handler.start();
 
     if (limit) {

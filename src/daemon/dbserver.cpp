@@ -147,8 +147,6 @@ void DBServer::sigHUP()
     if (jsondbSettings->debug())
         qDebug() << "SIGHUP received";
     loadPartitions();
-    reduceMemoryUsage();
-    closeIndexes();
 }
 
 void DBServer::sigTerm()
@@ -163,6 +161,14 @@ void DBServer::sigINT()
     if (jsondbSettings->debug())
         qDebug() << "SIGINT received";
     close();
+}
+
+void DBServer::sigUSR1()
+{
+    if (jsondbSettings->debug())
+        qDebug() << "SIGUSR1 received";
+    reduceMemoryUsage();
+    closeIndexes();
 }
 
 bool DBServer::socket()

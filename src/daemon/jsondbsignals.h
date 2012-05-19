@@ -64,7 +64,9 @@ Q_SIGNALS:
     void sigTerm();
     void sigHUP();
     void sigINT();
-		 
+    void sigUSR1();
+    void sigUSR2();
+
 private slots:
     void handleSig();
 

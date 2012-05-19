@@ -85,6 +85,7 @@ public slots:
     void sigTerm();
     void sigHUP();
     void sigINT();
+    void sigUSR1();
 
 protected slots:
     void handleConnection();

@@ -52,7 +52,7 @@ JsonDbSignals::JsonDbSignals( QObject *parent )
     : QObject(parent)
 {
     if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sSigFD))
-	qFatal("Unable to create signal socket pair");
+        qFatal("Unable to create signal socket pair");
 
     mNotifier = new QSocketNotifier(sSigFD[1], QSocketNotifier::Read, this);
     connect(mNotifier, SIGNAL(activated(int)), this, SLOT(handleSig()));
@@ -63,34 +63,55 @@ void JsonDbSignals::start()
     struct sigaction action;
 
     if (receivers(SIGNAL(sigTerm())) > 0) {
-    action.sa_handler = JsonDbSignals::signalHandler;
-	sigemptyset(&action.sa_mask);
-	action.sa_flags = 0;
-	action.sa_flags |= SA_RESTART;
+        action.sa_handler = JsonDbSignals::signalHandler;
+        sigemptyset(&action.sa_mask);
+        action.sa_flags = 0;
+        action.sa_flags |= SA_RESTART;
 
-	if (::sigaction(SIGTERM, &action, 0) < 0)
-	    qFatal("Unable to set sigaction on TERM");
+        if (::sigaction(SIGTERM, &action, 0) < 0)
+            qFatal("Unable to set sigaction on TERM");
     }
 
     if (receivers(SIGNAL(sigHUP())) > 0) {
-    action.sa_handler = JsonDbSignals::signalHandler;
-	sigemptyset(&action.sa_mask);
-	action.sa_flags = 0;
-	action.sa_flags |= SA_RESTART;
+        action.sa_handler = JsonDbSignals::signalHandler;
+        sigemptyset(&action.sa_mask);
+        action.sa_flags = 0;
+        action.sa_flags |= SA_RESTART;
 
-	if (::sigaction(SIGHUP, &action, 0) < 0)
-	    qFatal("Unable to set sigaction on HUP");
+        if (::sigaction(SIGHUP, &action, 0) < 0)
+            qFatal("Unable to set sigaction on HUP");
     }
 
     if (receivers(SIGNAL(sigINT())) > 0) {
-    action.sa_handler = JsonDbSignals::signalHandler;
-	sigemptyset(&action.sa_mask);
-	action.sa_flags = 0;
-	action.sa_flags |= SA_RESTART;
+        action.sa_handler = JsonDbSignals::signalHandler;
+        sigemptyset(&action.sa_mask);
+        action.sa_flags = 0;
+        action.sa_flags |= SA_RESTART;
 
-	if (::sigaction(SIGINT, &action, 0) < 0)
-	    qFatal("Unable to set sigaction on INT");
+        if (::sigaction(SIGINT, &action, 0) < 0)
+            qFatal("Unable to set sigaction on INT");
     }
+
+    if (receivers(SIGNAL(sigUSR1())) > 0) {
+        action.sa_handler = JsonDbSignals::signalHandler;
+        sigemptyset(&action.sa_mask);
+        action.sa_flags = 0;
+        action.sa_flags |= SA_RESTART;
+
+        if (::sigaction(SIGUSR1, &action, 0) < 0)
+            qFatal("Unable to set sigaction on USR1");
+    }
+
+    if (receivers(SIGNAL(sigUSR2())) > 0) {
+        action.sa_handler = JsonDbSignals::signalHandler;
+        sigemptyset(&action.sa_mask);
+        action.sa_flags = 0;
+        action.sa_flags |= SA_RESTART;
+
+        if (::sigaction(SIGUSR2, &action, 0) < 0)
+            qFatal("Unable to set sigaction on USR2");
+    }
+
 }
 
 void JsonDbSignals::signalHandler(int number)
@@ -106,16 +127,22 @@ void JsonDbSignals::handleSig()
     ::read(sSigFD[1], &tmp, sizeof(tmp));
     switch (tmp) {
     case SIGTERM:
-	emit sigTerm();
-	break;
+        emit sigTerm();
+        break;
     case SIGHUP:
-	emit sigHUP();
-	break;
+        emit sigHUP();
+        break;
     case SIGINT:
-	emit sigINT();
-	break;
+        emit sigINT();
+        break;
+    case SIGUSR1:
+        emit sigUSR1();
+        break;
+    case SIGUSR2:
+        emit sigUSR2();
+        break;
     default:
-	break;
+        break;
     }
     mNotifier->setEnabled(true);
 }
