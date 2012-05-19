@@ -75,7 +75,7 @@ JsonDbIndexPrivate::~JsonDbIndexPrivate()
 
 QString JsonDbIndexPrivate::fileName() const
 {
-    return QString::fromLatin1("%1/%2-%3-Index.db").arg(mPath).arg(mBaseName).arg(mSpec.name);
+    return QString::fromLatin1("%1/%2-%3-Index.db").arg(mPath, mBaseName, mSpec.name);
 }
 
 bool JsonDbIndexPrivate::initScriptEngine()

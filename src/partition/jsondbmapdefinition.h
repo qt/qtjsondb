@@ -71,7 +71,7 @@ public:
     QString uuid() const { return mUuid; }
     QString targetType() const { return mTargetType; }
     const QStringList &sourceTypes() const { return mSourceTypes; }
-    QString partitionName() const { return mPartition->name(); }
+    QString partitionName() const { return mPartition->partitionSpec().name; }
     bool isActive() const;
     QJsonObject definition() const { return mDefinition; }
     QJSValue mapFunction(const QString &sourceType) const;

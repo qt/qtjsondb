@@ -298,21 +298,20 @@ void TestPartition::initTestCase()
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId(QStringLiteral("com.example.JsonDbTest"));
 
-    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
+    JsonDbPartitionSpec spec;
+    spec.name = QStringLiteral("com.example.JsonDbTest");
+    spec.path = QDir::currentPath();
+
+    mJsonDbPartition = new JsonDbPartition(this);
+    mJsonDbPartition->setPartitionSpec(spec);
+    mJsonDbPartition->setDefaultOwner(mOwner);
     mJsonDbPartition->open();
 }
 
 void TestPartition::cleanupTestCase()
 {
-    if (mJsonDbPartition) {
-        mJsonDbPartition->close();
-        delete mJsonDbPartition;
-        mJsonDbPartition = 0;
-    }
-    if (mOwner) {
-        delete mOwner;
-        mOwner = 0;
-    }
+    delete mJsonDbPartition;
+    delete mOwner;
     removeDbFiles();
 }
 
@@ -332,10 +331,13 @@ void TestPartition::reopen()
         item.insert("create-string", QString("string"));
         Q_UNUSED(mJsonDbPartition->updateObject(mOwner, item));
 
+        JsonDbPartitionSpec spec = mJsonDbPartition->partitionSpec();
         mJsonDbPartition->close();
         delete mJsonDbPartition;
 
-        mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
+        mJsonDbPartition = new JsonDbPartition;
+        mJsonDbPartition->setPartitionSpec(spec);
+        mJsonDbPartition->setDefaultOwner(mOwner);
         mJsonDbPartition->open();
 
         JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());

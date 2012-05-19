@@ -1,1 +1,1 @@
-[ { "name" : "com.nokia.shared.1", "default" : true } ]
+[ { "name" : "com.nokia.shared.1", "path":".", "default" : true } ]

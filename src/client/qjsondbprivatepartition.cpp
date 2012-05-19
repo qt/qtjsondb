@@ -154,7 +154,7 @@ QtJsonDb::QJsonDbRequest::ErrorCode QJsonDbPrivatePartition::ensurePartition(con
 
     // only keep a single private partition open at a time. This will cut down
     // on file contention and also keep the memory usage of the client under control
-    if (privatePartition && privatePartition->name() != partition) {
+    if (privatePartition && privatePartition->partitionSpec().name != partition) {
         privatePartition->close();
         delete privatePartition;
         privatePartition = 0;
@@ -172,7 +172,13 @@ QtJsonDb::QJsonDbRequest::ErrorCode QJsonDbPrivatePartition::ensurePartition(con
             homeDir.mkdir(QStringLiteral(".jsondb"));
             homeDir.cd(QStringLiteral(".jsondb"));
 
-            privatePartition = new Partition::JsonDbPartition(homeDir.absoluteFilePath(partition), partition, partitionOwner);
+            Partition::JsonDbPartitionSpec spec;
+            spec.name = partition;
+            spec.path = homeDir.absolutePath();
+
+            privatePartition = new Partition::JsonDbPartition;
+            privatePartition->setPartitionSpec(spec);
+            privatePartition->setDefaultOwner(partitionOwner);
             privatePartition->setObjectName(QStringLiteral("private"));
 
             if (!privatePartition->open()) {

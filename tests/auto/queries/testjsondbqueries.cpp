@@ -218,7 +218,12 @@ void TestJsonDbQueries::initTestCase()
     removeDbFiles();
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId("com.example.JsonDbTestQueries");
-    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTestQueries"), mOwner, this);
+    JsonDbPartitionSpec spec;
+    spec.name = QStringLiteral("com.example.JsonDbTestQueries");
+    spec.path = QDir::currentPath();
+    mJsonDbPartition = new JsonDbPartition(this);
+    mJsonDbPartition->setPartitionSpec(spec);
+    mJsonDbPartition->setDefaultOwner(mOwner);
     mJsonDbPartition->open();
 
     QJsonArray contactList = readJsonFile(":/queries/dataset.json").toArray();

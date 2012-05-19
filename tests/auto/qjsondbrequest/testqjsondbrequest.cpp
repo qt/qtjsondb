@@ -172,8 +172,10 @@ void TestQJsonDbRequest::modifyPartitions()
     // write a new partitions file
     QJsonObject def1;
     def1.insert(QLatin1String("name"), QLatin1String("com.qt-project.test1"));
+    def1.insert(QLatin1String("path"), QLatin1String("."));
     QJsonObject def2;
     def2.insert(QLatin1String("name"), QLatin1String("com.qt-project.test2"));
+    def2.insert(QLatin1String("path"), QLatin1String("."));
     QJsonArray defs;
     defs.append(def1);
     defs.append(def2);

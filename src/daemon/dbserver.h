@@ -49,6 +49,7 @@
 #include "clientjsonstream.h"
 #include "jsondbnotification.h"
 #include "jsondbpartition.h"
+#include "jsondbpartitionspec.h"
 
 QT_BEGIN_HEADER
 
@@ -115,7 +116,7 @@ private:
     void enableNotificationsByPartition(JsonDbPartition *partition);
 
     JsonDbPartition* findPartition(const QString &partitionName);
-    QList<QJsonObject> findPartitionDefinitions() const;
+    QList<JsonDbPartitionSpec> findPartitionDefinitions() const;
     void updatePartitionDefinition(JsonDbPartition *partition, bool remove = false, bool isDefault = false);
 
     JsonDbOwner *getOwner(ClientJsonStream *stream);
@@ -136,7 +137,7 @@ private:
     // per connection owner info
     class OwnerInfo {
     public:
-        OwnerInfo() : owner(0), pid(0) {};
+        OwnerInfo() : owner(0), pid(0) {}
         JsonDbOwner *owner;
         int          pid;
         QString      processName;

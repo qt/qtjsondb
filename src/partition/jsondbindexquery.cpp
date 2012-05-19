@@ -200,7 +200,7 @@ JsonDbIndexQuery::~JsonDbIndexQuery()
 
 QString JsonDbIndexQuery::partition() const
 {
-    return mPartition->name();
+    return mPartition->partitionSpec().name;
 }
 
 quint32 JsonDbIndexQuery::stateNumber() const

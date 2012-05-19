@@ -1,3 +1,3 @@
 [
-  { "name" :"com.qt-project.shared", "default" : true }
+  { "name" :"com.qt-project.shared", "path":".", "default" : true }
 ]

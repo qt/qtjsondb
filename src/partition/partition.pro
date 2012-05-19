@@ -49,6 +49,7 @@ HEADERS += \
     jsondbcollator.h \
     jsondbcollator_p.h \
     jsondbpartition_p.h \
+    jsondbpartitionspec.h \
     schema-validation/jsondbschema_p.h \
     schema-validation/jsondbcheckpoints_p.h
 

@@ -430,21 +430,11 @@ void JsonDbPartitionPrivate::_q_objectsUpdated(bool viewUpdated, const JsonDbUpd
     }
 }
 
-JsonDbPartition::JsonDbPartition(const QString &filename, const QString &name, JsonDbOwner *owner, QObject *parent)
-    : QObject(parent)
-    , d_ptr(new JsonDbPartitionPrivate(this))
+JsonDbPartition::JsonDbPartition(QObject *parent)
+    : QObject(parent), d_ptr(new JsonDbPartitionPrivate(this))
 {
-    Q_D(JsonDbPartition);
-
     qRegisterMetaType<QSet<QString> >("QSet<QString>");
     qRegisterMetaType<JsonDbUpdateList>("JsonDbUpdateList");
-
-    d->mPartitionName = name;
-    d->mFilename = filename;
-    d->mDefaultOwner = owner;
-
-    if (!d->mFilename.endsWith(QLatin1String(".db")))
-        d->mFilename += QLatin1String(".db");
 }
 
 JsonDbPartition::~JsonDbPartition()
@@ -456,6 +446,33 @@ JsonDbPartition::~JsonDbPartition()
     }
 
     close();
+}
+
+void JsonDbPartition::setPartitionSpec(const JsonDbPartitionSpec &spec)
+{
+    Q_D(JsonDbPartition);
+    d->mSpec = spec;
+    d->mFilename = QDir(d->mSpec.path).absoluteFilePath(d->mSpec.name);
+    if (!d->mFilename.endsWith(QLatin1String(".db")))
+        d->mFilename += QLatin1String(".db");
+}
+
+const JsonDbPartitionSpec &JsonDbPartition::partitionSpec() const
+{
+    Q_D(const JsonDbPartition);
+    return d->mSpec;
+}
+
+void JsonDbPartition::setDefaultOwner(JsonDbOwner *owner)
+{
+    Q_D(JsonDbPartition);
+    d->mDefaultOwner = owner;
+}
+
+JsonDbOwner *JsonDbPartition::defaultOwner() const
+{
+    Q_D(const JsonDbPartition);
+    return d->mDefaultOwner;
 }
 
 QString JsonDbPartition::filename() const
@@ -474,24 +491,6 @@ JsonDbObjectTable *JsonDbPartition::mainObjectTable() const
 {
     Q_D(const JsonDbPartition);
     return d->mObjectTable;
-}
-
-JsonDbOwner *JsonDbPartition::defaultOwner() const
-{
-    Q_D(const JsonDbPartition);
-    return d->mDefaultOwner;
-}
-
-QString JsonDbPartition::name() const
-{
-    Q_D(const JsonDbPartition);
-    return d->mPartitionName;
-}
-
-void JsonDbPartition::setName(const QString &name)
-{
-    Q_D(JsonDbPartition);
-    d->mPartitionName = name;
 }
 
 bool JsonDbPartition::close()
@@ -537,7 +536,7 @@ bool JsonDbPartition::open()
     Q_D(JsonDbPartition);
 
     if (jsondbSettings->debug())
-        qDebug() << "JsonDbBtree::open" << d->mPartitionName << d->mFilename;
+        qDebug() << "JsonDbBtree::open" << d->mSpec.name << d->mFilename;
 
     if (d->mIsOpen)
         return true;
@@ -681,7 +680,7 @@ JsonDbPartition::TxnCommitResult JsonDbPartitionPrivate::commitTransaction(quint
         quint32 nextStateNumber = stateNumber ? stateNumber : (mObjectTable->stateNumber() + 1);
 
         if (jsondbSettings->debug())
-            qDebug() << "commitTransaction" << mPartitionName << nextStateNumber;
+            qDebug() << "commitTransaction" << mSpec.name << nextStateNumber;
 
         if (!stateNumber && (mTableTransactions.size() == 1))
             nextStateNumber = mTableTransactions.at(0)->stateNumber() + 1;
@@ -1359,7 +1358,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
             if (!object.contains(JsonDbString::kOwnerStr)
                 || ((object.value(JsonDbString::kOwnerStr).toString() != owner->ownerId())
-                    && !owner->isAllowed(object, d->mPartitionName, QStringLiteral("setOwner"))))
+                    && !owner->isAllowed(object, d->mSpec.name, QStringLiteral("setOwner"))))
                 object.insert(JsonDbString::kOwnerStr, owner->ownerId());
             object.generateUuid();
         }
@@ -1406,7 +1405,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
             return result;
         }
 
-        if (!(forCreation || owner->isAllowed(master, d->mPartitionName, QStringLiteral("write")))) {
+        if (!(forCreation || owner->isAllowed(master, d->mSpec.name, QStringLiteral("write")))) {
             result.code = JsonDbError::OperationNotPermitted;
             result.message = QStringLiteral("Access denied");
             return result;
@@ -1417,7 +1416,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         else if (object.value(JsonDbString::kOwnerStr).toString().isEmpty())
             object.insert(JsonDbString::kOwnerStr, owner->ownerId());
 
-        if (!(forRemoval || owner->isAllowed(object, d->mPartitionName, QStringLiteral("write")))) {
+        if (!(forRemoval || owner->isAllowed(object, d->mSpec.name, QStringLiteral("write")))) {
             result.code = JsonDbError::OperationNotPermitted;
             result.message = QStringLiteral("Access denied");
             return result;
@@ -1716,7 +1715,7 @@ JsonDbError::ErrorCode JsonDbPartitionPrivate::checkBuiltInTypeAccessControl(boo
         JsonDbObject fake; // Just for access control
         fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
         fake.insert (JsonDbString::kTypeStr, targetType);
-        if (!owner->isAllowed(fake, mPartitionName, QStringLiteral("write"))) {
+        if (!owner->isAllowed(fake, mSpec.name, QStringLiteral("write"))) {
             errorMsg = QString::fromLatin1("Access denied %1").arg(targetType.toString());
             return JsonDbError::OperationNotPermitted;
         }
@@ -1728,7 +1727,7 @@ JsonDbError::ErrorCode JsonDbPartitionPrivate::checkBuiltInTypeAccessControl(boo
                 // In update we want to check also the old targetType
                 QJsonValue oldTargetType = oldObject.value(QLatin1String("targetType"));
                 fake.insert (JsonDbString::kTypeStr, oldTargetType);
-                if (!owner->isAllowed(fake, mPartitionName, QStringLiteral("write"))) {
+                if (!owner->isAllowed(fake, mSpec.name, QStringLiteral("write"))) {
                     errorMsg = QString::fromLatin1("Access denied %1").arg(oldTargetType.toString());
                     return JsonDbError::OperationNotPermitted;
                 }
@@ -1739,7 +1738,7 @@ JsonDbError::ErrorCode JsonDbPartitionPrivate::checkBuiltInTypeAccessControl(boo
                 QStringList sourceTypes = def->sourceTypes();
                 for (int i = 0; i < sourceTypes.size(); i++) {
                     fake.insert (JsonDbString::kTypeStr, sourceTypes[i]);
-                    if (!owner->isAllowed(fake, mPartitionName, QStringLiteral("read"))) {
+                    if (!owner->isAllowed(fake, mSpec.name, QStringLiteral("read"))) {
                         errorMsg = QString::fromLatin1("Access denied %1").arg(sourceTypes[i]);
                         return JsonDbError::OperationNotPermitted;
                     }
@@ -1747,7 +1746,7 @@ JsonDbError::ErrorCode JsonDbPartitionPrivate::checkBuiltInTypeAccessControl(boo
             } else if (objectType == JsonDbString::kReduceTypeStr) {
                 QJsonValue sourceType = object.value(QLatin1String("sourceType"));
                 fake.insert (JsonDbString::kTypeStr, sourceType);
-                if (!owner->isAllowed(fake, mPartitionName, QStringLiteral("read"))) {
+                if (!owner->isAllowed(fake, mSpec.name, QStringLiteral("read"))) {
                     errorMsg = QString::fromLatin1("Access denied %1").arg(sourceType.toString());
                     return JsonDbError::OperationNotPermitted;
                 }
@@ -1759,7 +1758,7 @@ JsonDbError::ErrorCode JsonDbPartitionPrivate::checkBuiltInTypeAccessControl(boo
         JsonDbObject fake; // Just for access control
         fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
         fake.insert (JsonDbString::kTypeStr, name);
-        if (!owner->isAllowed(fake, mPartitionName, QStringLiteral("write"))) {
+        if (!owner->isAllowed(fake, mSpec.name, QStringLiteral("write"))) {
             errorMsg = QString::fromLatin1("Access denied %1").arg(name.toString());
             return JsonDbError::OperationNotPermitted;
         }
@@ -1789,7 +1788,7 @@ JsonDbError::ErrorCode JsonDbPartitionPrivate::checkBuiltInTypeAccessControl(boo
             foreach (QJsonValue val, arr) {
                 fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
                 fake.insert (JsonDbString::kTypeStr, val.toString());
-                if (!owner->isAllowed(fake, mPartitionName, QStringLiteral("read"))) {
+                if (!owner->isAllowed(fake, mSpec.name, QStringLiteral("read"))) {
                     errorMsg = QString::fromLatin1("Access denied %1 in Index %2").arg(val.toString()).
                             arg(JsonDbIndex::determineName(object));
                     return JsonDbError::OperationNotPermitted;
@@ -1798,7 +1797,7 @@ JsonDbError::ErrorCode JsonDbPartitionPrivate::checkBuiltInTypeAccessControl(boo
         } else if (objectTypeProperty.isString()) {
             fake.insert (JsonDbString::kOwnerStr, object.value(JsonDbString::kOwnerStr));
             fake.insert (JsonDbString::kTypeStr, objectTypeProperty.toString());
-            if (!owner->isAllowed(fake, mPartitionName, QStringLiteral("read"))) {
+            if (!owner->isAllowed(fake, mSpec.name, QStringLiteral("read"))) {
                 errorMsg = QString::fromLatin1("Access denied %1 in Index %2").arg(objectTypeProperty.toString()).
                         arg(JsonDbIndex::determineName(object));
                 return JsonDbError::OperationNotPermitted;

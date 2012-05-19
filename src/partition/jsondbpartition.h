@@ -46,11 +46,12 @@
 #include <QSet>
 #include <QPointer>
 
+#include "jsondbpartitionglobal.h"
 #include "jsondberrors.h"
 #include "jsondbobjectkey.h"
 #include "jsondbnotification.h"
 #include "jsondbowner.h"
-#include "jsondbpartitionglobal.h"
+#include "jsondbpartitionspec.h"
 #include "jsondbstat.h"
 #include "jsondbschemamanager_p.h"
 
@@ -129,15 +130,19 @@ public:
         TxnStorageError    // Problems with the storage system
     };
 
-    JsonDbPartition(const QString &filename, const QString &name, JsonDbOwner *owner, QObject *parent = 0);
+    JsonDbPartition(QObject *parent = 0);
     ~JsonDbPartition();
+
+    void setPartitionSpec(const JsonDbPartitionSpec &spec);
+    const JsonDbPartitionSpec &partitionSpec() const;
+
+    void setDefaultOwner(JsonDbOwner *owner);
+    JsonDbOwner *defaultOwner() const;
 
     QString filename() const;
     bool open();
     bool close();
     bool isOpen() const;
-    JsonDbOwner *defaultOwner() const;
-
 
     bool clear();
     void closeIndexes();
@@ -152,9 +157,6 @@ public:
 
     void addNotification(JsonDbNotification *notification);
     void removeNotification(JsonDbNotification *notification);
-
-    QString name() const;
-    void setName(const QString &name);
 
     JsonDbObjectTable *mainObjectTable() const;
     JsonDbObjectTable *findObjectTable(const QString &objectType) const;

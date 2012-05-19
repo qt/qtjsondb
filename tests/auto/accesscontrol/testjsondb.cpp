@@ -153,7 +153,12 @@ void TestJsonDb::initTestCase()
     mOwner.reset (new JsonDbOwner(this));
     mOwner->setOwnerId(QStringLiteral("com.example.JsonDbTest"));
 
-    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner.data(), this);
+    JsonDbPartitionSpec spec;
+    spec.name = QStringLiteral("com.example.JsonDbTest");
+    spec.path = QDir::currentPath();
+    mJsonDbPartition = new JsonDbPartition(this);
+    mJsonDbPartition->setPartitionSpec(spec);
+    mJsonDbPartition->setDefaultOwner(mOwner.data());
     mJsonDbPartition->open();
 }
 

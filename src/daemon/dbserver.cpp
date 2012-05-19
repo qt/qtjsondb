@@ -235,14 +235,14 @@ bool DBServer::loadPartitions()
         mEphemeralPartition = new JsonDbEphemeralPartition("Ephemeral", this);
 
     QHash<QString, JsonDbPartition*> partitions;
-    QList<QJsonObject> definitions = findPartitionDefinitions();
+    QList<JsonDbPartitionSpec> definitions = findPartitionDefinitions();
     QString defaultPartitionName;
 
-    foreach (const QJsonObject &definition, definitions) {
-        QString name = definition.value(JsonDbString::kNameStr).toString();
-        bool removable = definition.value(JsonDbString::kRemovableStr).toBool();
+    foreach (const JsonDbPartitionSpec &definition, definitions) {
+        QString name = definition.name;
+        bool removable = definition.isRemovable;
 
-        if (definition.value(JsonDbString::kDefaultStr).toBool() && defaultPartitionName.isEmpty())
+        if (definition.isDefault && defaultPartitionName.isEmpty())
             defaultPartitionName = name;
 
         if (mPartitions.contains(name)) {
@@ -259,19 +259,19 @@ bool DBServer::loadPartitions()
                 // if it can be made available
                 if (removablePartition->isOpen()) {
                     if (jsondbSettings->verbose())
-                        qDebug() << "Determining if partition" << removablePartition->name() << "is still available";
+                        qDebug() << "Determining if partition" << removablePartition->partitionSpec().name << "is still available";
                     if (!QFile::exists(removablePartition->filename())) {
                         if (jsondbSettings->debug())
-                            qDebug() << "Marking partition" << removablePartition->name() << "as unavailable";
+                            qDebug() << "Marking partition" << removablePartition->partitionSpec().name << "as unavailable";
                         removablePartition->close();
                         updateDefinition = true;
                     }
                 } else {
                     if (jsondbSettings->verbose())
-                        qDebug() << "Determining if partition" << removablePartition->name() << "has become available";
+                        qDebug() << "Determining if partition" << removablePartition->partitionSpec().name << "has become available";
                     if (removablePartition->open()) {
                         if (jsondbSettings->debug())
-                            qDebug() << "Marking partition" << removablePartition->name() << "as available";
+                            qDebug() << "Marking partition" << removablePartition->partitionSpec().name << "as available";
                         updateDefinition = true;
 
                         // re-install any notifications on this partition
@@ -283,14 +283,12 @@ bool DBServer::loadPartitions()
                     updatePartitionDefinition(removablePartition);
             }
         } else {
+            Q_ASSERT(!partitions.contains(name));
 
-            if (partitions.contains(name)) {
-                qWarning() << "Duplicate partition name:" << name;
-                continue;
-            }
+            JsonDbPartition *partition = new JsonDbPartition(this);
+            partition->setPartitionSpec(definition);
+            partition->setDefaultOwner(mOwner);
 
-            QString path = definition.value(JsonDbString::kPathStr).toString();
-            JsonDbPartition *partition = new JsonDbPartition(QDir(path).absoluteFilePath(name), name, mOwner, this);
             partitions[name] = partition;
 
             if (!(partition->open() || removable)) {
@@ -790,7 +788,7 @@ void DBServer::createNotification(const JsonDbObject &object, ClientJsonStream *
     stream->addNotification(uuid, n);
 
     if (partitionName.isEmpty())
-        partitionName = mDefaultPartition->name();
+        partitionName = mDefaultPartition->partitionSpec().name;
     JsonDbPartition *partition = findPartition(partitionName);
 
     if (partition) {
@@ -890,12 +888,13 @@ JsonDbPartition *DBServer::findPartition(const QString &partitionName)
     return partition;
 }
 
-QList<QJsonObject> DBServer::findPartitionDefinitions() const
+QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
 {
-    QList<QJsonObject> partitions;
+    QList<JsonDbPartitionSpec> partitions;
 
     bool defaultSpecified = false;
 
+    QSet<QString> names;
     foreach (const QString &path, jsondbSettings->configSearchPath()) {
         QDir searchPath(path);
         if (!searchPath.exists())
@@ -904,29 +903,81 @@ QList<QJsonObject> DBServer::findPartitionDefinitions() const
         if (jsondbSettings->debug())
             qDebug() << QString("Searching %1 for partition definition files").arg(path);
 
-        QStringList files = searchPath.entryList(QStringList() << "partitions*.json",
-                                                 QDir::CaseSensitive | QDir::Files | QDir::Readable);
-        foreach (const QString file, files) {
+        QStringList files = searchPath.entryList(QStringList() << QStringLiteral("partitions*.json"),
+                                                 QDir::Files | QDir::Readable);
+        foreach (const QString &file, files) {
             if (jsondbSettings->debug())
                 qDebug() << QString("Loading partition definitions from %1").arg(file);
 
             QFile partitionFile(searchPath.absoluteFilePath(file));
             partitionFile.open(QFile::ReadOnly);
-
-            QJsonArray partitionList = QJsonDocument::fromJson(partitionFile.readAll()).array();
+            QByteArray ba = partitionFile.readAll();
             partitionFile.close();
+
+            QJsonParseError error;
+            QJsonDocument doc = QJsonDocument::fromJson(ba, &error);
+
+            if (error.error != QJsonParseError::NoError) {
+                qDebug() << "Couldn't parse configuration file" << partitionFile.fileName()
+                         << "at" << error.offset << ":" << error.errorString();
+            } else if (!doc.isArray()) {
+                qDebug() << "Couldn't parse configuration file" << partitionFile.fileName()
+                         << "at 0 : content should be a JSON array";
+            }
+
+            QJsonArray partitionList = doc.array();
+
             if (partitionList.isEmpty())
                 continue;
 
             for (int i = 0; i < partitionList.count(); i++) {
-                QJsonObject def = partitionList[i].toObject();
-                if (def.contains(JsonDbString::kNameStr)) {
-                    if (!def.contains(JsonDbString::kPathStr))
-                        def.insert(JsonDbString::kPathStr, QDir::currentPath());
-                    if (def.contains(JsonDbString::kDefaultStr))
-                        defaultSpecified = true;
-                    partitions.append(def);
+                QJsonObject definition = partitionList.at(i).toObject();
+                QJsonValue name = definition.value(JsonDbString::kNameStr);
+                if (!name.isString()) {
+                    qDebug() << partitionFile.fileName() << ": partition name should be a string";
+                    continue;
                 }
+                QJsonValue path = definition.value(JsonDbString::kPathStr);
+                if (path.isUndefined() || !path.isString()) {
+                    qDebug() << partitionFile.fileName() << ":" << name.toString()
+                             << "partition path should be a string containing directory path, using current directory";
+                    path = QDir::currentPath();
+                }
+                if (!path.isString())
+                    definition.insert(JsonDbString::kPathStr, QDir::currentPath());
+
+                QJsonValue isDefault = definition.value(JsonDbString::kDefaultStr);
+                if (!isDefault.isUndefined() && !isDefault.isBool())
+                    qDebug() << partitionFile.fileName() << ":" << name.toString()
+                             << "'default' should be a boolean";
+                if (isDefault.toBool()) {
+                    if (defaultSpecified) {
+                        qDebug() << partitionFile.fileName() << ":" << name.toString()
+                                 << "more than one partition is marked as default";
+                        isDefault = QJsonValue(false);
+                    } else {
+                        defaultSpecified = true;
+                    }
+                }
+
+                QJsonValue isRemovable = definition.value(JsonDbString::kRemovableStr);
+                if (!isRemovable.isUndefined() && !isRemovable.isBool())
+                    qDebug() << partitionFile.fileName() << ":" << name.toString()
+                             << "'removable' should be a boolean";
+
+                JsonDbPartitionSpec spec;
+                spec.name = name.toString();
+                spec.path = path.toString();
+                spec.isDefault = isDefault.toBool();
+                spec.isRemovable = isRemovable.toBool();
+
+                if (names.contains(spec.name)) {
+                    qDebug() << partitionFile.fileName() << ":" << name.toString()
+                             << "duplicate partition definition, skipping.";
+                    continue;
+                }
+                names.insert(spec.name);
+                partitions.append(spec);
             }
         }
 
@@ -937,31 +988,30 @@ QList<QJsonObject> DBServer::findPartitionDefinitions() const
     // if no partitions are specified just make a partition in the current working
     // directory and call it "default"
     if (partitions.isEmpty()) {
-        QJsonObject defaultPartition;
-        defaultPartition.insert(JsonDbString::kNameStr, QLatin1String("default"));
-        defaultPartition.insert(JsonDbString::kPathStr, QDir::currentPath());
-        defaultPartition.insert(JsonDbString::kDefaultStr, true);
+        qDebug() << "No partitions were defined, creating a new partition with the name \"default\" at"
+                 << QDir::currentPath();
+        JsonDbPartitionSpec defaultPartition;
+        defaultPartition.name = QStringLiteral("default");
+        defaultPartition.path = QDir::currentPath();
+        defaultPartition.isDefault = true;
         partitions.append(defaultPartition);
         defaultSpecified = true;
     }
 
     // ensure that at least one partition is marked as default
-    if (!defaultSpecified) {
-        QJsonObject defaultPartition = partitions.takeFirst();
-        defaultPartition.insert(JsonDbString::kDefaultStr, true);
-        partitions.append(defaultPartition);
-    }
+    if (!defaultSpecified)
+        partitions[0].isDefault = true;
 
     return partitions;
 }
 
 void DBServer::updatePartitionDefinition(JsonDbPartition *partition, bool remove, bool isDefault)
 {
+    QUuid uuid = JsonDbObject::createUuidFromString(QStringLiteral("Partition:%1").arg(partition->partitionSpec().name));
     JsonDbObject partitionRecord;
-    partitionRecord.insert(JsonDbString::kUuidStr,
-                           JsonDbObject::createUuidFromString(QString::fromLatin1("Partition:%1").arg(partition->name())).toString());
+    partitionRecord.insert(JsonDbString::kUuidStr, uuid.toString());
     partitionRecord.insert(JsonDbString::kTypeStr, JsonDbString::kPartitionTypeStr);
-    partitionRecord.insert(JsonDbString::kNameStr, partition->name());
+    partitionRecord.insert(JsonDbString::kNameStr, partition->partitionSpec().name);
     partitionRecord.insert(JsonDbString::kPathStr, QFileInfo(partition->filename()).absolutePath());
     partitionRecord.insert(JsonDbString::kAvailableStr, partition->isOpen());
 

@@ -1,4 +1,4 @@
 [
-  { "name" :"com.nokia.shared" },
-  { "name" :"com.nokia.shared2" }
+  { "name" :"com.nokia.shared", "path":"." },
+  { "name" :"com.nokia.shared2", "path":"." }
 ]

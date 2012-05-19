@@ -178,7 +178,12 @@ void TestPartition::initTestCase()
     removeDbFiles();
     mOwner = new JsonDbOwner(this);
     mOwner->setOwnerId(QStringLiteral("com.example.JsonDbTest"));
-    mJsonDbPartition = new JsonDbPartition(kFilename, QStringLiteral("com.example.JsonDbTest"), mOwner, this);
+    JsonDbPartitionSpec spec;
+    spec.name = QStringLiteral("com.example.JsonDbTest");
+    spec.path = QDir::currentPath();
+    mJsonDbPartition = new JsonDbPartition(this);
+    mJsonDbPartition->setPartitionSpec(spec);
+    mJsonDbPartition->setDefaultOwner(mOwner);
     mJsonDbPartition->open();
 
     QFile contactsFile(":/partition/json/largeContactsTest.json");
@@ -236,15 +241,8 @@ void TestPartition::init()
 
 void TestPartition::cleanupTestCase()
 {
-    if (mJsonDbPartition) {
-        mJsonDbPartition->close();
-        delete mJsonDbPartition;
-        mJsonDbPartition = 0;
-    }
-    if (mOwner) {
-        delete mOwner;
-        mOwner = 0;
-    }
+    delete mJsonDbPartition;
+    delete mOwner;
     removeDbFiles();
 }
 

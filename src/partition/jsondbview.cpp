@@ -100,7 +100,8 @@ void JsonDbView::close()
 void JsonDbView::initViews(JsonDbPartition *partition)
 {
     if (jsondbSettings->verbose())
-        qDebug() << "Initializing views on partition" << partition->name();
+        qDebug() << "Initializing views on partition" << partition->partitionSpec().name;
+
     {
         JsonDbObjectList mrdList = partition->d_func()->getObjects(JsonDbString::kTypeStr, JsonDbString::kMapTypeStr).data;
 
@@ -110,6 +111,7 @@ void JsonDbView::initViews(JsonDbPartition *partition)
             view->createMapDefinition(mrd);
         }
     }
+
     {
         JsonDbObjectList mrdList = partition->d_func()->getObjects(JsonDbString::kTypeStr, JsonDbString::kReduceTypeStr).data;
 

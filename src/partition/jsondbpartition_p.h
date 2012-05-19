@@ -70,7 +70,8 @@ class JsonDbIndex;
 class JsonDbIndexQuery;
 class JsonDbView;
 
-class Q_JSONDB_PARTITION_EXPORT JsonDbPartitionPrivate {
+class Q_JSONDB_PARTITION_EXPORT JsonDbPartitionPrivate
+{
     Q_DECLARE_PUBLIC(JsonDbPartition)
 public:
     JsonDbPartitionPrivate(JsonDbPartition *q);
@@ -143,7 +144,7 @@ public:
     JsonDbObjectTable     *mObjectTable;
     QVector<JsonDbObjectTable *> mTableTransactions;
 
-    QString      mPartitionName;
+    JsonDbPartitionSpec mSpec;
     QString      mFilename;
     int          mTransactionDepth;
     bool         mTransactionOk;
