@@ -994,7 +994,7 @@ void JsonDbCachingListModelPrivate::_q_partitionStateChanged(JsonDbPartition::St
     QElapsedTimer elt;
     elt.start();
 #endif
-    Q_Q(JsonDbCachingListModel);
+    Q_UNUSED(state)
 #ifdef JSONDB_LISTMODEL_DEBUG
     qDebug() << Q_FUNC_INFO;
 #endif
@@ -1075,7 +1075,7 @@ void JsonDbCachingListModelPrivate::_q_notificationError(QtJsonDb::QJsonDbWatche
     elt.start();
 #endif
     Q_Q(JsonDbCachingListModel);
-    if (code != QtJsonDb::QJsonDbRequest::PartitionUnavailable) {
+    if (code != static_cast<QtJsonDb::QJsonDbWatcher::ErrorCode>(QtJsonDb::QJsonDbRequest::PartitionUnavailable)) {
         int oldErrorCode = errorCode;
         errorCode = code;
         errorString = message;
