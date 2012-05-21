@@ -600,13 +600,20 @@ void DBServer::objectsUpdated(bool viewUpdated, const QList<JsonDbUpdate> &chang
                     foreach (const JsonDbUpdate &splitUpdate, updateList) {
                         const QString updatedObjectType = splitUpdate.newObject.type();
                         const ViewEdgeWeights &edgeWeights = sourceViewGraph[updatedObjectType];
+                        bool neededUpdate = false;
                         for (ViewEdgeWeights::const_iterator it = edgeWeights.begin(); it != edgeWeights.end(); ++it) {
                             if (jsondbSettings->verbose()) qDebug() << "edge weight" << updatedObjectType << it.key() << it.value().count;
                             if (it.value() > 0) {
                                 eagerViewTypes.insert(it.key());
-                                if (sourceViewGraph.contains(updatedObjectType))
-                                    updatesToEagerViews.append(splitUpdate);
+                                if (sourceViewGraph.contains(updatedObjectType)) {
+                                    neededUpdate = true;
+                                    break;
+                                }
                             }
+                        }
+                        if (neededUpdate) {
+                            updatesToEagerViews.append(splitUpdate);
+                            break;
                         }
                     }
                 }
