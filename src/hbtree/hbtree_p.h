@@ -226,12 +226,14 @@ public:
     struct NodePage : Page {
         NodePage()
             : Page(PageInfo::Type(0)), parent(0),
-              leftPageNumber(PageInfo::INVALID_PAGE), rightPageNumber(PageInfo::INVALID_PAGE)
+              leftPageNumber(PageInfo::INVALID_PAGE), rightPageNumber(PageInfo::INVALID_PAGE),
+              collected(false)
         {}
 
         NodePage(int type, quint32 pageNumber)
             : Page(PageInfo::Type(type), pageNumber), parent(0),
-              leftPageNumber(PageInfo::INVALID_PAGE), rightPageNumber(PageInfo::INVALID_PAGE)
+              leftPageNumber(PageInfo::INVALID_PAGE), rightPageNumber(PageInfo::INVALID_PAGE),
+              collected(false)
         {}
 
         struct Meta {
@@ -252,6 +254,7 @@ public:
         NodeKey parentKey;
         quint32 leftPageNumber;
         quint32 rightPageNumber;
+        bool collected;
 
         void clearHistory();
     };

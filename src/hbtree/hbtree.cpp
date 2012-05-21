@@ -167,6 +167,8 @@ bool HBtreePrivate::open(int fd)
             return false;
         }
     } else {
+        HBTREE_DEBUG("Opening existing file:" << "[" << "fd:" << fd_ << "]");
+
         if (!readSpec(pageBuffer_)) {
             HBTREE_ERROR("failed to read spec information");
             return false;
@@ -215,6 +217,7 @@ bool HBtreePrivate::open(int fd)
                  << ", collectiblePages_:" << collectiblePages_
                  << ", residueHistory_:" << residueHistory_
                  << ", size_:" << size_
+                 << ", lastPage_:" << lastPage_
                  << "]");
     lastReadError_ = 0;
     return true;
@@ -1254,10 +1257,12 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
 {
     int pageNumber = PageInfo::INVALID_PAGE;
 
+    bool collected = false;
     if (collectiblePages_.size()) {
         quint32 n = *collectiblePages_.constBegin();
         collectiblePages_.erase(collectiblePages_.begin());
         pageNumber = n;
+        collected = true;
     } else {
         pageNumber = lastPage_++;
     }
@@ -1280,6 +1285,7 @@ HBtreePrivate::Page *HBtreePrivate::newPage(HBtreePrivate::PageInfo::Type type)
             NodePage *np = page ? new (page) NodePage(type, pageNumber) : new NodePage(type, pageNumber);
             np->meta.syncId = lastSyncedId_ + 1;
             np->meta.commitId = marker_.meta.revision + 1;
+            np->collected = collected;
             page = np;
             break;
         }
@@ -1543,10 +1549,20 @@ void HBtreePrivate::cachePrune()
 void HBtreePrivate::removeFromTree(HBtreePrivate::NodePage *page)
 {
     HBTREE_ASSERT(writeTransaction_);
+
+    if (!page->dirty) {
+        HBTREE_DEBUG(page->info << "not dirty. No need to remove. Root =" << writeTransaction_->rootPage_);
+        return;
+    }
+
     HBTREE_DEBUG("removing" << page->info << "from tree with root" << writeTransaction_->rootPage_);
 
-    collectHistory(page);
-    addHistoryNode(NULL, HistoryNode(page));
+    // Don't collect this page if it was new'ed (i.e. not on disk as a collectible)
+    if (page->collected) {
+        addHistoryNode(NULL, HistoryNode(page));
+    } else {
+        HBTREE_DEBUG("page is not on disk. Will not collect history:" << page->history);
+    }
 
     // Same for history nodes
     foreach (const HistoryNode &hn, page->history)
@@ -2713,8 +2729,13 @@ void HBtreePrivate::copy(const Page &src, Page *dst)
     quint32 pgno = dst->info.number;
     switch (src.info.type) {
     case PageInfo::Branch:
-    case PageInfo::Leaf:
-        *static_cast<NodePage *>(dst) = static_cast<const NodePage &>(src);
+    case PageInfo::Leaf: {
+        NodePage *npDst = static_cast<NodePage *>(dst);
+        const NodePage &npSrc = static_cast<const NodePage &>(src);
+        bool collected = npDst->collected;
+        *npDst = npSrc;
+        npDst->collected = collected;
+        }
         break;
     case PageInfo::Marker:
         *static_cast<MarkerPage *>(dst) = static_cast<const MarkerPage &>(src);
