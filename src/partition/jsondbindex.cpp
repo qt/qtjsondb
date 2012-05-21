@@ -90,15 +90,19 @@ bool JsonDbIndexPrivate::initScriptEngine()
     JsonDbJoinProxy *mapProxy = new JsonDbJoinProxy(0, 0, mScriptEngine);
     QObject::connect(mapProxy, SIGNAL(viewObjectEmitted(QJSValue)),
                      q, SLOT(_q_propertyValueEmitted(QJSValue)));
-    QString proxyName(QStringLiteral("_jsondbIndexProxy%1").arg(mSpec.name));
-    proxyName.replace(QLatin1Char('.'), QLatin1Char('$'));
-    mScriptEngine->globalObject().setProperty(proxyName, mScriptEngine->newQObject(mapProxy));
 
-    QString script(QStringLiteral("(function() { var jsondb={emit: %2.create, lookup: %2.lookup }; var fcn = (%1); return fcn})()")
-                   .arg(mSpec.propertyFunction, proxyName));
+    QString script(QStringLiteral("(function(proxy) { %2 var jsondb={emit: proxy.create, lookup: proxy.lookup }; var fcn = (%1); return fcn})")
+                   .arg(mSpec.propertyFunction, jsondbSettings->useStrictMode() ? "\"use strict\"; " : "/* use nonstrict mode */"));
     mPropertyFunction = mScriptEngine->evaluate(script);
     if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
         qDebug() << "Unable to parse index value function: " << mPropertyFunction.toString();
+        return false;
+    }
+    QJSValueList args;
+    args << mScriptEngine->newQObject(mapProxy);
+    mPropertyFunction = mPropertyFunction.call(args);
+    if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
+        qDebug() << "Unable to evaluate index value function: " << mPropertyFunction.toString();
         return false;
     }
     return true;
@@ -356,7 +360,9 @@ QList<QJsonValue> JsonDbIndex::indexValues(JsonDbObject &object)
 
         QJSValueList args;
         args << d->mScriptEngine->toScriptValue(static_cast<QJsonObject>(object));
-        d->mPropertyFunction.call(args);
+        QJSValue result = d->mPropertyFunction.call(args);
+        if (result.isError())
+            qDebug() << "Error calling index propertyFunction" << d->mSpec.name << result.toString();
     }
     return d->mFieldValues;
 }

@@ -262,8 +262,9 @@ QJsonValue JsonDbReduceDefinition::addObject(JsonDbReduceDefinition::FunctionNum
     } else {
 
         if (reduced.isError())
-            setError(QString::fromLatin1("Error executing add function: %1").arg(reduced.toString()));
-
+            setError(QString::fromLatin1("Error executing %1 function: %2")
+                     .arg((functionNumber == JsonDbReduceDefinition::Add ? QStringLiteral("add") : QStringLiteral("subtract")))
+                     .arg(reduced.toString()));
         return QJsonValue(QJsonValue::Undefined);
     }
 }
@@ -336,9 +337,15 @@ bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObje
         if (!definition.contains(functionName))
             continue;
         QString script = definition.value(functionName).toString();
+        QString jsonDbBinding = proxy
+            ? QStringLiteral("{createUuidFromString: proxy.createUuidFromString}")
+            : QStringLiteral("{}"); // strict mode causes the above to fail if proxy is undefined
 
         // first, package it as a function that takes a jsondb proxy and returns the add/subtract function
-        QJSValue moduleFunction = scriptEngine->evaluate(QString::fromLatin1("(function (proxy) { jsondb = {createUuidFromString: proxy.createUuidFromString}; return (%1); })").arg(script));
+        QJSValue moduleFunction = scriptEngine->evaluate(QString::fromLatin1("(function (proxy) { %3 var jsondb = %2; return (%1); })")
+                                                         .arg(script)
+                                                         .arg(jsonDbBinding)
+                                                         .arg(jsondbSettings->useStrictMode() ? "\"use strict\"; " : "/* use nonstrict mode */"));
 
         if (moduleFunction.isError() || !moduleFunction.isCallable()) {
             message = QString::fromLatin1("Unable to parse %1 function: %2").arg(functionName).arg(moduleFunction.toString());
@@ -353,8 +360,8 @@ bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObje
         else
             args << QJSValue(QJSValue::UndefinedValue);
         QJSValue function = moduleFunction.call(args);
-        if (moduleFunction.isError() || !moduleFunction.isCallable()) {
-            message = QString::fromLatin1("Unable to evaluate %1 function: %2").arg(functionName).arg(moduleFunction.toString());
+        if (function.isError() || !function.isCallable()) {
+            message = QString::fromLatin1("Unable to evaluate %1 function: %2").arg(functionName).arg(function.toString());
             status = false;
         }
         functions[functionNumber] = function;

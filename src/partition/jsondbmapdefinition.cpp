@@ -156,7 +156,10 @@ bool JsonDbMapDefinition::compileMapFunctions(QJSEngine *scriptEngine, QJsonObje
         const QString &sourceType = it.key();
         const QString &script = it.value().toString();
         QString jsonDbBinding;
-        if (definition.contains(QStringLiteral("join")))
+        if (!joinProxy) {
+            // strict mode does not allow querying properties of undefined objects
+            jsonDbBinding = QStringLiteral("{}");
+        } else if (definition.contains(QStringLiteral("join")))
             // only joins can use lookup()
             jsonDbBinding = QStringLiteral("{ emit: proxy.create, lookup: proxy.lookup, createUuidFromString: proxy.createUuidFromString}");
         else
@@ -164,10 +167,11 @@ bool JsonDbMapDefinition::compileMapFunctions(QJSEngine *scriptEngine, QJsonObje
 
         // first, package it as a function that takes a jsondb proxy and returns the map function
         QJSValue moduleFunction =
-            scriptEngine->evaluate(QString::fromLatin1("(function (proxy) { var jsondb=%3; map_%1 = (%2); return map_%1; })")
+            scriptEngine->evaluate(QString::fromLatin1("(function (proxy) { %4 var jsondb=%3; var map_%1 = (%2); return map_%1; })")
                                    .arg(QString(sourceType).replace(QLatin1Char('.'), QLatin1Char('_')))
                                    .arg(script)
-                                   .arg(jsonDbBinding));
+                                   .arg(jsonDbBinding)
+                                   .arg(jsondbSettings->useStrictMode() ? "\"use strict\"; " : "/* use nonstrict mode */"));
         if (moduleFunction.isError() || !moduleFunction.isCallable()) {
             message = QString::fromLatin1("Unable to parse map function: %1").arg(moduleFunction.toString());
             status = false;
@@ -177,8 +181,8 @@ bool JsonDbMapDefinition::compileMapFunctions(QJSEngine *scriptEngine, QJsonObje
         QJSValueList args;
         args << svJoinProxyValue;
         QJSValue mapFunction = moduleFunction.call(args);
-        if (moduleFunction.isError() || !moduleFunction.isCallable()) {
-            message = QString::fromLatin1("Unable to evaluate map function: %1").arg(moduleFunction.toString());
+        if (mapFunction.isError() || !mapFunction.isCallable()) {
+            message = QString::fromLatin1("Unable to evaluate map function: %1").arg(mapFunction.toString());
             status = false;
         }
         mapFunctions[sourceType] = mapFunction;

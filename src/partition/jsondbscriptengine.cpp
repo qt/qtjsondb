@@ -55,6 +55,12 @@ static QJSEngine *sScriptEngine;
 QJSEngine *JsonDbScriptEngine::scriptEngine()
 {
     if (!sScriptEngine) {
+        if (jsondbSettings->useStrictMode()) {
+            // require 'use strict';
+            QByteArray v8Args = qgetenv("V8ARGS");
+            v8Args.append(" --use_strict");
+            qputenv("V8ARGS", v8Args);
+        }
         sScriptEngine = new QJSEngine();
         QJSValue globalObject = sScriptEngine->globalObject();
         globalObject.setProperty(QStringLiteral("console"), sScriptEngine->newQObject(new Console()));

@@ -1402,6 +1402,8 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
                 result.message.append(QString::fromLatin1(" _uuid %1").arg(object.uuid().toString()));
             if (object.contains(JsonDbString::kTypeStr))
                 result.message.append(QString::fromLatin1(" _type %1").arg(object.value(JsonDbString::kTypeStr).toString()));
+            if (!object.contains(JsonDbString::kUuidStr) && !object.contains(JsonDbString::kTypeStr))
+                result.message.append(QJsonDocument(object).toJson());
             return result;
         }
 

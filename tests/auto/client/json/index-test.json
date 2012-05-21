@@ -23,7 +23,7 @@
      "_type": "Map",
      "targetType": "com.test.IndexedView",
      "map": {
-         "com.test.indextest": "function (o) { v = {'test3': {'nested': o.test2.nested}}; jsondb.emit(v); }"
+         "com.test.indextest": "function (o) { var v = {'test3': {'nested': o.test2.nested}}; jsondb.emit(v); }"
      }
  },
  {
