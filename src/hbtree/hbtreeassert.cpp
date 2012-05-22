@@ -46,16 +46,24 @@
 
 HBtreeAssert::~HBtreeAssert()
 {
-    if (message_.size())
-        qDebug().nospace() << "\t[Message]: " << message_;
+    if (copied_)
+        return;
     if (!ignore_) {
-        qFatal("uh oh :(");
+        if (message_.size())
+            assertStr_ += QLatin1String(" [Message]: ") + message_;
+        qFatal("%s", assertStr_.toLatin1().constData());
+    } else {
+        QString str = QLatin1String("\tSILENT ") + assertStr_;
+        qDebug("%s", str.toLatin1().constData());
+        if (message_.size())
+            qDebug().nospace() << "\n\t[Message]: " << message_;
     }
 }
 
 HBtreeAssert &HBtreeAssert::operator ()(const char *expr, const char *file, const char *func, int line)
 {
-    qDebug().nospace() << "ASSERT: " << expr << " in file " << file << ", line " << line;
-    qDebug().nospace() << "\tfunction: " << func;
+    assertStr_ = QString(QLatin1String("ASSERT: %1 in file %2, line %3, from function '%4'"))
+            .arg(QLatin1String(expr)).arg(QLatin1String(file)).arg(line).arg(QLatin1String(func));
+    qDebug().nospace() << "CONDITION FAILURE: ";
     return *this;
 }

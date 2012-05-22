@@ -55,15 +55,22 @@ public:
     HBtreeAssert &HBTREE_ASSERT_B;
 
     HBtreeAssert()
-        : HBTREE_ASSERT_A(*this), HBTREE_ASSERT_B(*this), ignore_(false)
+        : HBTREE_ASSERT_A(*this), HBTREE_ASSERT_B(*this), ignore_(false), copied_(false)
     {}
+
+    HBtreeAssert(const HBtreeAssert &other)
+        : HBTREE_ASSERT_A(*this), HBTREE_ASSERT_B(*this)
+    { Q_UNUSED(other); copied_ = true; }
+
+    void operator =(const HBtreeAssert &other)
+    { Q_UNUSED(other); copied_ = true; }
 
     ~HBtreeAssert();
 
     template <class T>
     HBtreeAssert &print(const char *str, T val)
     {
-        qDebug().nospace() << "\t" << str << ":" << val;
+        qDebug().nospace() << "\t" << str << ": " << val;
         return *this;
     }
 
@@ -76,6 +83,8 @@ public:
 private:
     bool ignore_;
     QString message_;
+    QString assertStr_;
+    bool copied_;
 };
 
 #define HBTREE_ASSERT_A(x) HBTREE_ASSERT_OP(x, B)
