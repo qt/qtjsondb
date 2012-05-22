@@ -72,6 +72,7 @@
 #define HBTREE_DEBUG(qDebugStatement) if (HBTREE_DEBUG_OUTPUT) (qDebug().nospace() << "[HBtree:" << fileName_ << "] " << __FUNCTION__ << " =>").space() << qDebugStatement
 #define HBTREE_VERBOSE(qDebugStatement) if (HBTREE_VERBOSE_OUTPUT) HBTREE_DEBUG(qDebugStatement)
 #define HBTREE_ERROR(qDebugStatement) (qCritical().nospace() << "ERROR! HBtree(" << fileName_ << ") " << __FUNCTION__ << " =>").space() << qDebugStatement
+#define HBTREE_ERROR_LAST(msg) do {lastErrorMessage_ = QLatin1String(msg); (qCritical().nospace() << "ERROR! HBtree(" << fileName_ << ") " << __FUNCTION__ << " =>").space() << msg;} while (0)
 
 
 // NOTES:
@@ -131,7 +132,7 @@ bool HBtreePrivate::open(int fd)
             HBTREE_DEBUG("New file:" << "[" << "fd:" << fd_ << "]");
 
             if (!writeSpec()) {
-                HBTREE_ERROR("failed to write spec");
+                HBTREE_ERROR_LAST("failed to write spec");
                 return false;
             }
 
@@ -146,13 +147,13 @@ bool HBtreePrivate::open(int fd)
             memcpy(buffer.data() + sizeof(PageInfo), &synced0.meta, sizeof(MarkerPage::Meta));
 
             if (!writePage(&buffer)) {
-                HBTREE_ERROR("failed to write sync marker 0");
+                HBTREE_ERROR_LAST("failed to write sync marker 0");
                 return false;
             }
 
             serializePageNumber(2, &buffer);
             if (!writePage(&buffer)) {
-                HBTREE_ERROR("failed to write sync marker 1");
+                HBTREE_ERROR_LAST("failed to write sync marker 1");
                 return false;
             }
 
@@ -163,6 +164,7 @@ bool HBtreePrivate::open(int fd)
             size_ = initSize;
         } else {
             lastReadError_ = errno;
+            lastErrorMessage_ = QLatin1String("failed to read spec page - ") + QLatin1String(strerror(errno));
             HBTREE_ERROR("failed to read spec page - rc:" << rc);
             return false;
         }
@@ -170,14 +172,14 @@ bool HBtreePrivate::open(int fd)
         HBTREE_DEBUG("Opening existing file:" << "[" << "fd:" << fd_ << "]");
 
         if (!readSpec(pageBuffer_)) {
-            HBTREE_ERROR("failed to read spec information");
+            HBTREE_ERROR_LAST("failed to read spec information");
             return false;
         }
 
         // Get synced marker
         QList<quint32> overflowPages;
         if (!readSyncedMarker(&marker_, &overflowPages)) {
-            HBTREE_ERROR("sync markers invalid.");
+            HBTREE_ERROR_LAST("sync markers invalid.");
             return false;
         }
 
@@ -187,6 +189,7 @@ bool HBtreePrivate::open(int fd)
             off_t currentSize = lseek(fd_, 0, SEEK_END);
             if (static_cast<off_t>(marker_.meta.size) < currentSize) {
                 if (ftruncate(fd_, marker_.meta.size) != 0) {
+                    lastErrorMessage_ = QLatin1String("failed to truncate file - ") + QLatin1String(strerror(errno));
                     HBTREE_ERROR("failed to truncate from" << currentSize << "for" << marker_);
                     return false;
                 }
@@ -767,7 +770,7 @@ bool HBtreePrivate::sync()
     MarkerPage synced0(1);
 
     if (fsync(fd_) != 0) {
-        HBTREE_ERROR("failed to sync data");
+        HBTREE_ERROR_LAST("failed to sync data");
         return false;
     }
 
@@ -828,7 +831,7 @@ bool HBtreePrivate::sync()
     memcpy(buffer.data() + sizeof(PageInfo), &synced0.meta, sizeof(MarkerPage::Meta));
 
     if (!writePage(&buffer)) {
-        HBTREE_ERROR("failed to write sync marker 0");
+        HBTREE_ERROR_LAST("failed to write sync marker 0");
         return false;
     }
 
@@ -870,7 +873,7 @@ bool HBtreePrivate::sync()
     // Just change page number and write second marker
     serializePageNumber(2, &buffer);
     if (!writePage(&buffer)) {
-        HBTREE_ERROR("failed to write sync marker 1");
+        HBTREE_ERROR_LAST("failed to write sync marker 1");
         return false;
     }
 
@@ -1002,8 +1005,10 @@ void HBtreePrivate::abort(HBtreeTransaction *transaction)
     dirtyPages_.clear();
     if (transaction->isReadWrite()) {
         HBTREE_ASSERT(transaction == writeTransaction_);
-        if (::flock(fd_, LOCK_UN) != 0)
+        if (::flock(fd_, LOCK_UN) != 0) {
+            lastErrorMessage_ = QLatin1String("failed to unlock file with transaction - ") + QLatin1String(strerror(errno));
             HBTREE_ERROR("failed to unlock file with transaction @" << transaction);
+        }
         writeTransaction_ = 0;
     } else {
         HBTREE_ASSERT(transaction == readTransaction_);
@@ -1054,7 +1059,7 @@ quint32 HBtreePrivate::calculateChecksum(const QByteArray &buffer) const
                        + info.lowerOffset));
     } else {
         HBTREE_ASSERT(0).message(QStringLiteral("unknown page type"));
-        HBTREE_ERROR("unknown page type");
+        HBTREE_ERROR_LAST("unknown page type");
         return 0;
     }
 
@@ -1075,17 +1080,17 @@ HBtreeTransaction *HBtreePrivate::beginTransaction(HBtreeTransaction::Type type)
     HBTREE_ASSERT(!writeTransaction_ && !readTransaction_);
 
     if (writeTransaction_ || readTransaction_) {
-        HBTREE_ERROR("Only one transaction type supported at a time");
+        HBTREE_ERROR_LAST("Only one transaction type supported at a time");
         return 0;
     }
 
     if (type == HBtreeTransaction::ReadWrite && writeTransaction_) {
-        HBTREE_ERROR("cannot open write transaction when one in progress");
+        HBTREE_ERROR_LAST("cannot open write transaction when one in progress");
         return 0;
     }
 
     if (type == HBtreeTransaction::ReadWrite && openMode_ == HBtree::ReadOnly) {
-        HBTREE_ERROR("cannot open write transaction on read only btree");
+        HBTREE_ERROR_LAST("cannot open write transaction on read only btree");
         return 0;
     }
 
@@ -1097,6 +1102,7 @@ HBtreeTransaction *HBtreePrivate::beginTransaction(HBtreeTransaction::Type type)
     if (type == HBtreeTransaction::ReadWrite) {
         HBTREE_ASSERT(dirtyPages_.isEmpty())(dirtyPages_);
         if (::flock(fd_, LOCK_EX | LOCK_NB) != 0) {
+            lastErrorMessage_ = QLatin1String("failed to take a write lock - ") + QLatin1String(strerror(errno));
             HBTREE_ERROR("failed to take write lock");
             return 0;
         }
@@ -1133,11 +1139,12 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
                   << "] @" << transaction);
 
     if (transaction->isReadOnly()) {
-        HBTREE_ERROR("can't write with read only transaction");
+        HBTREE_ERROR_LAST("can't write with read only transaction");
         return false;
     }
 
     if (keyData.size() > 512) {
+        lastErrorMessage_ = QLatin1String("cannot insert keys larger than 512 bytes");
         HBTREE_ERROR("cannot insert keys larger than 512 bytes. Key size:" << keyData.size());
         return false;
     }
@@ -1167,7 +1174,7 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
         if (page->nodes.contains(nkey)) {
             HBTREE_DEBUG("already contains key. Removing");
             if (!removeNode(page, nkey)) {
-                HBTREE_ERROR("failed to remove previous value of key");
+                HBTREE_ERROR_LAST("failed to remove previous value of key");
                 return false;
             }
             q->stats_.numEntries--;
@@ -1215,7 +1222,7 @@ bool HBtreePrivate::del(HBtreeTransaction *transaction, const QByteArray &keyDat
     HBTREE_DEBUG( "del => [" << keyData << "] @" << transaction);
 
     if (transaction->isReadOnly()) {
-        HBTREE_ERROR("can't delete with read only transaction");
+        HBTREE_ERROR_LAST("can't delete with read only transaction");
         return false;
     }
 
@@ -1237,6 +1244,7 @@ bool HBtreePrivate::del(HBtreeTransaction *transaction, const QByteArray &keyDat
     }
 
     if (ok && !rebalance(page)) {
+        lastErrorMessage_ = QLatin1String("failed to rebalance tree");
         HBTREE_ERROR("failed to rebalance" << *page);
         return false;
     }
@@ -1652,6 +1660,7 @@ bool HBtreePrivate::searchPageRoot(HBtreeCursor *cursor, HBtreePrivate::NodePage
         child->parentKey = parentIter.key();
 
         if (modify && (child = touchNodePage(child)) == NULL) {
+            lastErrorMessage_ = QLatin1String("failed to touch page");
             HBTREE_ERROR("failed to touch page" << child->info);
             return false;
         }
@@ -1938,7 +1947,7 @@ bool HBtreePrivate::removeNode(HBtreePrivate::NodePage *page, const HBtreePrivat
         HBTREE_ASSERT(page->info.type == PageInfo::Leaf)(*page)(key);
         QList<quint32> overflowPages;
         if (!getOverflowPageNumbers(value.overflowPage, &overflowPages)) {
-            HBTREE_ERROR("failed to get overflow page numbers");
+            HBTREE_ERROR_LAST("failed to get overflow page numbers");
             return false;
         }
 
@@ -2972,7 +2981,8 @@ HBtreeTransaction *HBtree::writeTransaction() const
 
 QString HBtree::errorMessage() const
 {
-    return QStringLiteral("huzzah wazzah!");
+    const Q_D(HBtree);
+    return d->lastErrorMessage_;
 }
 
 bool HBtree::commit(HBtreeTransaction *transaction, quint64 tag)

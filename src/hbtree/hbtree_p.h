@@ -407,6 +407,7 @@ public:
 #endif
     mutable int lastWriteError_;
     int lastReadError_;
+    mutable QString lastErrorMessage_;
 };
 
 QT_BEGIN_NAMESPACE
