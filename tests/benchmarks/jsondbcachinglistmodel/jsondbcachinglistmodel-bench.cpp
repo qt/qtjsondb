@@ -142,9 +142,9 @@ QAbstractListModel *JsonDbCachingListModelBench::createModel()
 {
     ModelData *newModel = new ModelData();
     newModel->engine = new QQmlEngine();
-    QString error;
-    if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
-        qDebug()<<"Unable to load the plugin :"<<error;
+    QList<QQmlError> errors;
+    if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &errors)) {
+        qDebug()<<"Unable to load the plugin :"<<errors;
         delete newModel->engine;
         return 0;
     }

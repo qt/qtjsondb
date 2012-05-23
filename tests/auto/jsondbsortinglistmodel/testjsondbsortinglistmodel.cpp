@@ -163,10 +163,10 @@ QAbstractListModel *TestJsonDbSortingListModel::createModel()
 {
     ModelData *newModel = new ModelData();
     newModel->engine = new QQmlEngine();
-    QString error;
+    QList<QQmlError> errors;
     Q_ASSERT(!mPluginPath.isEmpty());
-    if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
-        qDebug()<<"Unable to load the plugin :"<<error;
+    if (!newModel->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &errors)) {
+        qDebug()<<"Unable to load the plugin :"<<errors;
         delete newModel->engine;
         return 0;
     }

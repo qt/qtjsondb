@@ -156,8 +156,8 @@ inline QString findQMLPluginPath(const QString &pluginName)
         dir.setFilter(QDir::Files | QDir::NoSymLinks);
         QFileInfoList list = dir.entryInfoList();
         for (int i = 0; i < list.size(); ++i) {
-            QString error;
-            if (engine->importPlugin(list.at(i).absoluteFilePath(), pluginName, &error)) {
+            QList<QQmlError> errors;
+            if (engine->importPlugin(list.at(i).absoluteFilePath(), pluginName, &errors)) {
                 pluginPath = list.at(i).absoluteFilePath();
                 break;
             }

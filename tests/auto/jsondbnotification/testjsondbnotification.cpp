@@ -133,9 +133,9 @@ ComponentData *TestJsonDbNotification::createComponent()
 {
     ComponentData *componentData = new ComponentData();
     componentData->engine = new QQmlEngine();
-    QString error;
-    if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
-        qDebug()<<"Unable to load the plugin :"<<error;
+    QList<QQmlError> errors;
+    if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &errors)) {
+        qDebug()<<"Unable to load the plugin :"<<errors;
         delete componentData->engine;
         return 0;
     }
@@ -156,9 +156,9 @@ ComponentData *TestJsonDbNotification::createPartitionComponent()
 {
     ComponentData *componentData = new ComponentData();
     componentData->engine = new QQmlEngine();
-    QString error;
-    if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
-        qDebug()<<"Unable to load the plugin :"<<error;
+    QList<QQmlError> errors;
+    if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &errors)) {
+        qDebug()<<"Unable to load the plugin :"<<errors;
         delete componentData->engine;
         return 0;
     }

@@ -126,9 +126,9 @@ ComponentData *TestJsonDbQueryObject::createComponent(const QString &qml)
         tmp = qmlProgram;
     ComponentData *componentData = new ComponentData();
     componentData->engine = new QQmlEngine();
-    QString error;
-    if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
-        qDebug()<<"Unable to load the plugin :"<<error;
+    QList<QQmlError> errors;
+    if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &errors)) {
+        qDebug()<<"Unable to load the plugin :"<<errors;
         delete componentData->engine;
         return 0;
     }
@@ -149,9 +149,9 @@ ComponentData *TestJsonDbQueryObject::createPartitionComponent()
 {
     ComponentData *componentData = new ComponentData();
     componentData->engine = new QQmlEngine();
-    QString error;
-    if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &error)) {
-        qDebug()<<"Unable to load the plugin :"<<error;
+    QList<QQmlError> errors;
+    if (!componentData->engine->importPlugin(mPluginPath, QString("QtJsonDb"), &errors)) {
+        qDebug()<<"Unable to load the plugin :"<<errors;
         delete componentData->engine;
         return 0;
     }

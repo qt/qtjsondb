@@ -120,8 +120,8 @@ void TestJsonDbListModel::initTestCase()
         dir.setFilter(QDir::Files | QDir::NoSymLinks);
         QFileInfoList list = dir.entryInfoList();
         for (int i = 0; i < list.size(); ++i) {
-            QString error;
-            if (engine->importPlugin(list.at(i).absoluteFilePath(), QString("QtAddOn.JsonDb"), &error)) {
+          QList<QQmlError> errors;
+            if (engine->importPlugin(list.at(i).absoluteFilePath(), QString("QtAddOn.JsonDb"), &errors)) {
                 mPluginPath = list.at(i).absoluteFilePath();
                 break;
             }
@@ -135,9 +135,9 @@ JsonDbListModel *TestJsonDbListModel::createModel()
 {
     ModelData *newModel = new ModelData();
     newModel->engine = new QQmlEngine();
-    QString error;
-    if (!newModel->engine->importPlugin(mPluginPath, QString("QtAddOn.JsonDb"), &error)) {
-        qDebug()<<"Unable to load the plugin :"<<error;
+    QList<QQmlError> errors;
+    if (!newModel->engine->importPlugin(mPluginPath, QString("QtAddOn.JsonDb"), &errors)) {
+        qDebug()<<"Unable to load the plugin :"<<errors;
         delete newModel->engine;
         return 0;
     }
