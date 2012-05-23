@@ -55,7 +55,7 @@
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, JsonDbQuery *query,
+JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, const JsonDbQuery &query,
                                        QStringList actions, qint32 initialStateNumber)
     : mOwner(owner)
     , mCompiledQuery(query)
@@ -76,10 +76,6 @@ JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, JsonDbQuery *qu
 }
 JsonDbNotification::~JsonDbNotification()
 {
-    if (mCompiledQuery) {
-        delete mCompiledQuery;
-        mCompiledQuery = 0;
-    }
 }
 
 void JsonDbNotification::notifyIfMatches(JsonDbObjectTable *objectTable, const JsonDbObject &oldObject, const JsonDbObject &newObject,
@@ -91,8 +87,8 @@ void JsonDbNotification::notifyIfMatches(JsonDbObjectTable *objectTable, const J
     JsonDbNotification::Action effectiveAction = action;
     JsonDbObject r;
 
-    bool oldMatches = mCompiledQuery->match(oldObject, 0 /* cache */, 0/*mStorage*/);
-    bool newMatches = mCompiledQuery->match(newObject, 0 /* cache */, 0/*mStorage*/);
+    bool oldMatches = mCompiledQuery.match(oldObject, 0 /* cache */, 0/*mStorage*/);
+    bool newMatches = mCompiledQuery.match(newObject, 0 /* cache */, 0/*mStorage*/);
 
     if (oldMatches || newMatches)
         r = newObject;
@@ -109,11 +105,11 @@ void JsonDbNotification::notifyIfMatches(JsonDbObjectTable *objectTable, const J
 
     if (!r.isEmpty() &&
             (mActions & effectiveAction) &&
-            mOwner->isAllowed(r, mPartition ? mPartition->name() : QLatin1String("Ephemeral"), QStringLiteral("read"))) {
+            mOwner->isAllowed(r, mPartition ? mPartition->partitionSpec().name : QStringLiteral("Ephemeral"), QStringLiteral("read"))) {
 
         // FIXME: looking up of _indexValue should be encapsulated in JsonDbPartition
-        if (mPartition && !mCompiledQuery->orderTerms.isEmpty()) {
-            const QString &indexName = mCompiledQuery->orderTerms[0].propertyName;
+        if (mPartition && !mCompiledQuery.orderTerms.isEmpty()) {
+            const QString &indexName = mCompiledQuery.orderTerms.at(0).propertyName;
             QString objectType = r.type();
             JsonDbObjectTable *objectTable = mPartition->findObjectTable(objectType);
             JsonDbIndex *index = objectTable->index(indexName);

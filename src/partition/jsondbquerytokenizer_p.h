@@ -39,52 +39,39 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_EPHEMERAL_PARTITION_H
-#define JSONDB_EPHEMERAL_PARTITION_H
+#ifndef JSONDB_QUERY_TOKENIZER_P_H
+#define JSONDB_QUERY_TOKENIZER_P_H
 
-#include <QUuid>
-#include <QMap>
 #include <QObject>
-#include <qjsonobject.h>
-#include "jsondbnotification.h"
-#include "jsondbobject.h"
-#include "jsondbpartition.h"
-#include "jsondbquery.h"
+#include <QDebug>
 
-QT_BEGIN_HEADER
+#include <QtJsonDbPartition/jsondbpartitionglobal.h>
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
-class JsonDbQuery;
-QT_END_NAMESPACE_JSONDB_PARTITION
 
-QT_USE_NAMESPACE_JSONDB_PARTITION
+class JsonDbPartition;
 
-class JsonDbEphemeralPartition : public QObject
+class Q_JSONDB_PARTITION_EXPORT JsonDbQueryTokenizer
 {
-    Q_OBJECT
 public:
-    JsonDbEphemeralPartition(const QString &name, QObject *parent = 0);
-
-    bool get(const QUuid &uuid, JsonDbObject *result) const;
-
-    JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit=-1, int offset=0);
-    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode);
-
-    void addNotification(JsonDbNotification *notification);
-    void removeNotification(JsonDbNotification *notification);
-
-    inline QString name() const { return mName; }
-
-private Q_SLOTS:
-    void objectsUpdated(const JsonDbUpdateList &changes);
-
+    JsonDbQueryTokenizer(QString input);
+    QString pop();
+    QString popIdentifier();
+    QString peek();
+    void push(QString token) {
+        if (!mNextToken.isEmpty())
+            qCritical() << Q_FUNC_INFO << "Cannot push multiple tokens";
+        mNextToken = token;
+    }
+protected:
+    QString getNextToken();
+    static const char* sTokens[];
 private:
-    typedef QMap<QUuid, JsonDbObject> ObjectMap;
-    ObjectMap mObjects;
-    QString mName;
-    QMultiHash<QString, QPointer<JsonDbNotification> > mKeyedNotifications;
+    QString mInput;
+    int mPos;
+    QString mNextToken;
 };
 
-QT_END_HEADER
+QT_END_NAMESPACE_JSONDB_PARTITION
 
-#endif // JSONDB_EPHEMERAL_PARTITION_H
+#endif // JSONDB_QUERY_TOKENIZER_P_H

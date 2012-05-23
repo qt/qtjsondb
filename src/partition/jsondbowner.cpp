@@ -43,6 +43,7 @@
 #include "jsondbpartition.h"
 #include "jsondbpartition_p.h"
 #include "jsondbsettings.h"
+#include "jsondbqueryparser.h"
 #include "jsondbstrings.h"
 #include <qdebug.h>
 
@@ -59,38 +60,30 @@ JsonDbOwner::JsonDbOwner( QObject *parent )
 {
 }
 
-void cleanQueryList(QList<JsonDbQuery *> &queryList)
-{
-    foreach (JsonDbQuery *q, queryList)
-        delete q;
-    queryList.clear();
-}
-
 JsonDbOwner::~JsonDbOwner()
 {
-    QMap<QString, QList<JsonDbQuery *> > list;
-    foreach (list, mAllowedObjectQueries) {
-        foreach (QList<JsonDbQuery *> queryList, list)
-            cleanQueryList(queryList);
-    }
 }
 
 void JsonDbOwner::setAllowedObjects(const QString &partition, const QString &op,
                                     const QList<QString> &queries)
 {
     mAllowedObjects[partition][op] = queries;
-    cleanQueryList(mAllowedObjectQueries[partition][op]);
-    QJsonObject bindings;
-    bindings.insert(QLatin1String("domain"), domain());
-    bindings.insert(QLatin1String("owner"), ownerId());
+    mAllowedObjectQueries[partition][op].clear();
+    QMap<QString, QJsonValue> bindings;
+    bindings.insert(QStringLiteral("domain"), domain());
+    bindings.insert(QStringLiteral("owner"), ownerId());
     foreach (const QString &query, queries) {
-        mAllowedObjectQueries[partition][op].append(JsonDbQuery::parse(query, bindings));
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        parser.setBindings(bindings);
+        if (!parser.parse())
+            Q_ASSERT(false);
+        mAllowedObjectQueries[partition][op].append(parser.result());
     }
 }
 
 void JsonDbOwner::setCapabilities(QJsonObject &applicationCapabilities, JsonDbPartition *partition)
 {
-    QJsonObject request;
     GetObjectsResult result = partition->d_func()->getObjects(JsonDbString::kTypeStr, JsonDbString::kCapabilityTypeStr);
     JsonDbObjectList translations = result.data;
     //qDebug() << "JsonDbOwner::setCapabilities" << "translations" << translations;
@@ -140,7 +133,7 @@ bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
     if (mAllowAll || !jsondbSettings->enforceAccessControl())
         return true;
 
-    QString _type = object[QLatin1String("_type")].toString();
+    QString _type = object[QStringLiteral("_type")].toString();
     QStringList domainParts = _type.split(QLatin1Char('.'), QString::SkipEmptyParts);
     QString typeDomain;
     // TODO: handle reverse domains like co.uk.foo, co.au.bar, co.nz.foo , .... correctly
@@ -148,19 +141,21 @@ bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
         typeDomain = _type.left(_type.lastIndexOf(QLatin1Char('.'))+1);
     else
         // Capability queries with _typeDomain should fail, if there is not long enough domain
-        typeDomain = QLatin1String("public.domain.fail.");
+        typeDomain = QStringLiteral("public.domain.fail.");
     QJsonValue tdval = QJsonValue(typeDomain);
 
-    QList<JsonDbQuery *> queries = mAllowedObjectQueries[partition][op];
-    foreach (JsonDbQuery *query, queries) {
-        query->bind(QString(QLatin1String("typeDomain")), tdval);
-        if (query->match(object, NULL, NULL))
+    QList<JsonDbQuery> queries = mAllowedObjectQueries[partition][op];
+    for (int i = 0; i < queries.size(); ++i) {
+        JsonDbQuery query = queries.at(i);
+        query.bind(QStringLiteral("typeDomain"), tdval);
+        if (query.match(object, NULL, NULL))
             return true;
     }
-    queries = mAllowedObjectQueries[QLatin1String("all")][op];
-    foreach (JsonDbQuery *query, queries) {
-        query->bind(QString(QLatin1String("typeDomain")), tdval);
-        if (query->match(object, NULL, NULL))
+    queries = mAllowedObjectQueries[QStringLiteral("all")][op];
+    for (int i = 0; i < queries.size(); ++i) {
+        JsonDbQuery query = queries.at(i);
+        query.bind(QStringLiteral("typeDomain"), tdval);
+        if (query.match(object, NULL, NULL))
             return true;
     }
     if (jsondbSettings->verbose()) {

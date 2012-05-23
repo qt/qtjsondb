@@ -51,6 +51,7 @@
 #include "jsondbsettings.h"
 #include "jsondbview.h"
 #include "jsondbsocketname_p.h"
+#include "jsondbqueryparser.h"
 #include "dbserver.h"
 
 #ifdef Q_OS_UNIX
@@ -541,7 +542,6 @@ void DBServer::processRead(ClientJsonStream *stream, JsonDbOwner *owner, const Q
     QJsonObject request = object.toObject();
     QString query = request.value(JsonDbString::kQueryStr).toString();
     QJsonObject bindings = request.value("bindings").toObject();
-    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
 
     int limit = request.contains(JsonDbString::kLimitStr) ? request.value(JsonDbString::kLimitStr).toDouble() : -1;
     int offset = request.value(JsonDbString::kOffsetStr).toDouble();
@@ -549,7 +549,15 @@ void DBServer::processRead(ClientJsonStream *stream, JsonDbOwner *owner, const Q
     JsonDbError::ErrorCode errorCode = JsonDbError::NoError;
     QString errorMessage;
 
-    if (limit < -1) {
+    JsonDbQueryParser parser;
+    parser.setQuery(query);
+    parser.setBindings(bindings);
+    bool ok = parser.parse();
+    JsonDbQuery parsedQuery = parser.result();
+    if (!ok) {
+        errorCode = JsonDbError::MissingQuery;
+        errorMessage = QStringLiteral("Invalid query string");
+    } else if (limit < -1) {
         errorCode = JsonDbError::InvalidLimit;
         errorMessage = QStringLiteral("Invalid limit");
     } else if (offset < 0) {
@@ -568,11 +576,11 @@ void DBServer::processRead(ClientJsonStream *stream, JsonDbOwner *owner, const Q
 
     JsonDbPartition *partition = mPartitions.value(partitionName, mDefaultPartition);
     JsonDbQueryResult queryResult = partitionName == mEphemeralPartition->name() ?
-                mEphemeralPartition->queryObjects(owner, parsedQuery.data(), limit, offset) :
-                partition->queryObjects(owner, parsedQuery.data(), limit, offset);
+                mEphemeralPartition->queryObjects(owner, parsedQuery, limit, offset) :
+                partition->queryObjects(owner, parsedQuery, limit, offset);
 
     if (jsondbSettings->debug())
-        debugQuery(parsedQuery.data(), limit, offset, queryResult);
+        debugQuery(parsedQuery, limit, offset, queryResult);
 
     if (queryResult.code != JsonDbError::NoError) {
         sendError(stream, queryResult.code, queryResult.message, id);
@@ -688,9 +696,9 @@ void DBServer::processLog(ClientJsonStream *stream, const QString &message, int 
      stream->send(result);
 }
 
-void DBServer::debugQuery(JsonDbQuery *query, int limit, int offset, const JsonDbQueryResult &result)
+void DBServer::debugQuery(const JsonDbQuery &query, int limit, int offset, const JsonDbQueryResult &result)
 {
-    const QList<JsonDbOrQueryTerm> &orQueryTerms = query->queryTerms;
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = query.queryTerms;
     for (int i = 0; i < orQueryTerms.size(); i++) {
         const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
         foreach (const JsonDbQueryTerm &queryTerm, orQueryTerm.terms()) {
@@ -706,9 +714,9 @@ void DBServer::debugQuery(JsonDbQuery *query, int limit, int offset, const JsonD
         }
     }
 
-    QList<JsonDbOrderTerm> &orderTerms = query->orderTerms;
+    const QList<JsonDbOrderTerm> &orderTerms = query.orderTerms;
     for (int i = 0; i < orderTerms.size(); i++) {
-        const JsonDbOrderTerm &orderTerm = orderTerms[i];
+        const JsonDbOrderTerm &orderTerm = orderTerms.at(i);
         if (jsondbSettings->verbose())
             qDebug() << __FILE__ << __LINE__ << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending ? "ascending" : "descending");
     }
@@ -779,7 +787,11 @@ void DBServer::createNotification(const JsonDbObject &object, ClientJsonStream *
     QJsonObject bindings = object.value("bindings").toObject();
     QString partitionName = object.value(JsonDbString::kPartitionStr).toString();
 
-    JsonDbQuery *parsedQuery = JsonDbQuery::parse(query, bindings);
+    JsonDbQueryParser parser;
+    parser.setQuery(query);
+    parser.setBindings(bindings);
+    parser.parse();
+    JsonDbQuery parsedQuery = parser.result();
 
     JsonDbNotification *n = new JsonDbNotification(getOwner(stream), parsedQuery, actions);
     if (object.contains("initialStateNumber") && object.value("initialStateNumber").isDouble())
@@ -820,9 +832,12 @@ JsonDbError::ErrorCode DBServer::validateNotification(const JsonDbObject &notifi
 {
     message.clear();
 
-    QScopedPointer<JsonDbQuery> query(JsonDbQuery::parse(notificationDef.value(JsonDbString::kQueryStr).toString()));
-    if (!(query->queryTerms.size() || query->orderTerms.size())) {
-        message = QString::fromLatin1("Missing query: %1").arg(query->queryExplanation.join(QStringLiteral("\n")));
+    JsonDbQueryParser parser;
+    parser.setQuery(notificationDef.value(JsonDbString::kQueryStr).toString());
+    bool ok = parser.parse();
+    JsonDbQuery query = parser.result();
+    if (!ok || !(query.queryTerms.size() || query.orderTerms.size())) {
+        message = QString::fromLatin1("Missing query: %1").arg(query.queryExplanation.join(QStringLiteral("\n")));
         return JsonDbError::MissingQuery;
     }
 
@@ -842,13 +857,16 @@ JsonDbError::ErrorCode DBServer::validateNotification(const JsonDbObject &notifi
 void DBServer::removeNotificationsByPartition(JsonDbPartition *partition)
 {
     QList<JsonDbObject> toRemove;
-    QJsonObject bindings;
-    bindings.insert(QLatin1String("notification"), JsonDbString::kNotificationTypeStr);
-    bindings.insert(QLatin1String("partition"), partition->name());
+    QMap<QString, QJsonValue> bindings;
+    bindings.insert(QStringLiteral("notification"), JsonDbString::kNotificationTypeStr);
+    bindings.insert(QStringLiteral("partition"), partition->partitionSpec().name);
 
-    QScopedPointer<JsonDbQuery> query(JsonDbQuery::parse(QLatin1String("[?_type=%notification][?partition=%partition]"),
-                                                         bindings));
-    JsonDbQueryResult results = mEphemeralPartition->queryObjects(mOwner, query.data());
+    JsonDbQueryParser parser;
+    parser.setQuery(QStringLiteral("[?_type=%notification][?partition=%partition]"));
+    parser.setBindings(bindings);
+    parser.parse();
+    JsonDbQuery query = parser.result();
+    JsonDbQueryResult results = mEphemeralPartition->queryObjects(mOwner, query);
     foreach (const JsonDbObject &result, results.data) {
         JsonDbObject notification = result;
         notification.markDeleted();
@@ -1076,12 +1094,15 @@ void DBServer::receiveMessage(const QJsonObject &message)
 
         // TODO: remove at the same time that clientcompat is dropped
         if (action == JsonDbString::kRemoveStr && object.toObject().contains(JsonDbString::kQueryStr)) {
-            QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(object.toObject().value(JsonDbString::kQueryStr).toString()));
+            JsonDbQueryParser parser;
+            parser.setQuery(object.toObject().value(JsonDbString::kQueryStr).toString());
+            parser.parse();
+            JsonDbQuery parsedQuery = parser.result();
             JsonDbQueryResult res;
             if (partition)
-                res = partition->queryObjects(owner, parsedQuery.data());
+                res = partition->queryObjects(owner, parsedQuery);
             else
-                res = mEphemeralPartition->queryObjects(owner, parsedQuery.data());
+                res = mEphemeralPartition->queryObjects(owner, parsedQuery);
 
             QJsonArray toRemove;
             foreach (const QJsonValue &value, res.data)

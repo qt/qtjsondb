@@ -39,52 +39,42 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_EPHEMERAL_PARTITION_H
-#define JSONDB_EPHEMERAL_PARTITION_H
+#ifndef JSONDB_QUERY_PARSER_H
+#define JSONDB_QUERY_PARSER_H
 
-#include <QUuid>
-#include <QMap>
-#include <QObject>
-#include <qjsonobject.h>
-#include "jsondbnotification.h"
-#include "jsondbobject.h"
-#include "jsondbpartition.h"
-#include "jsondbquery.h"
+#include <QtJsonDbPartition/jsondbquery.h>
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
-class JsonDbQuery;
-QT_END_NAMESPACE_JSONDB_PARTITION
 
-QT_USE_NAMESPACE_JSONDB_PARTITION
-
-class JsonDbEphemeralPartition : public QObject
+class JsonDbQueryParserPrivate;
+class Q_JSONDB_PARTITION_EXPORT JsonDbQueryParser
 {
-    Q_OBJECT
 public:
-    JsonDbEphemeralPartition(const QString &name, QObject *parent = 0);
+    JsonDbQueryParser();
+    ~JsonDbQueryParser();
 
-    bool get(const QUuid &uuid, JsonDbObject *result) const;
+    void setQuery(const QString &);
+    QString query() const;
 
-    JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit=-1, int offset=0);
-    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode);
+    void setBindings(const QJsonObject &);
+    void setBindings(const QMap<QString, QJsonValue> &);
+    QMap<QString, QJsonValue> bindings() const;
 
-    void addNotification(JsonDbNotification *notification);
-    void removeNotification(JsonDbNotification *notification);
+    bool parse();
+    QString errorString() const;
 
-    inline QString name() const { return mName; }
-
-private Q_SLOTS:
-    void objectsUpdated(const JsonDbUpdateList &changes);
+    JsonDbQuery result() const;
 
 private:
-    typedef QMap<QUuid, JsonDbObject> ObjectMap;
-    ObjectMap mObjects;
-    QString mName;
-    QMultiHash<QString, QPointer<JsonDbNotification> > mKeyedNotifications;
+    Q_DECLARE_PRIVATE(JsonDbQueryParser)
+    Q_DISABLE_COPY(JsonDbQueryParser)
+    QScopedPointer<JsonDbQueryParserPrivate> d_ptr;
 };
+
+QT_END_NAMESPACE_JSONDB_PARTITION
 
 QT_END_HEADER
 
-#endif // JSONDB_EPHEMERAL_PARTITION_H
+#endif // JSONDB_QUERY_PARSER_H

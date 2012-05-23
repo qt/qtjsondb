@@ -55,6 +55,8 @@
 #include "jsondbsettings.h"
 #include "jsondbstrings.h"
 #include "jsondberrors.h"
+#include "jsondbqueryparser.h"
+#include "private/jsondbquerytokenizer_p.h"
 
 #include <qjsonobject.h>
 
@@ -441,10 +443,13 @@ void TestPartition::benchmarkParseQuery_data()
 void TestPartition::benchmarkParseQuery()
 {
     QFETCH(QString, query);
-    QJsonObject bindings;
+    QMap<QString, QJsonValue> bindings;
     bindings.insert("bar", QString("barValue"));
+    JsonDbQueryParser parser;
+    parser.setBindings(bindings);
     QBENCHMARK {
-        QScopedPointer<JsonDbQuery> jq(JsonDbQuery::parse(query, bindings));
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
     }
 }
 
@@ -534,16 +539,16 @@ void TestPartition::benchmarkParsedQuery()
         .arg(JsonDbString::kTypeStr)
         .arg("contact")
         .arg(item.value("name").toObject().value("first").toString());
-    QJsonObject bindings;
-    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
+
+    JsonDbQueryParser parser;
+    parser.setQuery(query);
+    QVERIFY(parser.parse());
+    JsonDbQuery parsedQuery = parser.result();
 
     QBENCHMARK {
-        QJsonObject request;
-        //QVariantList queryTerms = parseResult.value("queryTerms").toList();
-        //QVariantList orderTerms = parseResult.value("orderTerms").toList();
         int limit = 1;
         int offset = 0;
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), limit, offset);
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, limit, offset);
         if (queryResult.data.size() != 1) {
             qDebug() << "result length" << queryResult.data.size();
             qDebug() << "item" << item;
@@ -645,8 +650,12 @@ void TestPartition::benchmarkFind()
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
                 .arg(item.value("name").toString());
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -662,8 +671,13 @@ void TestPartition::benchmarkFindByName()
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
                 .arg(mFirstNames[mFirstNames.size()-1]);
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -679,8 +693,13 @@ void TestPartition::benchmarkFindByUuid()
         QString query = QString("[?%1=\"%2\"]")
                 .arg(JsonDbString::kUuidStr)
                 .arg(uuid);
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -698,8 +717,11 @@ void TestPartition::benchmarkFindEQ()
           .arg("contact")
           .arg(item.valueByPath("name.first").toString());
   QBENCHMARK {
-      QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-      JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+      JsonDbQueryParser parser;
+      parser.setQuery(query);
+      QVERIFY(parser.parse());
+      JsonDbQuery parsedQuery = parser.result();
+      JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
       verifyGoodQueryResult(queryResult);
   }
 }
@@ -717,8 +739,11 @@ void TestPartition::benchmarkFindLE()
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
                 .arg(item.valueByPath("name.first").toString());
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -733,8 +758,11 @@ void TestPartition::benchmarkFirst()
         QString query = QString("[?%1=\"%2\"][?name.last exists][/name.first]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -749,8 +777,11 @@ void TestPartition::benchmarkLast()
         QString query = QString("[?%1=\"%2\"][?name.last exists][\\name.first]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -765,8 +796,11 @@ void TestPartition::benchmarkFirst10()
         QString query = QString("[?%1=\"%2\"][?name.last exists][/name.first]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 10);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 10);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -784,8 +818,11 @@ void TestPartition::benchmarkFind10()
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
                 .arg(mFirstNames[itemNumber]);
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 10);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery, 10);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -803,8 +840,11 @@ void TestPartition::benchmarkFind20()
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
                 .arg(item.valueByPath("name.first").toString());
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 20);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery, 20);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -819,8 +859,11 @@ void TestPartition::benchmarkFirstByUuid()
         QString query = QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -835,8 +878,11 @@ void TestPartition::benchmarkLastByUuid()
         QString query = QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -851,8 +897,11 @@ void TestPartition::benchmarkFirst10ByUuid()
         QString query = QString("[?%1=\"%2\"][?name.last exists][/_uuid]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 10);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery, 10);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -869,8 +918,11 @@ void TestPartition::benchmarkFind10ByUuid()
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
                 .arg(mUuids[itemNumber]);
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 10);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 10);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -888,8 +940,11 @@ void TestPartition::benchmarkFindUnindexed()
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
                 .arg(item.value("firstName").toString());
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -911,8 +966,11 @@ void TestPartition::benchmarkFindReindexed()
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact")
                 .arg(item.value("lastName").toString());
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -923,8 +981,11 @@ void TestPartition::benchmarkFindNames()
         QString query = QString("[?%1=\"%2\"]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
     }
 }
@@ -935,8 +996,11 @@ void TestPartition::findNamesMapObject()
         QString query = QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery);
         verifyGoodQueryResult(queryResult);
         QCOMPARE(queryResult.data.size(), mContactList.size());
     }
@@ -948,8 +1012,11 @@ void TestPartition::benchmarkFindNamesMapObject()
         QString query = QString("[?%1=\"%2\"][= { uuid: _uuid, first: name.first, last: name.last } ]")
                 .arg(JsonDbString::kTypeStr)
                 .arg("contact");
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query));
-        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data(), 1);
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery, 1);
         verifyGoodQueryResult(queryResult);
         QCOMPARE(queryResult.data.size(), 1);
     }
@@ -961,10 +1028,12 @@ void TestPartition::benchmarkCursorCount()
                            << "[/name.first]"
                            //<< "[/name.first][?_type=\"contact\"]"
         );
-    QJsonObject bindings;
     foreach (QString query, queries) {
-        QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
-        QScopedPointer<JsonDbIndexQuery> indexQuery(mJsonDbPartition->d_func()->compileIndexQuery(mOwner, parsedQuery.data()));
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        QScopedPointer<JsonDbIndexQuery> indexQuery(mJsonDbPartition->d_func()->compileIndexQuery(mOwner, parsedQuery));
         int count = 0;
         //qDebug() << "query" << query;
         QBENCHMARK {
@@ -976,6 +1045,7 @@ void TestPartition::benchmarkCursorCount()
             }
             count = mycount;
         }
+        Q_UNUSED(count);
     }
 }
 
@@ -987,8 +1057,11 @@ void TestPartition::benchmarkQueryCount()
         );
     foreach (QString query, queries) {
         QBENCHMARK {
-            QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(QString("%1[count]").arg(query)));
-            JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+            JsonDbQueryParser parser;
+            parser.setQuery(QStringLiteral("%1[count]").arg(query));
+            QVERIFY(parser.parse());
+            JsonDbQuery parsedQuery = parser.result();
+            JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
         }
     }
 }

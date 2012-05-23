@@ -47,6 +47,7 @@
 #include "jsondbowner.h"
 #include "jsondbpartition.h"
 #include "jsondbquery.h"
+#include "jsondbqueryparser.h"
 
 #include <qdir.h>
 #include <pwd.h>
@@ -111,9 +112,16 @@ void QJsonDbPrivatePartition::handleRequest(const QJsonObject &request)
         } else {
             Q_ASSERT(request.value(JsonDbStrings::Protocol::action()).toString() == JsonDbStrings::Protocol::query());
             QJsonObject object = request.value(JsonDbStrings::Protocol::object()).toObject();
-            QScopedPointer<Partition::JsonDbQuery> query(Partition::JsonDbQuery::parse(
-                                                             object.value(JsonDbStrings::Property::query()).toString(),
-                                                             object.value(JsonDbStrings::Property::bindings()).toObject()));
+            QMap<QString, QJsonValue> bindings;
+            QJsonObject jsonbindings = object.value(JsonDbStrings::Property::bindings()).toObject();
+            for (QJsonObject::const_iterator it = jsonbindings.constBegin(), e = jsonbindings.constEnd(); it != e; ++it)
+                bindings.insert(it.key(), it.value());
+
+            Partition::JsonDbQueryParser parser;
+            parser.setQuery(object.value(JsonDbStrings::Property::query()).toString());
+            parser.setBindings(bindings);
+            parser.parse();
+            Partition::JsonDbQuery query = parser.result();
             int limit = -1;
             int offset = 0;
 
@@ -123,7 +131,7 @@ void QJsonDbPrivatePartition::handleRequest(const QJsonObject &request)
                 offset = request.value(JsonDbStrings::Property::queryOffset()).toDouble();
 
             Partition::JsonDbQueryResult queryResult = privatePartition->queryObjects(privatePartition->defaultOwner(),
-                                                                                      query.data(), limit, offset);
+                                                                                      query, limit, offset);
             if (queryResult.code == Partition::JsonDbError::NoError) {
                 emit readRequestStarted(requestId, queryResult.state, queryResult.sortKeys.at(0));
 
@@ -155,38 +163,37 @@ QtJsonDb::QJsonDbRequest::ErrorCode QJsonDbPrivatePartition::ensurePartition(con
     // only keep a single private partition open at a time. This will cut down
     // on file contention and also keep the memory usage of the client under control
     if (privatePartition && privatePartition->partitionSpec().name != partition) {
-        privatePartition->close();
         delete privatePartition;
         privatePartition = 0;
     }
 
     if (!privatePartition) {
         struct passwd *pwd = getpwnam(user.toLatin1());
-        if (pwd) {
-            if (!partitionOwner) {
-                partitionOwner = new Partition::JsonDbOwner();
-                partitionOwner->setAllowAll(true);
-            }
-
-            QDir homeDir(QString::fromUtf8(pwd->pw_dir));
-            homeDir.mkdir(QStringLiteral(".jsondb"));
-            homeDir.cd(QStringLiteral(".jsondb"));
-
-            Partition::JsonDbPartitionSpec spec;
-            spec.name = partition;
-            spec.path = homeDir.absolutePath();
-
-            privatePartition = new Partition::JsonDbPartition;
-            privatePartition->setPartitionSpec(spec);
-            privatePartition->setDefaultOwner(partitionOwner);
-            privatePartition->setObjectName(QStringLiteral("private"));
-
-            if (!privatePartition->open()) {
-                message = QStringLiteral("Unable to open private partition");
-                return QJsonDbRequest::InvalidPartition;
-            }
-        } else {
+        if (!pwd) {
             message = QStringLiteral("Private partition not found");
+            return QJsonDbRequest::InvalidPartition;
+        }
+
+        if (!partitionOwner) {
+            partitionOwner = new Partition::JsonDbOwner();
+            partitionOwner->setAllowAll(true);
+        }
+
+        QDir homeDir(QString::fromUtf8(pwd->pw_dir));
+        homeDir.mkdir(QStringLiteral(".jsondb"));
+        homeDir.cd(QStringLiteral(".jsondb"));
+
+        Partition::JsonDbPartitionSpec spec;
+        spec.name = partition;
+        spec.path = homeDir.absolutePath();
+
+        privatePartition = new Partition::JsonDbPartition;
+        privatePartition->setPartitionSpec(spec);
+        privatePartition->setDefaultOwner(partitionOwner);
+        privatePartition->setObjectName(QStringLiteral("private"));
+
+        if (!privatePartition->open()) {
+            message = QStringLiteral("Unable to open private partition");
             return QJsonDbRequest::InvalidPartition;
         }
     }

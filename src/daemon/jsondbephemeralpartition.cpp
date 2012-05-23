@@ -69,12 +69,12 @@ bool JsonDbEphemeralPartition::get(const QUuid &uuid, JsonDbObject *result) cons
     return true;
 }
 
-JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
+JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit, int offset)
 {
     Q_UNUSED(owner);
     JsonDbQueryResult result;
 
-    if (!query->orderTerms.isEmpty()) {
+    if (!query.orderTerms.isEmpty()) {
         result.code = JsonDbError::InvalidMessage;
         result.message = QStringLiteral("Cannot query with order term on ephemeral objects");
         return result;
@@ -90,7 +90,7 @@ JsonDbQueryResult JsonDbEphemeralPartition::queryObjects(const JsonDbOwner *owne
     ObjectMap::const_iterator it, e;
     for (it = mObjects.begin(), e = mObjects.end(); it != e; ++it) {
         QJsonObject object = it.value();
-        if (query->match(object, 0, 0))
+        if (query.match(object, 0, 0))
             results.append(object);
     }
 
@@ -152,7 +152,8 @@ JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *own
 void JsonDbEphemeralPartition::addNotification(JsonDbNotification *notification)
 {
     notification->setPartition(0);
-    const QList<JsonDbOrQueryTerm> &orQueryTerms = notification->parsedQuery()->queryTerms;
+    const JsonDbQuery &parsedQuery = notification->parsedQuery();
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery.queryTerms;
 
     bool generic = true;
     for (int i = 0; i < orQueryTerms.size(); i++) {
@@ -162,11 +163,11 @@ void JsonDbEphemeralPartition::addNotification(JsonDbNotification *notification)
             const JsonDbQueryTerm &term = terms[0];
             if (term.op() == QLatin1Char('=')) {
                 if (term.propertyName() == JsonDbString::kUuidStr) {
-                    mKeyedNotifications.insert(term.value().toString(), notification);
+                    mKeyedNotifications.insert(parsedQuery.termValue(term).toString(), notification);
                     generic = false;
                     break;
                 } else if (term.propertyName() == JsonDbString::kTypeStr) {
-                    QString objectType = term.value().toString();
+                    QString objectType = parsedQuery.termValue(term).toString();
                     mKeyedNotifications.insert(objectType, notification);
                     generic = false;
                     break;
@@ -181,8 +182,8 @@ void JsonDbEphemeralPartition::addNotification(JsonDbNotification *notification)
 
 void JsonDbEphemeralPartition::removeNotification(JsonDbNotification *notification)
 {
-    const JsonDbQuery *parsedQuery = notification->parsedQuery();
-    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
+    const JsonDbQuery &parsedQuery = notification->parsedQuery();
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery.queryTerms;
     for (int i = 0; i < orQueryTerms.size(); i++) {
         const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
         const QList<JsonDbQueryTerm> &terms = orQueryTerm.terms();
@@ -190,9 +191,9 @@ void JsonDbEphemeralPartition::removeNotification(JsonDbNotification *notificati
             const JsonDbQueryTerm &term = terms[0];
             if (term.op() == QLatin1Char('=')) {
                 if (term.propertyName() == JsonDbString::kTypeStr) {
-                    mKeyedNotifications.remove(term.value().toString(), notification);
+                    mKeyedNotifications.remove(parsedQuery.termValue(term).toString(), notification);
                 } else if (term.propertyName() == JsonDbString::kUuidStr) {
-                    QString objectType = term.value().toString();
+                    QString objectType = parsedQuery.termValue(term).toString();
                     mKeyedNotifications.remove(objectType, notification);
                 }
             }

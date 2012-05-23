@@ -61,40 +61,28 @@ QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
 class JsonDbPartition;
 
-class Q_JSONDB_PARTITION_EXPORT JsonDbQueryTokenizer {
-public:
-    JsonDbQueryTokenizer(QString input);
-    QString pop();
-    QString popIdentifier();
-    QString peek();
-    void push(QString token) {
-        if (!mNextToken.isEmpty())
-            qCritical() << Q_FUNC_INFO << "Cannot push multiple tokens";
-        mNextToken = token;
-    }
-protected:
-    QString getNextToken();
-    static const char* sTokens[];
-private:
-    QString mInput;
-    int mPos;
-    QString mNextToken;
-};
-
 class JsonDbQuery;
-class Q_JSONDB_PARTITION_EXPORT JsonDbQueryTerm {
+class Q_JSONDB_PARTITION_EXPORT JsonDbQueryTerm
+{
 public:
-    JsonDbQueryTerm(const JsonDbQuery *query);
+    JsonDbQueryTerm();
     ~JsonDbQueryTerm();
+
+    QString propertyVariable() const { return mPropertyVariable; }
+    void setPropertyVariable(const QString &variable)
+    { mPropertyVariable = variable; }
+
+    inline bool hasPropertyName() const { return !mPropertyName.isEmpty(); }
     QString propertyName() const { return mPropertyName; }
-    void setPropertyName(QString propertyName) { mPropertyName = propertyName; mFieldPath = propertyName.split('.'); }
-    const QStringList &fieldPath() const { return mFieldPath; }
+    void setPropertyName(const QString &propertyName)
+    { mPropertyName = propertyName; mFieldPath = propertyName.split(QLatin1Char('.')); }
 
     QString op() const { return mOp; }
     void setOp(QString op) { mOp = op; }
 
     QString joinField() const { return mJoinField; }
-    void setJoinField(QString joinField) {
+    void setJoinField(QString joinField)
+    {
         mJoinField = joinField;
         if (!joinField.isEmpty()) {
             QStringList joinFields = joinField.split(QStringLiteral("->"));
@@ -108,26 +96,24 @@ public:
     QString variable() const { return mVariable; }
     void setVariable(const QString variable) { mVariable = variable; }
 
-    QString propertyVariable() const { return mPropertyVariable; }
-    void setPropertyVariable(const QString variable) { mPropertyVariable = variable; }
-
+    inline bool hasValue() const { return !mValue.isUndefined(); }
     QJsonValue value() const;
     void setValue(const QJsonValue &v) { mValue = v; }
+
     QRegExp &regExp() { return mRegExp; }
     void setRegExp(const QRegExp &regExp) { mRegExp = regExp; }
     const QRegExp &regExpConst() const { return mRegExp; }
 
  private:
-    const JsonDbQuery *mQuery;
-    QString mVariable;
-    QString mPropertyName;
     QString mPropertyVariable;
+    QString mPropertyName;
+    QString mVariable;
+    QJsonValue mValue;
+    QRegExp mRegExp;
     QStringList mFieldPath;
     QString mOp;
     QString mJoinField;
     QVector<QStringList> mJoinPaths;
-    QJsonValue mValue;
-    QRegExp mRegExp;
 };
 
 class JsonDbOrQueryTerm {
@@ -151,11 +137,12 @@ public:
     QString propertyName;
 };
 
-class Q_JSONDB_PARTITION_EXPORT JsonDbQuery {
+class Q_JSONDB_PARTITION_EXPORT JsonDbQuery
+{
 public:
     JsonDbQuery() { }
-    JsonDbQuery(const QList<JsonDbOrQueryTerm> &qt, const QList<JsonDbOrderTerm> &ot);
     ~JsonDbQuery();
+
     QList<JsonDbOrQueryTerm> queryTerms;
     QList<JsonDbOrderTerm> orderTerms;
     QString query;
@@ -164,20 +151,23 @@ public:
     QStringList queryExplanation;
     QString mAggregateOperation;
 
+    QMap<QString,QJsonValue> mBindings;
+
+    inline bool isEmpty() const { return queryTerms.isEmpty() && orderTerms.isEmpty(); }
+
     QSet<QString> matchedTypes() const { return mMatchedTypes; }
-    QJsonValue binding(const QString variable) const { return mBindings.value(variable); }
+    QJsonValue binding(const QString variable) const { return mBindings.value(variable, QJsonValue(QJsonValue::Undefined)); }
     void bind(QString variable, QJsonValue &binding) { mBindings[variable] = binding; }
     bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbPartition *partition = 0) const;
 
-    static QJsonValue parseJsonLiteral(const QString &json, JsonDbQueryTerm *term, const QJsonObject &bindings, bool *ok);
-    static QJsonArray parseJsonArray(JsonDbQueryTokenizer &tokenizer, const QJsonObject &bindings, bool *ok);
-    static QJsonObject parseJsonObject(JsonDbQueryTokenizer &tokenizer, const QJsonObject &bindings, bool *ok);
-    static JsonDbQuery *parse(const QString &query, const QJsonObject &bindings = QJsonObject());
+    inline QJsonValue termValue(const JsonDbQueryTerm &term) const
+    { return term.hasValue() ? term.value() : mBindings.value(term.variable(), QJsonValue(QJsonValue::Undefined)); }
+
+    bool isAscending() const;
 
 private:
     QSet<QString> mMatchedTypes;
-    QMap<QString,QJsonValue> mBindings;
-    Q_DISABLE_COPY(JsonDbQuery);
+    friend class JsonDbQueryParserPrivate;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

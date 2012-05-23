@@ -182,7 +182,7 @@ void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewType
 void JsonDbPartitionPrivate::updateEagerViewStateNumbers()
 {
     if (jsondbSettings->verbose())
-        qDebug() << "updateEagerViewStateNumbers" << mPartitionName << mObjectTable->stateNumber() << "{";
+        qDebug() << "updateEagerViewStateNumbers" << mSpec.name << mObjectTable->stateNumber() << "{";
 
     QStringList visitedViews;
     for (WeightedSourceViewGraph::ConstIterator it = mEagerViewSourceGraph.begin(); it != mEagerViewSourceGraph.end(); ++it) {
@@ -198,12 +198,12 @@ void JsonDbPartitionPrivate::updateEagerViewStateNumbers()
                 view->updateViewStateNumber(mObjectTable->stateNumber());
             else
                 if (jsondbSettings->debug())
-                    qCritical() << "no view for" << viewType << mPartitionName;
+                    qCritical() << "no view for" << viewType << mSpec.name;
             visitedViews.append(viewType);
         }
     }
     if (jsondbSettings->verbose())
-        qDebug() << "updateEagerViewStateNumbers" << mPartitionName << mObjectTable->stateNumber() << "}";
+        qDebug() << "updateEagerViewStateNumbers" << mSpec.name << mObjectTable->stateNumber() << "}";
 }
 
 void JsonDbPartitionPrivate::notifyHistoricalChanges(JsonDbNotification *n)
@@ -211,8 +211,8 @@ void JsonDbPartitionPrivate::notifyHistoricalChanges(JsonDbNotification *n)
     Q_Q(JsonDbPartition);
     quint32 stateNumber = n->initialStateNumber();;
     quint32 lastStateNumber = mObjectTable->stateNumber();
-    JsonDbQuery *parsedQuery = n->parsedQuery();
-    QSet<QString> matchedTypes = parsedQuery->matchedTypes();
+    const JsonDbQuery &parsedQuery = n->parsedQuery();
+    QSet<QString> matchedTypes = parsedQuery.matchedTypes();
     QList<JsonDbObjectTable*> objectTables;
 
     if (stateNumber == 0) {
@@ -235,8 +235,8 @@ void JsonDbPartitionPrivate::notifyHistoricalChanges(JsonDbNotification *n)
             foreach (const JsonDbUpdate &update, updateList) {
                 JsonDbObject before = update.oldObject;
                 JsonDbObject after = update.newObject;
-                bool beforeMatch = before.isEmpty() ? false : parsedQuery->match(before, 0, 0);
-                bool afterMatch = after.isDeleted() ? false : parsedQuery->match(after, 0, 0);
+                bool beforeMatch = before.isEmpty() ? false : parsedQuery.match(before, 0, 0);
+                bool afterMatch = after.isDeleted() ? false : parsedQuery.match(after, 0, 0);
                 JsonDbNotification::Action action = JsonDbNotification::Update;
 
                 if (!beforeMatch && !afterMatch)
@@ -336,7 +336,7 @@ void JsonDbPartitionPrivate::_q_objectsUpdated(bool viewUpdated, const JsonDbUpd
     quint32 partitionStateNumber = mObjectTable->stateNumber();
 
     if (jsondbSettings->debug())
-        qDebug() << "objectsUpdated" << mPartitionName << partitionStateNumber;
+        qDebug() << "objectsUpdated" << mSpec.name << partitionStateNumber;
 
     foreach (const JsonDbUpdate &updated, changes) {
 
@@ -761,8 +761,9 @@ void JsonDbPartition::addNotification(JsonDbNotification *notification)
 
     notification->setPartition(this);
 
-    const QList<JsonDbOrQueryTerm> &orQueryTerms = notification->parsedQuery()->queryTerms;
-    const QSet<QString> matchedTypes = notification->parsedQuery()->matchedTypes();
+    const JsonDbQuery &parsedQuery = notification->parsedQuery();
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery.queryTerms;
+    const QSet<QString> matchedTypes = parsedQuery.matchedTypes();
 
     if (!matchedTypes.isEmpty()) {
         JsonDbObjectTable *objectTable = 0;
@@ -785,11 +786,11 @@ void JsonDbPartition::addNotification(JsonDbNotification *notification)
             const JsonDbQueryTerm &term = terms[0];
             if (term.op() == QLatin1Char('=')) {
                 if (term.propertyName() == JsonDbString::kUuidStr) {
-                    d->mKeyedNotifications.insert(term.value().toString(), notification);
+                    d->mKeyedNotifications.insert(parsedQuery.termValue(term).toString(), notification);
                     generic = false;
                     break;
                 } else if (term.propertyName() == JsonDbString::kTypeStr) {
-                    QString objectType = term.value().toString();
+                    QString objectType = parsedQuery.termValue(term).toString();
                     d->mKeyedNotifications.insert(objectType, notification);
                     generic = false;
                     break;
@@ -816,8 +817,8 @@ void JsonDbPartition::removeNotification(JsonDbNotification *notification)
     if (!d->mIsOpen)
         return;
 
-    const JsonDbQuery *parsedQuery = notification->parsedQuery();
-    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
+    const JsonDbQuery &parsedQuery = notification->parsedQuery();
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery.queryTerms;
     for (int i = 0; i < orQueryTerms.size(); i++) {
         const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
         const QList<JsonDbQueryTerm> &terms = orQueryTerm.terms();
@@ -825,9 +826,9 @@ void JsonDbPartition::removeNotification(JsonDbNotification *notification)
             const JsonDbQueryTerm &term = terms[0];
             if (term.op() == QLatin1Char('=')) {
                 if (term.propertyName() == JsonDbString::kTypeStr) {
-                    d->mKeyedNotifications.remove(term.value().toString(), notification);
+                    d->mKeyedNotifications.remove(parsedQuery.termValue(term).toString(), notification);
                 } else if (term.propertyName() == JsonDbString::kUuidStr) {
-                    QString objectType = term.value().toString();
+                    QString objectType = parsedQuery.termValue(term).toString();
                     d->mKeyedNotifications.remove(objectType, notification);
                 }
             }
@@ -836,7 +837,7 @@ void JsonDbPartition::removeNotification(JsonDbNotification *notification)
 
     d->mKeyedNotifications.remove(QStringLiteral("__generic_notification__"), notification);
 
-    foreach (const QString &objectType, parsedQuery->matchedTypes())
+    foreach (const QString &objectType, parsedQuery.matchedTypes())
         d->updateEagerViewTypes(objectType, 0, -1);
 }
 
@@ -1023,16 +1024,19 @@ QHash<QString, qint64> JsonDbPartition::fileSizes() const
     return result;
 }
 
-JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query)
+JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery &query)
 {
     Q_Q(JsonDbPartition);
 
     JsonDbIndexQuery *indexQuery = 0;
-    JsonDbQuery *residualQuery = new JsonDbQuery();
+    JsonDbQuery residualQuery;
+    residualQuery.query = query.query;
+    residualQuery.mBindings = query.mBindings;
+
     QString orderField;
     QSet<QString> typeNames;
-    const QList<JsonDbOrderTerm> &orderTerms = query->orderTerms;
-    const QList<JsonDbOrQueryTerm> &orQueryTerms = query->queryTerms;
+    const QList<JsonDbOrderTerm> &orderTerms = query.orderTerms;
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = query.queryTerms;
     QString indexCandidate;
     int indexedQueryTermCount = 0;
     JsonDbObjectTable *table = mObjectTable; //TODO fix me
@@ -1046,7 +1050,6 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
             const JsonDbOrQueryTerm orQueryTerm = orQueryTerms[i];
             const QList<QString> &querypropertyNames = orQueryTerm.propertyNames();
             if (querypropertyNames.size() == 1) {
-                //QString fieldValue = queryTerm.value().toString();
                 QString propertyName = querypropertyNames[0];
 
                 const QList<JsonDbQueryTerm> &queryTerms = orQueryTerm.terms();
@@ -1069,7 +1072,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
                 }
 
                 propertyName = queryTerm.propertyName();
-                QString fieldValue = queryTerm.value().toString();
+                QString fieldValue = query.termValue(queryTerm).toString();
                 QString op = queryTerm.op();
 
                 if (propertyName == JsonDbString::kTypeStr) {
@@ -1079,10 +1082,10 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
                             types << fieldValue;
                             for (int i = 1; i < queryTerms.size(); ++i) {
                                 if (queryTerms[i].propertyName() == JsonDbString::kTypeStr && queryTerms[i].op() == QStringLiteral("="))
-                                    types << queryTerms[i].value().toString();
+                                    types << query.termValue(queryTerms[i]).toString();
                             }
                         } else {
-                            QJsonArray array = queryTerm.value().toArray();
+                            QJsonArray array = query.termValue(queryTerm).toArray();
                             types.clear();
                             for (int t = 0; t < array.size(); t++)
                                 types << array.at(t).toString();
@@ -1102,7 +1105,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
                         if (op == QLatin1String("!="))
                             types << fieldValue;
                         else {
-                            QJsonArray array = queryTerm.value().toArray();
+                            QJsonArray array = query.termValue(queryTerm).toArray();
                             for (int t = 0; t < array.size(); t++)
                                 types << array.at(t).toString();
                         }
@@ -1123,13 +1126,13 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
         if (!table->index(propertyName)) {
             if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
                 qDebug() << "Unindexed sort term" << propertyName << orderTerm.ascending;
-            residualQuery->orderTerms.append(orderTerm);
+            residualQuery.orderTerms.append(orderTerm);
             continue;
         }
         if (unindexablePropertyNames.contains(propertyName)) {
             if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
                 qDebug() << "Unindexable sort term uses notExists" << propertyName << orderTerm.ascending;
-            residualQuery->orderTerms.append(orderTerm);
+            residualQuery.orderTerms.append(orderTerm);
             continue;
         }
         if (!indexQuery) {
@@ -1141,10 +1144,10 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
             Q_ASSERT(index != 0);
             JsonDbIndexSpec indexSpec = index->indexSpec();
             indexQuery = JsonDbIndexQuery::indexQuery(q, table, propertyName, indexSpec.propertyType,
-                                                      owner, orderTerm.ascending);
+                                                      owner, query);
         } else if (orderField != propertyName) {
             qCritical() << QString::fromLatin1("unimplemented: multiple order terms. Sorting on '%1'").arg(orderField);
-            residualQuery->orderTerms.append(orderTerm);
+            residualQuery.orderTerms.append(orderTerm);
         }
     }
 
@@ -1157,7 +1160,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
             QString op = queryTerm.op();
 
             if (!queryTerm.joinField().isEmpty()) {
-                residualQuery->queryTerms.append(queryTerm);
+                residualQuery.queryTerms.append(queryTerm);
                 propertyName = queryTerm.joinField();
                 op = QStringLiteral("exists");
                 queryTerm.setPropertyName(propertyName);
@@ -1169,7 +1172,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
                     && (propertyName != orderField))) {
                 if (jsondbSettings->verbose() || jsondbSettings->debug())
                     qDebug() << "residual query term" << propertyName << "orderField" << orderField;
-                residualQuery->queryTerms.append(queryTerm);
+                residualQuery.queryTerms.append(queryTerm);
                 continue;
             }
 
@@ -1181,16 +1184,16 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
                 JsonDbIndexSpec indexSpec = table->index(propertyName)->indexSpec();
                 if (view)
                     view->updateView();
-                indexQuery = JsonDbIndexQuery::indexQuery(q, table, propertyName, indexSpec.propertyType, owner);
+                indexQuery = JsonDbIndexQuery::indexQuery(q, table, propertyName, indexSpec.propertyType, owner, query);
             }
 
             if (propertyName == orderField) {
                 indexQuery->compileOrQueryTerm(queryTerm);
             } else {
-                residualQuery->queryTerms.append(orQueryTerm);
+                residualQuery.queryTerms.append(orQueryTerm);
             }
         } else {
-            residualQuery->queryTerms.append(orQueryTerm);
+            residualQuery.queryTerms.append(orQueryTerm);
         }
     }
 
@@ -1207,9 +1210,9 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
         if (view)
             view->updateView();
         JsonDbIndex *index = table->index(defaultIndex);
-        indexQuery = JsonDbIndexQuery::indexQuery(q, table, defaultIndex, index ? index->indexSpec().propertyType : QString(), owner);
+        indexQuery = JsonDbIndexQuery::indexQuery(q, table, defaultIndex, index ? index->indexSpec().propertyType : QString(), owner, query);
         if (typeNames.size() == 0)
-            qCritical() << "searching all objects" << query->query;
+            qCritical() << "searching all objects" << query.query;
 
         if (defaultIndex == JsonDbString::kTypeStr) {
             foreach (const JsonDbOrQueryTerm &term, orQueryTerms) {
@@ -1223,13 +1226,10 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
     }
     if (typeNames.count() > 0)
         indexQuery->setTypeNames(typeNames);
-    if (residualQuery->queryTerms.size() || residualQuery->orderTerms.size())
-        indexQuery->setResidualQuery(residualQuery);
-    else
-        delete residualQuery;
-    indexQuery->setAggregateOperation(query->mAggregateOperation);
-    indexQuery->setResultExpressionList(query->mapExpressionList);
-    indexQuery->setResultKeyList(query->mapKeyList);
+    indexQuery->setResidualQuery(residualQuery);
+    indexQuery->setAggregateOperation(query.mAggregateOperation);
+    indexQuery->setResultExpressionList(query.mapExpressionList);
+    indexQuery->setResultKeyList(query.mapKeyList);
     return indexQuery;
 }
 
@@ -1267,7 +1267,7 @@ void JsonDbPartitionPrivate::doIndexQuery(const JsonDbOwner *owner, JsonDbObject
     }
 }
 
-JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit, int offset)
+JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit, int offset)
 {
     Q_D(JsonDbPartition);
 
@@ -1282,10 +1282,10 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     JsonDbObjectList results;
     JsonDbObjectList joinedResults;
 
-    if (!(query->queryTerms.size() || query->orderTerms.size())) {
+    if (!(query.queryTerms.size() || query.orderTerms.size())) {
         result.code = JsonDbError::MissingQuery;
         result.message = QString::fromLatin1("Missing query: %1")
-                .arg(query->queryExplanation.join(QStringLiteral("\n")));
+                .arg(query.queryExplanation.join(QStringLiteral("\n")));
         return result;
     }
 
@@ -1297,8 +1297,8 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     d->doIndexQuery(owner, results, limit, offset, indexQuery);
     int elapsedToQuery = time.elapsed();
     quint32 stateNumber = indexQuery->stateNumber();
-    JsonDbQuery *residualQuery = indexQuery->residualQuery();
-    if (residualQuery && residualQuery->orderTerms.size()) {
+    const JsonDbQuery &residualQuery = indexQuery->residualQuery();
+    if (!residualQuery.isEmpty() && residualQuery.orderTerms.size()) {
         if (jsondbSettings->verbose())
             qDebug() << "queryPersistentObjects" << "sorting";
         d->sortValues(residualQuery, results, joinedResults);
@@ -1319,7 +1319,7 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
 
     int elapsedToDone = time.elapsed();
     if (jsondbSettings->verbose())
-        qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query->query;
+        qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query.query;
     return result;
 }
 
@@ -1589,9 +1589,9 @@ bool sortableGreaterThan(const QJsonSortable &a, const QJsonSortable &b)
     return JsonDbIndexQuery::greaterThan(a.key, b.key);
 }
 
-void JsonDbPartitionPrivate::sortValues(const JsonDbQuery *parsedQuery, JsonDbObjectList &results, JsonDbObjectList &joinedResults)
+void JsonDbPartitionPrivate::sortValues(const JsonDbQuery &parsedQuery, JsonDbObjectList &results, JsonDbObjectList &joinedResults)
 {
-    const QList<JsonDbOrderTerm> &orderTerms = parsedQuery->orderTerms;
+    const QList<JsonDbOrderTerm> &orderTerms = parsedQuery.orderTerms;
     if (!orderTerms.size() || (results.size() < 2))
         return;
     const JsonDbOrderTerm &orderTerm0 = orderTerms[0];

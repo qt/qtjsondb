@@ -47,6 +47,7 @@
 
 #include "jsondbobject.h"
 #include "jsondbpartitionglobal.h"
+#include "jsondbquery.h"
 
 QT_BEGIN_HEADER
 
@@ -62,7 +63,7 @@ public:
     enum Action { None = 0x0000, Create = 0x0001, Update = 0x0002, Remove = 0x0004, StateChange = 0x0008 };
     Q_DECLARE_FLAGS(Actions, Action)
 
-    JsonDbNotification(const JsonDbOwner *owner, JsonDbQuery *query, QStringList actions, qint32 initialStateNumber = -1);
+    JsonDbNotification(const JsonDbOwner *owner, const JsonDbQuery &query, QStringList actions, qint32 initialStateNumber = -1);
     ~JsonDbNotification();
 
     void notifyIfMatches(JsonDbObjectTable *objectTable, const JsonDbObject &oldObject, const JsonDbObject &newObject,
@@ -72,7 +73,7 @@ public:
     inline const JsonDbOwner *owner() const { return mOwner; }
     inline Actions actions() const { return mActions; }
 
-    inline JsonDbQuery *parsedQuery() const { return mCompiledQuery; }
+    inline const JsonDbQuery &parsedQuery() const { return mCompiledQuery; }
 
     inline JsonDbPartition *partition() const { return mPartition; }
     inline void setPartition(JsonDbPartition *partition){ mPartition = partition; }
@@ -89,7 +90,7 @@ Q_SIGNALS:
 
 private:
     const JsonDbOwner *mOwner;
-    JsonDbQuery *mCompiledQuery;
+    JsonDbQuery   mCompiledQuery;
     Actions mActions;
     JsonDbPartition *mPartition;
     JsonDbObjectTable *mObjectTable;

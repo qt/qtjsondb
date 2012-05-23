@@ -50,6 +50,8 @@ HEADERS += \
     jsondbcollator_p.h \
     jsondbpartition_p.h \
     jsondbpartitionspec.h \
+    jsondbquerytokenizer_p.h \
+    jsondbqueryparser.h \
     schema-validation/jsondbschema_p.h \
     schema-validation/jsondbcheckpoints_p.h
 
@@ -71,7 +73,9 @@ SOURCES += \
     jsondbindexquery.cpp \
     jsondberrors.cpp \
     jsondbstrings.cpp \
-    jsondbcollator.cpp
+    jsondbcollator.cpp \
+    jsondbquerytokenizer.cpp \
+    jsondbqueryparser.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondbpartition.name
 

@@ -149,7 +149,7 @@ public:
     void flushCaches();
     bool compact();
 
-    JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit = -1, int offset = 0);
+    JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery &query, int limit = -1, int offset = 0);
     JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, ConflictResolutionMode mode = RejectStale, JsonDbUpdateList *changeList = 0);
     JsonDbWriteResult updateObject(const JsonDbOwner *owner, const JsonDbObject &object, ConflictResolutionMode mode = RejectStale, JsonDbUpdateList *changeList = 0);
     JsonDbChangesSinceResult changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());

@@ -148,22 +148,24 @@ private:
 
 JsonDbIndexQuery *JsonDbIndexQuery::indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                                    const QString &propertyName, const QString &propertyType,
-                                   const JsonDbOwner *owner, bool ascending)
+                                   const JsonDbOwner *owner, const JsonDbQuery &query)
 {
     if (propertyName == JsonDbString::kUuidStr)
-        return new JsonDbUuidQuery(partition, table, propertyName, owner, ascending);
+        return new JsonDbUuidQuery(partition, table, propertyName, owner, query);
     else
-        return new JsonDbIndexQuery(partition, table, propertyName, propertyType, owner, ascending);
+        return new JsonDbIndexQuery(partition, table, propertyName, propertyType, owner, query);
 }
 
-JsonDbUuidQuery::JsonDbUuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending)
-    : JsonDbIndexQuery(partition, table, propertyName, QLatin1String("string"), owner, ascending)
+JsonDbUuidQuery::JsonDbUuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
+                                 const QString &propertyName, const JsonDbOwner *owner,
+                                 const JsonDbQuery &query)
+    : JsonDbIndexQuery(partition, table, propertyName, QStringLiteral("string"), owner, query)
 {
 }
 
 JsonDbIndexQuery::JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                        const QString &propertyName, const QString &propertyType,
-                       const JsonDbOwner *owner, bool ascending)
+                       const JsonDbOwner *owner, const JsonDbQuery &query)
     : mPartition(partition)
     , mObjectTable(table)
     , mBdbIndex(0)
@@ -171,12 +173,14 @@ JsonDbIndexQuery::JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable
     , mOwner(owner)
     , mMin(QJsonValue::Undefined)
     , mMax(QJsonValue::Undefined)
-    , mAscending(ascending)
     , mPropertyName(propertyName)
     , mPropertyType(propertyType)
     , mSparseMatchPossible(false)
-    , mResidualQuery(0)
+    , mQuery(query)
 {
+    mResidualQuery.query = mQuery.query;
+    mResidualQuery.mBindings = mQuery.mBindings;
+
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->index(propertyName)->bdb();
         isOwnTransaction = !mBdbIndex->writeTransaction();
@@ -190,7 +194,6 @@ JsonDbIndexQuery::JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable
 }
 JsonDbIndexQuery::~JsonDbIndexQuery()
 {
-    delete mResidualQuery;
     if (isOwnTransaction)
         mTxn->abort();
     delete mCursor;
@@ -234,7 +237,7 @@ void JsonDbIndexQuery::setMax(const QJsonValue &value)
 bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
 {
     QByteArray forwardKey;
-    if (mAscending) {
+    if (mQuery.isAscending()) {
         forwardKey = JsonDbIndexPrivate::makeForwardKey(mMin, ObjectKey());
         if (jsondbSettings->debugQuery())
             qDebug() << __FUNCTION__ << __LINE__ << "mMin" << mMin << "key" << forwardKey.toHex();
@@ -245,7 +248,7 @@ bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
     }
 
     bool ok = false;
-    if (mAscending) {
+    if (mQuery.isAscending()) {
         if (!mMin.isUndefined()) {
             ok = mCursor->seekRange(forwardKey);
             if (jsondbSettings->debugQuery())
@@ -269,7 +272,7 @@ bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
 
 bool JsonDbIndexQuery::seekToNext(QJsonValue &fieldValue)
 {
-    bool ok = mAscending ? mCursor->next() : mCursor->previous();
+    bool ok = mQuery.isAscending() ? mCursor->next() : mCursor->previous();
     if (ok) {
         QByteArray baKey;
         mCursor->current(&baKey, 0);
@@ -300,7 +303,7 @@ quint32 JsonDbUuidQuery::stateNumber() const
 bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue)
 {
     bool ok;
-    if (mAscending) {
+    if (mQuery.isAscending()) {
         if (!mMin.isUndefined()) {
             ObjectKey objectKey(mMin.toString());
             ok = mCursor->seekRange(objectKey.toByteArray());
@@ -320,7 +323,7 @@ bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue)
         mCursor->current(&baKey, 0);
         if (baKey.size() == 16)
             break;
-        if (mAscending)
+        if (mQuery.isAscending())
             ok = mCursor->next();
         else
             ok = mCursor->previous();
@@ -335,13 +338,13 @@ bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue)
 
 bool JsonDbUuidQuery::seekToNext(QJsonValue &fieldValue)
 {
-    bool ok = mAscending ? mCursor->next() : mCursor->previous();
+    bool ok = mQuery.isAscending() ? mCursor->next() : mCursor->previous();
     QByteArray baKey;
     while (ok) {
         mCursor->current(&baKey, 0);
         if (baKey.size() == 16)
             break;
-        if (mAscending)
+        if (mQuery.isAscending())
             ok = mCursor->next();
         else
             ok = mCursor->previous();
@@ -401,7 +404,7 @@ JsonDbObject JsonDbIndexQuery::first()
             qDebug() << "IndexQuery::first()"
                      << "mPropertyName" << mPropertyName
                      << "fieldValue" << fieldValue
-                     << (mAscending ? "ascending" : "descending");
+                     << (mQuery.isAscending() ? "ascending" : "descending");
 
         if (jsondbSettings->debugQuery())
             qDebug() << "IndexQuery::first()" << "matches(fieldValue)" << matches(fieldValue);
@@ -421,7 +424,7 @@ JsonDbObject JsonDbIndexQuery::first()
         if (jsondbSettings->debugQuery())
             qDebug() << "mTypeName" << mTypeNames << "!contains" << object << "->" << object.value(JsonDbString::kTypeStr);
 
-        if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mPartition))
+        if (!mResidualQuery.isEmpty() && !mResidualQuery.match(object, &mObjectCache, mPartition))
             continue;
 
         if (jsondbSettings->debugQuery())
@@ -441,7 +444,7 @@ JsonDbObject JsonDbIndexQuery::next()
         if (jsondbSettings->debugQuery()) {
             qDebug() << "IndexQuery::next()" << "mPropertyName" << mPropertyName
                      << "fieldValue" << fieldValue
-                     << (mAscending ? "ascending" : "descending");
+                     << (mQuery.isAscending() ? "ascending" : "descending");
             qDebug() << "IndexQuery::next()" << "matches(fieldValue)" << matches(fieldValue);
         }
         if (!matches(fieldValue)) {
@@ -462,7 +465,7 @@ JsonDbObject JsonDbIndexQuery::next()
         if (jsondbSettings->debugQuery())
             qDebug() << "IndexQuery::next()" << "objectKey" << objectKey;
 
-        if (mResidualQuery && !mResidualQuery->match(object, &mObjectCache, mPartition))
+        if (!mResidualQuery.isEmpty() && !mResidualQuery.match(object, &mObjectCache, mPartition))
             continue;
 
         return object;
@@ -476,7 +479,7 @@ void JsonDbIndexQuery::compileOrQueryTerm(const JsonDbQueryTerm &queryTerm)
     static const QRegExp wildCardPrefixRegExp(QStringLiteral("([^*?\\[\\]\\\\]+).*"));
 
     QString op = queryTerm.op();
-    QJsonValue fieldValue = queryTerm.value();
+    QJsonValue fieldValue = mQuery.termValue(queryTerm);
 
     if (propertyName() != JsonDbString::kUuidStr)
         JsonDbIndexPrivate::truncateFieldValue(&fieldValue, propertyType());
@@ -522,15 +525,15 @@ void JsonDbIndexQuery::compileOrQueryTerm(const JsonDbQueryTerm &queryTerm)
     } else if (op == QLatin1String("notExists")) {
         addConstraint(new QueryConstraintNotExists);
     } else if (op == QLatin1String("in")) {
-        QJsonArray value = queryTerm.value().toArray();
+        QJsonArray value = mQuery.termValue(queryTerm).toArray();
         if (value.size() == 1)
             addConstraint(new QueryConstraintEq(value.at(0)));
         else
-            addConstraint(new QueryConstraintIn(queryTerm.value()));
+            addConstraint(new QueryConstraintIn(mQuery.termValue(queryTerm)));
     } else if (op == QLatin1String("notIn")) {
-        addConstraint(new QueryConstraintNotIn(queryTerm.value()));
+        addConstraint(new QueryConstraintNotIn(mQuery.termValue(queryTerm)));
     } else if (op == QLatin1String("startsWith")) {
-        addConstraint(new QueryConstraintStartsWith(queryTerm.value().toString()));
+        addConstraint(new QueryConstraintStartsWith(mQuery.termValue(queryTerm).toString()));
     }
 }
 

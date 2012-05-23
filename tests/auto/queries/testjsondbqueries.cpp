@@ -51,6 +51,7 @@
 #include "jsondbowner.h"
 #include "jsondbpartition.h"
 #include "jsondbquery.h"
+#include "jsondbqueryparser.h"
 #include "jsondbstrings.h"
 #include "jsondberrors.h"
 
@@ -203,8 +204,11 @@ void TestJsonDbQueries::removeDbFiles()
 
 JsonDbQueryResult TestJsonDbQueries::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
 {
-    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(query, bindings));
-    return mJsonDbPartition->queryObjects(owner, parsedQuery.data());
+    JsonDbQueryParser parser;
+    parser.setQuery(query);
+    parser.setBindings(bindings);
+    parser.parse();
+    return mJsonDbPartition->queryObjects(owner, parser.result());
 }
 
 void TestJsonDbQueries::initTestCase()

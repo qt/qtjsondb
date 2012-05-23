@@ -49,6 +49,7 @@
 
 #include "jsondbpartition.h"
 #include "private/jsondbpartition_p.h"
+#include "jsondbqueryparser.h"
 #include "jsondbsettings.h"
 
 #include "../../shared/util.h"
@@ -179,8 +180,11 @@ void TestJsonDb::cleanup()
 
 JsonDbQueryResult TestJsonDb::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
 {
-    QScopedPointer<JsonDbQuery> q(JsonDbQuery::parse(query, bindings));
-    return mJsonDbPartition->queryObjects(owner, q.data());
+    JsonDbQueryParser parser;
+    parser.setQuery(query);
+    parser.setBindings(bindings);
+    parser.parse();
+    return mJsonDbPartition->queryObjects(owner, parser.result());
 }
 
 JsonDbWriteResult TestJsonDb::create(JsonDbOwner *owner, JsonDbObject &object, JsonDbPartition::ConflictResolutionMode mode)
@@ -389,8 +393,8 @@ void TestJsonDb::testFindAccessControl()
 
     QJsonObject contactsCapabilities;
     QJsonArray value;
-    value.append (QLatin1String("rw"));
-    contactsCapabilities.insert (QStringLiteral("contacts"), value);
+    value.append(QLatin1String("rw"));
+    contactsCapabilities.insert(QStringLiteral("contacts"), value);
     mOwner->setAllowAll(false);
     mOwner->setCapabilities(contactsCapabilities, mJsonDbPartition);
 

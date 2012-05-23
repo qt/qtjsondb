@@ -98,12 +98,12 @@ public:
     GetObjectsResult getObjects(const QString &keyName, const QJsonValue &key, const QString &type = QString(),
                                 bool updateViews = true);
 
-    JsonDbIndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery *query);
+    JsonDbIndexQuery *compileIndexQuery(const JsonDbOwner *owner, const JsonDbQuery &query);
 
     void doIndexQuery(const JsonDbOwner *owner, JsonDbObjectList &results, int &limit, int &offset,
                       JsonDbIndexQuery *indexQuery);
 
-    static void sortValues(const JsonDbQuery *query, JsonDbObjectList &results, JsonDbObjectList &joinedResults);
+    static void sortValues(const JsonDbQuery &query, JsonDbObjectList &results, JsonDbObjectList &joinedResults);
 
     bool checkCanAddSchema(const JsonDbObject &schema, const JsonDbObject &oldSchema, QString &errorMsg);
     bool checkCanRemoveSchema(const JsonDbObject &schema, QString &errorMsg);

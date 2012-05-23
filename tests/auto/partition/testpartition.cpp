@@ -57,6 +57,7 @@
 #include "jsondbsettings.h"
 #include "jsondbstrings.h"
 #include "jsondberrors.h"
+#include "jsondbqueryparser.h"
 
 #include <qjsonobject.h>
 
@@ -322,7 +323,10 @@ void TestPartition::cleanup()
 
 void TestPartition::reopen()
 {
-    QScopedPointer<JsonDbQuery> parsedQuery(JsonDbQuery::parse(QLatin1String("[?_type=\"reopentest\"]")));
+    JsonDbQueryParser parser;
+    parser.setQuery(QStringLiteral("[?_type=\"reopentest\"]"));
+    parser.parse();
+    JsonDbQuery parsedQuery = parser.result();
 
     int counter = 1;
     for (int i = 0; i < 10; ++i, ++counter) {
@@ -340,7 +344,7 @@ void TestPartition::reopen()
         mJsonDbPartition->setDefaultOwner(mOwner);
         mJsonDbPartition->open();
 
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
         QCOMPARE(queryResult.data.size(), counter);
     }
 
@@ -354,7 +358,7 @@ void TestPartition::reopen()
         mJsonDbPartition->close();
         mJsonDbPartition->open();
 
-        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+        JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
         QCOMPARE(queryResult.data.size(), counter);
     }
 
@@ -364,7 +368,7 @@ void TestPartition::reopen()
     JsonDbObject item1;
     JsonDbWriteResult writeRes = mJsonDbPartition->updateObject(mOwner, item1);
     QCOMPARE(writeRes.code, JsonDbError::PartitionUnavailable);
-    JsonDbQueryResult queryRes = mJsonDbPartition->queryObjects(mOwner, parsedQuery.data());
+    JsonDbQueryResult queryRes = mJsonDbPartition->queryObjects(mOwner, parsedQuery);
     QCOMPARE(queryRes.code, JsonDbError::PartitionUnavailable);
 
     mJsonDbPartition->open();
@@ -400,9 +404,12 @@ void TestPartition::createContacts()
 
 JsonDbQueryResult TestPartition::find(JsonDbOwner *owner, const QString &query, const QJsonObject bindings)
 {
-    JsonDbQuery *parsedQuery = JsonDbQuery::parse(query, bindings);
+    JsonDbQueryParser parser;
+    parser.setQuery(query);
+    parser.setBindings(bindings);
+    parser.parse();
+    JsonDbQuery parsedQuery = parser.result();
     JsonDbQueryResult result = mJsonDbPartition->queryObjects(owner, parsedQuery);
-    delete parsedQuery;
     return result;
 }
 
@@ -3647,9 +3654,13 @@ void TestPartition::find10()
 
     QString query = QString("[?name.first<=\"%1\"][?_type=\"contact\"]")
             .arg(item.valueByPath("name.first").toString());
-    JsonDbQuery *parsedQuery = JsonDbQuery::parse(query);
+
+    JsonDbQueryParser parser;
+    parser.setQuery(query);
+    parser.parse();
+    JsonDbQuery parsedQuery = parser.result();
+
     JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, 10);
-    delete parsedQuery;
     verifyGoodQueryResult(queryResult);
     QCOMPARE(queryResult.data.size(), 10);
     mJsonDbPartition->d_func()->removeIndex("name.first");

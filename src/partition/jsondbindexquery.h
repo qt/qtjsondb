@@ -52,6 +52,7 @@
 #include "jsondbobjectkey.h"
 #include "jsondbquery.h"
 #include "jsondbbtree.h"
+#include "jsondbquery.h"
 
 QT_BEGIN_HEADER
 
@@ -69,21 +70,21 @@ public:
     virtual bool sparseMatchPossible() const { return false; }
 };
 
-class Q_JSONDB_PARTITION_EXPORT JsonDbIndexQuery {
+class Q_JSONDB_PARTITION_EXPORT JsonDbIndexQuery
+{
 protected:
     JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                const QString &propertyName, const QString &propertyType,
-               const JsonDbOwner *owner, bool ascending = true);
+               const JsonDbOwner *owner, const JsonDbQuery &query);
 public:
     static JsonDbIndexQuery *indexQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
                                   const QString &propertyName, const QString &propertyType,
-                                  const JsonDbOwner *owner, bool ascending = true);
+                                  const JsonDbOwner *owner, const JsonDbQuery &query);
     virtual ~JsonDbIndexQuery();
 
     JsonDbObjectTable *objectTable() const { return mObjectTable; }
     QString partition() const;
     void addConstraint(JsonDbQueryConstraint *qc) { mQueryConstraints.append(qc); }
-    bool ascending() const { return mAscending; }
     QString propertyName() const { return mPropertyName; }
     QString propertyType() const { return mPropertyType; }
     void setTypeNames(const QSet<QString> typeNames) { mTypeNames = typeNames; }
@@ -98,8 +99,13 @@ public:
     JsonDbObject next(); // returns next matching object
     bool matches(const QJsonValue &value);
     QJsonValue fieldValue() const { return mFieldValue; }
-    JsonDbQuery *residualQuery() const { return mResidualQuery; }
-    void setResidualQuery(JsonDbQuery *residualQuery) { mResidualQuery = residualQuery; }
+
+    const JsonDbQuery &query() const { return mQuery; }
+
+    const JsonDbQuery &residualQuery() const { return mResidualQuery; }
+    void setResidualQuery(const JsonDbQuery &residualQuery)
+    { Q_ASSERT(!residualQuery.query.isEmpty()); mResidualQuery = residualQuery; }
+
     virtual quint32 stateNumber() const;
 
     void compileOrQueryTerm(const JsonDbQueryTerm &queryTerm);
@@ -123,7 +129,6 @@ protected:
     const JsonDbOwner *mOwner;
     QJsonValue      mMin, mMax;
     QSet<QString> mTypeNames;
-    bool          mAscending;
     QString       mUuid;
     QVector<JsonDbQueryConstraint*> mQueryConstraints;
     QString       mAggregateOperation;
@@ -135,14 +140,17 @@ protected:
     QStringList  mResultExpressionList;
     QStringList  mResultKeyList;
     QVector<QVector<QStringList> > mJoinPaths;
-    JsonDbQuery  *mResidualQuery;
+    JsonDbQuery  mQuery;
+    JsonDbQuery  mResidualQuery;
 
     Q_DISABLE_COPY(JsonDbIndexQuery)
 };
 
 class JsonDbUuidQuery : public JsonDbIndexQuery {
 protected:
-    JsonDbUuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table, const QString &propertyName, const JsonDbOwner *owner, bool ascending = true);
+    JsonDbUuidQuery(JsonDbPartition *partition, JsonDbObjectTable *table,
+                    const QString &propertyName, const JsonDbOwner *owner,
+                    const JsonDbQuery &query);
     virtual bool seekToStart(QJsonValue &fieldValue);
     virtual bool seekToNext(QJsonValue &fieldValue);
     virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);

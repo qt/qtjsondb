@@ -106,7 +106,7 @@ private:
     void processFlush(ClientJsonStream *stream, JsonDbOwner *owner, const QString &partitionName, int id);
     void processLog(ClientJsonStream *stream, const QString &message, int id);
 
-    void debugQuery(JsonDbQuery *query, int limit, int offset, const JsonDbQueryResult &result);
+    void debugQuery(const JsonDbQuery &query, int limit, int offset, const JsonDbQueryResult &result);
     JsonDbObjectList prepareWriteData(const QString &action, const QJsonValue &object);
     JsonDbObjectList checkForNotifications(const JsonDbObjectList &objects);
     void createNotification(const JsonDbObject &object, ClientJsonStream *stream);
