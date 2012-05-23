@@ -653,12 +653,12 @@ quint32 JsonDbObjectTable::changesSince(quint32 startingStateNumber, QMap<Object
             JsonDbNotification::Action oldAction = oldChange.action;
 
             if ((oldAction == JsonDbNotification::Create)
-                && (newAction == JsonDbNotification::Delete)) {
+                && (newAction == JsonDbNotification::Remove)) {
                 changeMap.remove(objectKey);
             } else {
                 JsonDbUpdate combinedChange;
-                if (newAction == JsonDbNotification::Delete)
-                    combinedChange.action = JsonDbNotification::Delete;
+                if (newAction == JsonDbNotification::Remove)
+                    combinedChange.action = JsonDbNotification::Remove;
                 else
                     combinedChange.action = JsonDbNotification::Update;
                 combinedChange.oldObject = oldChange.oldObject;
@@ -694,7 +694,7 @@ quint32 JsonDbObjectTable::changesSince(quint32 stateNumber, const QSet<QString>
             if (allTypes || limitTypes.contains(oldType)) {
                 JsonDbObject tombstone(oldObject);
                 tombstone.insert(JsonDbString::kDeletedStr, true);
-                changeList.append(JsonDbUpdate(oldObject, tombstone, JsonDbNotification::Delete));
+                changeList.append(JsonDbUpdate(oldObject, tombstone, JsonDbNotification::Remove));
             }
             if (allTypes || limitTypes.contains(newType)) {
                 changeList.append(JsonDbUpdate(JsonDbObject(), newObject, JsonDbNotification::Create));

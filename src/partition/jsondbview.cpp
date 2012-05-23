@@ -484,7 +484,7 @@ bool JsonDbView::processUpdatedDefinitions(const QString &viewType, quint32 targ
                     JsonDbReduceDefinition::definitionRemoved(mPartition, mViewObjectTable, targetType, definitionUuid);
             }
         }
-        if (action != JsonDbNotification::Delete) {
+        if (action != JsonDbNotification::Remove) {
             if ((limitTypes.contains(afterType))
                 && (after.value(QStringLiteral("targetType")).toString() == viewType)) {
                 if (!inTransaction) {

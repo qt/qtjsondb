@@ -45,6 +45,7 @@
 #include "jsondbquery.h"
 #include "jsondberrors.h"
 #include "jsondbstrings.h"
+#include "private/jsondbutils_p.h"
 
 #include <qjsonobject.h>
 
@@ -54,6 +55,8 @@ JsonDbEphemeralPartition::JsonDbEphemeralPartition(const QString &name, QObject 
     QObject(parent)
   , mName(name)
 {
+    qRegisterMetaType<QSet<QString> >("QSet<QString>");
+    qRegisterMetaType<JsonDbUpdateList>("JsonDbUpdateList");
 }
 
 bool JsonDbEphemeralPartition::get(const QUuid &uuid, JsonDbObject *result) const
@@ -120,7 +123,7 @@ JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *own
         // FIXME: stale update rejection, access control
         if (object.value(JsonDbString::kDeletedStr).toBool()) {
             if (mObjects.contains(object.uuid())) {
-                action = JsonDbNotification::Delete;
+                action = JsonDbNotification::Remove;
                 mObjects.remove(object.uuid());
             } else {
                 result.code =  JsonDbError::MissingObject;
@@ -141,6 +144,96 @@ JsonDbWriteResult JsonDbEphemeralPartition::updateObjects(const JsonDbOwner *own
         updated.append(JsonDbUpdate(oldObject, object, action));
     }
 
-    emit objectsUpdated(false, updated);
+    QMetaObject::invokeMethod(this, "objectsUpdated", Qt::QueuedConnection,
+                              Q_ARG(JsonDbUpdateList, updated));
     return result;
+}
+
+void JsonDbEphemeralPartition::addNotification(JsonDbNotification *notification)
+{
+    notification->setPartition(0);
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = notification->parsedQuery()->queryTerms;
+
+    bool generic = true;
+    for (int i = 0; i < orQueryTerms.size(); i++) {
+        const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
+        const QList<JsonDbQueryTerm> &terms = orQueryTerm.terms();
+        if (terms.size() == 1) {
+            const JsonDbQueryTerm &term = terms[0];
+            if (term.op() == QLatin1Char('=')) {
+                if (term.propertyName() == JsonDbString::kUuidStr) {
+                    mKeyedNotifications.insert(term.value().toString(), notification);
+                    generic = false;
+                    break;
+                } else if (term.propertyName() == JsonDbString::kTypeStr) {
+                    QString objectType = term.value().toString();
+                    mKeyedNotifications.insert(objectType, notification);
+                    generic = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (generic)
+        mKeyedNotifications.insert(QStringLiteral("__generic_notification__"), notification);
+}
+
+void JsonDbEphemeralPartition::removeNotification(JsonDbNotification *notification)
+{
+    const JsonDbQuery *parsedQuery = notification->parsedQuery();
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
+    for (int i = 0; i < orQueryTerms.size(); i++) {
+        const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
+        const QList<JsonDbQueryTerm> &terms = orQueryTerm.terms();
+        if (terms.size() == 1) {
+            const JsonDbQueryTerm &term = terms[0];
+            if (term.op() == QLatin1Char('=')) {
+                if (term.propertyName() == JsonDbString::kTypeStr) {
+                    mKeyedNotifications.remove(term.value().toString(), notification);
+                } else if (term.propertyName() == JsonDbString::kUuidStr) {
+                    QString objectType = term.value().toString();
+                    mKeyedNotifications.remove(objectType, notification);
+                }
+            }
+        }
+    }
+
+    mKeyedNotifications.remove(QStringLiteral("__generic_notification__"), notification);
+}
+
+void JsonDbEphemeralPartition::objectsUpdated(const JsonDbUpdateList &changes)
+{
+    foreach (const JsonDbUpdate &updated, changes) {
+
+        JsonDbObject oldObject = updated.oldObject;
+        JsonDbObject object = updated.newObject;
+        JsonDbNotification::Action action = updated.action;
+
+        QString oldObjectType = oldObject.type();
+        QString objectType = object.type();
+
+        QStringList notificationKeys;
+        if (!oldObjectType.isEmpty() || !objectType.isEmpty()) {
+            notificationKeys << objectType;
+            if (!oldObjectType.isEmpty() && objectType.compare(oldObjectType))
+                notificationKeys << oldObjectType;
+
+            if (object.contains(JsonDbString::kUuidStr))
+                notificationKeys << object.value(JsonDbString::kUuidStr).toString();
+            notificationKeys << QStringLiteral("__generic_notification__");
+
+            QHash<QString, JsonDbObject> objectCache;
+            for (int i = 0; i < notificationKeys.size(); i++) {
+                QString key = notificationKeys[i];
+                for (QMultiHash<QString, QPointer<JsonDbNotification> >::const_iterator it = mKeyedNotifications.find(key);
+                     (it != mKeyedNotifications.end()) && (it.key() == key);
+                     ++it) {
+                    JsonDbNotification *n = it.value();
+                    if (n)
+                        n->notifyIfMatches(0, oldObject, object, action, 0);
+                }
+            }
+        }
+    }
 }

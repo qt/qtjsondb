@@ -350,14 +350,23 @@ void TestQJsonDbRequest::removablePartition()
              def.value(QStringLiteral("path")).toString());
     QVERIFY(!newPartition.value(QStringLiteral("available")).toBool());
 
+    // add a watcher on the partition
+    QJsonDbWatcher watcher2;
+    watcher2.setPartition(def.value(QStringLiteral("name")).toString());
+    watcher2.setQuery(QStringLiteral("[?_type=\"removable-test\"]"));
+    mConnection->addWatcher(&watcher2);
+    waitForStatus(&watcher2, QJsonDbWatcher::Active);
+
     // make sure the partition doesn't work
-    QJsonDbReadRequest read;
-    read.setQuery(QStringLiteral("[*]"));
-    read.setPartition(def.value(QStringLiteral("name")).toString());
-    mConnection->send(&read);
-    waitForResponse(&read);
-    QVERIFY(mRequestErrors.contains(&read));
-    QCOMPARE(mRequestErrors[&read], QJsonDbRequest::PartitionUnavailable);
+    QJsonObject o;
+    o.insert(QStringLiteral("_type"), QStringLiteral("removable-test"));
+    QJsonDbCreateRequest write(o);
+
+    write.setPartition(def.value(QStringLiteral("name")).toString());
+    mConnection->send(&write);
+    waitForResponse(&write);
+    QVERIFY(mRequestErrors.contains(&write));
+    QCOMPARE(mRequestErrors[&write], QJsonDbRequest::PartitionUnavailable);
     mRequestErrors.clear();
 
     // dd a file to use with our loopback device
@@ -385,9 +394,11 @@ void TestQJsonDbRequest::removablePartition()
     QVERIFY(updatedPartition.value(QStringLiteral("available")).toBool());
 
     // make sure the partition works
-    mConnection->send(&read);
-    waitForResponse(&read);
-    QVERIFY(!mRequestErrors.contains(&read));
+    mConnection->send(&write);
+    waitForResponseAndNotifications(&write, &watcher2, 1);
+    QVERIFY(!mRequestErrors.contains(&write));
+    notifications = watcher2.takeNotifications();
+    QCOMPARE(notifications.size(), 1);
 
     // unmount
     QVERIFY(system(QString::fromLatin1("umount -l %1 > /dev/null 2>&1").arg(mnt.absolutePath()).toLatin1()) == 0);
@@ -408,10 +419,10 @@ void TestQJsonDbRequest::removablePartition()
     QVERIFY(!updatedPartition.value(QStringLiteral("available")).toBool());
 
     // make sure the partition doesn't work
-    mConnection->send(&read);
-    waitForResponse(&read);
-    QVERIFY(mRequestErrors.contains(&read));
-    QCOMPARE(mRequestErrors[&read], QJsonDbRequest::PartitionUnavailable);
+    mConnection->send(&write);
+    waitForResponse(&write);
+    QVERIFY(mRequestErrors.contains(&write));
+    QCOMPARE(mRequestErrors[&write], QJsonDbRequest::PartitionUnavailable);
 
     // remove the partition definition and reload
     partitionsFile.remove();
@@ -420,6 +431,8 @@ void TestQJsonDbRequest::removablePartition()
 
     mConnection->removeWatcher(&watcher);
     waitForStatus(&watcher, QJsonDbWatcher::Inactive);
+    mConnection->removeWatcher(&watcher2);
+    waitForStatus(&watcher2, QJsonDbWatcher::Inactive);
 
     // remove the tmp file
     QFile::remove(tmpFile);

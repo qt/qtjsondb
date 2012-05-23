@@ -39,52 +39,38 @@
 **
 ****************************************************************************/
 
-#ifndef JSONDB_EPHEMERAL_PARTITION_H
-#define JSONDB_EPHEMERAL_PARTITION_H
+#ifndef CLIENTJSONSTREAM_H
+#define CLIENTJSONSTREAM_H
 
-#include <QUuid>
-#include <QMap>
-#include <QObject>
-#include <qjsonobject.h>
 #include "jsondbnotification.h"
-#include "jsondbobject.h"
-#include "jsondbpartition.h"
-#include "jsondbquery.h"
+#include "jsonstream.h"
+
+#include <QHash>
+#include <QPointer>
 
 QT_BEGIN_HEADER
 
-QT_BEGIN_NAMESPACE_JSONDB_PARTITION
-class JsonDbQuery;
-QT_END_NAMESPACE_JSONDB_PARTITION
-
 QT_USE_NAMESPACE_JSONDB_PARTITION
 
-class JsonDbEphemeralPartition : public QObject
+class ClientJsonStream : public QtJsonDbJsonStream::JsonStream
 {
     Q_OBJECT
 public:
-    JsonDbEphemeralPartition(const QString &name, QObject *parent = 0);
-
-    bool get(const QUuid &uuid, JsonDbObject *result) const;
-
-    JsonDbQueryResult queryObjects(const JsonDbOwner *owner, const JsonDbQuery *query, int limit=-1, int offset=0);
-    JsonDbWriteResult updateObjects(const JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode);
-
-    void addNotification(JsonDbNotification *notification);
+    explicit ClientJsonStream(QObject *parent = 0);
+    void addNotification(const QString &uuid, JsonDbNotification *notification);
     void removeNotification(JsonDbNotification *notification);
+    JsonDbNotification *takeNotification(const QString &uuid);
 
-    inline QString name() const { return mName; }
+    QList<JsonDbNotification *> takeAllNotifications();
+    QList<JsonDbNotification *> notificationsByPartition(JsonDbPartition *partition);
 
-private Q_SLOTS:
-    void objectsUpdated(const JsonDbUpdateList &changes);
+protected Q_SLOTS:
+    void notified(const QJsonObject &object, quint32 stateNumber, JsonDbNotification::Action action);
 
 private:
-    typedef QMap<QUuid, JsonDbObject> ObjectMap;
-    ObjectMap mObjects;
-    QString mName;
-    QMultiHash<QString, QPointer<JsonDbNotification> > mKeyedNotifications;
+    QHash<JsonDbNotification *, QString> mNotifications;
 };
 
 QT_END_HEADER
 
-#endif // JSONDB_EPHEMERAL_PARTITION_H
+#endif // CLIENTJSONSTREAM_H

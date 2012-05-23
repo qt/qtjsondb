@@ -7,7 +7,7 @@ include($$PWD/../jsonstream/jsonstream.pri)
 
 LIBS += -L$$QT.jsondb.libs
 
-QT = core network qml jsondbpartition
+QT = core network qml jsondbpartition jsondbpartition-private
 
 mac:CONFIG -= app_bundle
 
@@ -20,13 +20,15 @@ HEADERS += \
     $$PWD/dbserver.h \
     $$PWD/jsondbephemeralpartition.h \
     $$PWD/jsondbsignals.h \
-    $$PWD/../common/jsondbsocketname_p.h
+    $$PWD/../common/jsondbsocketname_p.h \
+    $$PWD/clientjsonstream.h
 
 SOURCES += \
     $$PWD/main.cpp \
     $$PWD/dbserver.cpp \
     $$PWD/jsondbephemeralpartition.cpp \
-    $$PWD/jsondbsignals.cpp
+    $$PWD/jsondbsignals.cpp \
+    $$PWD/clientjsonstream.cpp
 
 systemd {
     DEFINES += USE_SYSTEMD

@@ -74,11 +74,12 @@ inline QDebug &operator<<(QDebug &qdb, const JsonDbUpdate &oc)
     case JsonDbNotification::None: qdb.nospace() << "None"; break;
     case JsonDbNotification::Create: qdb.nospace() << "Created"; break;
     case JsonDbNotification::Update: qdb.nospace() << "Updated"; break;
-    case JsonDbNotification::Delete: qdb.nospace() << "Deleted"; break;
+    case JsonDbNotification::Remove: qdb.nospace() << "Removed"; break;
+    default: break;
     }
     if (oc.action != JsonDbNotification::Create)
         qdb.nospace() << ", oldObject = " << oc.oldObject;
-    if (oc.action != JsonDbNotification::Delete)
+    if (oc.action != JsonDbNotification::Remove)
         qdb.nospace() << ", newObject = " << oc.newObject;
     qdb.nospace() << ")";
     return qdb;

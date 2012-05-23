@@ -42,6 +42,7 @@
 #ifndef JSONDB_PARTITION_P_H
 #define JSONDB_PARTITION_P_H
 
+#include <QMultiHash>
 #include <QStringList>
 #include <QSet>
 #include <QTimer>
@@ -118,8 +119,25 @@ public:
     void updateSpaceStatus();
     bool hasSpace();
 
+    void updateEagerViews(const QSet<QString> &eagerViewTypes, const JsonDbUpdateList &changes);
+    void updateEagerViewTypes(const QString &viewType, quint32 stateNumber, int increment = 1);
+    void updateEagerViewStateNumbers();
+    void notifyHistoricalChanges(JsonDbNotification *n);
+
     void _q_mainSyncTimer();
     void _q_indexSyncTimer();
+    void _q_objectsUpdated(bool viewUpdated, const JsonDbUpdateList &changes);
+
+    class EdgeCount {
+    public:
+        EdgeCount() : count(0){};
+        int count;
+        bool operator >(int val) const { return count > val; }
+        bool operator ==(int val) const { return count == val; }
+        EdgeCount &operator +=(int delta) { count += delta; if (count < 0) count = 0; return *this; }
+    };
+    typedef QHash<QString, EdgeCount>        ViewEdgeWeights;
+    typedef QHash<QString, ViewEdgeWeights>  WeightedSourceViewGraph;
 
     JsonDbPartition *q_ptr;
     JsonDbObjectTable     *mObjectTable;
@@ -131,12 +149,15 @@ public:
     bool         mTransactionOk;
     QHash<QString,QPointer<JsonDbView> > mViews;
     QSet<QString> mViewTypes;
+    QMultiHash<QString, QPointer<JsonDbNotification> > mKeyedNotifications;
+    WeightedSourceViewGraph mEagerViewSourceGraph;
     JsonDbSchemaManager   mSchemas;
     QTimer      *mMainSyncTimer;
     QTimer      *mIndexSyncTimer;
     JsonDbOwner *mDefaultOwner;
     bool         mIsOpen;
     JsonDbPartition::DiskSpaceStatus mDiskSpaceStatus;
+
 };
 
 class WithTransaction {

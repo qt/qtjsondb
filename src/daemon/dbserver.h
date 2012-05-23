@@ -46,7 +46,7 @@
 #include <QVariant>
 #include <QAbstractSocket>
 
-#include "jsonstream.h"
+#include "clientjsonstream.h"
 #include "jsondbnotification.h"
 #include "jsondbpartition.h"
 
@@ -60,7 +60,6 @@ QT_END_NAMESPACE
 
 class JsonDbEphemeralPartition;
 
-using QtJsonDbJsonStream::JsonStream;
 QT_USE_NAMESPACE_JSONDB_PARTITION
 
 class DBServer : public QObject
@@ -93,67 +92,45 @@ protected slots:
     void receiveMessage(const QJsonObject &document);
     void handleConnectionError();
     void removeConnection();
-    void clearNotifications();
-
-    void notified(const QString &id, quint32 stateNumber, const QJsonObject &object, const QString &action);
-    void objectsUpdated(bool viewUpdated, const JsonDbUpdateList &objects);
-    void updateEagerViews(JsonDbPartition *partition, const QSet<QString> eagerViewTypes, JsonDbUpdateList changeList);
-    void emitStateChanged(JsonDbPartition *partition);
 
 private:
-    void objectUpdated(const QString &partitionName, quint32 stateNumber, JsonDbNotification *n, JsonDbNotification::Action action, const JsonDbObject &oldObject, const JsonDbObject &object);
-
     bool loadPartitions();
     void reduceMemoryUsage();
     void closeIndexes();
     JsonDbStat stat() const;
 
-    void processWrite(JsonStream *stream, JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode, const QString &partitionName, int id);
-    void processRead(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
-    void processChangesSince(JsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
-    void processFlush(JsonStream *stream, JsonDbOwner *owner, const QString &partitionName, int id);
-    void processLog(JsonStream *stream, const QString &message, int id);
+    void processWrite(ClientJsonStream *stream, JsonDbOwner *owner, const JsonDbObjectList &objects, JsonDbPartition::ConflictResolutionMode mode, const QString &partitionName, int id);
+    void processRead(ClientJsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
+    void processChangesSince(ClientJsonStream *stream, JsonDbOwner *owner, const QJsonValue &object, const QString &partitionName, int id);
+    void processFlush(ClientJsonStream *stream, JsonDbOwner *owner, const QString &partitionName, int id);
+    void processLog(ClientJsonStream *stream, const QString &message, int id);
 
     void debugQuery(JsonDbQuery *query, int limit, int offset, const JsonDbQueryResult &result);
     JsonDbObjectList prepareWriteData(const QString &action, const QJsonValue &object);
     JsonDbObjectList checkForNotifications(const JsonDbObjectList &objects);
-    void createNotification(const JsonDbObject &object, JsonStream *stream);
-    void removeNotification(const JsonDbObject &object);
+    void createNotification(const JsonDbObject &object, ClientJsonStream *stream);
+    void removeNotification(const JsonDbObject &object, ClientJsonStream *stream);
     JsonDbError::ErrorCode validateNotification(const JsonDbObject &notificationDef, QString &message);
-
-    void notifyHistoricalChanges(JsonDbOwner *owner, JsonDbNotification *n);
-    void updateEagerViewTypes(const QString &objectType, JsonDbPartition *partition, quint32 stateNumber, int weight=1);
-    void updateEagerViewStateNumbers(JsonDbPartition *partition, quint32 partitionStateNumber);
+    void removeNotificationsByPartition(JsonDbPartition *partition);
+    void enableNotificationsByPartition(JsonDbPartition *partition);
 
     JsonDbPartition* findPartition(const QString &partitionName);
     QList<QJsonObject> findPartitionDefinitions() const;
     void updatePartitionDefinition(JsonDbPartition *partition, bool remove = false, bool isDefault = false);
 
-    JsonDbOwner *getOwner( JsonStream *stream);
-    JsonDbOwner *createDummyOwner( JsonStream *stream);
-    void sendError( JsonStream *stream, JsonDbError::ErrorCode code,
-                    const QString& message, int id );
+    JsonDbOwner *getOwner(ClientJsonStream *stream);
+    JsonDbOwner *createDummyOwner(ClientJsonStream *stream);
+    void sendError(ClientJsonStream *stream, JsonDbError::ErrorCode code,
+                   const QString& message, int id);
 
     QHash<QString, JsonDbPartition *> mPartitions;
     JsonDbPartition *mDefaultPartition;
     JsonDbEphemeralPartition *mEphemeralPartition;
-    QMap<QString, JsonDbNotification *> mNotificationMap;
-    QMultiMap<QString, JsonDbNotification *> mKeyedNotifications;
-    class EdgeCount {
-    public:
-        EdgeCount() : count(0){};
-        int count;
-        bool operator >(int val) const { return count > val; }
-        bool operator ==(int val) const { return count == val; }
-        EdgeCount &operator +=(int delta) { count += delta; if (count < 0) count = 0; return *this; }
-    };
-    typedef QHash<QString, EdgeCount>        ViewEdgeWeights;
-    typedef QHash<QString, ViewEdgeWeights>  WeightedSourceViewGraph;
-    QHash<QString, WeightedSourceViewGraph>  mEagerViewSourceGraph; // per partition graph with weighted edges from source to target types
+
     quint16                          mTcpServerPort;
     QLocalServer                    *mServer;
     QTcpServer                      *mTcpServer;
-    QMap<QIODevice*,JsonStream *>    mConnections;
+    QMap<QIODevice*, ClientJsonStream *> mConnections;
     JsonDbOwner                     *mOwner;
 
     // per connection owner info
@@ -165,7 +142,6 @@ private:
         QString      processName;
     };
     QMap<QIODevice*,OwnerInfo>       mOwners;
-    QMap<QString,JsonStream *>       mNotifications; // maps notification Id to socket
     bool mCompactOnClose;
 };
 

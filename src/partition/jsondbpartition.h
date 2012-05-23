@@ -95,13 +95,14 @@ struct Q_JSONDB_PARTITION_EXPORT JsonDbChangesSinceResult {
 
 typedef QList<JsonDbObject> JsonDbObjectList;
 struct Q_JSONDB_PARTITION_EXPORT JsonDbQueryResult {
-    JsonDbQueryResult() : offset(0), state(0), code(JsonDbError::NoError) { }
+    JsonDbQueryResult() : offset(0), state(0), code(JsonDbError::NoError), objectTable(0) { }
     JsonDbObjectList data;
     int offset;
     quint32 state;
     QStringList sortKeys;
     JsonDbError::ErrorCode code;
     QString message;
+    JsonDbObjectTable *objectTable;
 };
 
 class JsonDbPartitionPrivate;
@@ -149,6 +150,9 @@ public:
     JsonDbChangesSinceResult changesSince(quint32 stateNumber, const QSet<QString> &limitTypes = QSet<QString>());
     int flush(bool *ok);
 
+    void addNotification(JsonDbNotification *notification);
+    void removeNotification(JsonDbNotification *notification);
+
     QString name() const;
     void setName(const QString &name);
 
@@ -162,15 +166,12 @@ public:
 public Q_SLOTS:
     void updateView(const QString &objectType, quint32 stateNumber=0);
 
-Q_SIGNALS:
-    void objectsUpdated(bool viewUpdated, const JsonDbUpdateList &objects);
-
 private:
     Q_DECLARE_PRIVATE(JsonDbPartition)
     Q_DISABLE_COPY(JsonDbPartition)
     Q_PRIVATE_SLOT(d_func(), void _q_mainSyncTimer())
     Q_PRIVATE_SLOT(d_func(), void _q_indexSyncTimer())
-
+    Q_PRIVATE_SLOT(d_func(), void _q_objectsUpdated(bool,JsonDbUpdateList))
     QScopedPointer<JsonDbPartitionPrivate> d_ptr;
 
     friend class JsonDbIndexQuery;

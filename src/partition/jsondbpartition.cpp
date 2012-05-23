@@ -113,6 +113,190 @@ JsonDbObjectTable *JsonDbPartitionPrivate::findObjectTable(const QString &object
     return 0;
 }
 
+void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewTypes, const JsonDbUpdateList &changes)
+{
+    QSet<QString> viewTypes(eagerViewTypes);
+    JsonDbUpdateList changeList(changes);
+
+    QSet<QString> viewsUpdated;
+
+    if (jsondbSettings->verbose())
+        qDebug() << "updateEagerViews {" << mObjectTable->stateNumber() << viewTypes;
+
+    while (!viewTypes.isEmpty()) {
+        bool madeProgress = false;
+        foreach (const QString &targetType, viewTypes) {
+            JsonDbView *view = mViews.value(targetType);
+            if (!view) {
+                if (jsondbSettings->verbose())
+                    qWarning() << "non-view viewType?" << targetType << "eager views to update" << viewTypes;
+                viewTypes.remove(targetType);
+                madeProgress = true;
+                continue;
+            }
+            QSet<QString> typesNeeded(view->sourceTypeSet());
+            typesNeeded.intersect(viewTypes);
+            if (!typesNeeded.isEmpty())
+                continue;
+            viewTypes.remove(targetType);
+            QList<JsonDbUpdate> additionalChanges;
+            view->updateEagerView(changeList, &additionalChanges);
+            viewsUpdated.insert(targetType);
+            if (jsondbSettings->verbose())
+                qDebug() << "updated eager view" << targetType << additionalChanges.size() << additionalChanges;
+            changeList.append(additionalChanges);
+            // if this triggers other eager types, we need to update that also
+            if (mEagerViewSourceGraph.contains(targetType)) {
+                const ViewEdgeWeights &edgeWeights = mEagerViewSourceGraph[targetType];
+                for (ViewEdgeWeights::const_iterator it = edgeWeights.begin(); it != edgeWeights.end(); ++it) {
+                    if (it.value() == 0)
+                        continue;
+                    const QString &viewType = it.key();
+                    if (viewsUpdated.contains(viewType))
+                        qWarning() << "View update cycle detected" << targetType << viewType << viewsUpdated;
+                    else
+                        viewTypes.insert(viewType);
+                }
+            }
+
+            madeProgress = true;
+        }
+        if (!madeProgress) {
+            qCritical() << "Failed to update any views" << viewTypes;
+            break;
+        }
+    }
+
+    updateEagerViewStateNumbers();
+    foreach (JsonDbNotification *n, mKeyedNotifications.values()) {
+        if (n && n->lastStateNumber() == mObjectTable->stateNumber())
+            n->notifyStateChange();
+    }
+
+    if (jsondbSettings->verbose())
+        qDebug() << "updateEagerViews }" << mObjectTable->stateNumber() << viewsUpdated;
+}
+
+// Updates the in-memory state numbers on each view so that we know it
+// has seen all relevant updates from this transaction
+void JsonDbPartitionPrivate::updateEagerViewStateNumbers()
+{
+    if (jsondbSettings->verbose())
+        qDebug() << "updateEagerViewStateNumbers" << mPartitionName << mObjectTable->stateNumber() << "{";
+
+    QStringList visitedViews;
+    for (WeightedSourceViewGraph::ConstIterator it = mEagerViewSourceGraph.begin(); it != mEagerViewSourceGraph.end(); ++it) {
+        const ViewEdgeWeights &edgeWeights = it.value();
+        for (ViewEdgeWeights::const_iterator jt = edgeWeights.begin(); jt != edgeWeights.end(); ++jt) {
+            const QString &viewType = jt.key();
+            if (jt.value() == 0)
+                continue;
+            if (visitedViews.contains(viewType))
+                continue;
+            JsonDbView *view = mViews.value(viewType);
+            if (view)
+                view->updateViewStateNumber(mObjectTable->stateNumber());
+            else
+                if (jsondbSettings->debug())
+                    qCritical() << "no view for" << viewType << mPartitionName;
+            visitedViews.append(viewType);
+        }
+    }
+    if (jsondbSettings->verbose())
+        qDebug() << "updateEagerViewStateNumbers" << mPartitionName << mObjectTable->stateNumber() << "}";
+}
+
+void JsonDbPartitionPrivate::notifyHistoricalChanges(JsonDbNotification *n)
+{
+    Q_Q(JsonDbPartition);
+    quint32 stateNumber = n->initialStateNumber();;
+    quint32 lastStateNumber = mObjectTable->stateNumber();
+    JsonDbQuery *parsedQuery = n->parsedQuery();
+    QSet<QString> matchedTypes = parsedQuery->matchedTypes();
+    QList<JsonDbObjectTable*> objectTables;
+
+    if (stateNumber == 0) {
+        JsonDbObject oldObject;
+        JsonDbQueryResult queryRes = q->queryObjects(n->owner(), parsedQuery);
+        foreach (const JsonDbObject &o, queryRes.data) {
+            JsonDbNotification::Action action = JsonDbNotification::Create;
+            n->notifyIfMatches(queryRes.objectTable, oldObject, o, action, lastStateNumber);
+        }
+    } else {
+        foreach (const QString matchedType, matchedTypes) {
+            JsonDbObjectTable *objectTable = findObjectTable(matchedType);
+            if (objectTables.contains(objectTable))
+                continue;
+            objectTables.append(objectTable);
+            QList<JsonDbUpdate> updateList;
+            quint32 objectTableStateNumber = objectTable->changesSince(stateNumber, matchedTypes, &updateList);
+            if (jsondbSettings->verbose() && lastStateNumber != objectTableStateNumber)
+                qDebug() << "old object table for type" << matchedType << objectTableStateNumber << lastStateNumber;
+            foreach (const JsonDbUpdate &update, updateList) {
+                JsonDbObject before = update.oldObject;
+                JsonDbObject after = update.newObject;
+                bool beforeMatch = before.isEmpty() ? false : parsedQuery->match(before, 0, 0);
+                bool afterMatch = after.isDeleted() ? false : parsedQuery->match(after, 0, 0);
+                JsonDbNotification::Action action = JsonDbNotification::Update;
+
+                if (!beforeMatch && !afterMatch)
+                    continue;
+                if (!beforeMatch)
+                    action = JsonDbNotification::Create;
+                else if (!afterMatch)
+                    action = JsonDbNotification::Remove;
+
+                n->notifyIfMatches(objectTable, before, after, action, lastStateNumber);
+            }
+        }
+    }
+    n->notifyStateChange();
+}
+
+/*!
+  Updates the per-partition information on eager views.
+
+  For each partition, we maintain a graph with weighted edges from
+  source types to \a viewType.
+
+  Adds \a increment weight to the edge from each of the source types
+  of the view to the target type.  Call with \a increment of 1 when
+  adding an eager view type, and -1 when removing an eager view type.
+
+  It recursively updates the graph for each source type that is also a
+  view.
+
+  If \a stateNumber is non-zero, do a full update of each the views so
+  that they will be ready for eager updates.
+ */
+void JsonDbPartitionPrivate::updateEagerViewTypes(const QString &viewType, quint32 stateNumber, int increment)
+{
+    Q_Q(JsonDbPartition);
+
+    JsonDbView *view = mViews.value(viewType);
+
+    if (!view)
+        return;
+
+    // An update of the Map/Reduce definition also causes the view to
+    // need to be updated, so we count it as a view source.
+
+    // this is a bit conservative, since we add both Map and Reduce as
+    // sources, but it shortens the code
+    mEagerViewSourceGraph[JsonDbString::kMapTypeStr][viewType] += increment;
+    mEagerViewSourceGraph[JsonDbString::kReduceTypeStr][viewType] += increment;
+    foreach (const QString sourceType, view->sourceTypes()) {
+        mEagerViewSourceGraph[sourceType][viewType] += increment;
+        if (jsondbSettings->verbose())
+            qDebug() << "SourceView" << sourceType << viewType << mEagerViewSourceGraph[sourceType][viewType].count;
+        // now recurse until we get to a non-view sourceType
+        updateEagerViewTypes(sourceType, stateNumber, increment);
+    }
+
+    if (stateNumber)
+        q->updateView(viewType, stateNumber);
+}
+
 void JsonDbPartitionPrivate::_q_mainSyncTimer()
 {
     if (mTransactionDepth)
@@ -143,16 +327,121 @@ void JsonDbPartitionPrivate::_q_indexSyncTimer()
     mIndexSyncTimer->stop();
 }
 
+void JsonDbPartitionPrivate::_q_objectsUpdated(bool viewUpdated, const JsonDbUpdateList &changes)
+{
+    QList<JsonDbUpdate> updatesToEagerViews;
+    QSet<QString> eagerViewTypes;
+    bool foundViewChange = false;
+
+    quint32 partitionStateNumber = mObjectTable->stateNumber();
+
+    if (jsondbSettings->debug())
+        qDebug() << "objectsUpdated" << mPartitionName << partitionStateNumber;
+
+    foreach (const JsonDbUpdate &updated, changes) {
+
+        JsonDbObject oldObject = updated.oldObject;
+        JsonDbObject object = updated.newObject;
+        JsonDbNotification::Action action = updated.action;
+
+        QString oldObjectType = oldObject.type();
+        QString objectType = object.type();
+        quint32 stateNumber = 0;
+
+        JsonDbObjectTable *objectTable = findObjectTable(objectType);
+        stateNumber = objectTable->stateNumber();
+
+        QStringList notificationKeys;
+        if (!oldObjectType.isEmpty() || !objectType.isEmpty()) {
+            notificationKeys << objectType;
+            if (!oldObjectType.isEmpty() && objectType.compare(oldObjectType))
+                notificationKeys << oldObjectType;
+
+            // eagerly update views if this object that was created isn't a view type itself
+            if (jsondbSettings->verbose()) qDebug() << "objectType" << oldObjectType << mEagerViewSourceGraph.contains(oldObjectType) << objectType << mEagerViewSourceGraph.contains(objectType);
+            if (mViews.contains(objectType)) {
+                if (jsondbSettings->verbose()) qDebug() << "foundViewChange" << objectType;
+                foundViewChange = true;
+            } else if ((mEagerViewSourceGraph.contains(oldObjectType))
+                       || (mEagerViewSourceGraph.contains(objectType))) {
+                JsonDbUpdateList updateList;
+                if (oldObjectType == objectType) {
+                    updateList.append(updated);
+                } else {
+                    JsonDbObject tombstone(oldObject);
+                    tombstone.insert(QLatin1String("_deleted"), true);
+                    updateList.append(JsonDbUpdate(oldObject, tombstone, JsonDbNotification::Remove));
+                    updateList.append(JsonDbUpdate(JsonDbObject(), object, JsonDbNotification::Create));
+                }
+                foreach (const JsonDbUpdate &splitUpdate, updateList) {
+                    const QString updatedObjectType = splitUpdate.newObject.type();
+                    const ViewEdgeWeights &edgeWeights = mEagerViewSourceGraph[updatedObjectType];
+                    bool neededUpdate = false;
+                    for (ViewEdgeWeights::const_iterator it = edgeWeights.begin(); it != edgeWeights.end(); ++it) {
+                        if (jsondbSettings->verbose()) qDebug() << "edge weight" << updatedObjectType << it.key() << it.value().count;
+                        if (it.value() > 0) {
+                            eagerViewTypes.insert(it.key());
+                            if (mEagerViewSourceGraph.contains(updatedObjectType)) {
+                                neededUpdate = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (neededUpdate) {
+                        updatesToEagerViews.append(splitUpdate);
+                        break;
+                    }
+                }
+            }
+
+        }
+
+        if (object.contains(JsonDbString::kUuidStr))
+            notificationKeys << object.value(JsonDbString::kUuidStr).toString();
+        notificationKeys << QStringLiteral("__generic_notification__");
+
+        QHash<QString, JsonDbObject> objectCache;
+        for (int i = 0; i < notificationKeys.size(); i++) {
+            QString key = notificationKeys[i];
+            for (QMultiHash<QString, QPointer<JsonDbNotification> >::const_iterator it = mKeyedNotifications.find(key);
+                 (it != mKeyedNotifications.end()) && (it.key() == key);
+                 ++it) {
+                JsonDbNotification *n = it.value();
+                if (n)
+                    n->notifyIfMatches(objectTable, oldObject, object, action, stateNumber);
+            }
+        }
+    }
+
+    if (foundViewChange)
+        Q_ASSERT(viewUpdated);
+    // if there are no non-view object changes, do not update the eager view state numbers
+    if (changes.isEmpty() || viewUpdated) {
+        return;
+    } if (updatesToEagerViews.isEmpty()) {
+        updateEagerViewStateNumbers();
+
+        foreach (JsonDbNotification *n, mKeyedNotifications.values()) {
+            if (n && n->lastStateNumber() == mObjectTable->stateNumber())
+                n->notifyStateChange();
+        }
+    } else {
+        updateEagerViews(eagerViewTypes, updatesToEagerViews);
+    }
+}
+
 JsonDbPartition::JsonDbPartition(const QString &filename, const QString &name, JsonDbOwner *owner, QObject *parent)
     : QObject(parent)
     , d_ptr(new JsonDbPartitionPrivate(this))
 {
     Q_D(JsonDbPartition);
 
+    qRegisterMetaType<QSet<QString> >("QSet<QString>");
+    qRegisterMetaType<JsonDbUpdateList>("JsonDbUpdateList");
+
     d->mPartitionName = name;
     d->mFilename = filename;
     d->mDefaultOwner = owner;
-
 
     if (!d->mFilename.endsWith(QLatin1String(".db")))
         d->mFilename += QLatin1String(".db");
@@ -165,6 +454,7 @@ JsonDbPartition::~JsonDbPartition()
         qCritical() << "JsonDbBtreePartition::~JsonDbBtreePartition"
                     << "closing while transaction open" << "mTransactionDepth" << d->mTransactionDepth;
     }
+
     close();
 }
 
@@ -220,6 +510,7 @@ bool JsonDbPartition::close()
 
     d->mSchemas.clear();
     d->mViewTypes.clear();
+    d->mKeyedNotifications.clear();
 
     foreach (JsonDbView *view, d->mViews.values()) {
         // sync the view object table, its indexes, and their state numbers to prevent reindexing on restart
@@ -461,6 +752,93 @@ int JsonDbPartition::flush(bool *ok)
             return static_cast<int>(d->mObjectTable->stateNumber());
     }
     return -1;
+}
+
+void JsonDbPartition::addNotification(JsonDbNotification *notification)
+{
+    Q_D(JsonDbPartition);
+    if (!d->mIsOpen)
+        return;
+
+    notification->setPartition(this);
+
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = notification->parsedQuery()->queryTerms;
+    const QSet<QString> matchedTypes = notification->parsedQuery()->matchedTypes();
+
+    if (!matchedTypes.isEmpty()) {
+        JsonDbObjectTable *objectTable = 0;
+        foreach (const QString &matchedType, matchedTypes) {
+            JsonDbObjectTable *typeTable = findObjectTable(matchedType);
+            if (!objectTable)
+                objectTable = typeTable;
+            else if (objectTable != typeTable)
+                qWarning() << "Notifications cannot span multiple object tables";
+        }
+
+        notification->setObjectTable(objectTable);
+    }
+
+    bool generic = true;
+    for (int i = 0; i < orQueryTerms.size(); i++) {
+        const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
+        const QList<JsonDbQueryTerm> &terms = orQueryTerm.terms();
+        if (terms.size() == 1) {
+            const JsonDbQueryTerm &term = terms[0];
+            if (term.op() == QLatin1Char('=')) {
+                if (term.propertyName() == JsonDbString::kUuidStr) {
+                    d->mKeyedNotifications.insert(term.value().toString(), notification);
+                    generic = false;
+                    break;
+                } else if (term.propertyName() == JsonDbString::kTypeStr) {
+                    QString objectType = term.value().toString();
+                    d->mKeyedNotifications.insert(objectType, notification);
+                    generic = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (generic)
+        d->mKeyedNotifications.insert(QStringLiteral("__generic_notification__"), notification);
+
+    quint32 stateNumber = notification->initialStateNumber() > -1 ? notification->initialStateNumber() : d->mObjectTable->stateNumber();
+    notification->setInitialStateNumber(stateNumber);
+
+    foreach (const QString &objectType, matchedTypes)
+        d->updateEagerViewTypes(objectType, stateNumber, 1);
+
+    d->notifyHistoricalChanges(notification);
+}
+
+void JsonDbPartition::removeNotification(JsonDbNotification *notification)
+{
+    Q_D(JsonDbPartition);
+    if (!d->mIsOpen)
+        return;
+
+    const JsonDbQuery *parsedQuery = notification->parsedQuery();
+    const QList<JsonDbOrQueryTerm> &orQueryTerms = parsedQuery->queryTerms;
+    for (int i = 0; i < orQueryTerms.size(); i++) {
+        const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
+        const QList<JsonDbQueryTerm> &terms = orQueryTerm.terms();
+        if (terms.size() == 1) {
+            const JsonDbQueryTerm &term = terms[0];
+            if (term.op() == QLatin1Char('=')) {
+                if (term.propertyName() == JsonDbString::kTypeStr) {
+                    d->mKeyedNotifications.remove(term.value().toString(), notification);
+                } else if (term.propertyName() == JsonDbString::kUuidStr) {
+                    QString objectType = term.value().toString();
+                    d->mKeyedNotifications.remove(objectType, notification);
+                }
+            }
+        }
+    }
+
+    d->mKeyedNotifications.remove(QStringLiteral("__generic_notification__"), notification);
+
+    foreach (const QString &objectType, parsedQuery->matchedTypes())
+        d->updateEagerViewTypes(objectType, 0, -1);
 }
 
 bool JsonDbPartitionPrivate::getObject(const QString &uuid, JsonDbObject &object, const QString &objectType, bool includeDeleted) const
@@ -931,12 +1309,15 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     sortKeys.append(indexQuery->propertyName());
     sortKeys.append(indexQuery->objectTable()->filename());
 
-    delete indexQuery;
 
     result.data = results;
     result.offset = offset;
     result.state = stateNumber;
     result.sortKeys = sortKeys;
+    result.objectTable = indexQuery->objectTable();
+
+    delete indexQuery;
+
     int elapsedToDone = time.elapsed();
     if (jsondbSettings->verbose())
         qDebug() << "elapsed" << elapsedToCompile << elapsedToQuery << elapsedToDone << query->query;
@@ -1127,7 +1508,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
         JsonDbNotification::Action action = JsonDbNotification::Update;
         if (forRemoval)
-            action = JsonDbNotification::Delete;
+            action = JsonDbNotification::Remove;
         else if (forCreation)
             action = JsonDbNotification::Create;
 
@@ -1151,7 +1532,8 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
 
     transaction.commit();
 
-    emit objectsUpdated((mode == ViewObject), updated);
+    QMetaObject::invokeMethod(this, "_q_objectsUpdated", Qt::QueuedConnection,
+                              Q_ARG(bool, mode == ViewObject), Q_ARG(JsonDbUpdateList, updated));
     return result;
 }
 

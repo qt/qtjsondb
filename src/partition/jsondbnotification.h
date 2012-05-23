@@ -45,42 +45,56 @@
 #include <QObject>
 #include <QJSValue>
 
+#include "jsondbobject.h"
 #include "jsondbpartitionglobal.h"
 
 QT_BEGIN_HEADER
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
+class JsonDbObjectTable;
 class JsonDbOwner;
+class JsonDbPartition;
 class JsonDbQuery;
-class Q_JSONDB_PARTITION_EXPORT JsonDbNotification {
+class Q_JSONDB_PARTITION_EXPORT JsonDbNotification : public QObject {
+    Q_OBJECT
 public:
-    enum Action { None = 0x0000, Create = 0x0001, Update = 0x0002, Delete = 0x0004 };
+    enum Action { None = 0x0000, Create = 0x0001, Update = 0x0002, Remove = 0x0004, StateChange = 0x0008 };
     Q_DECLARE_FLAGS(Actions, Action)
 
-    JsonDbNotification(const JsonDbOwner *owner, const QString &uuid, const QString &query, QStringList actions, const QString &partition);
+    JsonDbNotification(const JsonDbOwner *owner, JsonDbQuery *query, QStringList actions, qint32 initialStateNumber = -1);
     ~JsonDbNotification();
 
-    const JsonDbOwner *owner() const { return mOwner; }
-    const QString&  uuid() const { return mUuid; }
-    const QString&  query() const { return mQuery; }
-    Actions         actions() const { return mActions; }
-    JsonDbQuery *parsedQuery() const { return mCompiledQuery; }
-    void            setCompiledQuery(JsonDbQuery *parsedQuery) { mCompiledQuery = parsedQuery; }
-    const QString & partition() const { return mPartition; }
-    quint32 initialStateNumber() const { return mInitialStateNumber; }
-    void setInitialStateNumber(quint32 stateNumber) { mInitialStateNumber = stateNumber; }
-    quint32 lastStateNumber() const { return mLastStateNumber; }
-    void setLastStateNumber(quint32 stateNumber) { mLastStateNumber = stateNumber; }
+    void notifyIfMatches(JsonDbObjectTable *objectTable, const JsonDbObject &oldObject, const JsonDbObject &newObject,
+                         Action action, quint32 stateNumber);
+    void notifyStateChange();
+
+    inline const JsonDbOwner *owner() const { return mOwner; }
+    inline Actions actions() const { return mActions; }
+
+    inline JsonDbQuery *parsedQuery() const { return mCompiledQuery; }
+
+    inline JsonDbPartition *partition() const { return mPartition; }
+    inline void setPartition(JsonDbPartition *partition){ mPartition = partition; }
+    inline JsonDbObjectTable *objectTable() const { return mObjectTable; }
+    inline void setObjectTable(JsonDbObjectTable *objectTable) { mObjectTable = objectTable; }
+
+    inline qint32 initialStateNumber() const { return mInitialStateNumber; }
+    inline void setInitialStateNumber(qint32 stateNumber) { mInitialStateNumber = stateNumber; }
+    inline quint32 lastStateNumber() const { return mLastStateNumber; }
+    inline void setLastStateNumber(quint32 stateNumber) { mLastStateNumber = stateNumber; }
+
+Q_SIGNALS:
+    void notified(const QJsonObject &object, quint32 stateNumber, JsonDbNotification::Action action);
+
 private:
     const JsonDbOwner *mOwner;
-    QString       mUuid;
-    QString       mQuery;
     JsonDbQuery *mCompiledQuery;
-    Actions       mActions;
-    QString       mPartition;
-    quint32       mInitialStateNumber;
-    quint32       mLastStateNumber;
+    Actions mActions;
+    JsonDbPartition *mPartition;
+    JsonDbObjectTable *mObjectTable;
+    qint32  mInitialStateNumber;
+    quint32 mLastStateNumber;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(JsonDbNotification::Actions)

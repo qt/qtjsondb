@@ -46,21 +46,23 @@
 #include <QString>
 #include <QStringList>
 
+#include "jsondbindex.h"
+#include "jsondbobjecttable.h"
 #include "jsondbnotification.h"
+#include "jsondbpartition.h"
 #include "jsondbquery.h"
 #include "jsondbstrings.h"
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, const QString &uuid, const QString& query,
-                           QStringList actions, const QString &partition)
+JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, JsonDbQuery *query,
+                                       QStringList actions, qint32 initialStateNumber)
     : mOwner(owner)
-    , mUuid(uuid)
-    , mQuery(query)
-    , mCompiledQuery(NULL)
+    , mCompiledQuery(query)
     , mActions(None)
-    , mPartition(partition)
-    , mInitialStateNumber(0)
+    , mPartition(0)
+    , mObjectTable(0)
+    , mInitialStateNumber(initialStateNumber)
     , mLastStateNumber(0)
 {
     foreach (QString s, actions) {
@@ -68,8 +70,8 @@ JsonDbNotification::JsonDbNotification(const JsonDbOwner *owner, const QString &
             mActions |= Create;
         else if (s == JsonDbString::kUpdateStr)
             mActions |= Update;
-        else if (s == QLatin1String("delete") || s == JsonDbString::kRemoveStr)
-            mActions |= Delete;
+        else if (s == JsonDbString::kRemoveStr)
+            mActions |= Remove;
     }
 }
 JsonDbNotification::~JsonDbNotification()
@@ -79,5 +81,61 @@ JsonDbNotification::~JsonDbNotification()
         mCompiledQuery = 0;
     }
 }
+
+void JsonDbNotification::notifyIfMatches(JsonDbObjectTable *objectTable, const JsonDbObject &oldObject, const JsonDbObject &newObject,
+                                         Action action, quint32 stateNumber)
+{
+    if (objectTable != mObjectTable)
+        return;
+
+    JsonDbNotification::Action effectiveAction = action;
+    JsonDbObject r;
+
+    bool oldMatches = mCompiledQuery->match(oldObject, 0 /* cache */, 0/*mStorage*/);
+    bool newMatches = mCompiledQuery->match(newObject, 0 /* cache */, 0/*mStorage*/);
+
+    if (oldMatches || newMatches)
+        r = newObject;
+    if (!oldMatches && newMatches) {
+        effectiveAction = JsonDbNotification::Create;
+    } else if (oldMatches && (!newMatches || newObject.isDeleted())) {
+        r = oldObject;
+        if (newObject.isDeleted())
+            r.insert(JsonDbString::kDeletedStr, true);
+        effectiveAction = JsonDbNotification::Remove;
+    } else if (oldMatches && newMatches) {
+        effectiveAction = JsonDbNotification::Update;
+    }
+
+    if (!r.isEmpty() &&
+            (mActions & effectiveAction) &&
+            mOwner->isAllowed(r, mPartition ? mPartition->name() : QString(), QStringLiteral("read"))) {
+
+        // FIXME: looking up of _indexValue should be encapsulated in JsonDbPartition
+        if (mPartition && !mCompiledQuery->orderTerms.isEmpty()) {
+            const QString &indexName = mCompiledQuery->orderTerms[0].propertyName;
+            QString objectType = r.type();
+            JsonDbObjectTable *objectTable = mPartition->findObjectTable(objectType);
+            JsonDbIndex *index = objectTable->index(indexName);
+            if (index) {
+                QList<QJsonValue> indexValues = index->indexValues(r);
+                if (!indexValues.isEmpty())
+                    r.insert(JsonDbString::kIndexValueStr, indexValues.at(0));
+            }
+        }
+
+        emit notified(r, stateNumber, effectiveAction);
+        mLastStateNumber = stateNumber;
+    }
+}
+
+void JsonDbNotification::notifyStateChange()
+{
+    QJsonObject stateChange;
+    stateChange.insert(QStringLiteral("_state"), static_cast<int>(mLastStateNumber));
+    emit notified(stateChange, mLastStateNumber, StateChange);
+}
+
+#include "moc_jsondbnotification.cpp"
 
 QT_END_NAMESPACE_JSONDB_PARTITION
