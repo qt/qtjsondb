@@ -168,7 +168,6 @@ void InputThread::run()
     history(hist, &ev, H_LOAD, historyFile.toLocal8Bit().constData());
     el_set(el, EL_HIST, history, hist);
     el_set(el, EL_BIND, "\t", "tab-key", NULL);
-
     while (true) {
         line = el_gets(el, &count);
 
@@ -493,6 +492,8 @@ bool Client::processCommand(const QString &command)
             connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
             connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
         }
+        connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+            this, SLOT(popRequest()));
         connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                 this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
         pushRequest(request);
