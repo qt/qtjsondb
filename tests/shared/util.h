@@ -52,6 +52,10 @@
 #include <qjsonarray.h>
 #include <qjsonobject.h>
 
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
+
 inline QString findFile(const QString &filename)
 {
     QString file = ":/json/" + filename;

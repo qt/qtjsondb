@@ -59,6 +59,10 @@
 #include <pwd.h>
 #include <signal.h>
 
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
+
 QT_USE_NAMESPACE_JSONDB
 
 inline static const QString typeStr() { return QStringLiteral("_type"); }

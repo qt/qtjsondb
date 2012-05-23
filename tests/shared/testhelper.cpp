@@ -51,6 +51,10 @@
 #include <QTimer>
 #include <QJsonArray>
 
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
+
 QT_USE_NAMESPACE_JSONDB
 
 TestHelper::TestHelper(QObject *parent) :
