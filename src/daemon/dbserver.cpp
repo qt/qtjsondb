@@ -471,12 +471,23 @@ void DBServer::processWrite(ClientJsonStream *stream, JsonDbOwner *owner, const 
     QString errorMsg;
 
     if (partitionName == mEphemeralPartition->name()) {
-        // validate any notification objects before sending them off to be created
+        // prevent objects of type Partition from being created
         foreach (const JsonDbObject &object, objects) {
-            if (object.type() == JsonDbString::kNotificationTypeStr && !object.isDeleted()) {
-                errorCode = validateNotification(object, errorMsg);
-                if (errorCode != JsonDbError::NoError)
-                    break;
+            if (object.type() == JsonDbString::kPartitionTypeStr && !object.isDeleted()) {
+                errorCode = JsonDbError::OperationNotPermitted;
+                errorMsg = QStringLiteral("Cannot create object of type 'Partition' in the ephemeral partition");
+                break;
+            }
+        }
+
+        if (errorCode == JsonDbError::NoError) {
+            // validate any notification objects before sending them off to be created
+            foreach (const JsonDbObject &object, objects) {
+                if (object.type() == JsonDbString::kNotificationTypeStr && !object.isDeleted()) {
+                    errorCode = validateNotification(object, errorMsg);
+                    if (errorCode != JsonDbError::NoError)
+                        break;
+                }
             }
         }
     }
