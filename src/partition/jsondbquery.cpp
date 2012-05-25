@@ -590,6 +590,10 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "contains" << termValue
                                 << objectFieldValue.toArray().contains(termValue);
                 matches = objectFieldValue.toArray().contains(termValue);
+            } else if (op == QLatin1String("notContains")) {
+                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "notContains" << termValue
+                                << !objectFieldValue.toArray().contains(termValue);
+                matches = !objectFieldValue.toArray().contains(termValue);
             } else if (op == QLatin1String("startsWith")) {
                 matches = (objectFieldValue.type() == QJsonValue::String
                            && objectFieldValue.toString().startsWith(termValue.toString()));
@@ -654,9 +658,10 @@ QList<QString> JsonDbOrQueryTerm::findUnindexablePropertyNames() const
         const QString propertyName = term.propertyName();
         const QString op = term.op();
         // notExists is unindexable because there would be no value to index
-        // contains is unindexable because JsonDbIndex does not support array values
+        // contains and notContains are unindexable because JsonDbIndex does not support array values
         if ((op == QLatin1String("notExists")
-             || op == QLatin1String("contains"))
+             || op == QLatin1String("contains")
+             || op == QLatin1String("notContains"))
              && !unindexablePropertyNames.contains(propertyName))
             unindexablePropertyNames.append(propertyName);
         // if multiple properties are access in an disjunction ("|") then we cannot use an index on it

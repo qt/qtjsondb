@@ -3262,6 +3262,18 @@ void TestPartition::findInContains()
         verifyGoodQueryResult(queryResult);
     }
 
+    queries = (QStringList()
+                           << "[?stringlist notContains \"fredware\"]"
+                           << "[?intlist notContains 24]"
+                           << "[?str notIn [\"fredware\", \"barneyfriend\"]]"
+                           << "[?i notIn [\"11\", \"24\"]]"
+        );
+
+    foreach (QString q, queries) {
+        JsonDbQueryResult queryResult = find(mOwner, q);
+        verifyGoodQueryResult(queryResult);
+    }
+
     mJsonDbPartition->d_func()->removeIndex("stringlist");
     mJsonDbPartition->d_func()->removeIndex("intlist");
     mJsonDbPartition->d_func()->removeIndex("str");
