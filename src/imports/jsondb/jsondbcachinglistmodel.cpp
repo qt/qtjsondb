@@ -1178,6 +1178,11 @@ void JsonDbCachingListModelPrivate::partitions_append(QQmlListProperty<JsonDbPar
 {
     JsonDbCachingListModel *q = qobject_cast<JsonDbCachingListModel *>(p->object);
     JsonDbCachingListModelPrivate *pThis = (q) ? q->d_func() : 0;
+    if (!v) {
+        qWarning("Invalid partition object");
+        return;
+    }
+
     if (pThis) {
         pThis->appendPartition(v);
     }

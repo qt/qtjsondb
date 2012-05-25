@@ -573,6 +573,11 @@ void JsonDbSortingListModelPrivate::partitions_append(QQmlListProperty<JsonDbPar
 {
     JsonDbSortingListModel *q = qobject_cast<JsonDbSortingListModel *>(p->object);
     JsonDbSortingListModelPrivate *pThis = (q) ? q->d_func() : 0;
+    if (!v) {
+        qWarning("Invalid partition object");
+        return;
+    }
+
     if (pThis) {
         pThis->appendPartition(v);
     }
