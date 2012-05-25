@@ -99,6 +99,8 @@ public:
     const QString &workingDirectory() const { return mWorkingDirectory; }
     void setWorkingDirectory(const QString &workingDirectory) { mWorkingDirectory = workingDirectory; }
 
+    void clearHelperData();
+
 protected:
     QProcess *mProcess;
     QtJsonDb::QJsonDbConnection *mConnection;

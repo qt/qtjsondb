@@ -60,6 +60,7 @@
 #include "qjsondbwatcher.h"
 #include "qjsondbwriterequest.h"
 #include "private/qjsondbstrings_p.h"
+#include "private/qjsondbstandardpaths_p.h"
 
 #include "testhelper.h"
 
@@ -103,6 +104,7 @@ TestQJsonDbWatcher::~TestQJsonDbWatcher()
 
 void TestQJsonDbWatcher::initTestCase()
 {
+    QJsonDbStandardPaths::setAutotestMode(true);
     removeDbFiles();
 
     QStringList arg_list = QStringList() << "-validate-schemas";
@@ -117,6 +119,7 @@ void TestQJsonDbWatcher::cleanupTestCase()
 
 void TestQJsonDbWatcher::init()
 {
+    clearHelperData();
     connectToServer();
 }
 
@@ -799,7 +802,7 @@ void TestQJsonDbWatcher::privatePartition()
     // watchers are not supported on private partitions, so it should fail
     QJsonDbWatcher privateWatcher;
     privateWatcher.setQuery("[?_type=\"foo\"]");
-    privateWatcher.setPartition(QString::fromLatin1("%1.Private").arg(QString::fromLatin1(qgetenv("USER"))));
+    privateWatcher.setPartition(QString::fromLatin1("%1.Private").arg(QJsonDbStandardPaths::currentUser()));
     QVERIFY(!mConnection->addWatcher(&privateWatcher));
 }
 

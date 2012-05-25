@@ -43,6 +43,7 @@
 #include "qjsondbobject.h"
 #include "qjsondbreadrequest.h"
 #include "qjsondbwriterequest.h"
+#include "private/qjsondbstandardpaths_p.h"
 #include "testhelper.h"
 
 #include <QDebug>
@@ -96,6 +97,7 @@ private slots:
     void updateRequest();
     void privatePartition();
     void privatePartition2();
+    void privatePartitions();
     void invalidPrivatePartition();
     void removeRequest();
     void forced();
@@ -110,6 +112,7 @@ private:
 
 void TestQJsonDbRequest::initTestCase()
 {
+    QJsonDbStandardPaths::setAutotestMode(true);
     removeDbFiles();
 
     QStringList arg_list = QStringList() << "-validate-schemas";
@@ -123,21 +126,12 @@ void TestQJsonDbRequest::cleanupTestCase()
     QFile partitionsFile(QFileInfo(QFINDTESTDATA("partitions.json")).absoluteDir().absoluteFilePath(QLatin1String("partitions-test.json")));
     partitionsFile.remove();
 
-    struct passwd *pwd = getpwnam(qgetenv("USER"));
-    if (pwd) {
-        QDir homePartition(QString::fromLatin1("%1/.jsondb").arg(QString::fromUtf8(pwd->pw_dir)));
-        foreach (const QString &file, homePartition.entryList(QStringList() << QLatin1String("*.db")))
-            QFile::remove(homePartition.absoluteFilePath(file));
-
-        homePartition.cdUp();
-        homePartition.rmdir(QStringLiteral(".jsondb"));
-    }
-
     stopDaemon();
 }
 
 void TestQJsonDbRequest::init()
 {
+    clearHelperData();
     connectToServer();
 }
 
@@ -826,7 +820,7 @@ void TestQJsonDbRequest::privatePartition()
     QJsonDbWriteRequest write;
     write.setObjects(QList<QJsonObject>() << contact1 << contact2);
     // use the explicit form of the private partition (with full username)
-    write.setPartition(QString::fromLatin1("%1.Private").arg(QString::fromLatin1(qgetenv("USER"))));
+    write.setPartition(QString::fromLatin1("%1.Private").arg(QJsonDbStandardPaths::currentUser()));
     mConnection->send(&write);
     QVERIFY(waitForResponse(&write));
     QVERIFY(!mRequestErrors.contains(&write));
@@ -879,7 +873,7 @@ void TestQJsonDbRequest::privatePartition()
     QCOMPARE(results[0].value(QStringLiteral("name")).toString(), contact2.value(QStringLiteral("name")).toString());
 
     // switch
-    query.setPartition(QString::fromLatin1("%1.Private").arg(QString::fromLatin1(qgetenv("USER"))));
+    query.setPartition(QString::fromLatin1("%1.Private").arg(QJsonDbStandardPaths::currentUser()));
     write.setPartition(QStringLiteral("Private"));
 
     contact2.insert(QStringLiteral("_deleted"), true);
@@ -935,6 +929,57 @@ void TestQJsonDbRequest::privatePartition2()
     QCOMPARE((int)statuses.at(0), (int)QJsonDbRequest::Sent);
     QCOMPARE((int)statuses.at(1), (int)QJsonDbRequest::Receiving);
     QCOMPARE((int)statuses.at(2), (int)QJsonDbRequest::Finished);
+}
+
+void TestQJsonDbRequest::privatePartitions()
+{
+    QJsonDbObject contact1;
+    contact1.insert(QStringLiteral("_uuid"), QStringLiteral("{9a57c619-fa16-4259-acf5-7d670f59674f}"));
+    contact1.insert(QStringLiteral("_type"), QStringLiteral("privatePartitions"));
+    contact1.insert(QStringLiteral("name"), QStringLiteral("Joe"));
+    QJsonDbObject contact2;
+    contact2.insert(QStringLiteral("_type"), QStringLiteral("privatePartitions"));
+    contact2.insert(QStringLiteral("_uuid"), QStringLiteral("{d87707c5-71ae-4524-813e-4dd9dda55a87}"));
+    contact2.insert(QStringLiteral("name"), QStringLiteral("Alice"));
+
+    QJsonDbWriteRequest write1;
+    write1.setObjects(QList<QJsonObject>() << contact1);
+    write1.setPartition(QStringLiteral("joe.Private"));
+    mConnection->send(&write1);
+    QVERIFY(waitForResponse(&write1));
+
+    QJsonDbWriteRequest write2;
+    write2.setObjects(QList<QJsonObject>() << contact2);
+    write2.setPartition(QStringLiteral("alice.Private"));
+    mConnection->send(&write2);
+    QVERIFY(waitForResponse(&write2));
+
+    {
+        QJsonDbReadRequest read(QStringLiteral("[?_type=\"privatePartitions\"]"));
+        read.setPartition(QStringLiteral("Private"));
+        mConnection->send(&read);
+        QVERIFY(waitForResponse(&read));
+        QList<QJsonObject> results = read.takeResults();
+        QCOMPARE(results.size(), 0);
+    }
+    {
+        QJsonDbReadRequest read(QStringLiteral("[?_type=\"privatePartitions\"]"));
+        read.setPartition(QStringLiteral("alice.Private"));
+        mConnection->send(&read);
+        QVERIFY(waitForResponse(&read));
+        QList<QJsonObject> results = read.takeResults();
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).value(QStringLiteral("name")).toString(), QLatin1String("Alice"));
+    }
+    {
+        QJsonDbReadRequest read(QStringLiteral("[?_type=\"privatePartitions\"]"));
+        read.setPartition(QStringLiteral("joe.Private"));
+        mConnection->send(&read);
+        QVERIFY(waitForResponse(&read));
+        QList<QJsonObject> results = read.takeResults();
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).value(QStringLiteral("name")).toString(), QLatin1String("Joe"));
+    }
 }
 
 void TestQJsonDbRequest::invalidPrivatePartition()

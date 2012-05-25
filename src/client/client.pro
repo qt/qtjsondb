@@ -36,6 +36,7 @@ HEADERS += \
     qjsondbwatcher.h \
     qjsondbobject.h \
     qjsondbprivatepartition_p.h \
+    qjsondbstandardpaths_p.h \
     qjsondblogrequest_p.h \
     qjsondblogrequest_p_p.h
 
@@ -48,6 +49,7 @@ SOURCES += \
     qjsondbwatcher.cpp \
     qjsondbobject.cpp \
     qjsondbprivatepartition.cpp \
+    qjsondbstandardpaths.cpp \
     qjsondblogrequest.cpp
 
 mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondb.name

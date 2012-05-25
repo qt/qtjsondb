@@ -436,21 +436,12 @@ void TestJsonDbClient::cleanupTestCase()
 
     removeDbFiles();
 
-    struct passwd *pwd = getpwnam(qgetenv("USER"));
-    if (pwd) {
-        QDir homePartition(QString::fromLatin1("%1/.jsondb").arg(QString::fromUtf8(pwd->pw_dir)));
-        foreach (const QString &file, homePartition.entryList())
-            QFile::remove(homePartition.absoluteFilePath(file));
-
-        homePartition.cdUp();
-        homePartition.rmpath(QStringLiteral(".jsondb"));
-    }
-
     stopDaemon();
 }
 
 void TestJsonDbClient::init()
 {
+    clearHelperData();
     connectToServer();
 }
 

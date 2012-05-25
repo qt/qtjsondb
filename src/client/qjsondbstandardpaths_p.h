@@ -39,8 +39,8 @@
 **
 ****************************************************************************/
 
-#ifndef QJSONDB_PRIVATE_PARTITION_P_H
-#define QJSONDB_PRIVATE_PARTITION_P_H
+#ifndef QJSONDB_STANDARD_PATHS_P_H
+#define QJSONDB_STANDARD_PATHS_P_H
 
 //
 //  W A R N I N G
@@ -53,50 +53,25 @@
 // We mean it.
 //
 
-#include <QJsonObject>
-#include <QObject>
+#include <QString>
 
 #include "qjsondbglobal.h"
-#include "qjsondbrequest.h"
-#include <QtJsonDbPartition/jsondbpartitionglobal.h>
 
 QT_BEGIN_HEADER
 
-QT_BEGIN_NAMESPACE_JSONDB_PARTITION
-class JsonDbOwner;
-class JsonDbPartition;
-QT_END_NAMESPACE_JSONDB_PARTITION
-
 QT_BEGIN_NAMESPACE_JSONDB
 
-class QJsonDbConnectionPrivate;
-
-class Q_JSONDB_EXPORT QJsonDbPrivatePartition : public QObject
+class Q_JSONDB_EXPORT QJsonDbStandardPaths
 {
-    Q_OBJECT
 public:
-    QJsonDbPrivatePartition(QJsonDbConnectionPrivate *conn);
-    ~QJsonDbPrivatePartition();
+    static QString homePath(const QString &user);
+    static QString currentUser();
 
-public Q_SLOTS:
-    void handleRequest(const QJsonObject &request);
-
-Q_SIGNALS:
-    void readRequestStarted(int requestId, quint32 state, const QString &sortKey);
-    void writeRequestStarted(int requestId, quint32 state);
-    void resultsAvailable(int requestId, const QList<QJsonObject> &results);
-    void finished(int requestId);
-    void error(int requestId, QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
-
-private:
-    QtJsonDb::QJsonDbRequest::ErrorCode ensurePartition(const QString &partitionName, QString &message);
-
-    QJsonDbConnectionPrivate *connection;
-    Partition::JsonDbOwner *partitionOwner;
-    Partition::JsonDbPartition *privatePartition;
+    static void setAutotestMode(bool value);
 };
 
 QT_END_NAMESPACE_JSONDB
 
 QT_END_HEADER
-#endif // QJSONDB_PRIVATE_PARTITION_P_H
+
+#endif // QJSONDB_STANDARD_PATHS_P_H

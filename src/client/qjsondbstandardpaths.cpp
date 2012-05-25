@@ -39,64 +39,42 @@
 **
 ****************************************************************************/
 
-#ifndef QJSONDB_PRIVATE_PARTITION_P_H
-#define QJSONDB_PRIVATE_PARTITION_P_H
+#include "private/qjsondbstandardpaths_p.h"
 
-//
-//  W A R N I N G
-//  -------------
-//
-// This file is not part of the QtJsonDb API.  It exists purely as an
-// implementation detail.  This header file may change from version to
-// version without notice, or even be removed.
-//
-// We mean it.
-//
+#include <QtCore/qdir.h>
 
-#include <QJsonObject>
-#include <QObject>
-
-#include "qjsondbglobal.h"
-#include "qjsondbrequest.h"
-#include <QtJsonDbPartition/jsondbpartitionglobal.h>
-
-QT_BEGIN_HEADER
-
-QT_BEGIN_NAMESPACE_JSONDB_PARTITION
-class JsonDbOwner;
-class JsonDbPartition;
-QT_END_NAMESPACE_JSONDB_PARTITION
+#include <pwd.h>
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-class QJsonDbConnectionPrivate;
+static bool qtjsondb_autotestMode = false;
 
-class Q_JSONDB_EXPORT QJsonDbPrivatePartition : public QObject
+QString QJsonDbStandardPaths::homePath(const QString &user)
 {
-    Q_OBJECT
-public:
-    QJsonDbPrivatePartition(QJsonDbConnectionPrivate *conn);
-    ~QJsonDbPrivatePartition();
+    if (qtjsondb_autotestMode) {
+        if (user == QLatin1String("userthatdoesnotexist"))
+            return QString();
+        return QDir::homePath() + QLatin1String("/.qttest/qtjsondb/") + user;
+    }
 
-public Q_SLOTS:
-    void handleRequest(const QJsonObject &request);
+    struct passwd *pwd = getpwnam(user.toLatin1().constData()); // not thread-safe!
+    if (!pwd)
+        return QString();
 
-Q_SIGNALS:
-    void readRequestStarted(int requestId, quint32 state, const QString &sortKey);
-    void writeRequestStarted(int requestId, quint32 state);
-    void resultsAvailable(int requestId, const QList<QJsonObject> &results);
-    void finished(int requestId);
-    void error(int requestId, QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
+    return QString::fromUtf8(pwd->pw_dir);
+}
 
-private:
-    QtJsonDb::QJsonDbRequest::ErrorCode ensurePartition(const QString &partitionName, QString &message);
+QString QJsonDbStandardPaths::currentUser()
+{
+    if (qtjsondb_autotestMode)
+        return QStringLiteral("fakeroot");
+    return QString::fromLatin1(qgetenv("USER"));
+}
 
-    QJsonDbConnectionPrivate *connection;
-    Partition::JsonDbOwner *partitionOwner;
-    Partition::JsonDbPartition *privatePartition;
-};
+void QJsonDbStandardPaths::setAutotestMode(bool value)
+{
+    qtjsondb_autotestMode = value;
+}
+
 
 QT_END_NAMESPACE_JSONDB
-
-QT_END_HEADER
-#endif // QJSONDB_PRIVATE_PARTITION_P_H

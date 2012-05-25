@@ -179,6 +179,7 @@ void ClientBenchmark::cleanupTestCase()
 
 void ClientBenchmark::init()
 {
+    clearHelperData();
     connectToServer();
 }
 

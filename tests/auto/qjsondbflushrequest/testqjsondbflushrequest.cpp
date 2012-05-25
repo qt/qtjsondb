@@ -81,6 +81,7 @@ void TestQJsonDbFlushRequest::cleanupTestCase()
 
 void TestQJsonDbFlushRequest::init()
 {
+    clearHelperData();
     connectToServer();
 }
 

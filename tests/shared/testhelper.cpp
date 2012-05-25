@@ -268,10 +268,23 @@ void TestHelper::removeDbFiles(const QStringList &additionalFiles)
     if (dontLaunch())
         return;
 
-    QStringList files = QDir().entryList(QStringList() << QLatin1String("*.db"));
+    QStringList files = QDir().entryList(QStringList() << QStringLiteral("*.db"));
     files << additionalFiles;
     foreach (const QString &fileName, files)
         QFile::remove(fileName);
+
+    QDir privatePartitionsDir = QDir::home();
+    if (privatePartitionsDir.cd(QStringLiteral(".qttest")) && privatePartitionsDir.cd(QStringLiteral("qtjsondb"))) {
+        QStringList subdirs = privatePartitionsDir.entryList(QDir::NoDotAndDotDot | QDir::Dirs);
+        foreach (const QString &subdirName, subdirs) {
+            QDir subdir = privatePartitionsDir;
+            subdir.cd(subdirName);
+            subdir.cd(QStringLiteral(".jsondb"));
+            QStringList files = subdir.entryList(QStringList() << QStringLiteral("*.db"));
+            foreach (const QString &filename, files)
+                subdir.remove(filename);
+        }
+    }
 }
 
 bool TestHelper::waitForResponse(QJsonDbRequest *request)
@@ -541,4 +554,12 @@ void TestHelper::timeout()
     qCritical() << "A timeout occurred";
 }
 
-
+void TestHelper::clearHelperData()
+{
+    mNotificationsReceived = 0;
+    mNotificationsExpected = 0;
+    mLastStateChangedExpected = 0;
+    mLastStateChangedReceived = 0;
+    mRequestErrors.clear();
+    mRequestStatuses.clear();
+}
