@@ -317,14 +317,14 @@ void QJsonDbConnectionPrivate::handlePrivatePartitionRequest(const QJsonObject &
 {
     Q_Q(QJsonDbConnection);
 
-    if (!privatePartitionProcessing) {
-        privatePartitionProcessing = new QThread(q);
-        privatePartitionProcessing->start();
-    }
+    if (!privatePartitionProcessing.isRunning())
+        privatePartitionProcessing.start();
 
     if (!privatePartitionHandler) {
-        privatePartitionHandler = new QJsonDbPrivatePartition(this);
-        privatePartitionHandler->moveToThread(privatePartitionProcessing);
+        privatePartitionHandler = new QJsonDbPrivatePartition;
+        privatePartitionHandler->moveToThread(&privatePartitionProcessing);
+        QObject::connect(&privatePartitionProcessing, SIGNAL(finished()),
+                         privatePartitionHandler, SLOT(deleteLater()));
         QObject::connect(privatePartitionHandler, SIGNAL(readRequestStarted(int,quint32,QString)),
                          q, SLOT(_q_privateReadRequestStarted(int,quint32,QString)));
         QObject::connect(privatePartitionHandler, SIGNAL(writeRequestStarted(int,quint32)),
@@ -595,13 +595,9 @@ void QJsonDbConnection::disconnectFromServer()
     d->explicitDisconnect = true;
     d->socket->disconnectFromServer();
 
-    if (d->privatePartitionProcessing) {
-        d->privatePartitionProcessing->quit();
-        d->privatePartitionProcessing->wait();
-        delete d->privatePartitionProcessing;
-        d->privatePartitionProcessing = 0;
-        delete d->privatePartitionHandler;
-        d->privatePartitionHandler = 0;
+    if (d->privatePartitionProcessing.isRunning()) {
+        d->privatePartitionProcessing.quit();
+        d->privatePartitionProcessing.wait();
     }
 }
 

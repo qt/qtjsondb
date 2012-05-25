@@ -118,7 +118,7 @@ public:
     QList<QWeakPointer<QJsonDbRequest> > pendingRequests;
 
     QMap<QString, QWeakPointer<QJsonDbWatcher> > watchers; // uuid->watcher map
-    QThread *privatePartitionProcessing;
+    QThread privatePartitionProcessing;
     QJsonDbPrivatePartition *privatePartitionHandler;
 };
 

@@ -54,8 +54,8 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-QJsonDbPrivatePartition::QJsonDbPrivatePartition(QJsonDbConnectionPrivate *conn) :
-    connection(conn), partitionOwner(0), privatePartition(0)
+QJsonDbPrivatePartition::QJsonDbPrivatePartition(QObject *parent)
+    : QObject(parent), partitionOwner(0), privatePartition(0)
 {
 }
 

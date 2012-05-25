@@ -75,7 +75,7 @@ class Q_JSONDB_EXPORT QJsonDbPrivatePartition : public QObject
 {
     Q_OBJECT
 public:
-    QJsonDbPrivatePartition(QJsonDbConnectionPrivate *conn);
+    QJsonDbPrivatePartition(QObject *parent = 0);
     ~QJsonDbPrivatePartition();
 
 public Q_SLOTS:
@@ -91,7 +91,6 @@ Q_SIGNALS:
 private:
     QtJsonDb::QJsonDbRequest::ErrorCode ensurePartition(const QString &partitionName, QString &message);
 
-    QJsonDbConnectionPrivate *connection;
     Partition::JsonDbOwner *partitionOwner;
     Partition::JsonDbPartition *privatePartition;
 };
