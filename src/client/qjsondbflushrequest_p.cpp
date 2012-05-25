@@ -123,9 +123,7 @@ void QJsonDbFlushRequestPrivate::handleResponse(const QJsonObject &response)
 
 void QJsonDbFlushRequestPrivate::handleError(int code, const QString &message)
 {
-    Q_Q(QJsonDbFlushRequest);
-    setStatus(QJsonDbRequest::Error);
-    emit q->error(QJsonDbRequest::ErrorCode(code), message);
+    setError(QJsonDbRequest::ErrorCode(code), message);
 }
 
 #include "moc_qjsondbflushrequest_p.cpp"

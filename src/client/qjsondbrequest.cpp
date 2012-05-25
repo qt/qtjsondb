@@ -160,6 +160,18 @@ void QJsonDbRequestPrivate::setStatus(QJsonDbRequest::Status newStatus)
     }
 }
 
+void QJsonDbRequestPrivate::setError(QJsonDbRequest::ErrorCode errorCode, const QString &errorString)
+{
+    Q_Q(QJsonDbRequest);
+    lastError = errorCode;
+    lastErrorString = errorString;
+    if (status != QJsonDbRequest::Error) {
+        status = QJsonDbRequest::Error;
+        emit q->statusChanged(status);
+    }
+    emit q->error(errorCode, errorString);
+}
+
 void QJsonDbRequestPrivate::setRequestId(int id)
 {
     Q_Q(QJsonDbRequest);
@@ -225,6 +237,24 @@ bool QJsonDbRequest::isActive() const
         return false;
     }
     return false;
+}
+
+/*!
+    Returns the type of error that last occurred.
+*/
+QJsonDbRequest::ErrorCode QJsonDbRequest::error() const
+{
+    Q_D(const QJsonDbRequest);
+    return d->lastError;
+}
+
+/*!
+    Returns the description of an error that last occurred.
+*/
+QString QJsonDbRequest::errorString() const
+{
+    Q_D(const QJsonDbRequest);
+    return d->lastErrorString;
 }
 
 /*!

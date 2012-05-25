@@ -113,9 +113,7 @@ void QJsonDbLogRequestPrivate::handleResponse(const QJsonObject &response)
 
 void QJsonDbLogRequestPrivate::handleError(int code, const QString &message)
 {
-    Q_Q(QJsonDbLogRequest);
-    setStatus(QJsonDbRequest::Error);
-    emit q->error(QJsonDbRequest::ErrorCode(code), message);
+    setError(QJsonDbRequest::ErrorCode(code), message);
 }
 
 #include "moc_qjsondblogrequest_p.cpp"

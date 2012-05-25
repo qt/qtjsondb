@@ -102,6 +102,7 @@ private slots:
     void bindings();
     void replaceFromNull();
     void multiplerequests();
+    void lastError();
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
@@ -1207,6 +1208,18 @@ void TestQJsonDbRequest::bindings()
         results = request.takeResults();
         QCOMPARE(results.size(), 0);
     }
+}
+
+void TestQJsonDbRequest::lastError()
+{
+    QJsonDbObject item;
+    item.insert(QStringLiteral("foo"), QStringLiteral("bar"));
+    QJsonDbCreateRequest write(item);
+    mConnection->send(&write);
+    waitForResponse(&write);
+    QCOMPARE((int)mRequestErrors[&write], (int)QJsonDbRequest::MissingType);
+    QCOMPARE((int)write.error(), (int)QJsonDbRequest::MissingType);
+    QCOMPARE(write.errorString(), QLatin1String("Missing '_type' field in object"));
 }
 
 QTEST_MAIN(TestQJsonDbRequest)

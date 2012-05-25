@@ -210,8 +210,7 @@ void QJsonDbConnectionPrivate::_q_onDisconnected()
     Q_Q(QJsonDbConnection);
     if (currentRequest) {
         QJsonDbRequestPrivate *drequest = currentRequest.data()->d_func();
-        drequest->setStatus(QJsonDbRequest::Error);
-        emit currentRequest.data()->error(QJsonDbRequest::DatabaseConnectionError, QString());
+        drequest->setError(QJsonDbRequest::DatabaseConnectionError, QString());
         pendingRequests.prepend(currentRequest);
         currentRequest.clear();
     }
@@ -456,8 +455,7 @@ void QJsonDbConnectionPrivate::_q_privateRequestError(int requestId, QtJsonDb::Q
         QJsonDbRequest *request = currentRequest.data();
         QJsonDbRequestPrivate *drequest = request->d_func();
         if (drequest->requestId == requestId) {
-            drequest->setStatus(QJsonDbRequest::Error);
-            emit request->error(code, message);
+            drequest->setError(code, message);
             currentRequest.clear();
         }
     }
