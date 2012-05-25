@@ -47,6 +47,10 @@
 #include <QtCore/QString>
 #include <QtCore/QChar>
 
+#define JSONDB_INFO "[+" << __FUNCTION__ << "]"
+#define JSONDB_WARN "[-" << __FUNCTION__ << "]"
+#define JSONDB_ERROR "[!" << __FUNCTION__ << "]"
+
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
 inline bool operator==(const QString &str, QChar c)

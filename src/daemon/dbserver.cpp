@@ -53,6 +53,7 @@
 #include "jsondbsocketname_p.h"
 #include "jsondbqueryparser.h"
 #include "dbserver.h"
+#include "private/jsondbutils_p.h"
 
 #ifdef Q_OS_UNIX
 #include <sys/socket.h>
@@ -77,13 +78,12 @@ void DBServer::sendError(ClientJsonStream *stream, JsonDbError::ErrorCode code,
 
     stream->send(map);
 
-    QString processName;
     if (jsondbSettings->verboseErrors()) {
         if (mOwners.contains(stream->device())) {
             OwnerInfo &ownerInfo = mOwners[stream->device()];
-            qDebug() << "Error for pid" << ownerInfo.pid << ownerInfo.processName << "error.code" << code << message;
+            qDebug() << JSONDB_ERROR << "error for pid" << ownerInfo.pid << ownerInfo.processName << "error.code" << code << message;
         } else
-            qDebug() << "Client error" << map;
+            qDebug() << JSONDB_ERROR << "client error" << map;
     }
 }
 
@@ -129,28 +129,28 @@ DBServer::~DBServer()
 void DBServer::sigHUP()
 {
     if (jsondbSettings->debug())
-        qDebug() << "SIGHUP received";
+        qDebug() << JSONDB_INFO << "SIGHUP received";
     loadPartitions();
 }
 
 void DBServer::sigTERM()
 {
     if (jsondbSettings->debug())
-        qDebug() << "SIGTERM received";
+        qDebug() << JSONDB_INFO << "SIGTERM received";
     close();
 }
 
 void DBServer::sigINT()
 {
     if (jsondbSettings->debug())
-        qDebug() << "SIGINT received";
+        qDebug() << JSONDB_INFO << "SIGINT received";
     close();
 }
 
 void DBServer::sigUSR1()
 {
     if (jsondbSettings->debug())
-        qDebug() << "SIGUSR1 received";
+        qDebug() << JSONDB_INFO << "SIGUSR1 received";
     reduceMemoryUsage();
     closeIndexes();
 }
@@ -161,22 +161,25 @@ bool DBServer::socket()
     if (socketName.isEmpty())
         socketName = QStringLiteral(JSONDB_SOCKET_NAME_STRING);
     if (jsondbSettings->debug())
-        qDebug() << "Listening on socket" << socketName;
+        qDebug() << JSONDB_INFO << "listening on socket" << socketName;
     QLocalServer::removeServer(socketName);
     mServer = new QLocalServer(this);
     connect(mServer, SIGNAL(newConnection()), this, SLOT(handleConnection()));
-    if (mServer->listen(socketName))
+    if (mServer->listen(socketName)) {
+        if (jsondbSettings->verbose())
+            qDebug() << JSONDB_INFO << "set permissions on" << mServer->fullServerName();
         QFile::setPermissions(mServer->fullServerName(), QFile::ReadUser | QFile::WriteUser | QFile::ExeUser |
                                                         QFile::ReadGroup | QFile::WriteGroup | QFile::ExeGroup |
                                                         QFile::ReadOther | QFile::WriteOther | QFile::ExeOther);
-    else
-        qCritical() << "DBServer::start - Unable to open" << socketName << "socket";
+    } else {
+        qCritical() << JSONDB_ERROR << "unable to open" << socketName << "socket";
+    }
 
     if (mTcpServerPort) {
         mTcpServer = new QTcpServer(this);
         connect(mTcpServer, SIGNAL(newConnection()), this, SLOT(handleTcpConnection()));
         if (!mTcpServer->listen(QHostAddress::Any, mTcpServerPort))
-            qCritical() << QString("Unable to open jsondb remote socket on port %1").arg(mTcpServerPort);
+            qCritical() << JSONDB_ERROR << QString("unable to open jsondb remote socket on port %1").arg(mTcpServerPort);
     }
     return true;
 }
@@ -196,9 +199,11 @@ bool DBServer::start()
 #endif
 
     mOwner->setOwnerId(username);
+    if (jsondbSettings->debug())
+        qDebug() << JSONDB_INFO << "set owner id to" << username;
 
     if (!loadPartitions()) {
-        qCritical() << "DBServer::start - Unable to open database";
+        qCritical() << JSONDB_ERROR << "unable to load partitions";
         return false;
     }
 
@@ -249,6 +254,9 @@ bool DBServer::loadPartitions()
         if (mPartitions.contains(name)) {
             partitions[name] = mPartitions.take(name);
 
+            if (jsondbSettings->debug())
+                qDebug() << JSONDB_INFO << "loading partition" << name;
+
             if (removable) {
                 JsonDbPartition *removablePartition = partitions[name];
                 bool updateDefinition = false;
@@ -260,19 +268,21 @@ bool DBServer::loadPartitions()
                 // if it can be made available
                 if (removablePartition->isOpen()) {
                     if (jsondbSettings->verbose())
-                        qDebug() << "Determining if partition" << removablePartition->partitionSpec().name << "is still available";
+                        qDebug() << JSONDB_INFO << "determining if partition" << removablePartition->partitionSpec().name << "is still available";
                     if (!QFile::exists(removablePartition->filename())) {
                         if (jsondbSettings->debug())
-                            qDebug() << "Marking partition" << removablePartition->partitionSpec().name << "as unavailable";
+                            qDebug() << JSONDB_INFO << "marking partition" << removablePartition->partitionSpec().name << "as unavailable";
                         removablePartition->close();
                         updateDefinition = true;
+                    } else if (jsondbSettings->debug()) {
+                        qDebug() << JSONDB_INFO << "marking partition" << removablePartition->partitionSpec().name << "as available";
                     }
                 } else {
                     if (jsondbSettings->verbose())
-                        qDebug() << "Determining if partition" << removablePartition->partitionSpec().name << "has become available";
+                        qDebug() << JSONDB_INFO << "determining if partition" << removablePartition->partitionSpec().name << "has become available";
                     if (removablePartition->open()) {
                         if (jsondbSettings->debug())
-                            qDebug() << "Marking partition" << removablePartition->partitionSpec().name << "as available";
+                            qDebug() << JSONDB_INFO << "marking partition" << removablePartition->partitionSpec().name << "as available";
                         updateDefinition = true;
 
                         // re-install any notifications on this partition
@@ -289,6 +299,9 @@ bool DBServer::loadPartitions()
             JsonDbPartition *partition = new JsonDbPartition(this);
             partition->setPartitionSpec(definition);
             partition->setDefaultOwner(mOwner);
+
+            if (jsondbSettings->debug())
+                qDebug() << JSONDB_INFO << "creating partition" << name;
 
             partitions[name] = partition;
 
@@ -350,7 +363,7 @@ void DBServer::handleConnection()
     if (QIODevice *connection = mServer->nextPendingConnection()) {
         qobject_cast<QLocalSocket *>(connection)->setReadBufferSize(gReadBufferSize);
         if (jsondbSettings->debug())
-            qDebug() << "client connected to jsondb server" << connection;
+            qDebug() << JSONDB_INFO << "client connected to jsondb server" << connection;
         connect(connection, SIGNAL(disconnected()), this, SLOT(removeConnection()));
         ClientJsonStream *stream = new ClientJsonStream(this);
         stream->setDevice(connection);
@@ -364,7 +377,7 @@ void DBServer::handleTcpConnection()
 {
     if (QTcpSocket *connection = mTcpServer->nextPendingConnection()) {
         if (jsondbSettings->debug())
-            qDebug() << "remote client connected to jsondb server" << connection;
+            qDebug() << JSONDB_INFO << "remote client connected to jsondb server" << connection;
         connect(connection, SIGNAL(disconnected()), this, SLOT(removeConnection()));
         ClientJsonStream *stream = new ClientJsonStream(this);
         stream->setDevice(connection);
@@ -400,11 +413,11 @@ JsonDbOwner *DBServer::getOwner(ClientJsonStream *stream)
                 s = sock->socketDescriptor();
         }
         if (s <= 0) {
-            qWarning() << Q_FUNC_INFO << "socketDescriptor () does not return a valid descriptor.";
+            qWarning() << JSONDB_WARN << "socketDescriptor () does not return a valid descriptor.";
             return 0;
         }
         if (getsockopt(s, SOL_SOCKET, SO_PEERCRED, &peercred, &peercredlen)) {
-            qWarning() << Q_FUNC_INFO << "getsockopt(...SO_PEERCRED...) failed" << ::strerror(errno) << errno;
+            qWarning() << JSONDB_WARN << "getsockopt(...SO_PEERCRED...) failed" << ::strerror(errno) << errno;
             return 0;
         }
 
@@ -699,31 +712,37 @@ void DBServer::processLog(ClientJsonStream *stream, const QString &message, int 
 void DBServer::debugQuery(const JsonDbQuery &query, int limit, int offset, const JsonDbQueryResult &result)
 {
     const QList<JsonDbOrQueryTerm> &orQueryTerms = query.queryTerms;
+    if (jsondbSettings->verbose()) {
+        qDebug() << JSONDB_INFO << "query:" <<  query.query;
+        if (orQueryTerms.size())
+            qDebug() << JSONDB_INFO << "query terms:" <<  query.query;
+    }
     for (int i = 0; i < orQueryTerms.size(); i++) {
         const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
         foreach (const JsonDbQueryTerm &queryTerm, orQueryTerm.terms()) {
             if (jsondbSettings->verbose()) {
-                qDebug() << __FILE__ << __LINE__
-                         << QString("    %1%2%3 %4")
-                            .arg(queryTerm.propertyName())
-                            .arg(queryTerm.joinField().size() ? "->" : "")
-                            .arg(queryTerm.joinField())
-                            .arg(queryTerm.op())
-                         << query.termValue(queryTerm);
+                qDebug().nospace() << QString("%1%2%3, op:%4, value:")
+                                      .arg(queryTerm.propertyName())
+                                      .arg(queryTerm.joinField().size() ? "->" : "")
+                                      .arg(queryTerm.joinField())
+                                      .arg(queryTerm.op())
+                                   << query.termValue(queryTerm);
             }
         }
     }
 
     const QList<JsonDbOrderTerm> &orderTerms = query.orderTerms;
+    if (jsondbSettings->verbose() && query.orderTerms.size())
+        qDebug() << JSONDB_INFO << "order terms:" <<  query.query;
     for (int i = 0; i < orderTerms.size(); i++) {
         const JsonDbOrderTerm &orderTerm = orderTerms.at(i);
         if (jsondbSettings->verbose())
-            qDebug() << __FILE__ << __LINE__ << QString("    %1 %2    ").arg(orderTerm.propertyName).arg(orderTerm.ascending ? "ascending" : "descending");
+            qDebug() << QString("%1 %2").arg(orderTerm.propertyName).arg(orderTerm.ascending ? "ascending" : "descending");
     }
 
-    qDebug() << "  limit:      " << limit << endl
-             << "  offset:     " << offset << endl
-             << "  results:    " << result.data;
+    qDebug() << "* limit:" << limit << endl
+             << "* offset:" << offset << endl
+             << "* results:" << result.data;
 }
 
 /*!
@@ -919,13 +938,13 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
             continue;
 
         if (jsondbSettings->debug())
-            qDebug() << QString("Searching %1 for partition definition files").arg(path);
+            qDebug() << JSONDB_INFO << QString("searching %1 for partition definition files").arg(path);
 
         QStringList files = searchPath.entryList(QStringList() << QStringLiteral("partitions*.json"),
                                                  QDir::Files | QDir::Readable);
         foreach (const QString &file, files) {
             if (jsondbSettings->debug())
-                qDebug() << QString("Loading partition definitions from %1").arg(file);
+                qDebug() << JSONDB_INFO << QString("loading partition definitions from %1").arg(file);
 
             QFile partitionFile(searchPath.absoluteFilePath(file));
             partitionFile.open(QFile::ReadOnly);
@@ -936,29 +955,37 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
             QJsonDocument doc = QJsonDocument::fromJson(ba, &error);
 
             if (error.error != QJsonParseError::NoError) {
-                qDebug() << "Couldn't parse configuration file" << partitionFile.fileName()
+                qDebug() << JSONDB_WARN << "Couldn't parse configuration file" << partitionFile.fileName()
                          << "at" << error.offset << ":" << error.errorString();
             } else if (!doc.isArray()) {
-                qDebug() << "Couldn't parse configuration file" << partitionFile.fileName()
+                qDebug() << JSONDB_WARN << "Couldn't parse configuration file" << partitionFile.fileName()
                          << "at 0 : content should be a JSON array";
             }
 
             QJsonArray partitionList = doc.array();
 
-            if (partitionList.isEmpty())
+            if (partitionList.isEmpty()) {
+                if (jsondbSettings->verbose())
+                    qDebug() << JSONDB_WARN << QString("%1 is empty").arg(file);
                 continue;
+            }
 
             for (int i = 0; i < partitionList.count(); i++) {
                 QJsonObject definition = partitionList.at(i).toObject();
                 QJsonValue name = definition.value(JsonDbString::kNameStr);
                 if (!name.isString()) {
-                    qDebug() << partitionFile.fileName() << ": partition name should be a string";
+                    qDebug() << JSONDB_WARN << partitionFile.fileName() << ": partition name should be a string, skipping. Type:" << name.type();
                     continue;
                 }
+
+                if (jsondbSettings->debug())
+                    qDebug() << JSONDB_INFO << "adding partition" << name.toString();
+
                 QJsonValue path = definition.value(JsonDbString::kPathStr);
                 if (path.isUndefined() || !path.isString()) {
-                    qDebug() << partitionFile.fileName() << ":" << name.toString()
-                             << "partition path should be a string containing directory path, using current directory";
+                    qDebug() << JSONDB_WARN << partitionFile.fileName() << ":" << name.toString()
+                             << "partition path should be a string containing directory path, using current directory."
+                             << "Setting path to" << QDir::currentPath();
                     path = QDir::currentPath();
                 }
                 if (!path.isString())
@@ -966,12 +993,12 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
 
                 QJsonValue isDefault = definition.value(JsonDbString::kDefaultStr);
                 if (!isDefault.isUndefined() && !isDefault.isBool())
-                    qDebug() << partitionFile.fileName() << ":" << name.toString()
-                             << "'default' should be a boolean";
+                    qDebug() << JSONDB_WARN << partitionFile.fileName() << ": partition" << name.toString()
+                             << "'default' property should be a boolean";
                 if (isDefault.toBool()) {
                     if (defaultSpecified) {
-                        qDebug() << partitionFile.fileName() << ":" << name.toString()
-                                 << "more than one partition is marked as default";
+                        qDebug() << JSONDB_WARN << partitionFile.fileName() << ": parition" << name.toString()
+                                 << "unset as default. Default already specified.";
                         isDefault = QJsonValue(false);
                     } else {
                         defaultSpecified = true;
@@ -980,8 +1007,8 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
 
                 QJsonValue isRemovable = definition.value(JsonDbString::kRemovableStr);
                 if (!isRemovable.isUndefined() && !isRemovable.isBool())
-                    qDebug() << partitionFile.fileName() << ":" << name.toString()
-                             << "'removable' should be a boolean";
+                    qDebug() << JSONDB_WARN << partitionFile.fileName() << ": partition" << name.toString()
+                             << "'removable' property should be a boolean";
 
                 JsonDbPartitionSpec spec;
                 spec.name = name.toString();
@@ -990,11 +1017,18 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
                 spec.isRemovable = isRemovable.toBool();
 
                 if (names.contains(spec.name)) {
-                    qDebug() << partitionFile.fileName() << ":" << name.toString()
-                             << "duplicate partition definition, skipping.";
+                    qDebug() << partitionFile.fileName() << ": parition" << name.toString()
+                             << "is a duplicate definition, skipping.";
                     continue;
                 }
                 names.insert(spec.name);
+
+                if (jsondbSettings->debug())
+                    qDebug() << JSONDB_INFO << QString(QLatin1String("appending partition [name:%1, path:%2, removable:%3, default:%4"))
+                                .arg(spec.name)
+                                .arg(spec.path)
+                                .arg(spec.isRemovable)
+                                .arg(spec.isDefault);
                 partitions.append(spec);
             }
         }
@@ -1006,8 +1040,9 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
     // if no partitions are specified just make a partition in the current working
     // directory and call it "default"
     if (partitions.isEmpty()) {
-        qDebug() << "No partitions were defined, creating a new partition with the name \"default\" at"
-                 << QDir::currentPath();
+        if (jsondbSettings->debug())
+            qDebug() << JSONDB_INFO << "no partitions were defined, creating partition spec \"default\" at"
+                     << QDir::currentPath();
         JsonDbPartitionSpec defaultPartition;
         defaultPartition.name = QStringLiteral("default");
         defaultPartition.path = QDir::currentPath();
@@ -1017,8 +1052,11 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
     }
 
     // ensure that at least one partition is marked as default
-    if (!defaultSpecified)
+    if (!defaultSpecified) {
         partitions[0].isDefault = true;
+        if (jsondbSettings->debug())
+            qDebug() << JSONDB_INFO << QString(QLatin1String("setting %1 as default")).arg(partitions[0].name);
+    }
 
     return partitions;
 }

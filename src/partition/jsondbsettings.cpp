@@ -44,6 +44,8 @@
 #include <QDebug>
 #include <QMetaObject>
 #include <QMetaProperty>
+#include <QVector>
+#include "jsondbutils_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
@@ -77,6 +79,8 @@ void JsonDbSettings::loadEnvironment()
     // loop through all the properties, converting from the property
     // name to the environment variable name
     const QMetaObject *meta = metaObject();
+    QVector<QByteArray> envVariables;
+    envVariables.reserve(meta->propertyCount());
 
     for (int i = 0; i < meta->propertyCount(); i++) {
         QMetaProperty property(meta->property(i));
@@ -90,7 +94,8 @@ void JsonDbSettings::loadEnvironment()
                 envVariable += propertyName.at(j).toUpper();
         }
 
-        QByteArray value = qgetenv(envVariable.toLatin1());
+        envVariables.append(envVariable.toLatin1());
+        QByteArray value = qgetenv(envVariables[i]);
         if (value.size()) {
             switch (property.type()) {
             case QVariant::Bool:
@@ -106,7 +111,27 @@ void JsonDbSettings::loadEnvironment()
                 property.write(this, QString::fromLatin1(value).split(QLatin1Char(':')));
                 break;
             default:
-                qWarning() << "JsonDbSettings: unknown property type" << property.name() << property.type();
+                qWarning() << JSONDB_WARN << "unknown property type" << property.name() << property.type();
+            }
+        }
+    }
+
+    if (debug()) {
+        Q_ASSERT(envVariables.size() == meta->propertyCount());
+        qDebug() << JSONDB_INFO << "JsonDb Environment:";
+        for (int i = 0; i < meta->propertyCount(); i++) {
+            QMetaProperty property(meta->property(i));
+            switch (property.type()) {
+            case QVariant::Bool:
+            case QVariant::Int:
+            case QVariant::String:
+                qDebug().nospace() << envVariables[i] << " = " << property.read(this).toString();
+                break;
+            case QVariant::StringList:
+                qDebug().nospace() << envVariables[i] << " = " << property.read(this).toStringList();
+                break;
+            default:
+                qWarning() << JSONDB_WARN << "unknown property type" << property.name() << property.type();
             }
         }
     }

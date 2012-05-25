@@ -121,7 +121,7 @@ void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewType
     QSet<QString> viewsUpdated;
 
     if (jsondbSettings->verbose())
-        qDebug() << "updateEagerViews {" << mObjectTable->stateNumber() << viewTypes;
+        qDebug() << JSONDB_INFO << " stateNumber" << mObjectTable->stateNumber() << "view types:" << viewTypes << "{";
 
     while (!viewTypes.isEmpty()) {
         bool madeProgress = false;
@@ -129,7 +129,7 @@ void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewType
             JsonDbView *view = mViews.value(targetType);
             if (!view) {
                 if (jsondbSettings->verbose())
-                    qWarning() << "non-view viewType?" << targetType << "eager views to update" << viewTypes;
+                    qWarning() << JSONDB_WARN << "non-view viewType?" << targetType << "eager views to update" << viewTypes;
                 viewTypes.remove(targetType);
                 madeProgress = true;
                 continue;
@@ -143,7 +143,7 @@ void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewType
             view->updateEagerView(changeList, &additionalChanges);
             viewsUpdated.insert(targetType);
             if (jsondbSettings->verbose())
-                qDebug() << "updated eager view" << targetType << additionalChanges.size() << additionalChanges;
+                qDebug() << "updated eager view" << targetType << "with" << additionalChanges.size() << "additional changes:" << additionalChanges;
             changeList.append(additionalChanges);
             // if this triggers other eager types, we need to update that also
             if (mEagerViewSourceGraph.contains(targetType)) {
@@ -153,7 +153,7 @@ void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewType
                         continue;
                     const QString &viewType = it.key();
                     if (viewsUpdated.contains(viewType))
-                        qWarning() << "View update cycle detected" << targetType << viewType << viewsUpdated;
+                        qWarning() << JSONDB_WARN << "view update cycle detected. Target type" << targetType << "view type" << viewType << "views updated:" << viewsUpdated;
                     else
                         viewTypes.insert(viewType);
                 }
@@ -162,7 +162,7 @@ void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewType
             madeProgress = true;
         }
         if (!madeProgress) {
-            qCritical() << "Failed to update any views" << viewTypes;
+            qCritical() << JSONDB_ERROR << "failed to update any views" << viewTypes;
             break;
         }
     }
@@ -174,7 +174,7 @@ void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewType
     }
 
     if (jsondbSettings->verbose())
-        qDebug() << "updateEagerViews }" << mObjectTable->stateNumber() << viewsUpdated;
+        qDebug() << "}";
 }
 
 // Updates the in-memory state numbers on each view so that we know it
@@ -182,7 +182,7 @@ void JsonDbPartitionPrivate::updateEagerViews(const QSet<QString> &eagerViewType
 void JsonDbPartitionPrivate::updateEagerViewStateNumbers()
 {
     if (jsondbSettings->verbose())
-        qDebug() << "updateEagerViewStateNumbers" << mSpec.name << mObjectTable->stateNumber() << "{";
+        qDebug() << JSONDB_INFO << " stateNumber" << mObjectTable->stateNumber() << "partition" << mSpec.name << "{";
 
     QStringList visitedViews;
     for (WeightedSourceViewGraph::ConstIterator it = mEagerViewSourceGraph.begin(); it != mEagerViewSourceGraph.end(); ++it) {
@@ -198,12 +198,12 @@ void JsonDbPartitionPrivate::updateEagerViewStateNumbers()
                 view->updateViewStateNumber(mObjectTable->stateNumber());
             else
                 if (jsondbSettings->debug())
-                    qCritical() << "no view for" << viewType << mSpec.name;
+                    qCritical() << JSONDB_ERROR << "no view for" << viewType << mSpec.name;
             visitedViews.append(viewType);
         }
     }
     if (jsondbSettings->verbose())
-        qDebug() << "updateEagerViewStateNumbers" << mSpec.name << mObjectTable->stateNumber() << "}";
+        qDebug() << "}";
 }
 
 void JsonDbPartitionPrivate::notifyHistoricalChanges(JsonDbNotification *n)
@@ -231,7 +231,7 @@ void JsonDbPartitionPrivate::notifyHistoricalChanges(JsonDbNotification *n)
             QList<JsonDbUpdate> updateList;
             quint32 objectTableStateNumber = objectTable->changesSince(stateNumber, matchedTypes, &updateList);
             if (jsondbSettings->verbose() && lastStateNumber != objectTableStateNumber)
-                qDebug() << "old object table for type" << matchedType << objectTableStateNumber << lastStateNumber;
+                qDebug() << JSONDB_INFO << "old object table for type" << matchedType << objectTableStateNumber << lastStateNumber;
             foreach (const JsonDbUpdate &update, updateList) {
                 JsonDbObject before = update.oldObject;
                 JsonDbObject after = update.newObject;
@@ -288,7 +288,7 @@ void JsonDbPartitionPrivate::updateEagerViewTypes(const QString &viewType, quint
     foreach (const QString sourceType, view->sourceTypes()) {
         mEagerViewSourceGraph[sourceType][viewType] += increment;
         if (jsondbSettings->verbose())
-            qDebug() << "SourceView" << sourceType << viewType << mEagerViewSourceGraph[sourceType][viewType].count;
+            qDebug() << JSONDB_INFO << "sourceView" << sourceType << viewType << mEagerViewSourceGraph[sourceType][viewType].count;
         // now recurse until we get to a non-view sourceType
         updateEagerViewTypes(sourceType, stateNumber, increment);
     }
@@ -303,7 +303,7 @@ void JsonDbPartitionPrivate::_q_mainSyncTimer()
         return;
 
     if (jsondbSettings->debug())
-        qDebug() << "Syncing main object table";
+        qDebug() << JSONDB_INFO << "syncing main object table";
 
     mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
     mMainSyncTimer->stop();
@@ -315,7 +315,7 @@ void JsonDbPartitionPrivate::_q_indexSyncTimer()
         return;
 
     if (jsondbSettings->debug())
-        qDebug() << "Syncing indexes and views";
+        qDebug() << JSONDB_INFO << "syncing indexes and views";
 
     // sync the main object table's indexes
     mObjectTable->sync(JsonDbObjectTable::SyncIndexes);
@@ -336,7 +336,7 @@ void JsonDbPartitionPrivate::_q_objectsUpdated(bool viewUpdated, const JsonDbUpd
     quint32 partitionStateNumber = mObjectTable->stateNumber();
 
     if (jsondbSettings->debug())
-        qDebug() << "objectsUpdated" << mSpec.name << partitionStateNumber;
+        qDebug() << JSONDB_INFO << "objectsUpdated" << mSpec.name << partitionStateNumber;
 
     foreach (const JsonDbUpdate &updated, changes) {
 
@@ -358,9 +358,11 @@ void JsonDbPartitionPrivate::_q_objectsUpdated(bool viewUpdated, const JsonDbUpd
                 notificationKeys << oldObjectType;
 
             // eagerly update views if this object that was created isn't a view type itself
-            if (jsondbSettings->verbose()) qDebug() << "objectType" << oldObjectType << mEagerViewSourceGraph.contains(oldObjectType) << objectType << mEagerViewSourceGraph.contains(objectType);
+            if (jsondbSettings->verbose())
+                qDebug() << JSONDB_INFO << "objectType" << oldObjectType << mEagerViewSourceGraph.contains(oldObjectType) << objectType << mEagerViewSourceGraph.contains(objectType);
             if (mViews.contains(objectType)) {
-                if (jsondbSettings->verbose()) qDebug() << "foundViewChange" << objectType;
+                if (jsondbSettings->verbose())
+                    qDebug() << JSONDB_INFO << "foundViewChange" << objectType;
                 foundViewChange = true;
             } else if ((mEagerViewSourceGraph.contains(oldObjectType))
                        || (mEagerViewSourceGraph.contains(objectType))) {
@@ -378,7 +380,8 @@ void JsonDbPartitionPrivate::_q_objectsUpdated(bool viewUpdated, const JsonDbUpd
                     const ViewEdgeWeights &edgeWeights = mEagerViewSourceGraph[updatedObjectType];
                     bool neededUpdate = false;
                     for (ViewEdgeWeights::const_iterator it = edgeWeights.begin(); it != edgeWeights.end(); ++it) {
-                        if (jsondbSettings->verbose()) qDebug() << "edge weight" << updatedObjectType << it.key() << it.value().count;
+                        if (jsondbSettings->verbose())
+                            qDebug() << JSONDB_INFO << "edge weight" << updatedObjectType << it.key() << it.value().count;
                         if (it.value() > 0) {
                             eagerViewTypes.insert(it.key());
                             if (mEagerViewSourceGraph.contains(updatedObjectType)) {
@@ -441,7 +444,7 @@ JsonDbPartition::~JsonDbPartition()
 {
     Q_D(JsonDbPartition);
     if (d->mTransactionDepth) {
-        qCritical() << "JsonDbBtreePartition::~JsonDbBtreePartition"
+        qCritical() << JSONDB_ERROR << "JsonDbBtreePartition::~JsonDbBtreePartition"
                     << "closing while transaction open" << "mTransactionDepth" << d->mTransactionDepth;
     }
 
@@ -536,13 +539,13 @@ bool JsonDbPartition::open()
     Q_D(JsonDbPartition);
 
     if (jsondbSettings->debug())
-        qDebug() << "JsonDbBtree::open" << d->mSpec.name << d->mFilename;
+        qDebug() << JSONDB_INFO << d->mSpec.name << d->mFilename;
 
     if (d->mIsOpen)
         return true;
 
     if (!QFileInfo(d->mFilename).absoluteDir().exists()) {
-        qWarning() << "Partition directory does not exist" << QFileInfo(d->mFilename).absolutePath();
+        qWarning() << JSONDB_ERROR << "partition directory does not exist" << QFileInfo(d->mFilename).absolutePath();
         return false;
     }
 
@@ -550,7 +553,7 @@ bool JsonDbPartition::open()
         d->mObjectTable = new JsonDbObjectTable(this);
 
     if (!d->mObjectTable->open(d->mFilename)) {
-        qWarning() << "JsonDbPartition::open() failed to open object table" << d->mFilename;
+        qWarning() << JSONDB_ERROR << "failed to open object table" << d->mFilename;
         return false;
     }
 
@@ -569,7 +572,7 @@ bool JsonDbPartition::clear()
     Q_D(JsonDbPartition);
 
     if (d->mObjectTable->bdb()) {
-        qCritical() << "Cannot clear database while it is open.";
+        qCritical() << JSONDB_ERROR << "cannot clear database while it is open.";
         return false;
     }
     QStringList filters;
@@ -577,11 +580,13 @@ bool JsonDbPartition::clear()
     filters << QString::fromLatin1("%1*.db").arg(fi.baseName());
     QDir dir(fi.absolutePath());
     QStringList lst = dir.entryList(filters);
+    if (jsondbSettings->verbose())
+        qDebug() << JSONDB_INFO << "removing from absolutePath:" << fi.absolutePath() << ", with filters:" << filters;
     foreach (const QString &fileName, lst) {
         if (jsondbSettings->verbose())
-            qDebug() << "removing" << fileName;
+            qDebug() << "\tremoving" << fileName;
         if (!dir.remove(fileName)) {
-            qCritical() << "Failed to remove" << fileName;
+            qCritical() << JSONDB_ERROR << "failed to remove" << fileName;
             return false;
         }
     }
@@ -680,7 +685,7 @@ JsonDbPartition::TxnCommitResult JsonDbPartitionPrivate::commitTransaction(quint
         quint32 nextStateNumber = stateNumber ? stateNumber : (mObjectTable->stateNumber() + 1);
 
         if (jsondbSettings->debug())
-            qDebug() << "commitTransaction" << mSpec.name << nextStateNumber;
+            qDebug() << JSONDB_INFO << "partition" << mSpec.name << "nextStateNumber" << nextStateNumber;
 
         if (!stateNumber && (mTableTransactions.size() == 1))
             nextStateNumber = mTableTransactions.at(0)->stateNumber() + 1;
@@ -689,7 +694,7 @@ JsonDbPartition::TxnCommitResult JsonDbPartitionPrivate::commitTransaction(quint
             JsonDbObjectTable *table = mTableTransactions.at(i);
             if (hasSpace()) {
                 if (!table->commit(nextStateNumber)) {
-                    qCritical() << __FILE__ << __LINE__ << "Failed to commit transaction on object table";
+                    qCritical() << JSONDB_ERROR <<  "failed to commit transaction on object table";
                     table->abort();
                     /*
                      * At this point we check the error from the pwrite call.
@@ -725,13 +730,13 @@ bool JsonDbPartitionPrivate::abortTransaction()
 {
     if (--mTransactionDepth == 0) {
         if (jsondbSettings->verbose())
-            qDebug() << "JsonDbBtreePartition::abortTransaction()";
+            qDebug() << JSONDB_INFO << "aborting" << mTableTransactions.size() << "transactions";
         bool ret = true;
 
         for (int i = 0; i < mTableTransactions.size(); i++) {
             JsonDbObjectTable *table = mTableTransactions.at(i);
             if (!table->abort()) {
-                qCritical() << __FILE__ << __LINE__ << "Failed to abort transaction";
+                qCritical() << JSONDB_ERROR << "failed to abort transaction";
                 ret = false;
             }
         }
@@ -772,7 +777,7 @@ void JsonDbPartition::addNotification(JsonDbNotification *notification)
             if (!objectTable)
                 objectTable = typeTable;
             else if (objectTable != typeTable)
-                qWarning() << "Notifications cannot span multiple object tables";
+                qWarning() << JSONDB_WARN << "notifications cannot span multiple object tables";
         }
 
         notification->setObjectTable(objectTable);
@@ -861,7 +866,7 @@ bool JsonDbPartitionPrivate::getObject(const ObjectKey &objectKey, JsonDbObject 
             qDebug() << "no view";
         } else {
             if (!view->objectTable())
-                qDebug() << "no object table for view";
+                qDebug() << JSONDB_WARN << "no object table for view";
             bool ok = view->objectTable()->get(objectKey, &object);
             if (ok)
                 return ok;
@@ -956,7 +961,7 @@ void JsonDbPartitionPrivate::initIndexes()
     GetObjectsResult getObjectsResult = mObjectTable->getObjects(JsonDbString::kTypeStr, JsonDbString::kIndexTypeStr, JsonDbString::kIndexTypeStr);
     foreach (const QJsonObject indexObject, getObjectsResult.data) {
         if (jsondbSettings->verbose())
-            qDebug() << "initIndexes" << "index" << indexObject;
+            qDebug() << JSONDB_INFO << "on index" << indexObject;
         QString indexObjectType = indexObject.value(JsonDbString::kTypeStr).toString();
         if (indexObjectType == JsonDbString::kIndexTypeStr)
             addIndex(JsonDbIndexSpec::fromIndexObject(indexObject));
@@ -973,7 +978,7 @@ bool JsonDbPartitionPrivate::addIndex(const JsonDbIndexSpec &indexSpec)
         foreach (const QString &objectType, indexSpec.objectTypes) {
             JsonDbObjectTable *t = findObjectTable(objectType);
             if (table && t != table) {
-                qDebug() << "addIndex" << "index on multiple tables" << indexSpec.objectTypes;
+                qDebug() << JSONDB_ERROR << "index on multiple tables" << indexSpec.objectTypes;
                 return false;
             }
             table = t;
@@ -1125,13 +1130,13 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
         QString propertyName = orderTerm.propertyName;
         if (!table->index(propertyName)) {
             if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
-                qDebug() << "Unindexed sort term" << propertyName << orderTerm.ascending;
+                qDebug() << JSONDB_WARN << "unindexed sort term" << propertyName << orderTerm.ascending;
             residualQuery.orderTerms.append(orderTerm);
             continue;
         }
         if (unindexablePropertyNames.contains(propertyName)) {
             if (jsondbSettings->verbose() || jsondbSettings->performanceLog())
-                qDebug() << "Unindexable sort term uses notExists" << propertyName << orderTerm.ascending;
+                qDebug() << JSONDB_WARN << "unindexable sort term uses notExists" << propertyName << orderTerm.ascending;
             residualQuery.orderTerms.append(orderTerm);
             continue;
         }
@@ -1146,7 +1151,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
             indexQuery = JsonDbIndexQuery::indexQuery(q, table, propertyName, indexSpec.propertyType,
                                                       owner, query);
         } else if (orderField != propertyName) {
-            qCritical() << QString::fromLatin1("unimplemented: multiple order terms. Sorting on '%1'").arg(orderField);
+            qCritical() << JSONDB_WARN << QString::fromLatin1("unimplemented: multiple order terms. Sorting on '%1'").arg(orderField);
             residualQuery.orderTerms.append(orderTerm);
         }
     }
@@ -1171,7 +1176,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
                 || (indexQuery
                     && (propertyName != orderField))) {
                 if (jsondbSettings->verbose() || jsondbSettings->debug())
-                    qDebug() << "residual query term" << propertyName << "orderField" << orderField;
+                    qDebug() << JSONDB_INFO << "residual query term" << propertyName << "orderField" << orderField;
                 residualQuery.queryTerms.append(queryTerm);
                 continue;
             }
@@ -1212,7 +1217,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
         JsonDbIndex *index = table->index(defaultIndex);
         indexQuery = JsonDbIndexQuery::indexQuery(q, table, defaultIndex, index ? index->indexSpec().propertyType : QString(), owner, query);
         if (typeNames.size() == 0)
-            qCritical() << "searching all objects" << query.query;
+            qCritical() << JSONDB_WARN << "searching all objects" << query.query;
 
         if (defaultIndex == JsonDbString::kTypeStr) {
             foreach (const JsonDbOrQueryTerm &term, orQueryTerms) {
@@ -1237,7 +1242,7 @@ void JsonDbPartitionPrivate::doIndexQuery(const JsonDbOwner *owner, JsonDbObject
                                       JsonDbIndexQuery *indexQuery)
 {
     if (jsondbSettings->debugQuery())
-        qDebug() << "doIndexQuery" << "limit" << limit << "offset" << offset;
+        qDebug() << JSONDB_INFO << "limit" << limit << "offset" << offset;
 
     bool countOnly = (indexQuery->aggregateOperation() == QLatin1String("count"));
     int count = 0;
@@ -1249,7 +1254,7 @@ void JsonDbPartitionPrivate::doIndexQuery(const JsonDbOwner *owner, JsonDbObject
         if (limit && (offset <= 0)) {
             if (!countOnly) {
                 if (jsondbSettings->debugQuery())
-                    qDebug() << "appending result" << object << endl;
+                    qDebug() << JSONDB_INFO << "appending result" << object << endl;
                 JsonDbObject result = indexQuery->resultObject(object);
                 results.append(result);
             }
@@ -1300,7 +1305,7 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
     const JsonDbQuery &residualQuery = indexQuery->residualQuery();
     if (!residualQuery.isEmpty() && residualQuery.orderTerms.size()) {
         if (jsondbSettings->verbose())
-            qDebug() << "queryPersistentObjects" << "sorting";
+            qDebug() << JSONDB_INFO << "sorting";
         d->sortValues(residualQuery, results, joinedResults);
     }
 
@@ -1504,8 +1509,12 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
             result.message = objectTable->errorMessage();
         }
 
-        if (jsondbSettings->debug())
-            qDebug() << "Wrote object" << objectKey << endl << master << endl << oldMaster;
+        if (jsondbSettings->debug()) {
+            qDebug() << JSONDB_INFO << "wrote object";
+            qDebug() << "objectKey:" << objectKey;
+            qDebug() << "master:" << master;
+            qDebug() << "oldMaster:" << oldMaster;
+        }
 
         JsonDbNotification::Action action = JsonDbNotification::Update;
         if (forRemoval)
@@ -1629,7 +1638,7 @@ void JsonDbPartitionPrivate::sortValues(const JsonDbQuery &parsedQuery, JsonDbOb
                 joinedResults.append(p->joinedResult);
         }
     } else {
-        qCritical() << "Unimplemented: sorting on multiple keys or non-string keys";
+        qCritical() << JSONDB_WARN << "unimplemented: sorting on multiple keys or non-string keys";
     }
 }
 
@@ -1670,7 +1679,7 @@ bool JsonDbPartitionPrivate::validateSchema(const QString &schemaName, const Jso
 
     if (!jsondbSettings->validateSchemas()) {
         if (jsondbSettings->debug())
-            qDebug() << "Not validating schemas";
+            qDebug() << JSONDB_WARN << "not validating schemas";
         return true;
     }
 
@@ -1678,7 +1687,7 @@ bool JsonDbPartitionPrivate::validateSchema(const QString &schemaName, const Jso
     if (!result.value(JsonDbString::kCodeStr).isNull()) {
         errorMsg = result.value(JsonDbString::kMessageStr).toString();
         if (jsondbSettings->debug() || jsondbSettings->softValidation())
-            qDebug() << "Schema validation error: " << errorMsg << object;
+            qDebug() << JSONDB_ERROR << "schema validation error: " << errorMsg << "on object" << object;
         if (jsondbSettings->softValidation())
             return true;
         return false;
@@ -1867,13 +1876,12 @@ void JsonDbPartitionPrivate::updateBuiltInTypes(const JsonDbObject &object, cons
 void JsonDbPartitionPrivate::setSchema(const QString &schemaName, const QJsonObject &schema)
 {
     if (jsondbSettings->verbose())
-        qDebug() << "setSchema" << schemaName << schema;
+        qDebug() << JSONDB_INFO << "adding schema" << schemaName << ":" << schema;
 
     QJsonObject errors = mSchemas.insert(schemaName, schema);
 
     if (!errors.isEmpty()) {
-        qWarning() << "setSchema failed because of errors" << schemaName << schema;
-        qWarning() << errors;
+        qWarning() << JSONDB_WARN << "setSchema on" << schemaName << schema << "because of errors:"<< errors;
         // FIXME should we accept broken schemas?
     }
 
@@ -1899,7 +1907,7 @@ void JsonDbPartitionPrivate::setSchema(const QString &schemaName, const QJsonObj
 void JsonDbPartitionPrivate::removeSchema(const QString &schemaName)
 {
     if (jsondbSettings->verbose())
-        qDebug() << "removeSchema" << schemaName;
+        qDebug() << JSONDB_INFO << "removing" << schemaName;
 
     if (mSchemas.contains(schemaName)) {
         QJsonObject schema = mSchemas.take(schemaName);
@@ -1941,12 +1949,12 @@ void JsonDbPartitionPrivate::updateSpaceStatus()
     QByteArray local8BitPath = mFilename.toLocal8Bit();
     const char *path = local8BitPath.constData();
     if (statvfs(path, &status) < 0) {
-        qCritical() << "statvfs failed" << mFilename;
+        qCritical() << JSONDB_ERROR << "statvfs failed" << mFilename;
         return;
     }
     qint64 available = status.f_bsize * status.f_bavail;
     if (available < jsondbSettings->minimumRequiredSpace()) {
-        qWarning() << "out of space";
+        qWarning() << JSONDB_WARN << "out of space";
         mDiskSpaceStatus = JsonDbPartition::OutOfSpace;
         return;
     }
@@ -1979,7 +1987,7 @@ void JsonDbPartitionPrivate::initSchemas()
     Q_Q(JsonDbPartition);
 
     if (jsondbSettings->verbose())
-        qDebug() << "initSchemas";
+        qDebug() << JSONDB_INFO << "initializing schemas";
     {
         JsonDbObjectList schemas = getObjects(JsonDbString::kTypeStr, JsonDbString::kSchemaTypeStr,
                                                 QString()).data;
@@ -2000,7 +2008,7 @@ void JsonDbPartitionPrivate::initSchemas()
             QJsonDocument doc = QJsonDocument::fromJson(schemaFile.readAll(), &error);
             schemaFile.close();
             if (doc.isNull()) {
-                qWarning() << "Parsing " << schemaName << " schema" << error.error;
+                qWarning() << JSONDB_ERROR << "error parsing" << schemaName << "-" << error.error;
                 return;
             }
             QJsonObject schema = doc.object();
@@ -2011,6 +2019,7 @@ void JsonDbPartitionPrivate::initSchemas()
             q->updateObject(mDefaultOwner, schemaObject, JsonDbPartition::Replace);
         }
     }
+
     const QString capabilityNameIndexUuid = QStringLiteral("{7853c8fb-cf23-453f-b9c4-804c6a0a38c6}");
     JsonDbObject capabilityNameIndex;
     if (!getObject(capabilityNameIndexUuid, capabilityNameIndex)) {
@@ -2029,7 +2038,7 @@ void JsonDbPartitionPrivate::initSchemas()
         QJsonDocument doc = QJsonDocument::fromJson(capabilityFile.readAll(), &error);
         capabilityFile.close();
         if (doc.isNull()) {
-            qWarning() << "Parsing root capability" << error.error;
+            qWarning() << JSONDB_ERROR << "error parsing root capability -" << error.error;
             return;
         }
         JsonDbObject capability = doc.object();
@@ -2038,7 +2047,7 @@ void JsonDbPartitionPrivate::initSchemas()
         int count = getObjectResponse.data.size();
         if (!count) {
             if (jsondbSettings->verbose())
-                qDebug() << "Creating capability" << capability;
+                qDebug() << JSONDB_INFO << "creating capability" << capability;
             q->updateObject(mDefaultOwner, capability);
         } else {
             JsonDbObject currentCapability = getObjectResponse.data.at(0);

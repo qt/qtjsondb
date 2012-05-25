@@ -55,6 +55,7 @@
 #include "qbtree.h"
 #include "qbtreecursor.h"
 #include "qbtreetxn.h"
+#include "jsondbutils_p.h"
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
@@ -91,19 +92,19 @@ bool JsonDbObjectTable::open(const QString &fileName)
     mFilename = fileName;
 #if 0
     if (!mBdb->setCmpFunc(objectKeyCmp, 0)) {
-        qCritical() << "mBdb->setCmpFunc" << mBdb->errorMessage();
+        qCritical() << JSONDB_ERROR << "failed to set cmp function on db" << mFilename << "with error" << mBdb->errorMessage();
         return false;
     }
 #endif
     mBdb->setCacheSize(jsondbSettings->cacheSize());
     mBdb->setFileName(mFilename);
     if (!mBdb->open()) {
-        qCritical() << "mBdb->open" << mBdb->errorMessage();
+        qCritical() << JSONDB_ERROR << "failed to open db" << mFilename << "with error" << mBdb->errorMessage();
         return false;
     }
     mStateNumber = mBdb->tag();
     if (jsondbSettings->verbose())
-        qDebug() << "ObjectTable::open" << mStateNumber << mFilename;
+        qDebug() << JSONDB_INFO << "opened db" << mFilename << "with state number" << mStateNumber;
     return true;
 }
 
@@ -279,7 +280,7 @@ bool JsonDbObjectTable::addIndex(const JsonDbIndexSpec &indexSpec)
 
     if (mStateNumber && (index->stateNumber() == 0 || index->stateNumber() != mStateNumber)) {
         if (jsondbSettings->verbose())
-            qDebug() << "Index" << indexSpec.name << "stateNumber" << index->stateNumber() << "objectTable.stateNumber" << mStateNumber << "reindexing";
+            qDebug() << JSONDB_INFO << "reindexing index" << indexSpec.name << "at stateNumber" << index->stateNumber() << ", objectTable.stateNumber at stateNumber" << mStateNumber;
         index->clearData();
         reindexObjects(indexSpec.name, stateNumber());
     }
@@ -327,11 +328,12 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNu
 {
     Q_ASSERT(mIndexes.contains(indexName));
 
-    if (jsondbSettings->verbose())
-        qDebug() << "reindexObjects" << indexName << "{";
     if (indexName == JsonDbString::kUuidStr) {
         return;
     }
+
+    if (jsondbSettings->verbose())
+        qDebug() << JSONDB_INFO << "index" << indexName << "{";
 
     JsonDbIndex *index = mIndexes.value(indexName);
     Q_ASSERT(index != 0);
@@ -360,7 +362,7 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNu
     if (!isInObjectTableTransaction)
         bdbTxn->abort();
     if (jsondbSettings->verbose())
-        qDebug() << "} reindexObjects";
+        qDebug() << "}";
 }
 
 void JsonDbObjectTable::indexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber)
@@ -518,7 +520,7 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
             ObjectKey objectKey;
             JsonDbIndexPrivate::forwardValueSplit(forwardValue, objectKey);
             if (jsondbSettings->debug() && jsondbSettings->verbose())
-                qDebug() << "ok" << ok << "forwardValue" << forwardValue << "objectKey" << objectKey;
+                qDebug() << JSONDB_INFO << "ok =" << ok << "forwardValue =" << forwardValue << "objectKey =" << objectKey;
 
             JsonDbObject map;
             if (get(objectKey, &map)) {
@@ -531,7 +533,7 @@ GetObjectsResult JsonDbObjectTable::getObjects(const QString &keyName, const QJs
                 objectList.append(map);
             } else {
                 if (jsondbSettings->debug())
-                    qDebug() << "Failed to get object" << objectKey << errorMessage();
+                    qDebug() << JSONDB_WARN << "failed to get object" << objectKey << "with error " << errorMessage();
             }
         } while (cursor.next());
     }

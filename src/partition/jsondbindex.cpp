@@ -243,7 +243,7 @@ bool JsonDbIndex::open()
     d->mBdb.setCompareFunction(JsonDbIndexPrivate::indexCompareFunction);
 
     if (jsondbSettings->verbose())
-        qDebug() << "JsonDbIndex::open" << d->mBdb.tag() << d->mBdb.fileName();
+        qDebug() << JSONDB_INFO << "opened index" << d->mBdb.fileName() << "with tag" << d->mBdb.tag();
     return true;
 }
 
@@ -253,7 +253,7 @@ void JsonDbIndex::close()
     if (!d->mBdb.isOpen())
         return;
     if (jsondbSettings->verbose())
-        qDebug() << "JsonDbIndex::close" << d->mBdb.tag() << d->mBdb.fileName();
+        qDebug() << JSONDB_INFO << "closed index" << d->mBdb.fileName() << "with tag" << d->mBdb.tag();
     d->mBdb.close();
 }
 
