@@ -326,6 +326,9 @@ void QJsonDbReadRequestPrivate::_q_privatePartitionStarted(quint32 state, const 
         connect(request, SIGNAL(objectAvailable(QJsonObject), this, SLOT(onObjectAvailable(QJsonObject)));
         connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                 this, SLOT(onError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        //in case no object found,you will not receive objectAvailable or error signal
+        //in this case you can call takeResults() in onFinished to check it
+        connect(request, SIGNAL(finished()), this, SLOT(onFinished()));
         connection->send(request);
     \endcode
 */
