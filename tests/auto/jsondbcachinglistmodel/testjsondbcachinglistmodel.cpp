@@ -1529,19 +1529,20 @@ void TestJsonDbCachingListModel::roleNames()
 void TestJsonDbCachingListModel::getItemNotInCache()
 {
     resetWaitFlags();
+
+    createIndex("number", "number");
+
     QVariantMap item;
     for (int i=0; i < 3000; i++) {
         item.insert("_type", __FUNCTION__);
-        item.insert("number", i);
+        item.insert("number", i%300);
         int id = create(item, "com.nokia.shared.1");
         waitForResponse1(id);
     }
 
-    createIndex("number", "number");
-
     QAbstractListModel *listModel = createModel();
     if (!listModel) return;
-    listModel->setProperty("cacheSize", 50);
+    listModel->setProperty("cacheSize", 150);
     listModel->setProperty("sortOrder", "[/number]");
     QStringList roleNames = (QStringList() << "_type" << "_uuid" << "number");
     listModel->setProperty("roleNames", roleNames);
@@ -1559,13 +1560,13 @@ void TestJsonDbCachingListModel::getItemNotInCache()
 
 
     QVariant number = getIndex(listModel, 2967, 2);
-    QCOMPARE(number.toInt(), 2967);
+    QCOMPARE(number.toInt(), 296);
     number = getIndex(listModel, 100, 2);
-    QCOMPARE(number.toInt(), 100);
+    QCOMPARE(number.toInt(),  10);
     number = getIndex(listModel, 1701, 2);
-    QCOMPARE(number.toInt(), 1701);
+    QCOMPARE(number.toInt(),  170);
     number = getIndex(listModel, 20, 2);
-    QCOMPARE(number.toInt(), 20);
+    QCOMPARE(number.toInt(),  2);
 
     deleteModel(listModel);
 }
