@@ -155,20 +155,27 @@ void QJsonDbPrivatePartition::handleRequest(const QJsonObject &request)
 
 QtJsonDb::QJsonDbRequest::ErrorCode QJsonDbPrivatePartition::ensurePartition(const QString &partitionName, QString &message)
 {
-    QString partition = partitionName == JsonDbStrings::Partition::privatePartition() ?
-                QString::fromLatin1("%1.%2").arg(QString::fromLatin1(qgetenv("USER"))).arg(JsonDbStrings::Partition::privatePartition()) :
-                partitionName;
-    QString user = QString(partition).replace(QString::fromLatin1(".%1").arg(JsonDbStrings::Partition::privatePartition()), QStringLiteral(""));
+    Q_ASSERT(!partitionName.isEmpty());
+    QString user;
+    QString fullPartitionName;
+    if (partitionName == JsonDbStrings::Partition::privatePartition()) {
+        user = QString::fromLatin1(qgetenv("USER"));
+        fullPartitionName = user + JsonDbStrings::Partition::dotPrivatePartition();
+    } else {
+        Q_ASSERT(partitionName.endsWith(JsonDbStrings::Partition::dotPrivatePartition()));
+        fullPartitionName = partitionName;
+        user = partitionName.mid(0, partitionName.size() - JsonDbStrings::Partition::dotPrivatePartition().size());
+    }
 
     // only keep a single private partition open at a time. This will cut down
     // on file contention and also keep the memory usage of the client under control
-    if (privatePartition && privatePartition->partitionSpec().name != partition) {
+    if (privatePartition && privatePartition->partitionSpec().name != fullPartitionName) {
         delete privatePartition;
         privatePartition = 0;
     }
 
     if (!privatePartition) {
-        struct passwd *pwd = getpwnam(user.toLatin1());
+        struct passwd *pwd = getpwnam(user.toLatin1()); // not thread-safe!
         if (!pwd) {
             message = QStringLiteral("Private partition not found");
             return QJsonDbRequest::InvalidPartition;
@@ -184,7 +191,7 @@ QtJsonDb::QJsonDbRequest::ErrorCode QJsonDbPrivatePartition::ensurePartition(con
         homeDir.cd(QStringLiteral(".jsondb"));
 
         Partition::JsonDbPartitionSpec spec;
-        spec.name = partition;
+        spec.name = fullPartitionName;
         spec.path = homeDir.absolutePath();
 
         privatePartition = new Partition::JsonDbPartition;

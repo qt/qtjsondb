@@ -126,11 +126,11 @@ void TestQJsonDbRequest::cleanupTestCase()
     struct passwd *pwd = getpwnam(qgetenv("USER"));
     if (pwd) {
         QDir homePartition(QString::fromLatin1("%1/.jsondb").arg(QString::fromUtf8(pwd->pw_dir)));
-        foreach (const QString &file, homePartition.entryList())
+        foreach (const QString &file, homePartition.entryList(QStringList() << QLatin1String("*.db")))
             QFile::remove(homePartition.absoluteFilePath(file));
 
         homePartition.cdUp();
-        homePartition.rmpath(QStringLiteral(".jsondb"));
+        homePartition.rmdir(QStringLiteral(".jsondb"));
     }
 
     stopDaemon();

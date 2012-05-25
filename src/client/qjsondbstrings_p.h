@@ -127,6 +127,7 @@ class Partition
 {
 public:
     static inline const QString privatePartition() { return QStringLiteral("Private"); }
+    static inline const QString dotPrivatePartition() { return QStringLiteral(".Private"); }
 };
 
 } // namespace JsonDbStrings

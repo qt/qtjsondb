@@ -182,7 +182,7 @@ void QJsonDbRequestPrivate::setRequestId(int id)
 bool QJsonDbRequestPrivate::isPrivatePartition() const
 {
     return partition == JsonDbStrings::Partition::privatePartition() ||
-            partition.endsWith(QString::fromLatin1(".%1").arg(JsonDbStrings::Partition::privatePartition()));
+            partition.endsWith(JsonDbStrings::Partition::dotPrivatePartition());
 }
 
 void QJsonDbRequestPrivate::_q_privatePartitionResults(const QList<QJsonObject> &res)

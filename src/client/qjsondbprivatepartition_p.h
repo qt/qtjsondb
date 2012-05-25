@@ -70,7 +70,6 @@ QT_END_NAMESPACE_JSONDB_PARTITION
 QT_BEGIN_NAMESPACE_JSONDB
 
 class QJsonDbConnectionPrivate;
-class QJsonDbRequestPrivate;
 
 class QJsonDbPrivatePartition : public QObject
 {
