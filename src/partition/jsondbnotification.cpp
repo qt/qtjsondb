@@ -109,7 +109,7 @@ void JsonDbNotification::notifyIfMatches(JsonDbObjectTable *objectTable, const J
 
     if (!r.isEmpty() &&
             (mActions & effectiveAction) &&
-            mOwner->isAllowed(r, mPartition ? mPartition->name() : QString(), QStringLiteral("read"))) {
+            mOwner->isAllowed(r, mPartition ? mPartition->name() : QLatin1String("Ephemeral"), QStringLiteral("read"))) {
 
         // FIXME: looking up of _indexValue should be encapsulated in JsonDbPartition
         if (mPartition && !mCompiledQuery->orderTerms.isEmpty()) {
