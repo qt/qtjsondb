@@ -320,7 +320,7 @@ void JsonDbIndex::close()
     Q_D(JsonDbIndex);
     if (!d->mBdb.isOpen())
         return;
-    if (jsondbSettings->verbose())
+    if (jsondbSettings && jsondbSettings->verbose()) // the global static can be NULL if called from other global static dtor
         qDebug() << JSONDB_INFO << "closed index" << d->mBdb.fileName() << "with tag" << d->mBdb.tag();
     d->mBdb.close();
 }

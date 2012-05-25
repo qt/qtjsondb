@@ -115,13 +115,18 @@ public:
     QLocalSocket *socket;
     QtJsonDbJsonStream::JsonStream *stream;
 
-    int lastRequestId;
     QPointer<QJsonDbRequest> currentRequest;
     QList<QPointer<QJsonDbRequest> > pendingRequests;
 
     QMap<QString, QPointer<QJsonDbWatcher> > watchers; // uuid->watcher map
-    QThread privatePartitionProcessing;
-    QJsonDbPrivatePartition *privatePartitionHandler;
+    QJsonDbPrivatePartition *privatePartitionHandler; // weak pointer to global static object
+};
+
+class QPrivatePartitionThread : public QThread
+{
+    Q_OBJECT
+public Q_SLOTS:
+    void quitAndWait() { quit(); wait(); }
 };
 
 QT_END_NAMESPACE_JSONDB

@@ -58,6 +58,7 @@
 #include <QFileInfo>
 #include <QTimer>
 #include <QTemporaryDir>
+#include <QThread>
 #include <QSignalSpy>
 
 #include <pwd.h>
@@ -115,6 +116,8 @@ private slots:
     void multiplerequests();
     void defaultConnection();
     void privatePartitionFlushRequest();
+    void multipleThreads_data();
+    void multipleThreads();
     void defaultPartition();
 
 private:
@@ -1223,6 +1226,138 @@ void TestQJsonDbRequest::privatePartitionFlushRequest()
     QCOMPARE(statuses.size(), 2);
     QCOMPARE((int)statuses.at(0), (int)QJsonDbRequest::Receiving);
     QCOMPARE((int)statuses.at(1), (int)QJsonDbRequest::Finished);
+}
+
+class Worker : public QObject
+{
+    Q_OBJECT
+public:
+    QString partitionName;
+    int requestsCount;
+    QTimer *t;
+    Worker() : requestsCount(0) { }
+
+public Q_SLOTS:
+    void start()
+    {
+        send();
+    }
+
+    void send()
+    {
+        QJsonDbObject item;
+        item.setUuid(QUuid::createUuid());
+        item.insert(QStringLiteral("_type"), QStringLiteral("multipleThreads"));
+
+        QThread *thread = QThread::currentThread();
+
+        QJsonDbWriteRequest *write = new QJsonDbWriteRequest;
+        write->setPartition(partitionName);
+        write->setObject(item);
+        QObject::connect(write, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                         this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        QObject::connect(write, SIGNAL(finished()), this, SLOT(writeRequestFinished()));
+        QObject::connect(write, SIGNAL(finished()), write, SLOT(deleteLater()));
+        QObject::connect(thread, SIGNAL(finished()), write, SLOT(deleteLater()));
+        QJsonDbConnection::defaultConnection()->send(write);
+        requestsCount++;
+
+        QJsonDbReadRequest *read = new QJsonDbReadRequest;
+        read->setPartition(partitionName);
+        read->setQuery(QStringLiteral("[?_type=\"multipleThreads\"]"));
+        QObject::connect(read, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
+                         this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        QObject::connect(read, SIGNAL(finished()), this, SLOT(readRequestFinished()));
+        QObject::connect(read, SIGNAL(finished()), this, SLOT(send()));
+        QObject::connect(read, SIGNAL(finished()), read, SLOT(deleteLater()));
+        QObject::connect(thread, SIGNAL(finished()), read, SLOT(deleteLater()));
+        QJsonDbConnection::defaultConnection()->send(read);
+        requestsCount++;
+    }
+
+    void writeRequestFinished()
+    {
+        QJsonDbWriteRequest *r = qobject_cast<QJsonDbWriteRequest *>(sender());
+        QVERIFY(r != 0);
+        QList<QJsonObject> results = r->takeResults();
+        QCOMPARE(results.size(), 1);
+    }
+
+    void readRequestFinished()
+    {
+        QJsonDbReadRequest *r = qobject_cast<QJsonDbReadRequest *>(sender());
+        QVERIFY(r != 0);
+        QList<QJsonObject> results = r->takeResults();
+        QVERIFY(results.size() >= 1);
+    }
+
+    void requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
+    {
+        if (partitionName != QLatin1String("userthatdoesnotexist.Private")) {
+            QJsonDbRequest *r = qobject_cast<QJsonDbRequest *>(sender());
+            qDebug() << "request failed" << partitionName << r << code << message;
+            QVERIFY(false);
+        }
+    }
+
+    void stop()
+    {
+        // uncomment me if you want to see how many requests each thread managed to push through
+        //qDebug() << QThread::currentThread() << "is stopping. Requests count" << requestsCount;
+    }
+
+    void quit()
+    {
+        QThread::currentThread()->quit();
+    }
+};
+
+void TestQJsonDbRequest::multipleThreads_data()
+{
+    QTest::addColumn<QStringList>("partitions");
+
+    QTest::newRow("serverpartition") << (QStringList());
+    QTest::newRow("private") << (QStringList() << QStringLiteral("Private"));
+    QTest::newRow("private-multi")
+            << (QStringList() << QStringLiteral("Private") << QStringLiteral("alice.Private"));
+    QTest::newRow("private-multi-nonexistent")
+            << (QStringList() << QStringLiteral("Private") << QStringLiteral("alice.Private") << QStringLiteral("userthatdoesnotexist.Private"));
+}
+
+void TestQJsonDbRequest::multipleThreads()
+{
+    QFETCH(QStringList, partitions);
+
+    QList<QThread *> threads;
+    static const int NumThreads = 3;
+    for (int i = 0; i < NumThreads; ++i) {
+        QThread *thread = new QThread;
+
+        Worker *w = new Worker;
+        QTimer *timer = new QTimer;
+        timer->setInterval(1000 + qrand() % 2000);
+        timer->moveToThread(thread);
+        QObject::connect(thread, SIGNAL(started()), timer, SLOT(start()));
+        QObject::connect(timer, SIGNAL(timeout()), w, SLOT(quit()));
+        QObject::connect(timer, SIGNAL(timeout()), timer, SLOT(deleteLater()));
+
+        if (!partitions.isEmpty())
+            w->partitionName = partitions.at(i % partitions.size());
+        w->moveToThread(thread);
+        QObject::connect(thread, SIGNAL(started()), w, SLOT(start()));
+        QObject::connect(thread, SIGNAL(finished()), w, SLOT(stop()));
+        QObject::connect(thread, SIGNAL(finished()), w, SLOT(deleteLater()));
+
+        w->t = timer;
+        threads.append(thread);
+    }
+
+    foreach (QThread *t, threads)
+        t->start();
+    foreach (QThread *t, threads)
+        t->wait();
+
+    qDeleteAll(threads);
 }
 
 void TestQJsonDbRequest::readObjectRequest()

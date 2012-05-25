@@ -60,6 +60,8 @@
 #include <qtimer.h>
 #include <qjsonarray.h>
 #include <qthreadstorage.h>
+#include <qcoreapplication.h>
+#include <qbasicatomic.h>
 
 /*!
     \macro QT_USE_NAMESPACE_JSONDB
@@ -111,7 +113,40 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 
-Q_GLOBAL_STATIC(QThreadStorage<QJsonDbConnection *>, _q_defaultConnection);
+Q_GLOBAL_STATIC(QThreadStorage<QJsonDbConnection *>, _q_defaultConnection)
+
+struct PrivatePartitionWrapper
+{
+    QPrivatePartitionThread thread;
+    QPointer<QJsonDbPrivatePartition> partition;
+
+    PrivatePartitionWrapper()
+        : partition(new QJsonDbPrivatePartition)
+    {
+        partition.data()->moveToThread(&thread);
+        QObject::connect(&thread, SIGNAL(finished()), partition.data(), SLOT(deleteLater()));
+        // we could use aboutToQuit() signal here, but autotests don't emit it
+        // because they don't use QCoreApplication::exec(), but a custom event
+        // loop instead.
+        QObject::connect(QCoreApplication::instance(), SIGNAL(destroyed()), &thread, SLOT(quitAndWait()));
+        // don't start the thread just yet - in case of contention the ctor can
+        // be called twice - see the dtor for the cleanup in that case.
+    }
+    ~PrivatePartitionWrapper();
+};
+
+Q_GLOBAL_STATIC(PrivatePartitionWrapper, _q_privatePartitionWrapper)
+
+PrivatePartitionWrapper::~PrivatePartitionWrapper()
+{
+    delete partition.data();
+    // by the time we get here most of the application is already destroyed,
+    // and the QCoreApplication's destroyed() signal should've gracefully
+    // stopped the thread, so it is safe to destroy the thread object.
+    Q_ASSERT(thread.isFinished());
+}
+
+static QBasicAtomicInt lastRequestId = Q_BASIC_ATOMIC_INITIALIZER(1);
 
 /*!
     \class QJsonDbConnection
@@ -163,8 +198,7 @@ Q_GLOBAL_STATIC(QThreadStorage<QJsonDbConnection *>, _q_defaultConnection);
 
 QJsonDbConnectionPrivate::QJsonDbConnectionPrivate(QJsonDbConnection *q)
     : q_ptr(q), status(QJsonDbConnection::Unconnected), autoConnect(false), autoReconnectEnabled(true),
-      explicitDisconnect(false), timeoutTimer(q), stream(0), lastRequestId(0),
-      privatePartitionProcessing(0), privatePartitionHandler(0)
+      explicitDisconnect(false), timeoutTimer(q), stream(0), privatePartitionHandler(0)
 {
     qRegisterMetaType<QtJsonDb::QJsonDbRequest::ErrorCode>("QtJsonDb::QJsonDbRequest::Status");
     qRegisterMetaType<QtJsonDb::QJsonDbRequest::ErrorCode>("QtJsonDb::QJsonDbRequest::ErrorCode");
@@ -320,14 +354,20 @@ void QJsonDbConnectionPrivate::handlePrivatePartitionRequest(const QJsonObject &
 {
     Q_Q(QJsonDbConnection);
 
-    if (!privatePartitionProcessing.isRunning())
-        privatePartitionProcessing.start();
-
     if (!privatePartitionHandler) {
-        privatePartitionHandler = new QJsonDbPrivatePartition;
-        privatePartitionHandler->moveToThread(&privatePartitionProcessing);
-        QObject::connect(&privatePartitionProcessing, SIGNAL(finished()),
-                         privatePartitionHandler, SLOT(deleteLater()));
+        PrivatePartitionWrapper *wrapper = _q_privatePartitionWrapper();
+        // in theory can only happen if we got there after global static was
+        // destroyed, which can only happen if the user is doing something fishy.
+        Q_ASSERT(wrapper);
+        if (!wrapper)
+            return;
+
+        // thread-safe: this locks the mutex (unfortunately), so it is ok to
+        // call it from multiple threads
+        if (!wrapper->thread.isFinished())
+            wrapper->thread.start();
+
+        privatePartitionHandler = wrapper->partition;
         QObject::connect(privatePartitionHandler, SIGNAL(readRequestStarted(int,quint32,QString)),
                          q, SLOT(_q_privateReadRequestStarted(int,quint32,QString)));
         QObject::connect(privatePartitionHandler, SIGNAL(writeRequestStarted(int,quint32)),
@@ -507,6 +547,12 @@ QJsonDbConnection::QJsonDbConnection(QObject *parent)
 */
 QJsonDbConnection::~QJsonDbConnection()
 {
+    Q_D(QJsonDbConnection);
+
+    // we should use the pointer here, it might've been already destroyed if
+    // this connection is the defaultConnection()
+    d->privatePartitionHandler = 0;
+
     disconnectFromServer();
 }
 
@@ -614,9 +660,9 @@ void QJsonDbConnection::disconnectFromServer()
     d->explicitDisconnect = true;
     d->socket->disconnectFromServer();
 
-    if (d->privatePartitionProcessing.isRunning()) {
-        d->privatePartitionProcessing.quit();
-        d->privatePartitionProcessing.wait();
+    if (d->privatePartitionHandler) {
+        QObject::disconnect(d->privatePartitionHandler, 0, this, 0);
+        d->privatePartitionHandler = 0;
     }
 }
 
@@ -657,7 +703,7 @@ bool QJsonDbConnection::send(QJsonDbRequest *request)
     } else {
         d->pendingRequests.append(QPointer<QJsonDbRequest>(request));
     }
-    drequest->setRequestId(++d->lastRequestId);
+    drequest->setRequestId(lastRequestId.fetchAndAddRelaxed(1));
     if (d->status == QJsonDbConnection::Connected)
         d->handleRequestQueue();
     return true;
@@ -978,5 +1024,6 @@ QJsonDbConnection *QJsonDbConnection::defaultConnection()
     \sa autoReconnectEnabled, status, connectToServer()
 */
 #include "moc_qjsondbconnection.cpp"
+#include "moc_qjsondbconnection_p.cpp"
 
 QT_END_NAMESPACE_JSONDB
