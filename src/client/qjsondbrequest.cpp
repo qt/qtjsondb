@@ -186,7 +186,7 @@ void QJsonDbRequestPrivate::_q_privatePartitionStatus(QtJsonDb::QJsonDbRequest::
 }
 
 /*!
-    Returns the first \a amount of request results.
+    Removes the first \a amount of request results and returns them.
 
     If amount is -1, retrieves all available results.
 
