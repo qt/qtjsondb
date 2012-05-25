@@ -95,6 +95,7 @@ private slots:
     void updateRequest_data();
     void updateRequest();
     void privatePartition();
+    void privatePartition2();
     void invalidPrivatePartition();
     void removeRequest();
     void forced();
@@ -891,6 +892,46 @@ void TestQJsonDbRequest::privatePartition()
 
     results = query.takeResults();
     QVERIFY(results.isEmpty());
+}
+
+void TestQJsonDbRequest::privatePartition2()
+{
+    QJsonDbObject contact1;
+    contact1.insert(QStringLiteral("_uuid"), QStringLiteral("{ed3d2c73-27f6-4443-9945-3b18b11d7c56}"));
+    contact1.insert(QStringLiteral("_type"), QStringLiteral("privatePartition2"));
+    contact1.insert(QStringLiteral("name"), QStringLiteral("Joe"));
+    QJsonDbObject contact2;
+    contact2.insert(QStringLiteral("_type"), QStringLiteral("privatePartition2"));
+    contact2.insert(QStringLiteral("_uuid"), QStringLiteral("{6ec6277b-0020-4fa6-a40f-02e574b3af6a}"));
+    contact2.insert(QStringLiteral("name"), QStringLiteral("Alice"));
+
+    QJsonDbWriteRequest write1;
+    write1.setObjects(QList<QJsonObject>() << contact1);
+    write1.setPartition(QStringLiteral("Private"));
+    QJsonDbWriteRequest write2;
+    write2.setObjects(QList<QJsonObject>() << contact2);
+    write2.setPartition(QStringLiteral("Private"));
+    QJsonDbReadRequest read(QStringLiteral("[?_type=\"privatePartition2\"]"));
+    read.setPartition(QStringLiteral("Private"));
+    mConnection->send(&write1);
+    mConnection->send(&write2);
+    mConnection->send(&read);
+
+    QVERIFY(waitForResponse(&write2));
+    QVERIFY(!mRequestErrors.contains(&write1));
+    QVERIFY(!mRequestErrors.contains(&write2));
+    QList<QJsonObject> results = write2.takeResults();
+    QCOMPARE(results.count(), 1);
+    QCOMPARE(results.at(0).value(QStringLiteral("_uuid")).toString(), contact2.value(QStringLiteral("_uuid")).toString());
+
+    QVERIFY(waitForResponse(&read));
+    results = read.takeResults();
+    QCOMPARE(results.size(), 2);
+    QList<QJsonDbRequest::Status> statuses = mRequestStatuses.value(&write2);
+    QCOMPARE(statuses.size(), 3);
+    QCOMPARE((int)statuses.at(0), (int)QJsonDbRequest::Sent);
+    QCOMPARE((int)statuses.at(1), (int)QJsonDbRequest::Receiving);
+    QCOMPARE((int)statuses.at(2), (int)QJsonDbRequest::Finished);
 }
 
 void TestQJsonDbRequest::invalidPrivatePartition()

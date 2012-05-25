@@ -306,12 +306,6 @@ void QJsonDbReadRequestPrivate::handleError(int code, const QString &message)
     emit q->error(QJsonDbRequest::ErrorCode(code), message);
 }
 
-void QJsonDbReadRequestPrivate::_q_privatePartitionStarted(quint32 state, const QString &key)
-{
-    stateNumber = state;
-    sortKey = key;
-}
-
 /*!
     \class QJsonDbReadObjectRequest
     \inmodule QtJsonDb

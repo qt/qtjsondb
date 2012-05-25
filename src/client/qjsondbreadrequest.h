@@ -100,8 +100,7 @@ protected:
 private:
     Q_DISABLE_COPY(QJsonDbReadRequest)
     Q_DECLARE_PRIVATE(QJsonDbReadRequest)
-
-    Q_PRIVATE_SLOT(d_func(), void _q_privatePartitionStarted(quint32, const QString &))
+    friend class QJsonDbConnectionPrivate;
 };
 
 class QJsonDbReadObjectRequestPrivate;

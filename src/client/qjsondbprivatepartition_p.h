@@ -79,23 +79,15 @@ public:
     QJsonDbPrivatePartition(QJsonDbConnectionPrivate *conn);
     ~QJsonDbPrivatePartition();
 
-    inline void setRequest(const QJsonObject &req) { request = req; }
-
 public Q_SLOTS:
-    void handleRequest();
+    void handleRequest(const QJsonObject &request);
 
 Q_SIGNALS:
-    void started();
-    void resultsAvailable(const QList<QJsonObject> &results);
-    void finished();
-    void error(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
-
-    // signals for properties
-    void statusChanged(QtJsonDb::QJsonDbRequest::Status newStatus);
-
-    void readRequestStarted(quint32 state, const QString &sortKey);
-    void writeRequestStarted(quint32 state);
-    void requestCompleted();
+    void readRequestStarted(int requestId, quint32 state, const QString &sortKey);
+    void writeRequestStarted(int requestId, quint32 state);
+    void resultsAvailable(int requestId, const QList<QJsonObject> &results);
+    void finished(int requestId);
+    void error(int requestId, QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
 
 private:
     QtJsonDb::QJsonDbRequest::ErrorCode ensurePartition(const QString &partitionName, QString &message);
@@ -103,7 +95,6 @@ private:
     QJsonDbConnectionPrivate *connection;
     Partition::JsonDbOwner *partitionOwner;
     Partition::JsonDbPartition *privatePartition;
-    QJsonObject request;
 };
 
 QT_END_NAMESPACE_JSONDB

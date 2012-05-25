@@ -72,9 +72,10 @@ QJsonDbPrivatePartition::~QJsonDbPrivatePartition()
     }
 }
 
-void QJsonDbPrivatePartition::handleRequest()
+void QJsonDbPrivatePartition::handleRequest(const QJsonObject &request)
 {
     QString partitionName = request.value(JsonDbStrings::Protocol::partition()).toString();
+    int requestId = static_cast<int>(request.value(JsonDbStrings::Protocol::requestId()).toDouble());
 
     QString errorMessage;
     QJsonDbRequest::ErrorCode errorCode = ensurePartition(partitionName, errorMessage);
@@ -96,19 +97,13 @@ void QJsonDbPrivatePartition::handleRequest()
                         Partition::JsonDbPartition::Replace : Partition::JsonDbPartition::RejectStale;
             Partition::JsonDbWriteResult writeResults = privatePartition->updateObjects(privatePartition->defaultOwner(), objects, writeMode);
             if (writeResults.code == Partition::JsonDbError::NoError) {
-                emit writeRequestStarted(writeResults.state);
-                emit statusChanged(QJsonDbRequest::Receiving);
-                emit started();
+                emit writeRequestStarted(requestId, writeResults.state);
 
                 results.reserve(writeResults.objectsWritten.count());
-                foreach (const Partition::JsonDbObject &object, writeResults.objectsWritten) {
-                    QJsonObject written;
-                    written.insert(JsonDbStrings::Property::uuid(), object.uuid().toString());
-                    written.insert(JsonDbStrings::Property::version(), object.version());
-                    results.append(written);
-                }
+                foreach (const Partition::JsonDbObject &object, writeResults.objectsWritten)
+                    results.append(object);
 
-                emit resultsAvailable(results);
+                emit resultsAvailable(requestId, results);
             } else {
                 errorCode = static_cast<QJsonDbRequest::ErrorCode>(writeResults.code);
                 errorMessage = writeResults.message;
@@ -130,14 +125,12 @@ void QJsonDbPrivatePartition::handleRequest()
             Partition::JsonDbQueryResult queryResult = privatePartition->queryObjects(privatePartition->defaultOwner(),
                                                                                       query.data(), limit, offset);
             if (queryResult.code == Partition::JsonDbError::NoError) {
-                emit readRequestStarted(queryResult.state, queryResult.sortKeys.at(0));
-                emit statusChanged(QJsonDbRequest::Receiving);
-                emit started();
+                emit readRequestStarted(requestId, queryResult.state, queryResult.sortKeys.at(0));
 
                 results.reserve(queryResult.data.count());
                 foreach (const Partition::JsonDbObject &val, queryResult.data)
                     results.append(val);
-                emit resultsAvailable(results);
+                emit resultsAvailable(requestId, results);
             } else {
                 errorCode = static_cast<QJsonDbRequest::ErrorCode>(queryResult.code);
                 errorMessage = queryResult.message;
@@ -146,14 +139,10 @@ void QJsonDbPrivatePartition::handleRequest()
     }
 
     if (errorCode == QJsonDbRequest::NoError) {
-        emit statusChanged(QJsonDbRequest::Finished);
-        emit finished();
+        emit finished(requestId);
     } else {
-        emit statusChanged(QJsonDbRequest::Error);
-        emit error(errorCode, errorMessage);
+        emit error(requestId, errorCode, errorMessage);
     }
-
-    emit requestCompleted();
 }
 
 QtJsonDb::QJsonDbRequest::ErrorCode QJsonDbPrivatePartition::ensurePartition(const QString &partitionName, QString &message)

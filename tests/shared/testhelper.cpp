@@ -283,12 +283,16 @@ bool TestHelper::waitForResponse(QJsonDbRequest *request)
     connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
     connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
             this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    connect(request, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+            this, SLOT(requestStatusChanged(QtJsonDb::QJsonDbRequest::Status)));
 
     blockWithTimeout();
 
     disconnect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
     disconnect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+    disconnect(request, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+               this, SLOT(requestStatusChanged(QtJsonDb::QJsonDbRequest::Status)));
 
     return !mRequestsPending;
 }
@@ -303,6 +307,8 @@ bool TestHelper::waitForResponse(QList<QJsonDbRequest *> requests)
         connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
         connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                 this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        connect(request, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+                this, SLOT(requestStatusChanged(QtJsonDb::QJsonDbRequest::Status)));
     }
 
     blockWithTimeout();
@@ -311,6 +317,8 @@ bool TestHelper::waitForResponse(QList<QJsonDbRequest *> requests)
         disconnect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
         disconnect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                    this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        disconnect(request, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+                   this, SLOT(requestStatusChanged(QtJsonDb::QJsonDbRequest::Status)));
     }
 
     return !mRequestsPending;
@@ -332,6 +340,8 @@ bool TestHelper::waitForResponseAndNotifications(QJsonDbRequest *request,
         connect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
         connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                 this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        connect(request, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+                this, SLOT(requestStatusChanged(QtJsonDb::QJsonDbRequest::Status)));
     }
 
     connect(watcher, SIGNAL(notificationsAvailable(int)),
@@ -347,6 +357,8 @@ bool TestHelper::waitForResponseAndNotifications(QJsonDbRequest *request,
         disconnect(request, SIGNAL(finished()), this, SLOT(requestFinished()));
         disconnect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
                    this, SLOT(requestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+        disconnect(request, SIGNAL(statusChanged(QtJsonDb::QJsonDbRequest::Status)),
+                   this, SLOT(requestStatusChanged(QtJsonDb::QJsonDbRequest::Status)));
     }
 
     disconnect(watcher, SIGNAL(notificationsAvailable(int)),
@@ -486,7 +498,9 @@ void TestHelper::requestError(QtJsonDb::QJsonDbRequest::ErrorCode code, QString 
 
 void TestHelper::requestStatusChanged(QtJsonDb::QJsonDbRequest::Status status)
 {
-    Q_UNUSED(status);
+    QJsonDbRequest *request = qobject_cast<QJsonDbRequest *>(sender());
+    Q_ASSERT(request);
+    mRequestStatuses[request].append(status);
 }
 
 void TestHelper::watcherNotificationsAvailable(int count)

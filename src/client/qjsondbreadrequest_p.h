@@ -72,8 +72,6 @@ public:
     void handleResponse(const QJsonObject &);
     void handleError(int, const QString &);
 
-    void _q_privatePartitionStarted(quint32 state, const QString &key);
-
     QString query;
     int queryLimit;
     QMap<QString, QJsonValue> bindings;

@@ -104,8 +104,7 @@ public:
 private:
     Q_DISABLE_COPY(QJsonDbWriteRequest)
     Q_DECLARE_PRIVATE(QJsonDbWriteRequest)
-
-    Q_PRIVATE_SLOT(d_func(), void _q_privatePartitionStarted(quint32))
+    friend class QJsonDbConnectionPrivate;
 };
 
 class Q_JSONDB_EXPORT QJsonDbCreateRequest : public QJsonDbWriteRequest

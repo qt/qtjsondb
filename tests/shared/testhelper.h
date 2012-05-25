@@ -48,6 +48,7 @@
 
 #include <QEventLoop>
 #include <QHash>
+#include <QMap>
 #include <QJsonDocument>
 #include <QJsonValue>
 #include <QObject>
@@ -107,6 +108,7 @@ protected:
     int mLastStateChangedExpected;
     int mLastStateChangedReceived;
     QHash<QtJsonDb::QJsonDbRequest *, QtJsonDb::QJsonDbRequest::ErrorCode> mRequestErrors;
+    QMap<QtJsonDb::QJsonDbRequest *, QList<QtJsonDb::QJsonDbRequest::Status> > mRequestStatuses;
 
     void blockWithTimeout();
 
