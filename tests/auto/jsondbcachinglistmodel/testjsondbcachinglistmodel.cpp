@@ -1177,7 +1177,6 @@ void TestJsonDbCachingListModel::checkAddNotification()
 {
     resetWaitFlags();
     int id = 0;
-    QVariantList insertedItems;
     for (int i = 0; i < 10; i++) {
         QVariantMap item;
         item.insert("_type", __FUNCTION__);
@@ -1387,9 +1386,9 @@ void TestJsonDbCachingListModel::listProperty()
 void TestJsonDbCachingListModel::changeQuery()
 {
     resetWaitFlags();
-    QVariantMap item;
 
     for (int i=0; i < 10; i++) {
+        QVariantMap item;
         item.insert("_type", __FUNCTION__);
         item.insert("name", QString("Arnie_%1").arg(i));
         int id = create(item, "com.nokia.shared.1");
@@ -1532,8 +1531,8 @@ void TestJsonDbCachingListModel::getItemNotInCache()
 
     createIndex("number", "number");
 
-    QVariantMap item;
     for (int i=0; i < 3000; i++) {
+        QVariantMap item;
         item.insert("_type", __FUNCTION__);
         item.insert("number", i%300);
         int id = create(item, "com.nokia.shared.1");
