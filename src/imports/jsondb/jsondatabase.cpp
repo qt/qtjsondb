@@ -95,8 +95,8 @@ JsonDbPartition* JsonDatabase::partition(const QString &partitionName)
 /*!
     \qmlmethod QtJsonDb::JsonDatabase::listPartitions(listCallback)
 
-    List all the partions accessible by this application. The
-    script engine will destroy the objects during garbage collection.
+    Lists all partitions excluding private partitions. The script engine will
+    destroy the objects during garbage collection.
 
     The \a listCallback has the following signature.
 
@@ -109,7 +109,7 @@ JsonDbPartition* JsonDatabase::partition(const QString &partitionName)
             // communication error or wrong parameters.
             // in case of error response will be  {status: Code, message: "plain text" }
         } else {
-            // result is an array of objects describing the know partitions
+            // result is an array of objects describing the known partitions
         }
     }
     \endcode
