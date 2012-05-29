@@ -893,6 +893,8 @@ void QJsonDbConnection::setDefaultConnection(QJsonDbConnection *connection)
     connection has been set for the current thread with setDefaultConnection(),
     a new connection is created.
 
+    The returned object is owned by QtJsonDb and should not be deleted.
+
     \sa QJsonDbConnection::setDefaultConnection()
 */
 QJsonDbConnection *QJsonDbConnection::defaultConnection()
