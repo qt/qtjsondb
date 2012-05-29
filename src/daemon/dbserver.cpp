@@ -709,7 +709,7 @@ void DBServer::debugQuery(const JsonDbQuery &query, int limit, int offset, const
                             .arg(queryTerm.joinField().size() ? "->" : "")
                             .arg(queryTerm.joinField())
                             .arg(queryTerm.op())
-                         << queryTerm.value();
+                         << query.termValue(queryTerm);
             }
         }
     }
