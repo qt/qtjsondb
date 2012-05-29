@@ -26,10 +26,6 @@
         <description>Btrees performance</description>
         <step>cd /var/lib/qt5jsondb-tests/benchmarks/btrees; date &amp;&amp; ./tst_bench_btrees &amp;&amp; date</step>
       </case>
-      <case name="tst_bench_partition" timeout="5000" component="qt5jsondb">
-        <description>Partition performance</description>
-        <step>cd /var/lib/qt5jsondb-tests/benchmarks/partition; date &amp;&amp; ./tst_bench_partition &amp;&amp; date</step>
-      </case>
     </set>
   </suite>
 </testdefinition>
