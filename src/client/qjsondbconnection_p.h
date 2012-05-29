@@ -106,6 +106,7 @@ public:
     QJsonDbConnection *q_ptr;
     QString socketName;
     QJsonDbConnection::Status status;
+    bool autoConnect;
     bool autoReconnectEnabled;
     bool explicitDisconnect;
     QTimer timeoutTimer;

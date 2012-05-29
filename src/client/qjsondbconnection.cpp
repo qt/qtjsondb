@@ -160,7 +160,7 @@ Q_GLOBAL_STATIC(QThreadStorage<QJsonDbConnection *>, _q_defaultConnection);
 */
 
 QJsonDbConnectionPrivate::QJsonDbConnectionPrivate(QJsonDbConnection *q)
-    : q_ptr(q), status(QJsonDbConnection::Unconnected), autoReconnectEnabled(true),
+    : q_ptr(q), status(QJsonDbConnection::Unconnected), autoConnect(false), autoReconnectEnabled(true),
       explicitDisconnect(false), timeoutTimer(q), stream(0), lastRequestId(0),
       privatePartitionProcessing(0), privatePartitionHandler(0)
 {
@@ -621,6 +621,10 @@ bool QJsonDbConnection::send(QJsonDbRequest *request)
         qWarning("QJsonDbConnection: cannot send request that is currently active.");
         return false;
     }
+    if (d->autoConnect) {
+        d->autoConnect = false;
+        connectToServer();
+    }
     QJsonDbRequestPrivate *drequest = request->d_func();
     drequest->setStatus(QJsonDbRequest::Queued);
     if (drequest->internal)
@@ -839,6 +843,10 @@ bool QJsonDbConnection::addWatcher(QJsonDbWatcher *watcher)
     Q_D(QJsonDbConnection);
     if (!watcher)
         return false;
+    if (d->autoConnect) {
+        d->autoConnect = false;
+        connectToServer();
+    }
     QJsonDbWatcherPrivate *dwatcher = watcher->d_func();
     if (dwatcher->status != QJsonDbWatcher::Inactive) {
         qWarning("QJsonDbConnection: cannot add watcher that is already active.");
@@ -881,6 +889,10 @@ bool QJsonDbConnection::removeWatcher(QJsonDbWatcher *watcher)
     This transfers ownership of \a connection to QtJsonDb, it will be deleted
     on thread exit, or on the next call to setDefaultConnection().
 
+    The given default connection should typically be connected, so that the
+    users of defaultConnection() could assume there is no need to explicitly
+    call connectToServer().
+
     \sa QJsonDbConnection::defaultConnection()
 */
 void QJsonDbConnection::setDefaultConnection(QJsonDbConnection *connection)
@@ -893,6 +905,9 @@ void QJsonDbConnection::setDefaultConnection(QJsonDbConnection *connection)
     connection has been set for the current thread with setDefaultConnection(),
     a new connection is created.
 
+    The returned default connection can be assumed to be connected, so
+    typically there is no need to call connectToServer() on it.
+
     The returned object is owned by QtJsonDb and should not be deleted.
 
     \sa QJsonDbConnection::setDefaultConnection()
@@ -903,6 +918,7 @@ QJsonDbConnection *QJsonDbConnection::defaultConnection()
     QJsonDbConnection *defaultConnection = storage->localData();
     if (!defaultConnection) {
         defaultConnection = new QJsonDbConnection;
+        defaultConnection->d_func()->autoConnect = true;
         storage->setLocalData(defaultConnection);
     }
     return defaultConnection;

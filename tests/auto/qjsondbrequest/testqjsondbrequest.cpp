@@ -55,6 +55,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QTimer>
 
 #include <pwd.h>
 #include <signal.h>
@@ -108,6 +109,7 @@ private slots:
     void bindings();
     void replaceFromNull();
     void multiplerequests();
+    void defaultConnection();
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
@@ -1189,6 +1191,19 @@ void TestQJsonDbRequest::multiplerequests()
     QCOMPARE((int)read.status(), (int)QJsonDbReadRequest::Finished);
     QList<QJsonObject> results = read.takeResults();
     QCOMPARE(results.size(), 0);
+}
+
+void TestQJsonDbRequest::defaultConnection()
+{
+    // make sure that the default connection connects automatically
+    QJsonDbConnection *connection = QJsonDbConnection::defaultConnection();
+    QJsonDbReadRequest request(QStringLiteral("[?_type=\"Foo\"]"));
+    QEventLoop ev;
+    QObject::connect(&request, SIGNAL(finished()), &ev, SLOT(quit()));
+    QTimer::singleShot(10000, &ev, SLOT(quit()));
+    QVERIFY(connection->send(&request));
+    ev.exec();
+    QCOMPARE((int)request.status(), (int)QJsonDbRequest::Finished);
 }
 
 void TestQJsonDbRequest::bindings()
