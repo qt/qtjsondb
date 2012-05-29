@@ -20,7 +20,7 @@
       </case>
       <case name="tst_bench_jsondbobject" timeout="5000" component="qt5jsondb">
         <description>JsonDbObject performance</description>
-        <step>cd /var/lib/qt5jsondb-tests/benchmarks/jsondbobject; date &amp;&amp; ./tst_bench_jsondbobject &amp;&amp; date</step>
+        <step>cd /var/lib/qt5jsondb-tests/benchmarks/jsondbobject; date &amp;&amp; ./tst_bench_object &amp;&amp; date</step>
       </case>
       <case name="tst_bench_btrees" timeout="5000" component="qt5jsondb">
         <description>Btrees performance</description>

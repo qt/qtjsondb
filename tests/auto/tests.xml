@@ -2,7 +2,7 @@
 <testdefinition version="0.1">
   <suite domain="Functional" name="jsondb-autotests" timeout="2000">
     <set description=" Simple JSON DB auto tests " feature="JSONDB" level="Auto" name="jsondb-autotests" type="Functional"  timeout="2000">
-      <case name="tst_client" requirement="BAT,CST" component="qt5jsondb"  timeout="100">
+      <case name="tst_client" requirement="BAT,CST" component="qt5jsondb"  timeout="600">
         <description>Client library tests: C++ APIs testcases.</description>
         <step>cd /var/lib/qt5jsondb-tests/auto/client;date &amp;&amp; ./tst_client&amp;&amp; date</step>
       </case>
@@ -54,13 +54,9 @@
         <description>QJsonDbWatcher Class tests</description>
         <step>cd /var/lib/qt5jsondb-tests/auto/qjsondbwatcher;date &amp;&amp; ./tst_qjsondbwatcher &amp;&amp; date</step>
       </case>
-      <case name="tst_hbtree" component="qt5jsondb"  timeout="600">
+      <case name="tst_hbtree" component="qt5jsondb"  timeout="2000">
         <description>hbtree tests</description>
         <step>cd /var/lib/qt5jsondb-tests/auto/hbtree;date &amp;&amp; ./tst_hbtree &amp;&amp; date</step>
-      </case>
-      <case name="tst_headersclean" component="qt5jsondb"  timeout="600">
-        <description>Public Headers cleaness tests</description>
-        <step>cd /var/lib/qt5jsondb-tests/auto/headersclean;date &amp;&amp; ./tst_headersclean &amp;&amp; date</step>
       </case>
       <case name="tst_jsonstream" component="qt5jsondb"  timeout="600">
         <description>JsonStream Class tests</description>
