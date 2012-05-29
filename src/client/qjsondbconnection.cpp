@@ -627,10 +627,19 @@ bool QJsonDbConnection::send(QJsonDbRequest *request)
     }
     QJsonDbRequestPrivate *drequest = request->d_func();
     drequest->setStatus(QJsonDbRequest::Queued);
-    if (drequest->internal)
-        d->pendingRequests.prepend(QWeakPointer<QJsonDbRequest>(request));
-    else
+    if (drequest->internal) {
+        int i = 0;
+        if (!d->pendingRequests.isEmpty()) {
+            for (; i < d->pendingRequests.size(); ++i) {
+                QJsonDbRequest *r = d->pendingRequests.at(i).data();
+                if (r && !r->d_func()->internal)
+                    break;
+            }
+        }
+        d->pendingRequests.insert(i, QWeakPointer<QJsonDbRequest>(request));
+    } else {
         d->pendingRequests.append(QWeakPointer<QJsonDbRequest>(request));
+    }
     drequest->setRequestId(++d->lastRequestId);
     if (d->status == QJsonDbConnection::Connected)
         d->handleRequestQueue();
