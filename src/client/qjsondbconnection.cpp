@@ -758,11 +758,9 @@ bool QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
     Q_ASSERT(!QUuid(dwatcher->uuid).isNull());
     watchers.insert(dwatcher->uuid, QWeakPointer<QJsonDbWatcher>(watcher));
 
-    QList<QJsonObject> objects;
-    objects.append(object);
     // now make a request object
-    QJsonDbWriteRequest *request = new QJsonDbWriteRequest(q);
-    request->setObjects(objects);
+    QJsonDbWriteRequest *request = new QJsonDbWriteRequest(watcher);
+    request->setObjects(QList<QJsonObject>() << object);
     request->QJsonDbRequest::d_func()->internal = true;
     QObject::connect(request, SIGNAL(finished()), watcher, SLOT(_q_onFinished()));
     QObject::connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
@@ -790,10 +788,20 @@ void QJsonDbConnectionPrivate::removeWatcher(QJsonDbWatcher *watcher)
     object.insert(JsonDbStrings::Property::type(), QJsonValue(JsonDbStrings::Types::notification()));
     object.insert(JsonDbStrings::Property::uuid(), dwatcher->uuid);
     object.insert(JsonDbStrings::Property::version(), dwatcher->version);
+    object.insert(JsonDbStrings::Property::deleted(), true);
+
+    // disconnect the internal signals so that if the watcher was in the process
+    // of being activated/deactivated, we don't handle it anymore.
+    foreach (QObject *child, watcher->children()) {
+        QJsonDbRequest *request = qobject_cast<QJsonDbRequest *>(child);
+        if (request && request->d_func()->internal)
+            QObject::disconnect(request, 0, watcher, 0);
+    }
 
     // create a request to remove notification object
     // This time we don't care about the response to that removal request.
-    QJsonDbWriteRequest *request = new QJsonDbRemoveRequest(object);
+    QJsonDbWriteRequest *request = new QJsonDbWriteRequest(watcher);
+    request->setObjects(QList<QJsonObject>() << object);
     request->QJsonDbRequest::d_func()->internal = true;
     // auto delete request after it's complete
     QObject::connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));

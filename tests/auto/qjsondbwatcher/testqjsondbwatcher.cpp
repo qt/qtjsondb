@@ -92,6 +92,7 @@ private slots:
     void typeChangeEagerViewSource();
     void invalid();
     void privatePartition();
+    void addAndRemove();
 };
 
 TestQJsonDbWatcher::TestQJsonDbWatcher()
@@ -804,6 +805,20 @@ void TestQJsonDbWatcher::privatePartition()
     privateWatcher.setQuery("[?_type=\"foo\"]");
     privateWatcher.setPartition(QString::fromLatin1("%1.Private").arg(QJsonDbStandardPaths::currentUser()));
     QVERIFY(!mConnection->addWatcher(&privateWatcher));
+}
+
+void TestQJsonDbWatcher::addAndRemove()
+{
+    QJsonDbWatcher watcher;
+    watcher.setQuery("[?_type=\"Foo\"]");
+    QVERIFY(mConnection->addWatcher(&watcher));
+    QVERIFY(mConnection->removeWatcher(&watcher));
+
+    // a dummy request so that we can safely wait for the (internal) watcher
+    // requests to be processed.
+    QJsonDbReadRequest read(QStringLiteral("[?_type=\"Foo\"]"));
+    QVERIFY(mConnection->send(&read));
+    QVERIFY(waitForResponse(&read));
 }
 
 QTEST_MAIN(TestQJsonDbWatcher)
