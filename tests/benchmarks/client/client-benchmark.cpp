@@ -71,6 +71,7 @@ private slots:
     void updateThousandItemsInOneTransaction();
     void removeOneItem();
     void removeThousandItems();
+    void manyWatchers();
 
 private:
     void sendLogMessage(const QString &msg);
@@ -487,6 +488,36 @@ void ClientBenchmark::removeThousandItems()
             QVERIFY(!mRequestErrors.contains(&remove));
         }
         BENCH_END_TAG;
+    }
+}
+
+void ClientBenchmark::manyWatchers()
+{
+    static const int NumWatchers = 50;
+    QList<QJsonDbWatcher *> watchers;
+    for (int i = 0; i < NumWatchers; ++i) {
+        QJsonDbWatcher *w = new QJsonDbWatcher;
+        w->setQuery(QStringLiteral("[?_type=%type]"));
+        w->bindValue(QStringLiteral("type"), QStringLiteral("manyWatchers")+QString::number(i));
+        watchers.append(w);
+        QVERIFY(mConnection->addWatcher(w));
+    }
+    waitForStatus(watchers.last(), QJsonDbWatcher::Active);
+    QVERIFY(watchers.first()->status() == QJsonDbWatcher::Active);
+
+    QBENCHMARK {
+        QJsonDbObject item;
+        item.setUuid(QUuid::createUuid());
+        item.insert(QStringLiteral("_type"), QStringLiteral("manyWatchers1"));
+        QJsonDbWriteRequest request;
+        request.setObject(item);
+        QVERIFY(mConnection->send(&request));
+        QVERIFY(waitForResponse(&request));
+    }
+
+    foreach (QJsonDbWatcher *w, watchers) {
+        QVERIFY(mConnection->removeWatcher(w));
+        waitForStatus(w, QJsonDbWatcher::Inactive);
     }
 }
 
