@@ -179,7 +179,7 @@ JsonDbIndexQuery::JsonDbIndexQuery(JsonDbPartition *partition, JsonDbObjectTable
     , mQuery(query)
 {
     mResidualQuery.query = mQuery.query;
-    mResidualQuery.mBindings = mQuery.mBindings;
+    mResidualQuery.bindings = mQuery.bindings;
 
     if (propertyName != JsonDbString::kUuidStr) {
         mBdbIndex = table->index(propertyName)->bdb();

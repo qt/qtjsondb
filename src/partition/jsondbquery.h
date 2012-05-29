@@ -151,20 +151,17 @@ public:
     QString query;
     QStringList mapExpressionList;
     QStringList mapKeyList;
-    QStringList queryExplanation;
-    QString mAggregateOperation;
+    QString aggregateOperation;
 
-    QMap<QString,QJsonValue> mBindings;
+    QMap<QString,QJsonValue> bindings;
 
     inline bool isEmpty() const { return queryTerms.isEmpty() && orderTerms.isEmpty(); }
 
     QSet<QString> matchedTypes() const { return mMatchedTypes; }
-    QJsonValue binding(const QString variable) const { return mBindings.value(variable, QJsonValue(QJsonValue::Undefined)); }
-    void bind(QString variable, QJsonValue &binding) { mBindings[variable] = binding; }
     bool match(const JsonDbObject &object, QHash<QString, JsonDbObject> *objectCache, JsonDbPartition *partition = 0) const;
 
     inline QJsonValue termValue(const JsonDbQueryTerm &term) const
-    { return term.hasValue() ? term.value() : mBindings.value(term.variable(), QJsonValue(QJsonValue::Undefined)); }
+    { return term.hasValue() ? term.value() : bindings.value(term.variable(), QJsonValue(QJsonValue::Undefined)); }
 
     bool isAscending() const;
 

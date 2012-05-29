@@ -856,7 +856,7 @@ JsonDbError::ErrorCode DBServer::validateNotification(const JsonDbObject &notifi
     bool ok = parser.parse();
     JsonDbQuery query = parser.result();
     if (!ok || !(query.queryTerms.size() || query.orderTerms.size())) {
-        message = QString::fromLatin1("Missing query: %1").arg(query.queryExplanation.join(QStringLiteral("\n")));
+        message = QStringLiteral("Missing query: %1").arg(parser.errorString());
         return JsonDbError::MissingQuery;
     }
 

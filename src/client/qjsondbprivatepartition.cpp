@@ -107,21 +107,19 @@ void QJsonDbPrivatePartition::handleRequest(const QJsonObject &request)
             for (QJsonObject::const_iterator it = jsonbindings.constBegin(), e = jsonbindings.constEnd(); it != e; ++it)
                 bindings.insert(it.key(), it.value());
 
-            Partition::JsonDbQueryParser parser;
-            parser.setQuery(object.value(JsonDbStrings::Property::query()).toString());
-            parser.setBindings(bindings);
-            parser.parse();
-            Partition::JsonDbQuery query = parser.result();
             int limit = -1;
             int offset = 0;
-
             if (request.contains(JsonDbStrings::Property::queryLimit()))
                 limit = request.value(JsonDbStrings::Property::queryLimit()).toDouble();
             if (request.contains(JsonDbStrings::Property::queryOffset()))
                 offset = request.value(JsonDbStrings::Property::queryOffset()).toDouble();
 
+            Partition::JsonDbQueryParser parser;
+            parser.setQuery(object.value(JsonDbStrings::Property::query()).toString());
+            parser.setBindings(bindings);
+            parser.parse(); // parse errors can be handled in queryObjects
             Partition::JsonDbQueryResult queryResult = privatePartition->queryObjects(privatePartition->defaultOwner(),
-                                                                                      query, limit, offset);
+                                                                                      parser.result(), limit, offset);
             if (queryResult.code == Partition::JsonDbError::NoError) {
                 emit readRequestStarted(requestId, queryResult.state, queryResult.sortKeys.at(0));
 

@@ -135,7 +135,7 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
         foreach (const JsonDbQueryTerm &term, orQueryTerm.terms()) {
             const QString &joinPropertyName = term.joinField();
             const QString &op = term.op();
-            QJsonValue termValue = term.hasValue() ? term.value() : binding(term.variable());
+            QJsonValue value = termValue(term);
 
             QJsonValue objectFieldValue;
             if (!joinPropertyName.isEmpty()) {
@@ -158,14 +158,14 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                 objectFieldValue = joinedObject.valueByPath(term.propertyName());
             } else {
                 if (!term.hasPropertyName())
-                    objectFieldValue = binding(term.propertyVariable());
+                    objectFieldValue = bindings.value(term.propertyVariable());
                 else
                     objectFieldValue = object.valueByPath(term.propertyName());
             }
             if (op == QLatin1Char('=') || op == QLatin1String("==")) {
-                matches = (objectFieldValue == termValue);
+                matches = (objectFieldValue == value);
             } else if (op == QLatin1String("<>") || op == QLatin1String("!=")) {
-                matches = (objectFieldValue != termValue);
+                matches = (objectFieldValue != value);
             } else if (op == QLatin1String("=~")) {
                 QRegExp rx = term.regExpConst();
                 if (jsondbSettings->debug())
@@ -177,36 +177,36 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
                     qDebug() << "!=~" << objectFieldValue.toString() << rx.exactMatch(objectFieldValue.toString());
                 matches = !rx.exactMatch(objectFieldValue.toString());
             } else if (op == QLatin1String("<=")) {
-                matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
+                matches = JsonDbIndexQuery::lessThan(objectFieldValue, value) || (objectFieldValue == value);
             } else if (op == QLatin1Char('<')) {
-                matches = JsonDbIndexQuery::lessThan(objectFieldValue, termValue);
+                matches = JsonDbIndexQuery::lessThan(objectFieldValue, value);
             } else if (op == QLatin1String(">=")) {
-                matches = JsonDbIndexQuery::greaterThan(objectFieldValue, termValue) || (objectFieldValue == termValue);
+                matches = JsonDbIndexQuery::greaterThan(objectFieldValue, value) || (objectFieldValue == value);
             } else if (op == QLatin1Char('>')) {
-                matches = JsonDbIndexQuery::greaterThan(objectFieldValue, termValue);
+                matches = JsonDbIndexQuery::greaterThan(objectFieldValue, value);
             } else if (op == QLatin1String("exists")) {
                 matches = (objectFieldValue.type() != QJsonValue::Undefined);
             } else if (op == QLatin1String("notExists")) {
                 matches = (objectFieldValue.type() == QJsonValue::Undefined);
             } else if (op == QLatin1String("in")) {
-                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "in" << termValue
-                                << termValue.toArray().contains(objectFieldValue);
-                matches = termValue.toArray().contains(objectFieldValue);
+                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "in" << value
+                                << value.toArray().contains(objectFieldValue);
+                matches = value.toArray().contains(objectFieldValue);
             } else if (op == QLatin1String("notIn")) {
-                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "notIn" << termValue
-                                << !termValue.toArray().contains(objectFieldValue);
-                matches = !termValue.toArray().contains(objectFieldValue);
+                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "notIn" << value
+                                << !value.toArray().contains(objectFieldValue);
+                matches = !value.toArray().contains(objectFieldValue);
             } else if (op == QLatin1String("contains")) {
-                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "contains" << termValue
-                                << objectFieldValue.toArray().contains(termValue);
-                matches = objectFieldValue.toArray().contains(termValue);
+                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "contains" << value
+                                << objectFieldValue.toArray().contains(value);
+                matches = objectFieldValue.toArray().contains(value);
             } else if (op == QLatin1String("notContains")) {
-                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "notContains" << termValue
-                                << !objectFieldValue.toArray().contains(termValue);
-                matches = !objectFieldValue.toArray().contains(termValue);
+                if (0) qDebug() << __FUNCTION__ << __LINE__ << objectFieldValue << "notContains" << value
+                                << !objectFieldValue.toArray().contains(value);
+                matches = !objectFieldValue.toArray().contains(value);
             } else if (op == QLatin1String("startsWith")) {
                 matches = (objectFieldValue.type() == QJsonValue::String
-                           && objectFieldValue.toString().startsWith(termValue.toString()));
+                           && objectFieldValue.toString().startsWith(value.toString()));
             } else {
                 qCritical() << "match" << "unhandled term" << term.propertyName() << term.op() << term.value() << term.joinField();
             }

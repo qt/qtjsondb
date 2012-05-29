@@ -193,8 +193,9 @@ bool JsonDbQueryParserPrivate::parse()
     if (!query.startsWith(QLatin1Char('[')))
         return false;
     spec.query = query;
-    spec.mBindings = bindings;
+    spec.bindings = bindings;
 
+    QStringList queryExplanation;
     bool parseError = false;
     JsonDbQueryTokenizer tokenizer(query);
     QString token;
@@ -233,7 +234,7 @@ bool JsonDbQueryParserPrivate::parse()
                     const QString name = fieldSpec.mid(1);
                     QJsonValue val = bindings.value(name, QJsonValue(QJsonValue::Undefined));
                     if (!val.isUndefined())
-                        spec.bind(name, val);
+                        spec.bindings.insert(name, val);
                     term.setPropertyVariable(name);
                 } else {
                     term.setPropertyName(fieldSpec);
@@ -250,11 +251,8 @@ bool JsonDbQueryParserPrivate::parse()
                             sepPos = 0;
                         }
                     } else if (!tvs.startsWith(QLatin1Char('\"'))) {
-                        spec.queryExplanation.append(QString::fromLatin1("Failed to parse query regular expression '%1' in query '%2' %3 op %4")
-                                                             .arg(tvs)
-                                                             .arg(query)
-                                                             .arg(fieldSpec)
-                                                             .arg(op));
+                        queryExplanation.append(QStringLiteral("Failed to parse query regular expression '%1' in query '%2' %3 op %4")
+                                                .arg(tvs, query, fieldSpec, op));
                         parseError = true;
                         break;
                     }
@@ -296,11 +294,8 @@ bool JsonDbQueryParserPrivate::parse()
                     }
 
                     if (!ok) {
-                        spec.queryExplanation.append(QString::fromLatin1("Failed to parse query value '%1' in query '%2' %3 op %4")
-                                                             .arg(value)
-                                                             .arg(query)
-                                                             .arg(fieldSpec)
-                                                             .arg(op));
+                        queryExplanation.append(QStringLiteral("Failed to parse query value '%1' in query '%2' %3 op %4")
+                                                .arg(value, query, fieldSpec, op));
                         parseError = true;
                         break;
                     }
@@ -312,8 +307,8 @@ bool JsonDbQueryParserPrivate::parse()
         } else if (token == QLatin1Char('=')) {
             QString curlyBraceToken = tokenizer.pop();
             if (curlyBraceToken != QLatin1Char('{')) {
-                spec.queryExplanation.append(QString::fromLatin1("Parse error: expecting '{' but got '%1'")
-                                                     .arg(curlyBraceToken));
+                queryExplanation.append(QStringLiteral("Parse error: expecting '{' but got '%1'")
+                                        .arg(curlyBraceToken));
                 parseError = true;
                 break;
             }
@@ -325,7 +320,7 @@ bool JsonDbQueryParserPrivate::parse()
                     spec.mapKeyList.append(nextToken);
                     QString colon = tokenizer.pop();
                     if (colon != QLatin1Char(':')) {
-                        spec.queryExplanation.append(QString::fromLatin1("Parse error: expecting ':' but got '%1'").arg(colon));
+                        queryExplanation.append(QStringLiteral("Parse error: expecting ':' but got '%1'").arg(colon));
                         parseError = true;
                         break;
                     }
@@ -342,8 +337,8 @@ bool JsonDbQueryParserPrivate::parse()
                         tokenizer.push(maybeComma);
                         continue;
                     } else if (maybeComma != QLatin1Char(',')) {
-                        spec.queryExplanation.append(QString(QStringLiteral("Parse error: expecting ',', or '}' but got '%1'"))
-                                                             .arg(maybeComma));
+                        queryExplanation.append(QStringLiteral("Parse error: expecting ',', or '}' but got '%1'")
+                                                .arg(maybeComma));
                         parseError = true;
                         break;
                     }
@@ -357,24 +352,24 @@ bool JsonDbQueryParserPrivate::parse()
             term.ascending = ordering == QLatin1Char('/') || ordering == QLatin1Char('>');
             spec.orderTerms.append(term);
         } else if (token == QLatin1String("count")) {
-            spec.mAggregateOperation = QLatin1String("count");
+            spec.aggregateOperation = QStringLiteral("count");
         } else if (token == QLatin1Char('*')) {
             // match all objects
         } else {
-            spec.queryExplanation.append(QString::fromLatin1("Parse error: expecting '?', '/', '\\', or 'count' but got '%1'").arg(token));
+            queryExplanation.append(QStringLiteral("Parse error: expecting '?', '/', '\\', or 'count' but got '%1'").arg(token));
             parseError = true;
             break;
         }
         QString closeBracket = tokenizer.pop();
         if (closeBracket != QLatin1Char(']')) {
-            spec.queryExplanation.append(QString::fromLatin1("Parse error: expecting ']' but got '%1'").arg(closeBracket));
+            queryExplanation.append(QStringLiteral("Parse error: expecting ']' but got '%1'").arg(closeBracket));
             parseError = true;
             break;
         }
     }
 
     if (parseError) {
-        errorString = spec.queryExplanation.join(QLatin1String(";"));
+        errorString = queryExplanation.join(QLatin1String(";"));
         spec = JsonDbQuery();
         return false;
     }

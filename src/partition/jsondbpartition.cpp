@@ -1035,7 +1035,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
     JsonDbIndexQuery *indexQuery = 0;
     JsonDbQuery residualQuery;
     residualQuery.query = query.query;
-    residualQuery.mBindings = query.mBindings;
+    residualQuery.bindings = query.bindings;
 
     QString orderField;
     QSet<QString> typeNames;
@@ -1231,7 +1231,7 @@ JsonDbIndexQuery *JsonDbPartitionPrivate::compileIndexQuery(const JsonDbOwner *o
     if (typeNames.count() > 0)
         indexQuery->setTypeNames(typeNames);
     indexQuery->setResidualQuery(residualQuery);
-    indexQuery->setAggregateOperation(query.mAggregateOperation);
+    indexQuery->setAggregateOperation(query.aggregateOperation);
     indexQuery->setResultExpressionList(query.mapExpressionList);
     indexQuery->setResultKeyList(query.mapKeyList);
     return indexQuery;
@@ -1283,15 +1283,14 @@ JsonDbQueryResult JsonDbPartition::queryObjects(const JsonDbOwner *owner, const 
         return result;
     }
 
-    JsonDbObjectList results;
-    JsonDbObjectList joinedResults;
-
-    if (!(query.queryTerms.size() || query.orderTerms.size())) {
+    if (query.isEmpty()) {
         result.code = JsonDbError::MissingQuery;
-        result.message = QString::fromLatin1("Missing query: %1")
-                .arg(query.queryExplanation.join(QStringLiteral("\n")));
+        result.message = QStringLiteral("Missing query: %1").arg(query.query);
         return result;
     }
+
+    JsonDbObjectList results;
+    JsonDbObjectList joinedResults;
 
     QElapsedTimer time;
     time.start();

@@ -147,14 +147,14 @@ bool JsonDbOwner::isAllowed(JsonDbObject &object, const QString &partition,
     QList<JsonDbQuery> queries = mAllowedObjectQueries[partition][op];
     for (int i = 0; i < queries.size(); ++i) {
         JsonDbQuery query = queries.at(i);
-        query.bind(QStringLiteral("typeDomain"), tdval);
+        query.bindings.insert(QStringLiteral("typeDomain"), tdval);
         if (query.match(object, NULL, NULL))
             return true;
     }
     queries = mAllowedObjectQueries[QStringLiteral("all")][op];
     for (int i = 0; i < queries.size(); ++i) {
         JsonDbQuery query = queries.at(i);
-        query.bind(QStringLiteral("typeDomain"), tdval);
+        query.bindings.insert(QStringLiteral("typeDomain"), tdval);
         if (query.match(object, NULL, NULL))
             return true;
     }
