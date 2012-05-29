@@ -53,10 +53,74 @@
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
+JsonDbQueryTerm::JsonDbQueryTerm()
+    : mValue(QJsonValue::Undefined)
+{
+}
+
+JsonDbQueryTerm::~JsonDbQueryTerm()
+{
+}
+
 QJsonValue JsonDbQueryTerm::value() const
 {
     Q_ASSERT(mVariable.isEmpty());
     return mValue;
+}
+
+// JsonDbOrQueryTerm
+
+JsonDbOrQueryTerm::JsonDbOrQueryTerm()
+{
+}
+
+JsonDbOrQueryTerm::JsonDbOrQueryTerm(const JsonDbQueryTerm &term)
+{
+    mTerms.append(term);
+}
+
+JsonDbOrQueryTerm::~JsonDbOrQueryTerm()
+{
+}
+
+QList<QString> JsonDbOrQueryTerm::propertyNames() const
+{
+    QList<QString> propertyNames;
+    foreach (const JsonDbQueryTerm &term, mTerms) {
+        QString propertyName = term.propertyName();
+        if (!propertyNames.contains(propertyName))
+            propertyNames.append(propertyName);
+    }
+    return propertyNames;
+}
+
+QList<QString> JsonDbOrQueryTerm::findUnindexablePropertyNames() const
+{
+    QList<QString> unindexablePropertyNames;
+    QString firstPropertyName;
+    if (!mTerms.isEmpty())
+        firstPropertyName = mTerms[0].propertyName();
+    foreach (const JsonDbQueryTerm &term, mTerms) {
+        const QString propertyName = term.propertyName();
+        const QString op = term.op();
+        // notExists is unindexable because there would be no value to index
+        // contains and notContains are unindexable because JsonDbIndex does not support array values
+        if ((op == QLatin1String("notExists")
+             || op == QLatin1String("contains")
+             || op == QLatin1String("notContains"))
+             && !unindexablePropertyNames.contains(propertyName))
+            unindexablePropertyNames.append(propertyName);
+        // if multiple properties are access in an disjunction ("|") then we cannot use an index on it
+        if (propertyName != firstPropertyName)
+            unindexablePropertyNames.append(propertyName);
+    }
+    return unindexablePropertyNames;
+}
+
+// JsonDbQuery
+
+JsonDbQuery::JsonDbQuery()
+{
 }
 
 JsonDbQuery::~JsonDbQuery()
@@ -160,62 +224,6 @@ bool JsonDbQuery::match(const JsonDbObject &object, QHash<QString, JsonDbObject>
 bool JsonDbQuery::isAscending() const
 {
     return orderTerms.isEmpty() || orderTerms.at(0).ascending;
-}
-
-JsonDbQueryTerm::JsonDbQueryTerm()
-    : mValue(QJsonValue::Undefined)
-{
-}
-
-JsonDbQueryTerm::~JsonDbQueryTerm()
-{
-}
-
-JsonDbOrQueryTerm::JsonDbOrQueryTerm()
-{
-}
-
-JsonDbOrQueryTerm::JsonDbOrQueryTerm(const JsonDbQueryTerm &term)
-{
-    mTerms.append(term);
-}
-
-JsonDbOrQueryTerm::~JsonDbOrQueryTerm()
-{
-}
-
-QList<QString> JsonDbOrQueryTerm::propertyNames() const
-{
-    QList<QString> propertyNames;
-    foreach (const JsonDbQueryTerm &term, mTerms) {
-        QString propertyName = term.propertyName();
-        if (!propertyNames.contains(propertyName))
-            propertyNames.append(propertyName);
-    }
-    return propertyNames;
-}
-
-QList<QString> JsonDbOrQueryTerm::findUnindexablePropertyNames() const
-{
-    QList<QString> unindexablePropertyNames;
-    QString firstPropertyName;
-    if (!mTerms.isEmpty())
-        firstPropertyName = mTerms[0].propertyName();
-    foreach (const JsonDbQueryTerm &term, mTerms) {
-        const QString propertyName = term.propertyName();
-        const QString op = term.op();
-        // notExists is unindexable because there would be no value to index
-        // contains and notContains are unindexable because JsonDbIndex does not support array values
-        if ((op == QLatin1String("notExists")
-             || op == QLatin1String("contains")
-             || op == QLatin1String("notContains"))
-             && !unindexablePropertyNames.contains(propertyName))
-            unindexablePropertyNames.append(propertyName);
-        // if multiple properties are access in an disjunction ("|") then we cannot use an index on it
-        if (propertyName != firstPropertyName)
-            unindexablePropertyNames.append(propertyName);
-    }
-    return unindexablePropertyNames;
 }
 
 QT_END_NAMESPACE_JSONDB_PARTITION

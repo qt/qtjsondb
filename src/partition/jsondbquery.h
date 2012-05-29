@@ -61,7 +61,6 @@ QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
 class JsonDbPartition;
 
-class JsonDbQuery;
 class Q_JSONDB_PARTITION_EXPORT JsonDbQueryTerm
 {
 public:
@@ -88,7 +87,7 @@ public:
             QStringList joinFields = joinField.split(QStringLiteral("->"));
             mJoinPaths.resize(joinFields.size());
             for (int j = 0; j < joinFields.size(); j++)
-                mJoinPaths[j] = joinFields[j].split('.');
+                mJoinPaths[j] = joinFields[j].split(QLatin1Char('.'));
         }
     }
     const QVector<QStringList> &joinPaths() const { return mJoinPaths; }
@@ -116,11 +115,13 @@ public:
     QVector<QStringList> mJoinPaths;
 };
 
-class JsonDbOrQueryTerm {
+class Q_JSONDB_PARTITION_EXPORT JsonDbOrQueryTerm
+{
 public:
     JsonDbOrQueryTerm();
     JsonDbOrQueryTerm(const JsonDbQueryTerm &term);
     ~JsonDbOrQueryTerm();
+
     const QList<JsonDbQueryTerm> &terms() const { return mTerms; }
     void addTerm(const JsonDbQueryTerm &term) { mTerms.append(term); }
     QList<QString> propertyNames() const;
@@ -129,10 +130,12 @@ private:
     QList<JsonDbQueryTerm> mTerms;
 };
 
-class Q_JSONDB_PARTITION_EXPORT JsonDbOrderTerm {
+class Q_JSONDB_PARTITION_EXPORT JsonDbOrderTerm
+{
 public:
     JsonDbOrderTerm() : ascending(false) { }
     ~JsonDbOrderTerm() { }
+
     bool ascending;
     QString propertyName;
 };
@@ -140,7 +143,7 @@ public:
 class Q_JSONDB_PARTITION_EXPORT JsonDbQuery
 {
 public:
-    JsonDbQuery() { }
+    JsonDbQuery();
     ~JsonDbQuery();
 
     QList<JsonDbOrQueryTerm> queryTerms;
