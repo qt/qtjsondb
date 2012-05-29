@@ -489,7 +489,7 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
 }
 
 /*!
-  \qmlmodule QtAddOn.JsonDb
+  \qmlmodule QtAddOn.JsonDb 1.0
 
   QML interface to Json Database.
 */
@@ -497,7 +497,7 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
 /*!
     \qmlclass JsonDbListModel JsonDbListModel
     \ingroup qml-working-with-data
-    \inqmlmodule QtAddOn.JsonDb
+    \inqmlmodule QtAddOn.JsonDb 1.0
     \inherits ListModel
     \since 1.x
 

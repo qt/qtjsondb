@@ -91,7 +91,7 @@ void JsonDbNotificationHandle::remove()
 
 /*!
     \qmlclass JsonDbComponent JsonDbComponent
-    \inqmlmodule QtAddOn.JsonDb
+    \inqmlmodule QtAddOn.JsonDb 1.0
     \since 1.x
 
     The JsonDb element allows you find, create, update, or remove objects from JsonDb.

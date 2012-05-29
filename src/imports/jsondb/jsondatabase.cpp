@@ -51,7 +51,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
     \qmlclass JsonDatabase JsonDatabase
-    \inqmlmodule QtJsonDb
+    \inqmlmodule QtJsonDb 1.0
     \since 1.x
 
     JsonDatabase allows to list and access different JsonDb partitions. This is exposed

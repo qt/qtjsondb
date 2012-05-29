@@ -1241,7 +1241,7 @@ void JsonDbCachingListModelPrivate::partitions_clear(QQmlListProperty<JsonDbPart
 
 /*!
     \qmlclass JsonDbCachingListModel JsonDbCachingListModel
-    \inqmlmodule QtJsonDb
+    \inqmlmodule QtJsonDb 1.0
     \since 1.x
 
     The JsonDbCachingListModel provides a read-only ListModel usable with views such as

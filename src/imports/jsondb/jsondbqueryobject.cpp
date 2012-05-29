@@ -50,7 +50,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
     \qmlclass Query JsonDbQueryObject
-    \inqmlmodule QtJsonDb
+    \inqmlmodule QtJsonDb 1.0
     \since 1.x
 
     This allows to query for objects in a Partition. Users can execute the query by

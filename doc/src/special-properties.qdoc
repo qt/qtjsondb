@@ -55,6 +55,7 @@ Each time an object is updated the counter is incremented and the hash is
 recalculated based on the properties of the object (see \l
 {Stale Update Rejection}).
 
+\row
 \li _local
 \li To enable master/master replication, JsonDb tracks all versions of an object.
 For some objects this is simply overhead as they are not intended for replication
