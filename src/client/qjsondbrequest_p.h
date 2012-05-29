@@ -75,7 +75,6 @@ public:
     virtual void handleError(int, const QString &) = 0;
 
     void setStatus(QJsonDbRequest::Status newStatus);
-    void setError(QJsonDbRequest::ErrorCode errorCode, const QString &errorString);
     void setRequestId(int id);
 
     bool isPrivatePartition() const;
@@ -86,8 +85,6 @@ public:
     QJsonDbRequest *q_ptr;
     QString partition;
     QJsonDbRequest::Status status;
-    QJsonDbRequest::ErrorCode lastError;
-    QString lastErrorString;
     int requestId;
     bool internal; // marks internal requests e.g. notification and token auth.
     QList<QJsonObject> results;

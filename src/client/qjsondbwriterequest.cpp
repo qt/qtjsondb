@@ -307,7 +307,9 @@ void QJsonDbWriteRequestPrivate::handleResponse(const QJsonObject &response)
 
 void QJsonDbWriteRequestPrivate::handleError(int code, const QString &message)
 {
-    setError(QJsonDbRequest::ErrorCode(code), message);
+    Q_Q(QJsonDbWriteRequest);
+    setStatus(QJsonDbRequest::Error);
+    emit q->error(QJsonDbRequest::ErrorCode(code), message);
 }
 
 /*!

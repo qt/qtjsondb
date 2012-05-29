@@ -99,9 +99,6 @@ public:
 
     bool isActive() const;
 
-    ErrorCode error() const;
-    QString errorString() const;
-
     QString partition() const;
     void setPartition(const QString &);
 
