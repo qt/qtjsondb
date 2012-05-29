@@ -720,6 +720,14 @@ bool QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
         return false;
     }
 
+    // disconnect the internal signals so that if the watcher was in the process
+    // of being activated/deactivated, we don't handle it anymore.
+    foreach (QObject *child, watcher->children()) {
+        QJsonDbRequest *request = qobject_cast<QJsonDbRequest *>(child);
+        if (request && request->d_func()->internal)
+            QObject::disconnect(request, 0, watcher, 0);
+    }
+
     dwatcher->connection = q;
     dwatcher->setStatus(QJsonDbWatcher::Activating);
 
@@ -803,6 +811,7 @@ void QJsonDbConnectionPrivate::removeWatcher(QJsonDbWatcher *watcher)
     QJsonDbWriteRequest *request = new QJsonDbWriteRequest(watcher);
     request->setObjects(QList<QJsonObject>() << object);
     request->QJsonDbRequest::d_func()->internal = true;
+    QObject::connect(request, SIGNAL(finished()), watcher, SLOT(_q_onFinished()));
     // auto delete request after it's complete
     QObject::connect(request, SIGNAL(finished()), request, SLOT(deleteLater()));
     QObject::connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
@@ -810,7 +819,6 @@ void QJsonDbConnectionPrivate::removeWatcher(QJsonDbWatcher *watcher)
     q->send(request);
 
     dwatcher->connection.clear();
-    dwatcher->setStatus(QJsonDbWatcher::Inactive);
 }
 
 /*!

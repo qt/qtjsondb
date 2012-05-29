@@ -93,6 +93,7 @@ private slots:
     void invalid();
     void privatePartition();
     void addAndRemove();
+    void removeWatcherStatus();
 };
 
 TestQJsonDbWatcher::TestQJsonDbWatcher()
@@ -819,6 +820,26 @@ void TestQJsonDbWatcher::addAndRemove()
     QJsonDbReadRequest read(QStringLiteral("[?_type=\"Foo\"]"));
     QVERIFY(mConnection->send(&read));
     QVERIFY(waitForResponse(&read));
+}
+
+void TestQJsonDbWatcher::removeWatcherStatus()
+{
+    {
+        QJsonDbWatcher watcher;
+        watcher.setQuery("[?_type=\"Foo\"]");
+        QVERIFY(mConnection->addWatcher(&watcher));
+        QVERIFY(waitForStatus(&watcher, QJsonDbWatcher::Active));
+        QVERIFY(mConnection->removeWatcher(&watcher));
+        QVERIFY(waitForStatus(&watcher, QJsonDbWatcher::Inactive));
+    }
+
+    {
+        QJsonDbWatcher watcher;
+        watcher.setQuery("[?_type=\"Foo\"]");
+        QVERIFY(mConnection->addWatcher(&watcher));
+        QVERIFY(mConnection->removeWatcher(&watcher));
+        QVERIFY(waitForStatus(&watcher, QJsonDbWatcher::Inactive));
+    }
 }
 
 QTEST_MAIN(TestQJsonDbWatcher)

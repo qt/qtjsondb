@@ -434,15 +434,15 @@ void QJsonDbWatcherPrivate::_q_onFinished()
 {
     Q_Q(QJsonDbWatcher);
     Q_ASSERT(status != QJsonDbWatcher::Inactive);
-    if (status == QJsonDbWatcher::Activating) {
+    QJsonDbWriteRequest *request = qobject_cast<QJsonDbWriteRequest *>(q->sender());
+    Q_ASSERT(request);
+    QList<QJsonObject> objects = request->objects();
+    Q_ASSERT(objects.size() == 1);
+    if (!objects.at(0).value(JsonDbStrings::Property::deleted()).toBool(false)) {
         // got a success reply to notification creation
-        QJsonDbRequest *request = qobject_cast<QJsonDbRequest *>(q->sender());
-        Q_ASSERT(request != 0);
-        if (request) {
-            QList<QJsonObject> objects = request->takeResults();
-            Q_ASSERT(objects.size() == 1);
-            version = objects.at(0).value(JsonDbStrings::Property::version()).toString();
-        }
+        QList<QJsonObject> results = request->takeResults();
+        Q_ASSERT(results.size() == 1);
+        version = results.at(0).value(JsonDbStrings::Property::version()).toString();
         setStatus(QJsonDbWatcher::Active);
     } else {
         // got a success reply to notification deletion

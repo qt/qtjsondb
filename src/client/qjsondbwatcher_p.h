@@ -59,7 +59,7 @@
 #include <qjsonvalue.h>
 
 #include "qjsondbwatcher.h"
-#include "qjsondbrequest.h"
+#include "qjsondbwriterequest.h"
 
 QT_BEGIN_NAMESPACE_JSONDB
 
