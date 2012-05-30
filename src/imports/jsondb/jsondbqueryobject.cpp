@@ -51,7 +51,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 /*!
     \qmlclass Query JsonDbQueryObject
     \inqmlmodule QtJsonDb 1.0
-    \since 1.x
+    \since 1.0
 
     This allows to query for objects in a Partition. Users can execute the query by
     calling the start(). To retrieve the results, connect to onResultsReady and/or onFinished.

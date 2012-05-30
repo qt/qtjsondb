@@ -504,7 +504,7 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
     \qmlclass JsonDbListModel JsonDbListModel
     \inqmlmodule QtJsonDb 1.0
     \inherits ListModel
-    \since 1.x
+    \since 1.0
 
     The JsonDbListModel provides a ListModel usable with views such as
     ListView or GridView displaying data items matching a query.

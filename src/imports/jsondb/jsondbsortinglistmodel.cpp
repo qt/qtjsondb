@@ -627,7 +627,7 @@ void JsonDbSortingListModelPrivate::partitions_clear(QQmlListProperty<JsonDbPart
     \qmlclass JsonDbSortingListModel JsonDbSortingListModel
     \inqmlmodule QtJsonDb 1.0
     \inherits ListModel
-    \since 1.x
+    \since 1.0
 
     The JsonDbSortingListModel provides a read-only ListModel usable with views such as
     ListView or GridView displaying data items matching a query. The sorting is done by
