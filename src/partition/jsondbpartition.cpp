@@ -1500,7 +1500,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
         ObjectKey objectKey(master.uuid());
 
         if (!forCreation)
-            objectTable->deindexObject(objectKey, oldMaster, objectTable->stateNumber());
+            objectTable->deindexObject(oldMaster, objectTable->stateNumber());
 
         if (!objectTable->put(objectKey, master)) {
             result.code = JsonDbError::DatabaseError;
@@ -1526,7 +1526,7 @@ JsonDbWriteResult JsonDbPartition::updateObjects(const JsonDbOwner *owner, const
             changeList->append(change);
 
         if (!forRemoval)
-            objectTable->indexObject(objectKey, master, objectTable->stateNumber());
+            objectTable->indexObject(master, objectTable->stateNumber());
 
         d->updateBuiltInTypes(master, oldMaster);
 

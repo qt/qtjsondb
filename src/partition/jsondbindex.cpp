@@ -379,21 +379,23 @@ void JsonDbIndexPrivate::_q_propertyValueEmitted(QJSValue value)
         mFieldValues.append(mScriptEngine->fromScriptValue<QJsonValue>(value));
 }
 
-void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 objectStateNumber)
+bool JsonDbIndex::indexObject(JsonDbObject &object, quint32 objectStateNumber)
 {
     Q_D(JsonDbIndex);
     if (d->mSpec.propertyName == JsonDbString::kUuidStr)
-        return;
+        return true;
 
     if (!d->mSpec.objectTypes.isEmpty() && !d->mSpec.objectTypes.contains(object.value(JsonDbString::kTypeStr).toString()))
-        return;
+        return true;
 
     Q_ASSERT(!object.contains(JsonDbString::kDeletedStr)
              && !object.value(JsonDbString::kDeletedStr).toBool());
     QList<QJsonValue> fieldValues = indexValues(object);
     if (!fieldValues.size())
-        return;
-    bool ok;
+        return true;
+
+    QUuid objectKey = object.uuid();
+
     if (!d->mBdb.isOpen())
         open();
     if (!d->mBdb.isWriting())
@@ -413,32 +415,34 @@ void JsonDbIndex::indexObject(const ObjectKey &objectKey, JsonDbObject &object, 
                      << "forwardIndex" << "key" << forwardKey.toHex()
                      << "forwardIndex" << "value" << forwardValue.toHex()
                      << object;
-        ok = txn->put(forwardKey, forwardValue);
-        if (!ok) qCritical() << __FUNCTION__ << "putting fowardIndex" << d->mBdb.errorMessage();
+        if (!txn->put(forwardKey, forwardValue)) {
+            qCritical() << d->mSpec.name << "indexing failed" << d->mBdb.errorMessage();
+            return false;
+        }
     }
     if (jsondbSettings->debug() && (objectStateNumber < stateNumber()))
         qDebug() << "JsonDbIndex::indexObject" << "stale update" << objectStateNumber << stateNumber() << d->mBdb.fileName();
-
-#ifdef CHECK_INDEX_ORDERING
-    checkIndex()
-#endif
+    return true;
 }
 
-void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 objectStateNumber)
+bool JsonDbIndex::deindexObject(JsonDbObject &object, quint32 objectStateNumber)
 {
     Q_D(JsonDbIndex);
 
     if (d->mSpec.propertyName == JsonDbString::kUuidStr)
-        return;
+        return true;
 
     if (!d->mSpec.objectTypes.isEmpty() && !d->mSpec.objectTypes.contains(object.value(JsonDbString::kTypeStr).toString()))
-        return;
+        return true;
+
+    QList<QJsonValue> fieldValues = indexValues(object);
+    if (!fieldValues.size())
+        return true;
+
+    QUuid objectKey = object.uuid();
 
     if (!d->mBdb.isOpen())
         open();
-    QList<QJsonValue> fieldValues = indexValues(object);
-    if (!fieldValues.size())
-        return;
     if (!d->mBdb.isWriting())
         d->mObjectTable->begin(this);
     JsonDbBtree::Transaction *txn = d->mBdb.writeTransaction();
@@ -452,14 +456,13 @@ void JsonDbIndex::deindexObject(const ObjectKey &objectKey, JsonDbObject &object
             qDebug() << "deindexing" << objectKey << d->mSpec.propertyName << fieldValue;
         QByteArray forwardKey = JsonDbIndexPrivate::makeForwardKey(fieldValue, objectKey);
         if (!txn->remove(forwardKey)) {
-            qDebug() << "deindexing failed" << objectKey << d->mSpec.propertyName << fieldValue << object << forwardKey.toHex();
+            qCritical() << d->mSpec.name << "deindexing failed" << d->mBdb.errorMessage();
+            return false;
         }
     }
     if (jsondbSettings->verbose() && (objectStateNumber < stateNumber()))
         qDebug() << "JsonDbIndex::deindexObject" << "stale update" << objectStateNumber << stateNumber() << d->mBdb.fileName();
-#ifdef CHECK_INDEX_ORDERING
-    checkIndex();
-#endif
+    return true;
 }
 
 quint32 JsonDbIndex::stateNumber() const

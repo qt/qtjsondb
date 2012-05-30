@@ -132,8 +132,8 @@ public:
                             const QString &objectType = QString());
     bool removeIndex(const QString &indexName);
     void reindexObjects(const QString &indexName, quint32 stateNumber);
-    void indexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
-    void deindexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber);
+    void indexObject(JsonDbObject object, quint32 stateNumber);
+    void deindexObject(JsonDbObject object, quint32 stateNumber);
     void updateIndex(JsonDbIndex *index);    
 
     bool get(const ObjectKey &objectKey, QJsonObject *object, bool includeDeleted=false);

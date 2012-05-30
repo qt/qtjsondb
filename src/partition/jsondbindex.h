@@ -96,8 +96,8 @@ public:
 
     JsonDbBtree *bdb();
 
-    void indexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
-    void deindexObject(const ObjectKey &objectKey, JsonDbObject &object, quint32 stateNumber);
+    bool indexObject(JsonDbObject &object, quint32 stateNumber);
+    bool deindexObject(JsonDbObject &object, quint32 stateNumber);
     QList<QJsonValue> indexValues(JsonDbObject &object);
 
     quint32 stateNumber() const;

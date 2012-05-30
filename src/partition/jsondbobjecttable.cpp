@@ -327,9 +327,8 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNu
 {
     Q_ASSERT(mIndexes.contains(indexName));
 
-    if (indexName == JsonDbString::kUuidStr) {
+    if (indexName == JsonDbString::kUuidStr)
         return;
-    }
 
     if (jsondbSettings->verbose())
         qDebug() << JSONDB_INFO << "index" << indexName << "{";
@@ -348,13 +347,12 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNu
             Q_ASSERT(false);
         if (baKey.size() != 16) // state key is 5 bytes, or history key is 5 + 16 bytes
             continue;
-        ObjectKey objectKey(baKey);
         JsonDbObject object = QJsonDocument::fromBinaryData(baObject).object();
         if (object.value(JsonDbString::kDeletedStr).toBool())
             continue;
         QJsonValue fieldValue = object.valueByPath(index->indexSpec().propertyName);
         if (!fieldValue.isNull())
-            index->indexObject(objectKey, object, stateNumber);
+            index->indexObject(object, stateNumber);
     }
     if (!isInIndexTransaction)
         index->commit(stateNumber);
@@ -364,23 +362,23 @@ void JsonDbObjectTable::reindexObjects(const QString &indexName, quint32 stateNu
         qDebug() << "}";
 }
 
-void JsonDbObjectTable::indexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber)
+void JsonDbObjectTable::indexObject(JsonDbObject object, quint32 stateNumber)
 {
     if (jsondbSettings->debug())
-        qDebug() << "ObjectTable::indexObject" << objectKey << object.value(JsonDbString::kVersionStr).toString() << endl << mIndexes.keys();
+        qDebug() << "ObjectTable::indexObject" << object << mIndexes.keys();
     foreach (JsonDbIndex *index, mIndexes) {
         Q_ASSERT(mBdb->isWriting());
         const JsonDbIndexSpec &indexSpec = index->indexSpec();
         if (indexSpec.propertyName == JsonDbString::kUuidStr)
             continue;
-        index->indexObject(objectKey, object, stateNumber);
+        index->indexObject(object, stateNumber);
     }
 }
 
-void JsonDbObjectTable::deindexObject(const ObjectKey &objectKey, JsonDbObject object, quint32 stateNumber)
+void JsonDbObjectTable::deindexObject(JsonDbObject object, quint32 stateNumber)
 {
     if (jsondbSettings->debug())
-        qDebug() << "ObjectTable::deindexObject" << objectKey << object.value(JsonDbString::kVersionStr).toString() << endl << mIndexes.keys();
+        qDebug() << "ObjectTable::deindexObject" << object << mIndexes.keys();
 
     foreach (JsonDbIndex *index, mIndexes) {
         Q_ASSERT(mBdb->isWriting());
@@ -389,7 +387,7 @@ void JsonDbObjectTable::deindexObject(const ObjectKey &objectKey, JsonDbObject o
             qDebug() << "ObjectTable::deindexObject" << indexSpec.propertyName;
         if (indexSpec.propertyName == JsonDbString::kUuidStr)
             continue;
-        index->deindexObject(objectKey, object, stateNumber);
+        index->deindexObject(object, stateNumber);
     }
 }
 
@@ -410,11 +408,10 @@ void JsonDbObjectTable::updateIndex(JsonDbIndex *index)
     foreach (const JsonDbUpdate &change, changeList) {
         JsonDbObject before = change.oldObject;
         JsonDbObject after = change.newObject;
-        ObjectKey objectKey(after.value(JsonDbString::kUuidStr).toString());
         if (!before.isEmpty())
-            index->deindexObject(objectKey, before, stateNumber());
+            index->deindexObject(before, stateNumber());
         if (!after.isDeleted())
-            index->indexObject(objectKey, after, stateNumber());
+            index->indexObject(after, stateNumber());
     }
     if (!inTransaction)
         index->commit(stateNumber());
