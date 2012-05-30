@@ -2899,8 +2899,11 @@ bool HBtree::open()
     int oflags = d->openMode_ == ReadOnly ? O_RDONLY : O_RDWR | O_CREAT;
     int fd = ::open(d->fileName_.toLatin1(), oflags, 0644);
 
-    if (fd == -1)
+    if (fd == -1) {
+        d->lastErrorMessage_ = QString(QLatin1String("failed to open file. Error = %1. Filename = %2"))
+                                       .arg(QLatin1String(strerror(errno))).arg(d->fileName_);
         return false;
+    }
     return d->open(fd);
 }
 

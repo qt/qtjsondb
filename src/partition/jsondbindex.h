@@ -115,6 +115,8 @@ public:
     static bool validateIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex, QString &message);
     static QString determineName(const JsonDbObject &index);
 
+    QString fileName() const;
+
 private:
     Q_DECLARE_PRIVATE(JsonDbIndex)
     Q_DISABLE_COPY(JsonDbIndex)

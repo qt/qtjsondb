@@ -269,7 +269,12 @@ bool JsonDbObjectTable::addIndex(const JsonDbIndexSpec &indexSpec)
     JsonDbIndex *index = new JsonDbIndex(mFilename, this);
     index->setIndexSpec(indexSpec);
     index->setCacheSize(jsondbSettings->cacheSize());
-    index->open(); // open it to read the state number
+    if (!index->open()) { // open it to read the state number
+        index->close();
+        QFile::remove(index->fileName());
+        delete index;
+        return false;
+    }
     mIndexes.insert(indexSpec.name, index);
 
     if (mStateNumber && (index->stateNumber() == 0 || index->stateNumber() != mStateNumber)) {

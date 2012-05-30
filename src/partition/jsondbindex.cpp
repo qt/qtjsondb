@@ -225,6 +225,12 @@ const JsonDbIndexSpec &JsonDbIndex::indexSpec() const
     return d->mSpec;
 }
 
+QString JsonDbIndex::fileName() const
+{
+    Q_D(const JsonDbIndex);
+    return d->fileName();
+}
+
 bool JsonDbIndex::open()
 {
     Q_D(JsonDbIndex);
