@@ -55,7 +55,7 @@
 
 #include <QObject>
 #include <QMap>
-#include <QWeakPointer>
+#include <QPointer>
 #include <qjsonvalue.h>
 
 #include "qjsondbwatcher.h"
@@ -79,7 +79,7 @@ public:
     void setStatus(QJsonDbWatcher::Status newStatus);
 
     QJsonDbWatcher *q_ptr;
-    QWeakPointer<QJsonDbConnection> connection;
+    QPointer<QJsonDbConnection> connection;
     QJsonDbWatcher::Status status;
     QJsonDbWatcher::Actions actions;
     QString query;

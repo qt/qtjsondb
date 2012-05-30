@@ -218,7 +218,7 @@ void QJsonDbConnectionPrivate::_q_onDisconnected()
         currentRequest.clear();
     }
     // deactivate all watchers
-    QMap<QString, QWeakPointer<QJsonDbWatcher> >::iterator it;
+    QMap<QString, QPointer<QJsonDbWatcher> >::iterator it;
     for (it = watchers.begin(); it != watchers.end();) {
         QJsonDbWatcher *watcher = it.value().data();
         if (!watcher) {
@@ -293,7 +293,7 @@ void QJsonDbConnectionPrivate::handleRequestQueue()
 
     if (pendingRequests.isEmpty())
         return;
-    QWeakPointer<QJsonDbRequest> request;
+    QPointer<QJsonDbRequest> request;
     do { request = pendingRequests.takeFirst(); } while (!request && !pendingRequests.isEmpty());
     if (request) {
         Q_ASSERT(request.data()->status() == QJsonDbRequest::Queued);
@@ -353,7 +353,7 @@ void QJsonDbConnectionPrivate::_q_onReceivedObject(const QJsonObject &object)
         QString action = sub.value(JsonDbStrings::Protocol::action()).toString();
         QJsonObject notificationObject = sub.value(JsonDbStrings::Protocol::object()).toObject();
         quint32 stateNumber = sub.value(JsonDbStrings::Protocol::stateNumber()).toDouble();
-        QMap<QString, QWeakPointer<QJsonDbWatcher> >::iterator it = watchers.find(notifyUuid);
+        QMap<QString, QPointer<QJsonDbWatcher> >::iterator it = watchers.find(notifyUuid);
         if (it != watchers.end()) {
             QJsonDbWatcher *watcher = it.value().data();
             if (!watcher) {
@@ -575,7 +575,7 @@ QList<QJsonDbRequest *> QJsonDbConnection::pendingRequests() const
     Q_D(const QJsonDbConnection);
     QList<QJsonDbRequest *> requests;
     requests.reserve(d->pendingRequests.size());
-    foreach (const QWeakPointer<QJsonDbRequest> &request, d->pendingRequests) {
+    foreach (const QPointer<QJsonDbRequest> &request, d->pendingRequests) {
         if (request && !request.data()->d_func()->internal)
             requests.append(request.data());
     }
@@ -653,9 +653,9 @@ bool QJsonDbConnection::send(QJsonDbRequest *request)
                     break;
             }
         }
-        d->pendingRequests.insert(i, QWeakPointer<QJsonDbRequest>(request));
+        d->pendingRequests.insert(i, QPointer<QJsonDbRequest>(request));
     } else {
-        d->pendingRequests.append(QWeakPointer<QJsonDbRequest>(request));
+        d->pendingRequests.append(QPointer<QJsonDbRequest>(request));
     }
     drequest->setRequestId(++d->lastRequestId);
     if (d->status == QJsonDbConnection::Connected)
@@ -708,15 +708,15 @@ bool QJsonDbConnection::cancel(QJsonDbRequest *request)
 void QJsonDbConnection::cancelPendingRequests()
 {
     Q_D(QJsonDbConnection);
-    QList<QWeakPointer<QJsonDbRequest> > list;
+    QList<QPointer<QJsonDbRequest> > list;
     list.swap(d->pendingRequests);
     for (int i = 0; i < list.size(); ++i) {
-        QWeakPointer<QJsonDbRequest> request = list.at(i);
+        QPointer<QJsonDbRequest> request = list.at(i);
         if (request && request.data()->d_func()->internal)
             d->pendingRequests.append(request);
     }
     for (int i = 0; i < list.size(); ++i) {
-        QWeakPointer<QJsonDbRequest> request = list.at(i);
+        QPointer<QJsonDbRequest> request = list.at(i);
         if (request) {
             QJsonDbRequestPrivate *drequest = request.data()->d_func();
             if (!drequest->internal)
@@ -727,7 +727,7 @@ void QJsonDbConnection::cancelPendingRequests()
 
 void QJsonDbConnectionPrivate::reactivateAllWatchers()
 {
-    QMap<QString, QWeakPointer<QJsonDbWatcher> >::iterator it;
+    QMap<QString, QPointer<QJsonDbWatcher> >::iterator it;
     for (it = watchers.begin(); it != watchers.end();) {
         QJsonDbWatcher *watcher = it.value().data();
         if (!watcher) {
@@ -794,7 +794,7 @@ bool QJsonDbConnectionPrivate::initWatcher(QJsonDbWatcher *watcher)
 
     Q_ASSERT(!dwatcher->uuid.isEmpty());
     Q_ASSERT(!QUuid(dwatcher->uuid).isNull());
-    watchers.insert(dwatcher->uuid, QWeakPointer<QJsonDbWatcher>(watcher));
+    watchers.insert(dwatcher->uuid, QPointer<QJsonDbWatcher>(watcher));
 
     // now make a request object
     QJsonDbWriteRequest *request = new QJsonDbWriteRequest(watcher);

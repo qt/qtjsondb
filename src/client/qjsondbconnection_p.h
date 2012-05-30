@@ -54,7 +54,7 @@
 //
 
 #include <QObject>
-#include <QWeakPointer>
+#include <QPointer>
 #include <QLocalSocket>
 #include <QThread>
 #include <QTimer>
@@ -116,10 +116,10 @@ public:
     QtJsonDbJsonStream::JsonStream *stream;
 
     int lastRequestId;
-    QWeakPointer<QJsonDbRequest> currentRequest;
-    QList<QWeakPointer<QJsonDbRequest> > pendingRequests;
+    QPointer<QJsonDbRequest> currentRequest;
+    QList<QPointer<QJsonDbRequest> > pendingRequests;
 
-    QMap<QString, QWeakPointer<QJsonDbWatcher> > watchers; // uuid->watcher map
+    QMap<QString, QPointer<QJsonDbWatcher> > watchers; // uuid->watcher map
     QThread privatePartitionProcessing;
     QJsonDbPrivatePartition *privatePartitionHandler;
 };

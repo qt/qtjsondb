@@ -45,7 +45,7 @@
 #include "jsondb-global.h"
 
 #include <QMetaMethod>
-#include <QWeakPointer>
+#include <QPointer>
 #include <QTimer>
 
 #include "jsondb-client.h"
@@ -86,7 +86,7 @@ public:
 
     struct Callback
     {
-        QWeakPointer<QObject> object;
+        QPointer<QObject> object;
         const char *successSlot;
         const char *errorSlot;
 
@@ -107,7 +107,7 @@ public:
 
     struct NotifyCallback
     {
-        QWeakPointer<QObject> object;
+        QPointer<QObject> object;
         QMetaMethod method;
         NotifyCallback(QObject *obj = 0, QMetaMethod m = QMetaMethod())
             : object(obj), method(m) { }
