@@ -867,9 +867,8 @@ bool JsonDbPartitionPrivate::getObject(const ObjectKey &objectKey, JsonDbObject 
         } else {
             if (!view->objectTable())
                 qDebug() << JSONDB_WARN << "no object table for view";
-            bool ok = view->objectTable()->get(objectKey, &object);
-            if (ok)
-                return ok;
+            else
+                return view->objectTable()->get(objectKey, &object);
         }
     }
     return false;
