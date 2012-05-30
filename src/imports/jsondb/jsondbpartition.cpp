@@ -114,7 +114,7 @@ void JsonDbPartition::init()
 
 
 /*!
-    \qmlproperty State QtJsonDb::Partition::state
+    \qmlproperty State QtJsonDb1::Partition::state
     The current state of the Partition.
     \list
     \li State.None - The partition object is not initialized
@@ -125,7 +125,7 @@ void JsonDbPartition::init()
 */
 
 /*!
-    \qmlproperty string QtJsonDb::Partition::name
+    \qmlproperty string QtJsonDb1::Partition::name
      Holds the human readable name of the partition.
 */
 
@@ -195,7 +195,7 @@ QJSValue qjsonobject_list_to_qjsvalue(const QList<QJsonObject> &list)
 }
 
 /*!
-    \qmlmethod int QtJsonDb::Partition::create(object newObject, object options, function callback)
+    \qmlmethod int QtJsonDb1::Partition::create(object newObject, object options, function callback)
 
     Creates the \a newObject (or list of objects) in the partition. The callback will be called
     in case of failure or success. It returns the id of the request. If it fails to create an
@@ -270,7 +270,7 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
 }
 
 /*!
-    \qmlmethod int QtJsonDb::Partition::update(object updatedObject, object options, function callback)
+    \qmlmethod int QtJsonDb1::Partition::update(object updatedObject, object options, function callback)
 
     Update the object \a updatedObject (or list of objects) in the partition. Returns the id of this
     request. If the request fails to update an object, the whole transaction will be aborted. The
@@ -321,12 +321,12 @@ int JsonDbPartition::create(const QJSValue &object,  const QJSValue &options, co
 
 */
 /*!
-    \qmlmethod int QtJsonDb::Partition::update(object updatedObject, function callback)
+    \qmlmethod int QtJsonDb1::Partition::update(object updatedObject, function callback)
 
     Update the object without specifying the update options.
 */
 /*!
-    \qmlmethod int QtJsonDb::Partition::update(object updatedObject)
+    \qmlmethod int QtJsonDb1::Partition::update(object updatedObject)
 
     Update the object without specifying the update options or callback function.
 */
@@ -369,7 +369,7 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
 }
 
 /*!
-    \qmlmethod int QtJsonDb::Partition::remove(object objectToRemove, object options, function callback)
+    \qmlmethod int QtJsonDb1::Partition::remove(object objectToRemove, object options, function callback)
 
     Removes the \a objectToRemove (or list of objects) from the partition. It returns the id of this
     request.
@@ -419,13 +419,13 @@ int JsonDbPartition::update(const QJSValue &object,  const QJSValue &options, co
 
 */
 /*!
-    \qmlmethod int QtJsonDb::Partition::remove(object updatedObject, function callback)
+    \qmlmethod int QtJsonDb1::Partition::remove(object updatedObject, function callback)
 
     Remove the object without specifying the update options.
 */
 
 /*!
-    \qmlmethod int QtJsonDb::Partition::remove(object updatedObject)
+    \qmlmethod int QtJsonDb1::Partition::remove(object updatedObject)
 
     Remove the object without specifying the update options or callback function.
 */
@@ -468,7 +468,7 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
 }
 
 /*!
-    \qmlmethod QtJsonDb::Partition::find(string query, object options, function callback)
+    \qmlmethod QtJsonDb1::Partition::find(string query, object options, function callback)
 
     Finds the objects matching the \a query string in the partition. The \a options specifies
     how query should be handled. The \a query should be specified in JsonQuery format.
@@ -503,7 +503,7 @@ int JsonDbPartition::remove(const QJSValue &object,  const QJSValue &options, co
     \li items - An array of objects
     \endlist
 
-    \sa QtJsonDb::Query
+    \sa QtJsonDb1::Query
 
 */
 
@@ -539,7 +539,7 @@ int JsonDbPartition::find(const QString &query, const QJSValue &options, const Q
 }
 
 /*!
-    \qmlmethod object QtJsonDb::Partition::createNotification(query)
+    \qmlmethod object QtJsonDb1::Partition::createNotification(query)
 
     Create the Notification object for the specifed \a query.The script engine
     decides the life time of the returned object. The returned object can be saved
@@ -559,7 +559,7 @@ int JsonDbPartition::find(const QString &query, const QJSValue &options, const Q
         createNotification.notification.connect(onCreateNotification);
     }
     \endcode
-    \sa QtJsonDb::Notification
+    \sa QtJsonDb1::Notification
 
 */
 
@@ -574,7 +574,7 @@ JsonDbNotify* JsonDbPartition::createNotification(const QString &query)
 }
 
 /*!
-    \qmlmethod object QtJsonDb::Partition::createQuery(query, limit, bindings)
+    \qmlmethod object QtJsonDb1::Partition::createQuery(query, limit, bindings)
 
     Create the Query object with the specified \a query string and other parameters.
     Users have to call start() to start the query in this partition. The script engine
@@ -597,7 +597,7 @@ JsonDbNotify* JsonDbPartition::createNotification(const QString &query)
         queryObject.start();
     }
     \endcode
-    \sa QtJsonDb::Query
+    \sa QtJsonDb1::Query
 
 */
 

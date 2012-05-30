@@ -149,7 +149,7 @@ deterministic UUID for two different objects will result in a collision.
 
 From C++, UUIDS can be created from a string using
 \l {QJsonDbObject::createUuidFromString()}. In QML, the module API provides a
-\l {QtJsonDb::JsonDatabase::uuidFromString()} method.
+\l {QtJsonDb1::JsonDatabase::uuidFromString()} method.
 
 \section2 Fast Queries
 

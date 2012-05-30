@@ -127,7 +127,7 @@ JsonDbNotify::~JsonDbNotify()
 
 
 /*!
-    \qmlproperty string QtJsonDb::Notification::query
+    \qmlproperty string QtJsonDb1::Notification::query
      Holds the query string for the notification. The query should be
     specified in JsonQuery format.
 */
@@ -143,7 +143,7 @@ void JsonDbNotify::setQuery(const QString &newQuery)
 }
 
 /*!
-    \qmlproperty ListOrObject QtJsonDb::Notification::actions
+    \qmlproperty ListOrObject QtJsonDb1::Notification::actions
     Holds the list of registered actions for the notification.
     Supported actions are
     \list
@@ -195,7 +195,7 @@ void JsonDbNotify::partitionNameChanged(const QString &partitionName)
 }
 
 /*!
-    \qmlproperty object QtJsonDb::Notification::partition
+    \qmlproperty object QtJsonDb1::Notification::partition
      Holds the partition object for the notification.
 */
 
@@ -227,7 +227,7 @@ void JsonDbNotify::setPartition(JsonDbPartition *newPartition)
 }
 
 /*!
-    \qmlproperty bool QtJsonDb::Notification::enabled
+    \qmlproperty bool QtJsonDb1::Notification::enabled
      This flags enables handling of notification. if true (default);
      otherwise the onNotification signal handlers won't be called.
 */
@@ -255,7 +255,7 @@ void JsonDbNotify::setEnabled(bool enabled)
 
 
 /*!
-    \qmlsignal QtJsonDb::Notification::onNotification(result, action, stateNumber)
+    \qmlsignal QtJsonDb1::Notification::onNotification(result, action, stateNumber)
 
     This handler is called when the an object matching the query is created, updated or
     removed. The \a result is the object that triggered the notication. The action which
@@ -288,7 +288,7 @@ void JsonDbNotify::setEnabled(bool enabled)
 */
 
 /*!
-    \qmlproperty object QtJsonDb::Notification::error
+    \qmlproperty object QtJsonDb1::Notification::error
     \readonly
 
     This property holds the current error information for the notification object. It contains:
@@ -307,7 +307,7 @@ QVariantMap JsonDbNotify::error() const
 }
 
 /*!
-    \qmlproperty enumeration QtJsonDb::Notification::status
+    \qmlproperty enumeration QtJsonDb1::Notification::status
     \readonly
 
     This property holds the status of the notification object.  It can be one of:

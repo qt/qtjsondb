@@ -534,13 +534,13 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
 */
 
 /*!
-    \qmlproperty int QtJsonDb::JsonDbListModel::rowCount
+    \qmlproperty int QtJsonDb1::JsonDbListModel::rowCount
 
     Returns the number of rows in the model.
 */
 
 /*!
-    \qmlproperty string QtJsonDb::JsonDbListModel::query
+    \qmlproperty string QtJsonDb1::JsonDbListModel::query
 
     The query string in JsonQuery format used by the model to fetch
     items from the database.
@@ -899,7 +899,7 @@ QString JsonDbListModel::query() const
 }
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbListModel::partition
+    \qmlproperty object QtJsonDb1::JsonDbListModel::partition
 
     Holds the partition object for the model.
     \qml
@@ -958,7 +958,7 @@ void JsonDbListModel::setLimit(int newLimit)
 }
 
 /*!
-  \qmlproperty int QtJsonDb::JsonDbListModel::limit
+  \qmlproperty int QtJsonDb1::JsonDbListModel::limit
 
   The number of items to be cached. This is not the query limit.
 */
@@ -975,7 +975,7 @@ void JsonDbListModel::setChunkSize(int newChunkSize)
 }
 
 /*!
-  \qmlproperty int QtJsonDb::JsonDbListModel::chunkSize
+  \qmlproperty int QtJsonDb1::JsonDbListModel::chunkSize
 
   The number of items to fetch at a time from the database.
 
@@ -995,7 +995,7 @@ void JsonDbListModel::setLowWaterMark(int newLowWaterMark)
 }
 
 /*!
-  \qmlproperty int QtJsonDb::JsonDbListModel::lowWaterMark
+  \qmlproperty int QtJsonDb1::JsonDbListModel::lowWaterMark
 
   Controls when to fetch more items from the database.
 
@@ -1011,7 +1011,7 @@ int JsonDbListModel::lowWaterMark() const
 
 
 /*!
-  \qmlproperty ListOrObject QtJsonDb::JsonDbListModel::roleNames
+  \qmlproperty ListOrObject QtJsonDb1::JsonDbListModel::roleNames
 
   Controls which properties to expose from the objects matching the query.
 
@@ -1293,7 +1293,7 @@ void JsonDbListModelPrivate::_q_readError(QtJsonDb::QJsonDbRequest::ErrorCode co
 }
 
 /*!
-    \qmlmethod object QtJsonDb::JsonDbListModel::get(int index, string property)
+    \qmlmethod object QtJsonDb1::JsonDbListModel::get(int index, string property)
 
     Retrieves the value of the \a property for the object at \a index. If the index
     is out of range or the property name is not valid it returns an empty object.
@@ -1311,7 +1311,7 @@ QVariant JsonDbListModel::get(int idx, const QString &property) const
 }
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbListModel::error
+    \qmlproperty object QtJsonDb1::JsonDbListModel::error
     \readonly
 
     This property holds the current error information for the object. It contains:

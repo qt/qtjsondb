@@ -695,7 +695,7 @@ void JsonDbSortingListModel::componentComplete()
 }
 
 /*!
-    \qmlproperty int QtJsonDb::JsonDbSortingListModel::rowCount
+    \qmlproperty int QtJsonDb1::JsonDbSortingListModel::rowCount
     The number of items in the model.
 */
 int JsonDbSortingListModel::rowCount(const QModelIndex &parent) const
@@ -718,7 +718,7 @@ QHash<int, QByteArray> JsonDbSortingListModel::roleNames() const
 }
 
 /*!
-    \qmlproperty ListOrObject QtJsonDb::JsonDbSortingListModel::roleNames
+    \qmlproperty ListOrObject QtJsonDb1::JsonDbSortingListModel::roleNames
 
     Controls which properties to expose from the objects matching the query.
 
@@ -803,7 +803,7 @@ void JsonDbSortingListModel::setScriptableRoleNames(const QVariant &vroles)
 }
 
 /*!
-    \qmlproperty string QtJsonDb::JsonDbSortingListModel::query
+    \qmlproperty string QtJsonDb1::JsonDbSortingListModel::query
 
     The query string in JsonQuery format used by the model to fetch
     items from the database. Setting an empty query clears all the elements
@@ -822,7 +822,7 @@ void JsonDbSortingListModel::setScriptableRoleNames(const QVariant &vroles)
     }
     \endqml
 
-    \sa QtJsonDb::JsonDbSortingListModel::bindings
+    \sa QtJsonDb1::JsonDbSortingListModel::bindings
 
 */
 QString JsonDbSortingListModel::query() const
@@ -852,7 +852,7 @@ void JsonDbSortingListModel::setQuery(const QString &newQuery)
 }
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbSortingListModel::bindings
+    \qmlproperty object QtJsonDb1::JsonDbSortingListModel::bindings
     Holds the bindings for the placeholders used in the query string. Note that
     the placeholder marker '%' should not be included as part of the keys.
 
@@ -866,7 +866,7 @@ void JsonDbSortingListModel::setQuery(const QString &newQuery)
     }
     \endqml
 
-    \sa QtJsonDb::JsonDbSortingListModel::query
+    \sa QtJsonDb1::JsonDbSortingListModel::query
 
 */
 
@@ -888,7 +888,7 @@ void JsonDbSortingListModel::setBindings(const QVariantMap &newBindings)
 }
 
 /*!
-    \qmlproperty int QtJsonDb::JsonDbSortingListModel::queryLimit
+    \qmlproperty int QtJsonDb1::JsonDbSortingListModel::queryLimit
     Holds the maximum no of items for the model.
 
     \code
@@ -924,7 +924,7 @@ void JsonDbSortingListModel::setQueryLimit(int newQueryLimit)
 }
 
 /*!
-    \qmlproperty bool QtJsonDb::JsonDbSortingListModel::overflow
+    \qmlproperty bool QtJsonDb1::JsonDbSortingListModel::overflow
     \readonly
     This will be true if actual numer of results is more than the queryLimit
 */
@@ -948,7 +948,7 @@ void JsonDbSortingListModel::partitionNameChanged(const QString &partitionName)
 }
 
 /*!
-    \qmlproperty list QtJsonDb::JsonDbSortingListModel::partitions
+    \qmlproperty list QtJsonDb1::JsonDbSortingListModel::partitions
     Holds the list of partition objects for the model.
     \code
     JsonDb.JsonDbSortingListModel {
@@ -973,7 +973,7 @@ QQmlListProperty<JsonDbPartition> JsonDbSortingListModel::partitions()
 }
 
 /*!
-    \qmlproperty string QtJsonDb::JsonDbSortingListModel::sortOrder
+    \qmlproperty string QtJsonDb1::JsonDbSortingListModel::sortOrder
 
     The order used by the model to sort the items. The sortOrder has to be
     specified in the JsonQuery format. The sorting is done by the model and not
@@ -1020,7 +1020,7 @@ void JsonDbSortingListModel::setSortOrder(const QString &newSortOrder)
 }
 
 /*!
-    \qmlproperty State QtJsonDb::JsonDbSortingListModel::state
+    \qmlproperty State QtJsonDb1::JsonDbSortingListModel::state
     \readonly
     The current state of the model.
     \list
@@ -1037,7 +1037,7 @@ JsonDbSortingListModel::State JsonDbSortingListModel::state() const
 }
 
 /*!
-    \qmlmethod int QtJsonDb::JsonDbSortingListModel::indexOf(string uuid)
+    \qmlmethod int QtJsonDb1::JsonDbSortingListModel::indexOf(string uuid)
 
     Returns the index of the object with the \a uuid in the model. If the object is
     not found it returns -1
@@ -1049,7 +1049,7 @@ int JsonDbSortingListModel::indexOf(const QString &uuid) const
 }
 
 /*!
-    \qmlmethod object QtJsonDb::JsonDbSortingListModel::get(int index)
+    \qmlmethod object QtJsonDb1::JsonDbSortingListModel::get(int index)
 
     Returns the object at the specified \a index in the model. The result.object property
     contains the object in its raw form as returned by the query, the rolenames
@@ -1077,7 +1077,7 @@ QJSValue JsonDbSortingListModel::get(int index) const
 }
 
 /*!
-    \qmlmethod object QtJsonDb::JsonDbSortingListModel::get(int index, string property)
+    \qmlmethod object QtJsonDb1::JsonDbSortingListModel::get(int index, string property)
 
     Retrieves the value of the \a property for the object at \a index. If the index
     is out of range or the property name is not valid it returns an empty object.
@@ -1090,7 +1090,7 @@ QVariant JsonDbSortingListModel::get(int index, const QString &property) const
 }
 
 /*!
-    \qmlmethod object QtJsonDb::JsonDbSortingListModel::getPartition(int index)
+    \qmlmethod object QtJsonDb1::JsonDbSortingListModel::getPartition(int index)
 
     Returns the partition object at the specified \a index in the model. If
     the index is out of range it returns an empty object.
@@ -1102,19 +1102,19 @@ JsonDbPartition* JsonDbSortingListModel::getPartition(int index) const
     return pThis->d_func()->getItemPartition(index);
 }
 /*!
-    \qmlsignal QtJsonDb::JsonDbSortingListModel::onStateChanged(State state)
+    \qmlsignal QtJsonDb1::JsonDbSortingListModel::onStateChanged(State state)
 
     This handler is called when the a model \a state is changed.
 */
 
 /*!
-    \qmlsignal QtJsonDb::JsonDbSortingListModel::onRowCountChanged(int newRowCount)
+    \qmlsignal QtJsonDb1::JsonDbSortingListModel::onRowCountChanged(int newRowCount)
 
     This handler is called when the number of items in the model has changed.
 */
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbSortingListModel::error
+    \qmlproperty object QtJsonDb1::JsonDbSortingListModel::error
     \readonly
 
     This property holds the current error information for the object. It contains:

@@ -101,10 +101,10 @@ JsonDbQueryObject::~JsonDbQueryObject()
 
 
 /*!
-    \qmlproperty string QtJsonDb::Query::query
+    \qmlproperty string QtJsonDb1::Query::query
      Holds the query string for the object.
 
-    \sa QtJsonDb::Query::bindings
+    \sa QtJsonDb1::Query::bindings
 
 */
 QString JsonDbQueryObject::query()
@@ -119,7 +119,7 @@ void JsonDbQueryObject::setQuery(const QString &newQuery)
 }
 
 /*!
-    \qmlproperty object QtJsonDb::Query::partition
+    \qmlproperty object QtJsonDb1::Query::partition
      Holds the partition object for the query.
 */
 
@@ -140,7 +140,7 @@ void JsonDbQueryObject::setPartition(JsonDbPartition *newPartition)
 }
 
 /*!
-    \qmlproperty int QtJsonDb::Query::stateNumber
+    \qmlproperty int QtJsonDb1::Query::stateNumber
     The current state number when the query was executed. Only
     valid after receiving the onResultsReady()
 */
@@ -152,7 +152,7 @@ quint32 JsonDbQueryObject::stateNumber() const
 }
 
 /*!
-    \qmlproperty int QtJsonDb::Query::limit
+    \qmlproperty int QtJsonDb1::Query::limit
      Holds the limit used while executing the query.
 */
 int JsonDbQueryObject::limit()
@@ -167,7 +167,7 @@ void JsonDbQueryObject::setLimit(int newLimit)
 }
 
 /*!
-    \qmlproperty object QtJsonDb::Query::bindings
+    \qmlproperty object QtJsonDb1::Query::bindings
     Holds the bindings for the placeholders used in the query string. Note that
     the placeholder marker '%' should not be included as part of the keys.
 
@@ -186,7 +186,7 @@ void JsonDbQueryObject::setLimit(int newLimit)
      }
     \endqml
 
-    \sa QtJsonDb::Query::query
+    \sa QtJsonDb1::Query::query
 
 */
 
@@ -202,7 +202,7 @@ void JsonDbQueryObject::setBindings(const QVariantMap &newBindings)
 }
 
 /*!
-    \qmlmethod list QtJsonDb::Query::takeResults()
+    \qmlmethod list QtJsonDb1::Query::takeResults()
 
     Retrieves the list of results available in the object. This can be called multiple
     times for a single execution. Call this from onResultsReady or onFinished. This will
@@ -247,7 +247,7 @@ QJSValue JsonDbQueryObject::takeResults()
 }
 
 /*!
-    \qmlsignal QtJsonDb::Query::onResultsReady(int resultsAvailable)
+    \qmlsignal QtJsonDb1::Query::onResultsReady(int resultsAvailable)
 
     This handler is called when the a set of results are avaialable in the query object. This
     will be called multiple times for an ececution of the query. Results can be retrievd here
@@ -256,7 +256,7 @@ QJSValue JsonDbQueryObject::takeResults()
 */
 
 /*!
-    \qmlsignal QtJsonDb::Query::onFinished()
+    \qmlsignal QtJsonDb1::Query::onFinished()
 
     This handler is called when the an execution of query is finished. Results can be retrievd here
     by calling takeResults() of the query object. Users can wait for onFinished to avoid chunked
@@ -264,7 +264,7 @@ QJSValue JsonDbQueryObject::takeResults()
 */
 
 /*!
-    \qmlproperty object QtJsonDb::Query::error
+    \qmlproperty object QtJsonDb1::Query::error
     \readonly
 
     This property holds the current error information for the Query object. It contains:
@@ -283,7 +283,7 @@ QVariantMap JsonDbQueryObject::error() const
 }
 
 /*!
-    \qmlproperty enumeration QtJsonDb::Query::status
+    \qmlproperty enumeration QtJsonDb1::Query::status
     \readonly
 
     This property holds the current status of the Query object.  It can be one of:
@@ -294,7 +294,7 @@ QVariantMap JsonDbQueryObject::error() const
     \li Query.Error - an error occurred while executing the query
     \endlist
 
-    \sa QtJsonDb::Query::error
+    \sa QtJsonDb1::Query::error
 */
 
 JsonDbQueryObject::Status JsonDbQueryObject::status() const
@@ -308,7 +308,7 @@ void JsonDbQueryObject::componentComplete()
 }
 
 /*!
-    \qmlmethod object QtJsonDb::Query::start()
+    \qmlmethod object QtJsonDb1::Query::start()
 
     Users should call this method to start the execution of the query. When a set of results are
     ready on the object, the onResultsReady() will be triggered. This will be called whenever a new

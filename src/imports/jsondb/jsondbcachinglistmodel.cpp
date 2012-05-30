@@ -1333,7 +1333,7 @@ void JsonDbCachingListModel::componentComplete()
 }
 
 /*!
-    \qmlproperty int QtJsonDb::JsonDbCachingListModel::rowCount
+    \qmlproperty int QtJsonDb1::JsonDbCachingListModel::rowCount
     The number of items in the model.
 */
 int JsonDbCachingListModel::rowCount(const QModelIndex &parent) const
@@ -1366,7 +1366,7 @@ QHash<int, QByteArray> JsonDbCachingListModel::roleNames() const
 }
 
 /*!
-    \qmlproperty ListOrObject QtJsonDb::JsonDbCachingListModel::roleNames
+    \qmlproperty ListOrObject QtJsonDb1::JsonDbCachingListModel::roleNames
 
     Controls which properties to expose from the objects matching the query.
 
@@ -1460,7 +1460,7 @@ void JsonDbCachingListModel::setScriptableRoleNames(const QVariant &vroles)
 }
 
 /*!
-    \qmlproperty string QtJsonDb::JsonDbCachingListModel::query
+    \qmlproperty string QtJsonDb1::JsonDbCachingListModel::query
 
     The query string in JsonQuery format used by the model to fetch
     items from the database. Setting an empty query clears all the elements
@@ -1478,7 +1478,7 @@ void JsonDbCachingListModel::setScriptableRoleNames(const QVariant &vroles)
     }
     \endqml
 
-    \sa QtJsonDb::JsonDbCachingListModel::bindings
+    \sa QtJsonDb1::JsonDbCachingListModel::bindings
 
 */
 QString JsonDbCachingListModel::query() const
@@ -1516,7 +1516,7 @@ void JsonDbCachingListModel::setQuery(const QString &newQuery)
 }
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbCachingListModel::bindings
+    \qmlproperty object QtJsonDb1::JsonDbCachingListModel::bindings
     Holds the bindings for the placeholders used in the query string. Note that
     the placeholder marker '%' should not be included as part of the keys.
 
@@ -1531,7 +1531,7 @@ void JsonDbCachingListModel::setQuery(const QString &newQuery)
     }
     \endqml
 
-    \sa QtJsonDb::JsonDbCachingListModel::query
+    \sa QtJsonDb1::JsonDbCachingListModel::query
 
 */
 
@@ -1562,7 +1562,7 @@ void JsonDbCachingListModel::setBindings(const QVariantMap &newBindings)
 }
 
 /*!
-    \qmlproperty int QtJsonDb::JsonDbCachingListModel::cacheSize
+    \qmlproperty int QtJsonDb1::JsonDbCachingListModel::cacheSize
     Holds the maximum number of items cached by the model.
 
     \code
@@ -1632,7 +1632,7 @@ void JsonDbCachingListModel::partitionNameChanged(const QString &partitionName)
 }
 
 /*!
-    \qmlproperty list QtJsonDb::JsonDbCachingListModel::partitions
+    \qmlproperty list QtJsonDb1::JsonDbCachingListModel::partitions
     Holds the list of partition objects for the model.
     \code
     JsonDb.JsonDbCachingListModel {
@@ -1657,7 +1657,7 @@ QQmlListProperty<JsonDbPartition> JsonDbCachingListModel::partitions()
 }
 
 /*!
-    \qmlproperty string QtJsonDb::JsonDbCachingListModel::sortOrder
+    \qmlproperty string QtJsonDb1::JsonDbCachingListModel::sortOrder
 
     The order used by the model to sort the items. Make sure that there
     is a matching Index in the database for this sortOrder. This has to be
@@ -1710,7 +1710,7 @@ void JsonDbCachingListModel::setSortOrder(const QString &newSortOrder)
 }
 
 /*!
-    \qmlproperty State QtJsonDb::JsonDbCachingListModel::state
+    \qmlproperty State QtJsonDb1::JsonDbCachingListModel::state
     The current state of the model.
     \list
     \li State.None - The model is not initialized
@@ -1727,7 +1727,7 @@ JsonDbCachingListModel::State JsonDbCachingListModel::state() const
 }
 
 /*!
-    \qmlmethod int QtJsonDb::JsonDbCachingListModel::indexOf(string uuid)
+    \qmlmethod int QtJsonDb1::JsonDbCachingListModel::indexOf(string uuid)
 
     Returns the index of the object with the \a uuid in the model. If the object is
     not found it returns -1
@@ -1739,7 +1739,7 @@ int JsonDbCachingListModel::indexOf(const QString &uuid) const
 }
 
 /*!
-    \qmlmethod  QtJsonDb::JsonDbCachingListModel::get(int index, function callback)
+    \qmlmethod QtJsonDb1::JsonDbCachingListModel::get(int index, function callback)
 
     Calls the callback with object at the specified \a index in the model. The result.object property
     contains the object in its raw form as returned by the query, the rolenames
@@ -1785,7 +1785,7 @@ void JsonDbCachingListModel::get(int index, const QJSValue &callback)
 }
 
 /*!
-    \qmlmethod object QtJsonDb::JsonDbCachingListModel::getPartition(int index)
+    \qmlmethod object QtJsonDb1::JsonDbCachingListModel::getPartition(int index)
 
     Returns the partition object at the specified \a index in the model. If
     the index is out of range it returns an empty object.
@@ -1798,7 +1798,7 @@ JsonDbPartition* JsonDbCachingListModel::getPartition(int index) const
 }
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbCachingListModel::error
+    \qmlproperty object QtJsonDb1::JsonDbCachingListModel::error
     \readonly
 
     This property holds the current error information for the object. It contains:

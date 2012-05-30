@@ -74,7 +74,7 @@ JsonDatabase::~JsonDatabase()
 }
 
 /*!
-    \qmlmethod object QtJsonDb::JsonDatabase::partition(partitionName)
+    \qmlmethod object QtJsonDb1::JsonDatabase::partition(partitionName)
 
     Retrieve the Partition object for the specifed \a partitionName. The script engine
     decides the life time of the returned object. The returned object can be saved
@@ -93,7 +93,7 @@ JsonDbPartition* JsonDatabase::partition(const QString &partitionName)
 }
 
 /*!
-    \qmlmethod QtJsonDb::JsonDatabase::listPartitions(listCallback)
+    \qmlmethod QtJsonDb1::JsonDatabase::listPartitions(listCallback)
 
     Lists all partitions excluding private partitions. The script engine will
     destroy the objects during garbage collection.
@@ -136,7 +136,7 @@ void JsonDatabase::listPartitions(const QJSValue &listCallback)
 }
 
 /*!
-    \qmlmethod QtJsonDb::JsonDatabase::uuidFromString(string)
+    \qmlmethod QtJsonDb1::JsonDatabase::uuidFromString(string)
 
     Returns deterministic uuid that can be used to identify given \a identifier.
 
