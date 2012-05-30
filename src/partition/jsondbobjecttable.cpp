@@ -90,12 +90,6 @@ JsonDbObjectTable::~JsonDbObjectTable()
 bool JsonDbObjectTable::open(const QString &fileName)
 {
     mFilename = fileName;
-#if 0
-    if (!mBdb->setCmpFunc(objectKeyCmp, 0)) {
-        qCritical() << JSONDB_ERROR << "failed to set cmp function on db" << mFilename << "with error" << mBdb->errorMessage();
-        return false;
-    }
-#endif
     mBdb->setCacheSize(jsondbSettings->cacheSize());
     mBdb->setFileName(mFilename);
     if (!mBdb->open()) {
