@@ -62,16 +62,16 @@ static const int collationStringsCount = 13;
 static const char * const collationStrings[collationStringsCount] = {
     "default",
     "big5han",
-    "dict",
+    "dictionary",
     "direct",
-    "gb2312",
-    "phonebk",
+    "gb2312han",
+    "phonebook",
     "pinyin",
     "phonetic",
     "reformed",
     "standard",
     "stroke",
-    "trad",
+    "traditional",
     "unihan"
 };
 

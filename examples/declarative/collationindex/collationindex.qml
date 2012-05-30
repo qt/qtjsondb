@@ -78,6 +78,30 @@ Rectangle {
         };
         sharedPartition.create(indexDefinition, createCallback);
     }
+    function createCollationIndex3(cb)
+    {
+        var indexDefinition = {
+            "_type": "Index",
+            "name": "standardGermanIndex",
+            "propertyName": "firstName",
+            "propertyType": "string",
+            "locale" : "de_DE",
+            "collation" : "standard"
+        };
+        sharedPartition.create(indexDefinition, createCallback);
+    }
+    function createCollationIndex4(cb)
+    {
+        var indexDefinition = {
+            "_type": "Index",
+            "name": "phonebookGermanIndex",
+            "propertyName": "firstName",
+            "propertyType": "string",
+            "locale" : "de_DE",
+            "collation" : "phonebook"
+        };
+        sharedPartition.create(indexDefinition, createCallback);
+    }
 
     JsonDb.Partition {
         id: systemPartition
@@ -126,12 +150,64 @@ Rectangle {
                     listView2.text += "\n";
                 }
             } else {
-                console.log("There is no result from normalQuery!");
+                console.log("There is no result from indexedQuery!");
             }
         }
         onStatusChanged: {
             if (status === JsonDb.Query.Error)
                 console.log("Failed to query in indexedQuery: " + error.code + "-"+ error.message);
+        }
+    }
+
+    JsonDb.Query {
+        id: standardGermanQuery
+        query: '[?_type="MyContacts"][/standardGermanIndex]'
+        onFinished: {
+            listView3.text = "";
+            var results = standardGermanQuery.takeResults();
+            if (results.length > 0) {
+                for (var i = 0; i < results.length; i++) {
+                    var result = results[i];
+                    for (var k in result) {
+                        if (k === "firstName" || k === "fakeFirstName" || k === "lastName") {
+                            listView3.text += result[k] + "\t";
+                        }
+                    }
+                    listView3.text += "\n";
+                }
+            } else {
+                console.log("There is no result from standardGermanQuery!");
+            }
+        }
+        onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query in standardGermanQuery: " + error.code + "-"+ error.message);
+        }
+    }
+
+    JsonDb.Query {
+        id: phonebookGermanQuery
+        query: '[?_type="MyContacts"][/phonebookGermanIndex]'
+        onFinished: {
+            listView4.text = "";
+            var results = phonebookGermanQuery.takeResults();
+            if (results.length > 0) {
+                for (var i = 0; i < results.length; i++) {
+                    var result = results[i];
+                    for (var k in result) {
+                        if (k === "firstName" || k === "fakeFirstName" || k === "lastName") {
+                            listView4.text += result[k] + "\t";
+                        }
+                    }
+                    listView4.text += "\n";
+                }
+            } else {
+                console.log("There is no result from phonebookGermanQuery!");
+            }
+        }
+        onStatusChanged: {
+            if (status === JsonDb.Query.Error)
+                console.log("Failed to query in phonebookGermanQuery: " + error.code + "-"+ error.message);
         }
     }
 
@@ -176,8 +252,12 @@ Rectangle {
             sharedPartition.create({ "_type":"MyContacts", "firstName":"\u9489", "lastName":"5-Ding" }, createCallback);
             sharedPartition.create({ "_type":"MyContacts", "firstName":"\u516d", "lastName":"6-Liu" }, createCallback);
             sharedPartition.create({ "_type":"MyContacts", "firstName":"\u5b54", "lastName":"7-Kong" }, createCallback);
+            sharedPartition.create({ "_type":"MyContacts", "firstName":"Af",     "lastName":"Af" }, createCallback);
+            sharedPartition.create({ "_type":"MyContacts", "firstName":"Äg",     "lastName":"Äg" }, createCallback);
             createCollationIndex1(createCallback);
             createCollationIndex2(createCallback);
+            createCollationIndex3(createCallback);
+            createCollationIndex4(createCallback);
         }
     }
     Button {
@@ -191,6 +271,10 @@ Rectangle {
             normalQuery.start();
             indexedQuery.partition = sharedPartition;
             indexedQuery.start();
+            standardGermanQuery.partition = sharedPartition;
+            standardGermanQuery.start();
+            phonebookGermanQuery.partition = sharedPartition;
+            phonebookGermanQuery.start();
         }
     }
 
@@ -200,14 +284,34 @@ Rectangle {
         anchors.top: buttonCreate.bottom
         anchors.left: parent.left
         anchors.bottom: parent.bottom
-        width: parent.width/2
+        width: parent.width/4
+        color: "black"
     }
     TextEdit {
         id: listView2
         font.pixelSize: 12
-        anchors.top: buttonQuery.bottom
-        anchors.right: parent.right
+        anchors.top: buttonCreate.bottom
+        anchors.left: listView1.right
         anchors.bottom: parent.bottom
-        width: parent.width/2
+        width: parent.width/4
+        color: "red"
+    }
+    TextEdit {
+        id: listView3
+        font.pixelSize: 12
+        anchors.top: buttonCreate.bottom
+        anchors.left: listView2.right
+        anchors.bottom: parent.bottom
+        width: parent.width/4
+        color: "green"
+    }
+    TextEdit {
+        id: listView4
+        font.pixelSize: 12
+        anchors.top: buttonCreate.bottom
+        anchors.left: listView3.right
+        anchors.bottom: parent.bottom
+        width: parent.width/4
+        color: "blue"
     }
 }
