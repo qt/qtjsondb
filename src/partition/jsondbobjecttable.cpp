@@ -183,14 +183,15 @@ bool JsonDbObjectTable::compact()
 
 bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
 {
-    if (flags & SyncObjectTable) {
+    if (flags & SyncObjectTable && mBdb->isOpen()) {
         if (!mBdb->sync())
             return false;
     }
 
     if (flags & SyncIndexes) {
         foreach (JsonDbIndex *index, mIndexes) {
-            bool wasOpen = index->isOpen();
+            if (!index->isOpen())
+                continue;
             if (index->bdb()) {
                 quint32 stateNumber = index->stateNumber();
                 if (flags & SyncStateNumbers && stateNumber != mStateNumber) {
@@ -201,8 +202,6 @@ bool JsonDbObjectTable::sync(JsonDbObjectTable::SyncFlags flags)
                 if (!index->bdb()->sync())
                     return false;
             }
-            if (!wasOpen && index->bdb())
-                index->close();
         }
     }
 
