@@ -56,6 +56,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QTimer>
+#include <QTemporaryDir>
 
 #include <pwd.h>
 #include <signal.h>
@@ -110,6 +111,8 @@ private slots:
     void replaceFromNull();
     void multiplerequests();
     void defaultConnection();
+    void dontAllowDefaultAndRemovablePartition_data();
+    void dontAllowDefaultAndRemovablePartition();
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
@@ -1271,6 +1274,115 @@ void TestQJsonDbRequest::bindings()
         results = request.takeResults();
         QCOMPARE(results.size(), 0);
     }
+}
+
+// Helper class for dontAllowDefaultAndRemovablePartition().
+class DaemonStarter : public TestHelper
+{
+public:
+    DaemonStarter(const QString &cfgPath, int msecs = 30000) {
+        QStringList args = QStringList() << "-config-path" << cfgPath;
+        launchJsonDbDaemon(args, __FILE__, true);
+        mProcess->waitForFinished(msecs);
+    }
+
+    ~DaemonStarter() {
+        stopDaemon();
+    }
+
+    bool isRunning() const {
+        return mProcess->state() == QProcess::Running;
+    }
+};
+
+void TestQJsonDbRequest::dontAllowDefaultAndRemovablePartition_data()
+{
+    // Partition 1:
+    QTest::addColumn<QString>("default1"); // an empty string indicates that the property is not explicitly set
+    QTest::addColumn<QString>("removable1"); // ditto
+    // Partition 2:
+    QTest::addColumn<QString>("default2"); // ditto
+    QTest::addColumn<QString>("removable2"); // ditto
+
+    // Whether the daemon should accept the combined definition of Partition 1 and 2, and
+    // not terminate after loading the definition:
+    QTest::addColumn<bool>("valid");
+
+    // *** Valid combinations: ***
+    // Case 1 (both partitions neither default nor removable):
+    QTest::newRow("valid 1.1") << "false" << "false" << "false" << "false" << true;
+    QTest::newRow("valid 1.2") << "false" << "false" << "false" << "" << true;
+    QTest::newRow("valid 1.3") << "false" << "false" << "" << "" << true;
+    QTest::newRow("valid 1.4") << "false" << "" << "" << "" << true;
+    QTest::newRow("valid 1.5") << "" << "" << "" << "" << true;
+    // Case 2 (neither partition default, only one of them removable):
+    QTest::newRow("valid 2.1") << "false" << "true" << "false" << "false" << true;
+    QTest::newRow("valid 2.2") << "false" << "true" << "false" << "" << true;
+    QTest::newRow("valid 2.3") << "false" << "true" << "" << "" << true;
+    QTest::newRow("valid 2.4") << "" << "true" << "" << "" << true;
+
+    // *** Invalid combinations: ***
+    // Case 1 (at least one partition both default and removable):
+    QTest::newRow("invalid 1.1") << "true" << "true" << "false" << "false" << false;
+    QTest::newRow("invalid 1.2") << "true" << "true" << "" << "false" << false;
+    QTest::newRow("invalid 1.3") << "true" << "true" << "" << "" << false;
+    // Case 2 (both partitions removable):
+    QTest::newRow("invalid 2.1") << "false" << "true" << "false" << "true" << false;
+    QTest::newRow("invalid 2.2") << "false" << "true" << "" << "true" << false;
+    QTest::newRow("invalid 2.3") << "" << "true" << "" << "true" << false;
+}
+
+/*!
+    Verify that the server terminates immediately when at least one partition is specified (explicitly or implicitly)
+    as both default and removable.
+*/
+void TestQJsonDbRequest::dontAllowDefaultAndRemovablePartition()
+{
+    QFETCH(QString, default1);
+    QFETCH(QString, removable1);
+    QFETCH(QString, default2);
+    QFETCH(QString, removable2);
+    QFETCH(bool, valid);
+
+    QTemporaryDir cfgDir;
+    if (!cfgDir.isValid())
+        QSKIP("failed to create temporary config dir");
+
+    QFile file(QString("%1/partitions.json").arg(cfgDir.path()));
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        QSKIP("failed to create temporary config file");
+
+    QJsonArray jarr;
+
+#define IS_TRUE(s) (s == "true")
+
+    // Partition 1:
+    QJsonObject jobj1;
+    jobj1.insert(QLatin1String("name"), QLatin1String("dummy1"));
+    if (!default1.isEmpty())
+        jobj1.insert(QLatin1String("default"), IS_TRUE(default1));
+    if (!removable1.isEmpty())
+        jobj1.insert(QLatin1String("removable"), IS_TRUE(removable1));
+    jarr.append(jobj1);
+    // Partition 2:
+    QJsonObject jobj2;
+    jobj2.insert(QLatin1String("name"), QLatin1String("dummy2"));
+    if (!default2.isEmpty())
+        jobj2.insert(QLatin1String("default"), IS_TRUE(default2));
+    if (!removable2.isEmpty())
+        jobj2.insert(QLatin1String("removable"), IS_TRUE(removable2));
+    jarr.append(jobj2);
+
+    QTextStream out(&file);
+    out << QJsonDocument(jarr).toJson();
+    file.close();
+
+    // Assume the daemon will always terminate within the following timeout. (Note the tradeoff between
+    // reliability and test execution time!)
+    const int timeoutMillisecs = 1000;
+
+    DaemonStarter starter(cfgDir.path(), timeoutMillisecs);
+    QCOMPARE(starter.isRunning(), valid);
 }
 
 QTEST_MAIN(TestQJsonDbRequest)

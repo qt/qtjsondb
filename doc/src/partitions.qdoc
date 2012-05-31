@@ -92,7 +92,7 @@ defaults to the current working directory.
 \row
 \li default
 \li If this boolean property is \c true, then requests which do not specify
-a partition will default this partition. If more than one partition is marked
+a partition will default to this partition. If more than one partition is marked
 as default, JSON DB chooses one arbitrarily.
 
 \row
@@ -108,6 +108,10 @@ partition with the name "default".
 The paths specified in the partition definition file \e must exist prior to
 starting the JSON DB daemon. If the directories don't exist, the daemon will
 not start. The exception to this is \l {Removable Partitions}.
+
+A removable partition is not allowed to be a default partition. If the \e removable
+and \e default properties are both true for the same partition, the daemon
+will not start.
 
 \section1 Querying Available Partitions
 

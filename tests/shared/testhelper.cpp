@@ -57,6 +57,8 @@
 
 QT_USE_NAMESPACE_JSONDB
 
+int TestHelper::mProcessIndex = 0;
+
 TestHelper::TestHelper(QObject *parent) :
     QObject(parent)
   , mProcess(0)
@@ -109,15 +111,18 @@ QJsonDocument TestHelper::readJsonFile(const QString &filename, QJsonParseError 
     return doc;
 }
 
-void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceFile)
+void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceFile, bool skipConnection)
 {
     if (dontLaunch())
         return;
 
-    QString configfile = QTest::qFindTestData("partitions.json", sourceFile);
-    if (configfile.isEmpty()) {
-        qDebug() << "Cannot find partitions.json configuration file for jsondb";
-        return;
+    QString configfile;
+    if (!args.contains(QLatin1String("-config-path"))) {
+        configfile = QTest::qFindTestData("partitions.json", sourceFile);
+        if (configfile.isEmpty()) {
+            qDebug() << "Cannot find partitions.json configuration file for jsondb";
+            return;
+        }
     }
 
     QString jsondb_app = QDir(QString::fromLocal8Bit(JSONDB_DAEMON_BASE)).absoluteFilePath(QLatin1String("jsondb"));
@@ -129,7 +134,7 @@ void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceF
     connect(mProcess, SIGNAL(finished(int,QProcess::ExitStatus)),
             this, SLOT(processFinished(int,QProcess::ExitStatus)));
 
-    QString socketName = QString("testjsondb_%1").arg(getpid());
+    QString socketName = QString("testjsondb_%1_%2").arg(getpid()).arg(mProcessIndex++);
 
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert("JSONDB_SOCKET", socketName);
@@ -138,7 +143,8 @@ void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceF
 
     QStringList argList = args;
     argList << QLatin1String("-reject-stale-updates");
-    argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
+    if (!configfile.isEmpty())
+        argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
 
     if (!mWorkingDirectory.isEmpty())
         // We specified a particular directory
@@ -158,6 +164,9 @@ void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceF
     if (!mProcess->waitForStarted())
         qFatal("Unable to start jsondb database process");
 
+    if (skipConnection)
+        return;
+
     /* Wait until the jsondb is accepting connections */
     int tries = 0;
     bool connected = false;
@@ -175,27 +184,31 @@ void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceF
         qFatal("Unable to connect to jsondb process");
 }
 
-qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile)
+qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile, bool skipConnection)
 {
     if (dontLaunch())
         return 0;
 
-    QString configfile = QTest::qFindTestData("partitions.json", sourceFile);
-    if (configfile.isEmpty()) {
-        qDebug() << "Cannot find partitions.json configuration file for jsondb";
-        return 0;
+    QString configfile;
+    if (!args.contains(QLatin1String("-config-path"))) {
+        configfile = QTest::qFindTestData("partitions.json", sourceFile);
+        if (configfile.isEmpty()) {
+            qDebug() << "Cannot find partitions.json configuration file for jsondb";
+            return 0;
+        }
     }
 
     QString jsondb_app = QDir(QString::fromLocal8Bit(JSONDB_DAEMON_BASE)).absoluteFilePath(QLatin1String("jsondb"));
     if (!QFile::exists(jsondb_app))
         jsondb_app = QLatin1String("jsondb"); // rely on the PATH
 
-    QString socketName = QString("testjsondb_%1").arg(getpid());
+    QString socketName = QString("testjsondb_%1_%2").arg(getpid()).arg(mProcessIndex++);
     ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
 
     QStringList argList = args;
     argList << QLatin1String("-reject-stale-updates");
-    argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
+    if (!configfile.isEmpty())
+        argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
 
     if (!mWorkingDirectory.isEmpty()) {
         // We specified a particular directory
@@ -213,6 +226,9 @@ qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const cha
     } else {
         QProcess::startDetached(jsondb_app, argList, QDir::currentPath(), &pid);
     }
+
+    if (skipConnection)
+        return pid;
 
     /* Wait until the jsondb is accepting connections */
     int tries = 0;

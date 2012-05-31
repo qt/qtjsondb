@@ -71,8 +71,8 @@ public:
     QString findFile(const QString &filename);
     QString findFile(const char *filename);
 
-    void launchJsonDbDaemon(const QStringList &args, const char *sourceFile);
-    qint64 launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile);
+    void launchJsonDbDaemon(const QStringList &args, const char *sourceFile, bool skipConnection = false);
+    qint64 launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile, bool skipConnection = false);
     void stopDaemon();
 
     void connectToServer();
@@ -135,6 +135,7 @@ private:
 
     QString mWorkingDirectory;
     int mRequestsPending;
+    static int mProcessIndex;
     QtJsonDb::QJsonDbWatcher::Status mReceivedStatus;
     QtJsonDb::QJsonDbWatcher::Status mExpectedStatus;
     QtJsonDb::QJsonDbWatcher::ErrorCode mReceivedError;
