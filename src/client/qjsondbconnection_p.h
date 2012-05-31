@@ -93,6 +93,7 @@ public:
 
     void _q_privateReadRequestStarted(int requesId, quint32, const QString &);
     void _q_privateWriteRequestStarted(int requestId, quint32);
+    void _q_privateFlushRequestStarted(int requestId, quint32);
     void _q_privateRequestFinished(int requestId);
     void _q_privateRequestError(int requestId, QtJsonDb::QJsonDbRequest::ErrorCode, const QString &);
     void _q_privateRequestResultsAvailable(int requestId, const QList<QJsonObject> &);

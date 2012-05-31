@@ -44,6 +44,7 @@
 #include "qjsondbreadrequest.h"
 #include "qjsondbwriterequest.h"
 #include "private/qjsondbstandardpaths_p.h"
+#include "private/qjsondbflushrequest_p.h"
 #include "testhelper.h"
 
 #include <QDebug>
@@ -111,6 +112,7 @@ private slots:
     void replaceFromNull();
     void multiplerequests();
     void defaultConnection();
+    void privatePartitionFlushRequest();
     void dontAllowDefaultAndRemovablePartition_data();
     void dontAllowDefaultAndRemovablePartition();
 
@@ -1207,6 +1209,19 @@ void TestQJsonDbRequest::defaultConnection()
     QVERIFY(connection->send(&request));
     ev.exec();
     QCOMPARE((int)request.status(), (int)QJsonDbRequest::Finished);
+}
+
+void TestQJsonDbRequest::privatePartitionFlushRequest()
+{
+    QJsonDbFlushRequest request;
+    request.setPartition(QStringLiteral("Private"));
+    QVERIFY(mConnection->send(&request));
+    QVERIFY(waitForResponse(&request));
+    QVERIFY(mRequestStatuses.contains(&request));
+    QList<QtJsonDb::QJsonDbRequest::Status> statuses = mRequestStatuses.value(&request);
+    QCOMPARE(statuses.size(), 2);
+    QCOMPARE((int)statuses.at(0), (int)QJsonDbRequest::Receiving);
+    QCOMPARE((int)statuses.at(1), (int)QJsonDbRequest::Finished);
 }
 
 void TestQJsonDbRequest::bindings()

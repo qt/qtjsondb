@@ -84,6 +84,7 @@ public Q_SLOTS:
 Q_SIGNALS:
     void readRequestStarted(int requestId, quint32 state, const QString &sortKey);
     void writeRequestStarted(int requestId, quint32 state);
+    void flushRequestStarted(int requestId, quint32 state);
     void resultsAvailable(int requestId, const QList<QJsonObject> &results);
     void finished(int requestId);
     void error(int requestId, QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);

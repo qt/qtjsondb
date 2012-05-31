@@ -121,6 +121,7 @@ private:
 
     Q_PRIVATE_SLOT(d_func(), void _q_privateReadRequestStarted(int,quint32,QString))
     Q_PRIVATE_SLOT(d_func(), void _q_privateWriteRequestStarted(int,quint32))
+    Q_PRIVATE_SLOT(d_func(), void _q_privateFlushRequestStarted(int,quint32))
     Q_PRIVATE_SLOT(d_func(), void _q_privateRequestFinished(int))
     Q_PRIVATE_SLOT(d_func(), void _q_privateRequestError(int,QtJsonDb::QJsonDbRequest::ErrorCode,QString))
     Q_PRIVATE_SLOT(d_func(), void _q_privateRequestResultsAvailable(int,QList<QJsonObject>))

@@ -64,6 +64,7 @@ public:
 
     enum ErrorCode {
         NoError = QJsonDbRequest::NoError,
+        FlushFailed = QJsonDbRequest::InvalidRequest
     };
 
     // request results. Data is only available after started() was emitted.
@@ -72,6 +73,7 @@ public:
 private:
     Q_DISABLE_COPY(QJsonDbFlushRequest)
     Q_DECLARE_PRIVATE(QJsonDbFlushRequest)
+    friend class QJsonDbConnectionPrivate;
 };
 
 QT_END_NAMESPACE_JSONDB

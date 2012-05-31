@@ -45,6 +45,8 @@
 #include "qjsondbwriterequest_p.h"
 #include "qjsondbreadrequest.h"
 #include "qjsondbreadrequest_p.h"
+#include "qjsondbflushrequest_p.h"
+#include "qjsondbflushrequest_p_p.h"
 #include "qjsondbwatcher_p.h"
 #include "qjsondbstrings_p.h"
 #include "qjsondbobject.h"
@@ -330,6 +332,8 @@ void QJsonDbConnectionPrivate::handlePrivatePartitionRequest(const QJsonObject &
                          q, SLOT(_q_privateReadRequestStarted(int,quint32,QString)));
         QObject::connect(privatePartitionHandler, SIGNAL(writeRequestStarted(int,quint32)),
                          q, SLOT(_q_privateWriteRequestStarted(int,quint32)));
+        QObject::connect(privatePartitionHandler, SIGNAL(flushRequestStarted(int,quint32)),
+                         q, SLOT(_q_privateFlushRequestStarted(int,quint32)));
         QObject::connect(privatePartitionHandler, SIGNAL(finished(int)),
                          q, SLOT(_q_privateRequestFinished(int)));
         QObject::connect(privatePartitionHandler, SIGNAL(error(int,QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
@@ -431,6 +435,19 @@ void QJsonDbConnectionPrivate::_q_privateWriteRequestStarted(int requestId, quin
     if (!request || request->d_func()->requestId != requestId)
         return;
     QJsonDbWriteRequestPrivate *drequest = request->d_func();
+    drequest->stateNumber = stateNumber;
+    drequest->setStatus(QJsonDbRequest::Receiving);
+    emit request->started();
+}
+
+void QJsonDbConnectionPrivate::_q_privateFlushRequestStarted(int requestId, quint32 stateNumber)
+{
+    if (!currentRequest)
+        return;
+    QJsonDbFlushRequest *request = qobject_cast<QJsonDbFlushRequest *>(currentRequest.data());
+    if (!request || request->d_func()->requestId != requestId)
+        return;
+    QJsonDbFlushRequestPrivate *drequest = request->d_func();
     drequest->stateNumber = stateNumber;
     drequest->setStatus(QJsonDbRequest::Receiving);
     emit request->started();

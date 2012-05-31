@@ -42,6 +42,7 @@
 #include "qjsondbprivatepartition_p.h"
 #include "qjsondbconnection_p.h"
 #include "qjsondbrequest_p.h"
+#include "qjsondbflushrequest_p.h"
 #include "qjsondbstrings_p.h"
 #include "qjsondbstandardpaths_p.h"
 
@@ -74,7 +75,8 @@ void QJsonDbPrivatePartition::handleRequest(const QJsonObject &request)
     if (errorCode == QJsonDbRequest::NoError) {
         QList<QJsonObject> results;
 
-        if (request.value(JsonDbStrings::Protocol::action()).toString() == JsonDbStrings::Protocol::update()) {
+        const QString protocolAction = request.value(JsonDbStrings::Protocol::action()).toString();
+        if (protocolAction == JsonDbStrings::Protocol::update()) {
             Partition::JsonDbObjectList objects;
             QJsonArray objectArray = request.value(JsonDbStrings::Protocol::object()).toArray();
             if (objectArray.isEmpty())
@@ -99,8 +101,7 @@ void QJsonDbPrivatePartition::handleRequest(const QJsonObject &request)
                 errorCode = static_cast<QJsonDbRequest::ErrorCode>(writeResults.code);
                 errorMessage = writeResults.message;
             }
-        } else {
-            Q_ASSERT(request.value(JsonDbStrings::Protocol::action()).toString() == JsonDbStrings::Protocol::query());
+        } else if (protocolAction == JsonDbStrings::Protocol::query()) {
             QJsonObject object = request.value(JsonDbStrings::Protocol::object()).toObject();
             QMap<QString, QJsonValue> bindings;
             QJsonObject jsonbindings = object.value(JsonDbStrings::Property::bindings()).toObject();
@@ -131,6 +132,18 @@ void QJsonDbPrivatePartition::handleRequest(const QJsonObject &request)
                 errorCode = static_cast<QJsonDbRequest::ErrorCode>(queryResult.code);
                 errorMessage = queryResult.message;
             }
+        } else if (protocolAction == JsonDbStrings::Protocol::flush()) {
+            bool ok = false;
+            int stateNumber = privatePartition->flush(&ok);
+            if (ok) {
+                emit flushRequestStarted(requestId, static_cast<quint32>(stateNumber));
+                emit finished(requestId);
+            } else {
+                emit error(requestId, static_cast<QJsonDbRequest::ErrorCode>(QJsonDbFlushRequest::FlushFailed),
+                           QStringLiteral("Flush failed"));
+            }
+        } else {
+            qWarning() << "Received unhandled private partition request" << protocolAction << request;
         }
     }
 
