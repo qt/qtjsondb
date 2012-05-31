@@ -345,7 +345,7 @@ bool JsonDbReduceDefinition::compileFunctions(QJSEngine *scriptEngine, QJsonObje
         QJSValue moduleFunction = scriptEngine->evaluate(QString::fromLatin1("(function (proxy) { %3 var jsondb = %2; return (%1); })")
                                                          .arg(script)
                                                          .arg(jsonDbBinding)
-                                                         .arg(jsondbSettings->useStrictMode() ? "\"use strict\"; " : "/* use nonstrict mode */"));
+                                                         .arg(jsondbSettings->useStrictMode() ? QLatin1Literal("\"use strict\"; ") : QLatin1Literal("/* use nonstrict mode */")));
 
         if (moduleFunction.isError() || !moduleFunction.isCallable()) {
             message = QString::fromLatin1("Unable to parse %1 function: %2").arg(functionName).arg(moduleFunction.toString());

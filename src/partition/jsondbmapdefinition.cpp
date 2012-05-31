@@ -171,7 +171,7 @@ bool JsonDbMapDefinition::compileMapFunctions(QJSEngine *scriptEngine, QJsonObje
                                    .arg(QString(sourceType).replace(QLatin1Char('.'), QLatin1Char('_')))
                                    .arg(script)
                                    .arg(jsonDbBinding)
-                                   .arg(jsondbSettings->useStrictMode() ? "\"use strict\"; " : "/* use nonstrict mode */"));
+                                   .arg(jsondbSettings->useStrictMode() ? QLatin1Literal("\"use strict\"; ") : QLatin1Literal("/* use nonstrict mode */")));
         if (moduleFunction.isError() || !moduleFunction.isCallable()) {
             message = QString::fromLatin1("Unable to parse map function: %1").arg(moduleFunction.toString());
             status = false;

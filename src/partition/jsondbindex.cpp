@@ -92,7 +92,7 @@ bool JsonDbIndexPrivate::initScriptEngine()
                      q, SLOT(_q_propertyValueEmitted(QJSValue)));
 
     QString script(QStringLiteral("(function(proxy) { %2 var jsondb={emit: proxy.create, lookup: proxy.lookup }; var fcn = (%1); return fcn})")
-                   .arg(mSpec.propertyFunction, jsondbSettings->useStrictMode() ? "\"use strict\"; " : "/* use nonstrict mode */"));
+                   .arg(mSpec.propertyFunction, jsondbSettings->useStrictMode() ? QStringLiteral("\"use strict\"; ") : QStringLiteral("/* use nonstrict mode */")));
     mPropertyFunction = mScriptEngine->evaluate(script);
     if (mPropertyFunction.isError() || !mPropertyFunction.isCallable()) {
         qDebug() << "Unable to parse index value function: " << mPropertyFunction.toString();
