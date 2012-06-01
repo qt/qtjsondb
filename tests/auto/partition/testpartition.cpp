@@ -3279,6 +3279,9 @@ void TestPartition::findInContains()
         );
 
     foreach (QString q, queries) {
+        QString strOutput = QString(QLatin1String("[- compileIndexQuery ] searching all objects \"%1\" "))
+                                    .arg(q);
+        QTest::ignoreMessage(QtSystemMsg, strOutput.toLatin1().constData());
         JsonDbQueryResult queryResult = find(mOwner, q);
         verifyGoodQueryResult(queryResult);
     }
@@ -3291,6 +3294,9 @@ void TestPartition::findInContains()
         );
 
     foreach (QString q, queries) {
+        QString strOutput = QString(QLatin1String("[- compileIndexQuery ] searching all objects \"%1\" "))
+                                    .arg(q);
+        QTest::ignoreMessage(QtSystemMsg, strOutput.toLatin1().constData());
         JsonDbQueryResult queryResult = find(mOwner, q);
         verifyGoodQueryResult(queryResult);
     }
@@ -3491,6 +3497,8 @@ void TestPartition::uuidJoin()
     bettyRef.insert("thumbnailUuid", thumbnailUuid);
     r = create(mOwner, bettyRef);
 
+    QTest::ignoreMessage(QtCriticalMsg, "[- compileIndexQuery ] searching all objects \"[?bettyUuid exists][=  { thumbnailUuid : bettyUuid->thumbnailUuid }]\" ");
+    QTest::ignoreMessage(QtCriticalMsg, "[- compileIndexQuery ] searching all objects \"[?bettyUuid exists][= { thumbnailUuid : bettyUuid->thumbnailUuid->url }]\" ");
     JsonDbQueryResult queryResult = find(mOwner, QString("[?thumbnailUuid->url=\"%1\"]").arg(thumbnailUrl));
     verifyGoodQueryResult(queryResult);
     QVERIFY(queryResult.data.size() > 0);
@@ -3681,6 +3689,7 @@ void TestPartition::find10()
 
 void TestPartition::startsWith()
 {
+    QTest::ignoreMessage(QtSystemMsg, "[- compileIndexQuery ] searching all objects \"[?_type startsWith \"startsWith\"][= { _type: _type } ]\" ");
     addIndex(QLatin1String("name"));
 
     JsonDbObject item;
@@ -4325,8 +4334,8 @@ void TestPartition::settings()
 
     // first explicitly set the values
     jsondbSettings->setRejectStaleUpdates(true);
-    jsondbSettings->setDebug(true);
-    jsondbSettings->setVerbose(true);
+    jsondbSettings->setDebug(false);
+    jsondbSettings->setVerbose(false);
     jsondbSettings->setPerformanceLog(true);
     jsondbSettings->setCacheSize(64);
     jsondbSettings->setCompactRate(2000);
@@ -4338,8 +4347,8 @@ void TestPartition::settings()
     jsondbSettings->setDebugQuery(true);
 
     QVERIFY(jsondbSettings->rejectStaleUpdates());
-    QVERIFY(jsondbSettings->debug());
-    QVERIFY(jsondbSettings->verbose());
+    QVERIFY(!jsondbSettings->debug());
+    QVERIFY(!jsondbSettings->verbose());
     QVERIFY(jsondbSettings->performanceLog());
     QCOMPARE(jsondbSettings->cacheSize(), 64);
     QCOMPARE(jsondbSettings->compactRate(), 2000);
@@ -4351,8 +4360,8 @@ void TestPartition::settings()
     QVERIFY(jsondbSettings->debugQuery());
 
     jsondbSettings->setRejectStaleUpdates(false);
-    jsondbSettings->setDebug(false);
-    jsondbSettings->setVerbose(false);
+    jsondbSettings->setDebug(true);
+    jsondbSettings->setVerbose(true);
     jsondbSettings->setPerformanceLog(false);
     jsondbSettings->setEnforceAccessControl(false);
     jsondbSettings->setValidateSchemas(false);
@@ -4360,8 +4369,8 @@ void TestPartition::settings()
 
     // then with environment variables
     ::setenv("JSONDB_REJECT_STALE_UPDATES", "true", true);
-    ::setenv("JSONDB_DEBUG", "true", true);
-    ::setenv("JSONDB_VERBOSE", "true", true);
+    ::setenv("JSONDB_DEBUG", "false", true);
+    ::setenv("JSONDB_VERBOSE", "false", true);
     ::setenv("JSONDB_PERFORMANCE_LOG", "true", true);
     ::setenv("JSONDB_CACHE_SIZE", "256", true);
     ::setenv("JSONDB_COMPACT_RATE", "1500", true);
@@ -4374,8 +4383,8 @@ void TestPartition::settings()
     jsondbSettings->reload();
 
     QVERIFY(jsondbSettings->rejectStaleUpdates());
-    QVERIFY(jsondbSettings->debug());
-    QVERIFY(jsondbSettings->verbose());
+    QVERIFY(!jsondbSettings->debug());
+    QVERIFY(!jsondbSettings->verbose());
     QVERIFY(jsondbSettings->performanceLog());
     QCOMPARE(jsondbSettings->cacheSize(), 256);
     QCOMPARE(jsondbSettings->compactRate(), 1500);
