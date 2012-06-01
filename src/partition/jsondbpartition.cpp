@@ -568,7 +568,7 @@ bool JsonDbPartition::clear()
 {
     Q_D(JsonDbPartition);
 
-    if (d->mObjectTable->bdb()) {
+    if (d->mObjectTable && d->mObjectTable->bdb() && d->mObjectTable->bdb()->isOpen()) {
         qCritical() << JSONDB_ERROR << "cannot clear database while it is open.";
         return false;
     }
@@ -746,10 +746,13 @@ bool JsonDbPartitionPrivate::abortTransaction()
 int JsonDbPartition::flush(bool *ok)
 {
     Q_D(JsonDbPartition);
+    if (ok)
+        *ok = false;
     if (d->mIsOpen) {
-        *ok = d->mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
-
-        if (*ok)
+        bool result = d->mObjectTable->sync(JsonDbObjectTable::SyncObjectTable);
+        if (ok)
+            *ok = result;
+        if (result)
             return static_cast<int>(d->mObjectTable->stateNumber());
     }
     return -1;

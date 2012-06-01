@@ -245,6 +245,8 @@ private slots:
 
     void updateListWithIndex();
     void addBigIndex();
+    void ensureBadPartitionFunctionCalls_data();
+    void ensureBadPartitionFunctionCalls();
 
 private:
     void createContacts();
@@ -4864,6 +4866,45 @@ void TestPartition::addBigIndex()
     QCOMPARE(queryResult.data.size(), 1);
 
     remove(mOwner, indexObject);
+}
+
+void TestPartition::ensureBadPartitionFunctionCalls_data()
+{
+    QTest::addColumn<bool>("callOpen");
+    QTest::newRow("Failed open call") << true;
+    QTest::newRow("No open call") << false;
+}
+
+void TestPartition::ensureBadPartitionFunctionCalls()
+{
+    QFETCH(bool, callOpen);
+    JsonDbPartition *partition = new JsonDbPartition();
+    partition->setDefaultOwner(mOwner);
+
+    if (callOpen) {
+        JsonDbPartitionSpec spec;
+        spec.name = QString::fromAscii(QByteArray(10000, 'a')); // Make the open fail
+        partition->setPartitionSpec(spec);
+        QVERIFY(!partition->open());
+    }
+
+    QVERIFY(!partition->isOpen());
+    QCOMPARE(partition->changesSince(0, QSet<QString>()).code, JsonDbError::PartitionUnavailable);
+    if (!callOpen)
+        QTest::ignoreMessage(QtWarningMsg, "QFileInfo::absolutePath: Constructed with empty filename");
+    QVERIFY(partition->clear());
+    QVERIFY(!partition->compact());
+    QCOMPARE(partition->queryObjects(mOwner, JsonDbQuery()).code, JsonDbError::PartitionUnavailable);
+    QCOMPARE(partition->updateObjects(mOwner, JsonDbObjectList()).code, JsonDbError::PartitionUnavailable);
+    QCOMPARE(partition->updateObject(mOwner, JsonDbObject()).code, JsonDbError::PartitionUnavailable);
+    QCOMPARE(partition->changesSince(0).code, JsonDbError::PartitionUnavailable);
+    bool ok = false;
+    QCOMPARE(partition->flush(&ok), -1);
+    QCOMPARE(ok, false);
+    QCOMPARE(partition->mainObjectTable() != NULL, callOpen);
+    QVERIFY(partition->fileSizes().isEmpty());
+
+    delete partition;
 }
 
 QTEST_MAIN(TestPartition)
