@@ -274,6 +274,12 @@ bool JsonDbIndex::isOpen() const
 bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject &oldIndex, QString &message)
 {
     message.clear();
+    bool containsPropertyFunction = newIndex.contains(JsonDbString::kPropertyFunctionStr);
+
+    if (!(containsPropertyFunction ^ newIndex.contains(JsonDbString::kPropertyNameStr)))
+        message = QStringLiteral("Index object must have one of propertyName or propertyFunction set");
+    else if (containsPropertyFunction && !newIndex.contains(JsonDbString::kNameStr))
+        message = QStringLiteral("Index object with propertyFunction must have name");
 
     if (!newIndex.isEmpty() && !oldIndex.isEmpty() && oldIndex.type() == JsonDbString::kIndexTypeStr) {
         if (oldIndex.value(JsonDbString::kPropertyNameStr).toString() != newIndex.value(JsonDbString::kPropertyNameStr).toString())
@@ -293,11 +299,6 @@ bool JsonDbIndex::validateIndex(const JsonDbObject &newIndex, const JsonDbObject
                              .arg(oldIndex.value(JsonDbString::kPropertyFunctionStr).toString())
                              .arg(newIndex.value(JsonDbString::kPropertyFunctionStr).toString());
     }
-
-    if (!(newIndex.contains(JsonDbString::kPropertyFunctionStr) ^ newIndex.contains(JsonDbString::kPropertyNameStr)))
-        message = QStringLiteral("Index object must have one of propertyName or propertyFunction set");
-    else if (newIndex.contains(JsonDbString::kPropertyFunctionStr) && !newIndex.contains(JsonDbString::kNameStr))
-        message = QStringLiteral("Index object with propertyFunction must have name");
 
     return message.isEmpty();
 }
