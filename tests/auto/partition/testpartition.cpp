@@ -2312,7 +2312,7 @@ void TestPartition::mapArrayConversion()
 }
 
 static QHash<QString, QList<QString> > sDebugMessages;
-void logMessageOutput(QtMsgType type, const QMessageLogContext &context, const char *msg)
+void logMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     Q_UNUSED(context);
     switch (type) {
@@ -2336,7 +2336,7 @@ void TestPartition::mapConsole()
     bool wasVerbose = jsondbSettings->verbose();
     bool wasDebug = jsondbSettings->debug();
     sDebugMessages.clear();
-    QMessageHandler oldMessageHandler = qInstallMessageHandler(logMessageOutput);
+    QtMessageHandler oldMessageHandler = qInstallMessageHandler(logMessageOutput);
     jsondbSettings->setVerbose(true);
     jsondbSettings->setDebug(true);
 
