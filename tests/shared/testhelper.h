@@ -133,6 +133,8 @@ private:
     static bool dontLaunch();
     static bool useValgrind();
 
+    qint64 launchJsonDbDaemon_helper(const QStringList &args, const char *sourceFile, bool skipConnection, bool detached);
+
     QString mWorkingDirectory;
     int mRequestsPending;
     static int mProcessIndex;

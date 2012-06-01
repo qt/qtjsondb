@@ -113,78 +113,15 @@ QJsonDocument TestHelper::readJsonFile(const QString &filename, QJsonParseError 
 
 void TestHelper::launchJsonDbDaemon(const QStringList &args, const char *sourceFile, bool skipConnection)
 {
-    if (dontLaunch())
-        return;
-
-    QString configfile;
-    if (!args.contains(QLatin1String("-config-path"))) {
-        configfile = QTest::qFindTestData("partitions.json", sourceFile);
-        if (configfile.isEmpty()) {
-            qDebug() << "Cannot find partitions.json configuration file for jsondb";
-            return;
-        }
-    }
-
-    QString jsondb_app = QDir(QString::fromLocal8Bit(JSONDB_DAEMON_BASE)).absoluteFilePath(QLatin1String("jsondb"));
-    if (!QFile::exists(jsondb_app))
-        jsondb_app = QLatin1String("jsondb"); // rely on the PATH
-
-    mProcess = new QProcess;
-    mProcess->setProcessChannelMode(QProcess::ForwardedChannels);
-    connect(mProcess, SIGNAL(finished(int,QProcess::ExitStatus)),
-            this, SLOT(processFinished(int,QProcess::ExitStatus)));
-
-    QString socketName = QString("testjsondb_%1_%2").arg(getpid()).arg(mProcessIndex++);
-
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert("JSONDB_SOCKET", socketName);
-    mProcess->setProcessEnvironment(env);
-    ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
-
-    QStringList argList = args;
-    argList << QLatin1String("-reject-stale-updates");
-    if (!configfile.isEmpty())
-        argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
-
-    if (!mWorkingDirectory.isEmpty())
-        // We specified a particular directory
-        mProcess->setWorkingDirectory(mWorkingDirectory);
-
-    qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName
-             << "with working directory" << mProcess->workingDirectory();
-
-    if (useValgrind()) {
-        QStringList args1 = argList;
-        args1.prepend(jsondb_app);
-        mProcess->start("valgrind", args1);
-    } else {
-        mProcess->start(jsondb_app, argList);
-    }
-
-    if (!mProcess->waitForStarted())
-        qFatal("Unable to start jsondb database process");
-
-    if (skipConnection)
-        return;
-
-    /* Wait until the jsondb is accepting connections */
-    int tries = 0;
-    bool connected = false;
-    while (!connected && tries++ < 100) {
-        QLocalSocket socket;
-        socket.connectToServer(socketName);
-        if (socket.waitForConnected()) {
-            connected = true;
-            socket.close();
-        }
-        QTest::qWait(250);
-    }
-
-    if (!connected)
-        qFatal("Unable to connect to jsondb process");
+    launchJsonDbDaemon_helper(args, sourceFile, skipConnection, false);
 }
 
 qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile, bool skipConnection)
+{
+    return launchJsonDbDaemon_helper(args, sourceFile, skipConnection, true);
+}
+
+qint64 TestHelper::launchJsonDbDaemon_helper(const QStringList &args, const char *sourceFile, bool skipConnection, bool detached)
 {
     if (dontLaunch())
         return 0;
@@ -202,7 +139,24 @@ qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const cha
     if (!QFile::exists(jsondb_app))
         jsondb_app = QLatin1String("jsondb"); // rely on the PATH
 
+    if (!detached) {
+        mProcess = new QProcess;
+        mProcess->setProcessChannelMode(QProcess::ForwardedChannels);
+        connect(mProcess, SIGNAL(finished(int,QProcess::ExitStatus)),
+                this, SLOT(processFinished(int,QProcess::ExitStatus)));
+    }
+
     QString socketName = QString("testjsondb_%1_%2").arg(getpid()).arg(mProcessIndex++);
+
+    const QString effectiveWorkingDir = mWorkingDirectory.isEmpty() ? QDir::currentPath() : mWorkingDirectory;
+
+    if (!detached) {
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert("JSONDB_SOCKET", socketName);
+        mProcess->setProcessEnvironment(env);
+        mProcess->setWorkingDirectory(effectiveWorkingDir);
+    }
+
     ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
 
     QStringList argList = args;
@@ -210,21 +164,23 @@ qint64 TestHelper::launchJsonDbDaemonDetached(const QStringList &args, const cha
     if (!configfile.isEmpty())
         argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
 
-    if (!mWorkingDirectory.isEmpty()) {
-        // We specified a particular directory
-        mProcess->setWorkingDirectory(mWorkingDirectory);
-        qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName
-                    << "with working directory" << mProcess->workingDirectory();
-    } else
-        qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName;
+    qDebug() << "Starting process" << jsondb_app << argList << "with socket" << socketName
+             << "with working directory" << effectiveWorkingDir;
 
-    qint64 pid;
+    qint64 pid = 0;
+
+    QString program = jsondb_app;
     if (useValgrind()) {
-        QStringList args1 = argList;
-        args1.prepend(jsondb_app);
-        QProcess::startDetached(jsondb_app, args1, QDir::currentPath(), &pid );
+        argList.prepend(program);
+        program = "valgrind";
+    }
+
+    if (detached) {
+        QProcess::startDetached(program, argList, effectiveWorkingDir, &pid);
     } else {
-        QProcess::startDetached(jsondb_app, argList, QDir::currentPath(), &pid);
+        mProcess->start(program, argList);
+        if (!mProcess->waitForStarted())
+            qFatal("Unable to start jsondb database process");
     }
 
     if (skipConnection)
