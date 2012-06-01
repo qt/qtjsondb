@@ -115,10 +115,8 @@ struct IndexInfo
 {
     SortIndexSpec spec;
     bool valid;
-    int requestId;
     IndexInfo () {clear();}
     void clear() {
-        requestId = -1;
         valid = false;
         spec.type = SortIndexSpec::None;
     }
