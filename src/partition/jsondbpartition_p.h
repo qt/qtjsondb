@@ -131,7 +131,7 @@ public:
 
     class EdgeCount {
     public:
-        EdgeCount() : count(0){};
+        EdgeCount() : count(0){}
         int count;
         bool operator >(int val) const { return count > val; }
         bool operator ==(int val) const { return count == val; }
