@@ -92,10 +92,8 @@ bool JsonDbObjectTable::open(const QString &fileName)
     mFilename = fileName;
     mBdb->setCacheSize(jsondbSettings->cacheSize());
     mBdb->setFileName(mFilename);
-    if (!mBdb->open()) {
-        qCritical() << JSONDB_ERROR << "failed to open db" << mFilename << "with error" << mBdb->errorMessage();
+    if (!mBdb->open())
         return false;
-    }
     mStateNumber = mBdb->tag();
     if (jsondbSettings->verbose())
         qDebug() << JSONDB_INFO << "opened db" << mFilename << "with state number" << mStateNumber;

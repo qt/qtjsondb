@@ -129,6 +129,7 @@ private slots:
     void cleanup();
 
     void reopen();
+    void openTwice();
 
     void computeVersion();
     void updateVersionOptimistic();
@@ -306,7 +307,8 @@ void TestPartition::initTestCase()
     mJsonDbPartition = new JsonDbPartition(this);
     mJsonDbPartition->setPartitionSpec(spec);
     mJsonDbPartition->setDefaultOwner(mOwner);
-    mJsonDbPartition->open();
+    if (!mJsonDbPartition->open())
+        qCritical() << "Failed to open the partition";
 }
 
 void TestPartition::cleanupTestCase()
@@ -372,6 +374,16 @@ void TestPartition::reopen()
     QCOMPARE(queryRes.code, JsonDbError::PartitionUnavailable);
 
     mJsonDbPartition->open();
+}
+
+void TestPartition::openTwice()
+{
+    JsonDbPartitionSpec spec = mJsonDbPartition->partitionSpec();
+
+    JsonDbPartition partition;
+    partition.setPartitionSpec(spec);
+    partition.setDefaultOwner(mOwner);
+    QVERIFY(!partition.open());
 }
 
 void TestPartition::createContacts()

@@ -552,10 +552,8 @@ bool JsonDbPartition::open()
     if (!d->mObjectTable)
         d->mObjectTable = new JsonDbObjectTable(this);
 
-    if (!d->mObjectTable->open(d->mFilename)) {
-        qWarning() << JSONDB_ERROR << "failed to open object table" << d->mFilename;
+    if (!d->mObjectTable->open(d->mFilename))
         return false;
-    }
 
     d->updateSpaceStatus();
     d->mIsOpen = true;

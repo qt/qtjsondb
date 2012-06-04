@@ -119,6 +119,13 @@ bool HBtreePrivate::open(int fd)
         return false;
     fd_ = fd;
 
+    if (::flock(fd_, LOCK_EX | LOCK_NB) != 0) {
+        lastErrorMessage_ = QLatin1String("failed to take a lock - ") + QLatin1String(strerror(errno));
+        ::close(fd_);
+        fd_ = -1;
+        return false;
+    }
+
     pageBuffer_.resize(HBTREE_DEFAULT_PAGE_SIZE);
 
     // Read spec page
@@ -234,6 +241,10 @@ void HBtreePrivate::close(bool doSync)
         HBTREE_DEBUG("closing btree with fd:" << fd_);
         if (doSync)
             sync();
+        if (::flock(fd_, LOCK_UN) != 0) {
+            lastErrorMessage_ = QLatin1String("failed to unlock file - ") + QLatin1String(strerror(errno));
+            HBTREE_ERROR("failed to unlock file");
+        }
         ::close(fd_);
         fd_ = -1;
         if (dirtyPages_.size()) {
@@ -1005,10 +1016,6 @@ void HBtreePrivate::abort(HBtreeTransaction *transaction)
     dirtyPages_.clear();
     if (transaction->isReadWrite()) {
         HBTREE_ASSERT(transaction == writeTransaction_);
-        if (::flock(fd_, LOCK_UN) != 0) {
-            lastErrorMessage_ = QLatin1String("failed to unlock file with transaction - ") + QLatin1String(strerror(errno));
-            HBTREE_ERROR("failed to unlock file with transaction @" << transaction);
-        }
         writeTransaction_ = 0;
     } else {
         HBTREE_ASSERT(transaction == readTransaction_);
@@ -1101,11 +1108,6 @@ HBtreeTransaction *HBtreePrivate::beginTransaction(HBtreeTransaction::Type type)
 
     if (type == HBtreeTransaction::ReadWrite) {
         HBTREE_ASSERT(dirtyPages_.isEmpty())(dirtyPages_);
-        if (::flock(fd_, LOCK_EX | LOCK_NB) != 0) {
-            lastErrorMessage_ = QLatin1String("failed to take a write lock - ") + QLatin1String(strerror(errno));
-            HBTREE_ERROR("failed to take write lock");
-            return 0;
-        }
     }
 
     // Do we check here if a write process wrote some more data?
