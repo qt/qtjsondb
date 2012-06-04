@@ -1014,7 +1014,7 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
 
                 if (isDefault.toBool() && isRemovable.toBool()) {
                     qCritical() << QString("error: a removable partition cannot be default (in file %1)")
-                                   .arg(qPrintable(partitionFile.fileName()));
+                                   .arg(partitionFile.fileName());
                     return QList<JsonDbPartitionSpec>();
                 }
 
