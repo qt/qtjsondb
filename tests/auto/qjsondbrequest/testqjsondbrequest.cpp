@@ -118,6 +118,8 @@ private slots:
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
+
+    QByteArray primaryJsonDbSocket;
 };
 
 void TestQJsonDbRequest::initTestCase()
@@ -141,13 +143,21 @@ void TestQJsonDbRequest::cleanupTestCase()
 
 void TestQJsonDbRequest::init()
 {
-    clearHelperData();
-    connectToServer();
+    if (qstrcmp(QTest::currentTestFunction(), "dontAllowDefaultAndRemovablePartition") == 0) {
+        primaryJsonDbSocket = qgetenv("JSONDB_SOCKET"); // save original
+    } else {
+        clearHelperData();
+        connectToServer();
+    }
 }
 
 void TestQJsonDbRequest::cleanup()
 {
-    disconnectFromServer();
+    if (qstrcmp(QTest::currentTestFunction(), "dontAllowDefaultAndRemovablePartition") == 0) {
+        qputenv("JSONDB_SOCKET", primaryJsonDbSocket); // restore original
+    } else {
+        disconnectFromServer();
+    }
 }
 
 void TestQJsonDbRequest::modifyPartitions()
@@ -1374,6 +1384,7 @@ void TestQJsonDbRequest::dontAllowDefaultAndRemovablePartition()
     // Partition 1:
     QJsonObject jobj1;
     jobj1.insert(QLatin1String("name"), QLatin1String("dummy1"));
+    jobj1.insert(QLatin1String("path"), QLatin1String("."));
     if (!default1.isEmpty())
         jobj1.insert(QLatin1String("default"), IS_TRUE(default1));
     if (!removable1.isEmpty())
@@ -1382,6 +1393,7 @@ void TestQJsonDbRequest::dontAllowDefaultAndRemovablePartition()
     // Partition 2:
     QJsonObject jobj2;
     jobj2.insert(QLatin1String("name"), QLatin1String("dummy2"));
+    jobj2.insert(QLatin1String("path"), QLatin1String("."));
     if (!default2.isEmpty())
         jobj2.insert(QLatin1String("default"), IS_TRUE(default2));
     if (!removable2.isEmpty())
