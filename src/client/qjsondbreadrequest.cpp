@@ -377,8 +377,10 @@ void QJsonDbReadObjectRequestPrivate::_q_onFinished()
         qWarning() << "QJsonDbReadObjectRequest: instead of 1 object, got" << results.size() << "object(s)";
         return;
     }
-    if (results.size() == 0)
+    if (results.size() == 0) {
+        emit q->objectUnavailable(uuid);
         return;
+    }
     QJsonObject object = results.at(0);
     emit q->objectAvailable(object);
 }
@@ -391,7 +393,18 @@ void QJsonDbReadObjectRequestPrivate::_q_onFinished()
 
     This is just a convenience signal that can be used instead of finished().
 
-    \sa error()
+    \sa objectUnavailable() error()
+*/
+
+/*!
+    \fn void QJsonDbReadObjectRequest::objectUnavailable(const QUuid &uuid)
+
+    This signal is emitted when the request is complete, but the requested
+    object with the given \a uuid was not found in the database.
+
+    This is just a convenience signal that can be used instead of finished().
+
+    \sa objectAvailable() error()
 */
 
 #include "moc_qjsondbreadrequest.cpp"

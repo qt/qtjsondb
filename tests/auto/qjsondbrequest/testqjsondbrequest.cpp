@@ -58,6 +58,7 @@
 #include <QFileInfo>
 #include <QTimer>
 #include <QTemporaryDir>
+#include <QSignalSpy>
 
 #include <pwd.h>
 #include <signal.h>
@@ -108,6 +109,7 @@ private slots:
     void invalidPrivatePartition();
     void removeRequest();
     void forced();
+    void readObjectRequest();
     void bindings();
     void replaceFromNull();
     void multiplerequests();
@@ -1221,6 +1223,44 @@ void TestQJsonDbRequest::privatePartitionFlushRequest()
     QCOMPARE(statuses.size(), 2);
     QCOMPARE((int)statuses.at(0), (int)QJsonDbRequest::Receiving);
     QCOMPARE((int)statuses.at(1), (int)QJsonDbRequest::Finished);
+}
+
+void TestQJsonDbRequest::readObjectRequest()
+{
+    QUuid uuid = QUuid::createUuid();
+    QJsonDbObject item;
+    item.setUuid(uuid);
+    item.insert(QStringLiteral("_type"), QStringLiteral("readObjectRequest"));
+
+    QJsonDbReadObjectRequest request;
+    QSignalSpy availableSpy(&request, SIGNAL(objectAvailable(QJsonObject)));
+    QSignalSpy unavailableSpy(&request, SIGNAL(objectUnavailable(QUuid)));
+
+    // test non-existent object
+    request.setUuid(uuid);
+    QVERIFY(mConnection->send(&request));
+    QVERIFY(waitForResponse(&request));
+    QCOMPARE(availableSpy.count(), 0);
+    QCOMPARE(unavailableSpy.count(), 1);
+    QList<QVariant> args = unavailableSpy.takeFirst();
+    QCOMPARE(args.size(), 1);
+    QCOMPARE(args.at(0).value<QUuid>(), uuid);
+
+    // create the object and try again
+    {
+        QJsonDbCreateRequest request(item);
+        QVERIFY(mConnection->send(&request));
+        QVERIFY(waitForResponse(&request));
+    }
+    QVERIFY(mConnection->send(&request));
+    QVERIFY(waitForResponse(&request));
+    QCOMPARE(availableSpy.count(), 1);
+    QCOMPARE(unavailableSpy.count(), 0);
+    args = availableSpy.takeFirst();
+    QCOMPARE(args.size(), 1);
+    QJsonObject result = args.at(0).value<QJsonObject>();
+    QCOMPARE(result.value(QStringLiteral("_uuid")).toString(), item.uuid().toString());
+    QCOMPARE(result.value(QStringLiteral("_type")).toString(), item.value(QStringLiteral("_type")).toString());
 }
 
 void TestQJsonDbRequest::bindings()

@@ -118,6 +118,7 @@ public:
 
 Q_SIGNALS:
     void objectAvailable(const QJsonObject &object);
+    void objectUnavailable(const QUuid &);
 
 private:
     Q_DISABLE_COPY(QJsonDbReadObjectRequest)
