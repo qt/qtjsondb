@@ -34,11 +34,9 @@ HEADERS += \
     plugin.h \
     jsondatabase.h \
     jsondbqueryobject.h \
-    jsondblistmodel.h \
-    jsondblistmodel_p.h \
     jsondbsortinglistmodel_p.h \
     jsondbsortinglistmodel.h \
-    jsondbcachinglistmodel.h
+    jsondblistmodel.h
 
 SOURCES += \
     jsondbpartition.cpp \
@@ -46,8 +44,7 @@ SOURCES += \
     plugin.cpp \
     jsondatabase.cpp \
     jsondbqueryobject.cpp \
-    jsondblistmodel.cpp \
     jsondbsortinglistmodel.cpp \
-    jsondbcachinglistmodel.cpp
+    jsondblistmodel.cpp
 
 OTHER_FILES += jsondb.json

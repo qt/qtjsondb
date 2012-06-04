@@ -71,7 +71,7 @@ public:
     ~TestJsonDbListModel();
 
     void deleteDbFiles();
-    void connectListModel(QAbstractItemModel *model);
+    void connectListModel(QAbstractListModel *model);
 
 public slots:
     void dataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
@@ -86,8 +86,6 @@ private slots:
 
     void createItem();
     void updateItemClient();
-    void updateItemSet();
-    void updateItemSetProperty();
     void deleteItem();
     void sortedQuery();
     void ordering();
@@ -98,11 +96,14 @@ private slots:
 public:
     void timeout();
 private:
+    QVariant getIndex(QAbstractListModel *model, int index, int role);
+    QVariant get(QAbstractListModel *model, int index, const QByteArray &roleName);
     void waitForExitOrTimeout();
     void waitForItemsCreated(int items);
-    QStringList getOrderValues(QAbstractItemModel *listModel);
-    QAbstractItemModel *createModel();
-    void deleteModel(QAbstractItemModel *model);
+    void waitForIndexChanged();
+    QStringList getOrderValues(QAbstractListModel *listModel);
+    QAbstractListModel *createModel();
+    void deleteModel(QAbstractListModel *model);
     void resetWaitFlags();
 
 private:
@@ -119,6 +120,8 @@ private:
     bool mWaitingForReset;
     bool mWaitingForChanged;
     bool mWaitingForRemoved;
+    bool mWaitingForIndexChanged;
+    int mIndexWaited;
 };
 
 #endif

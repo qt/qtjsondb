@@ -368,28 +368,27 @@ void QJsonDbQueryModelPrivate::verifyIndexSpec(const QList<QJsonObject> &items, 
         }
     }
     if (!validIndex) {
-        qWarning() << "Error JsonDbCachingListModel requires a supported Index for "<<indexName << partitionObjects[partitionIndex];
-        reset();
-        state = QJsonDbQueryModel::Error;
-        emit q->stateChanged(state);
-    } else {
-        partitionIndexDetails[partitionIndex].valid = true;
-        //Check if all index specs are supported.
-        bool checkedAll = true;
-        for (int i = 0; i < partitionIndexDetails.count(); i++) {
-            if (availablePartitions[i].state != PartitionStateOnline)
-                continue;
-            if (!partitionIndexDetails[i].valid) {
-                checkedAll = false;
-                break;
-            }
+        qWarning() << "Supported Index for" << indexName << "not found, using _uuid";
+        indexSpec.name = QLatin1String("_uuid");
+        indexSpec.type = SortIndexSpec::UUID;
+        indexSpec.caseSensitive = false;
+    }
+    partitionIndexDetails[partitionIndex].valid = true;
+    //Check if all index specs are supported.
+    bool checkedAll = true;
+    for (int i = 0; i < partitionIndexDetails.count(); i++) {
+        if (availablePartitions[i].state != PartitionStateOnline)
+            continue;
+        if (!partitionIndexDetails[i].valid) {
+            checkedAll = false;
+            break;
         }
-        if (checkedAll) {
-            //Start fetching the keys.
-            setQueryForSortKeys();
-            for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
-                fetchPartitionKeys(i);
-            }
+    }
+    if (checkedAll) {
+        //Start fetching the keys.
+        setQueryForSortKeys();
+        for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
+            fetchPartitionKeys(i);
         }
     }
 }
@@ -1558,12 +1557,24 @@ void QJsonDbQueryModel::setQuery(const QString &newQuery)
     elt.start();
 #endif
     Q_D(QJsonDbQueryModel);
+    QString l_query = newQuery;
+
+    // For JsonDbListModel compatibility
+    if (!newQuery.isEmpty()) {
+        QStringList queryParts = newQuery.split(QLatin1Char('['));
+        if (queryParts.last().at(0) == QLatin1Char('/') ||
+                queryParts.last().at(0) == QLatin1Char('\\')) {
+            setSortOrder(queryParts.last().prepend(QLatin1Char('[')));
+            l_query.chop(queryParts.last().count());
+            qWarning() << "Having sortOrder as part of query is deprecated. Use property 'sortOrder' instead";
+        }
+    }
 
     const QString oldQuery = d->query;
-    if (oldQuery == newQuery)
+    if (oldQuery == l_query)
         return;
 
-    d->query = newQuery;
+    d->query = l_query;
     if (rowCount() && d->query.isEmpty()) {
         d->reset();
     }

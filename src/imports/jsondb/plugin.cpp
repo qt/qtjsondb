@@ -45,9 +45,8 @@
 #include "jsondbpartition.h"
 #include "jsondbnotification.h"
 #include "jsondbqueryobject.h"
-#include "jsondblistmodel.h"
 #include "jsondbsortinglistmodel.h"
-#include "jsondbcachinglistmodel.h"
+#include "jsondblistmodel.h"
 
 QT_USE_NAMESPACE_JSONDB
 
@@ -75,7 +74,8 @@ void JsonDbPlugin::registerTypes(const char *uri)
     qmlRegisterType<JsonDbPartition>(uri, 1, 0, "Partition");
     qmlRegisterType<JsonDbNotify>(uri, 1, 0, "Notification");
     qmlRegisterType<JsonDbQueryObject>(uri, 1, 0, "Query");
-    qmlRegisterType<JsonDbListModel>(uri, 1, 0, "JsonDbListModel");
     qmlRegisterType<JsonDbSortingListModel>(uri, 1, 0, "JsonDbSortingListModel");
-    qmlRegisterType<JsonDbCachingListModel>(uri, 1, 0, "JsonDbCachingListModel");
+    qmlRegisterType<JsonDbListModel>(uri, 1, 0, "JsonDbCachingListModel");
+    qmlRegisterType<JsonDbListModel>(uri, 1, 0, "JsonDbListModel");
+
 }
