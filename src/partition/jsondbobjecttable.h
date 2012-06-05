@@ -128,7 +128,7 @@ public:
 
     bool addIndex(const JsonDbIndexSpec &indexSpec);
     bool addIndexOnProperty(const QString &propertyName,
-                            const QString &propertyType = QStringLiteral("string"),
+                            const QString &propertyType = QLatin1String("string"),
                             const QString &objectType = QString());
     bool removeIndex(const QString &indexName);
     void reindexObjects(const QString &indexName, quint32 stateNumber);

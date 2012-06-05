@@ -79,7 +79,7 @@
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
-const QString gDatabaseSchemaVersion = QStringLiteral("0.2");
+const QString gDatabaseSchemaVersion = QLatin1String("0.2");
 
 JsonDbPartitionPrivate::JsonDbPartitionPrivate(JsonDbPartition *q)
     : q_ptr(q)
