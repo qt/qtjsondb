@@ -312,9 +312,8 @@ bool JsonDbObjectTable::removeIndex(const QString &indexName)
         mBdbTransactions.remove(mBdbTransactions.indexOf(index->bdb()->writeTransaction()));
         index->abort();
     }
-    index->close();
-    if (index->bdb())
-        QFile::remove(index->bdb()->fileName());
+    QString filename = index->fileName();
+    QFile::remove(filename);
     delete index;
 
     return true;
