@@ -818,7 +818,7 @@ void DBServer::createNotification(const JsonDbObject &object, ClientJsonStream *
     JsonDbQuery parsedQuery = parser.result();
 
     JsonDbNotification *n = new JsonDbNotification(getOwner(stream), parsedQuery, actions);
-    if (object.contains("initialStateNumber") && object.value("initialStateNumber").isDouble())
+    if (object.value("initialStateNumber").isDouble())
          n->setInitialStateNumber(static_cast<qint32>(object.value("initialStateNumber").toDouble()));
 
     stream->addNotification(uuid, n);
@@ -865,13 +865,52 @@ JsonDbError::ErrorCode DBServer::validateNotification(const JsonDbObject &notifi
         return JsonDbError::MissingQuery;
     }
 
-    if (notificationDef.contains(JsonDbString::kPartitionStr) &&
-            notificationDef.value(JsonDbString::kPartitionStr).toString() != mEphemeralPartition->name()) {
-        QString partitionName = notificationDef.value(JsonDbString::kPartitionStr).toString();
+    QString partitionName = mDefaultPartition->partitionSpec().name;
+    QJsonValue v = notificationDef.value(JsonDbString::kPartitionStr);
+    if (!v.isUndefined()) {
+         if (!v.isString()) {
+             message = QStringLiteral("invalid partition specified");
+             return JsonDbError::InvalidPartition;
+         } else if (!v.toString().isEmpty()) {
+             partitionName = v.toString();
+         }
+    }
+    v = notificationDef.value(QStringLiteral("initialStateNumber"));
+    if (!v.isUndefined() && !v.isDouble()) {
+        message = QStringLiteral("invalid initial state number specified");
+        return JsonDbError::InvalidStateNumber;
+    }
+    quint32 initialStateNumber = static_cast<quint32>(v.toDouble(0));
+
+    if (partitionName != mEphemeralPartition->name()) {
         JsonDbPartition *partition = findPartition(partitionName);
         if (!partition) {
-            message = QString::fromLatin1("Invalid partition specified: %1").arg(partitionName);
+            message = QStringLiteral("Invalid partition specified: %1").arg(partitionName);
             return JsonDbError::InvalidPartition;
+        }
+        if (!partition->isOpen()) {
+            message = QStringLiteral("Partition '%1' is not currently available").arg(partitionName);
+            return JsonDbError::InvalidPartition;
+        }
+        JsonDbObjectTable *table = 0;
+        QSet<QString> matchedTypes = query.matchedTypes();
+        if (!matchedTypes.isEmpty()) {
+            foreach (const QString &type, matchedTypes) {
+                JsonDbObjectTable *viewtable = partition->findObjectTable(type);
+                if (table && viewtable && table != viewtable) {
+                    message = QStringLiteral("Cannot create a watcher for multiple object tables");
+                    return JsonDbError::MissingQuery;
+                }
+                table = viewtable;
+            }
+        }
+        if (!table)
+            table = partition->mainObjectTable();
+        if (initialStateNumber != static_cast<quint32>(-1)) {
+            if (initialStateNumber > table->stateNumber()) {
+                message = QStringLiteral("Too new state number specified");
+                return JsonDbError::InvalidStateNumber;
+            }
         }
     }
 

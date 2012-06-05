@@ -376,7 +376,11 @@ bool TestHelper::waitForStatus(QJsonDbWatcher *watcher, QJsonDbWatcher::Status s
 
     connect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
             this, SLOT(watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
+    connect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+            this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
     blockWithTimeout();
+    disconnect(watcher, SIGNAL(error(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)),
+               this, SLOT(watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode,QString)));
     disconnect(watcher, SIGNAL(statusChanged(QtJsonDb::QJsonDbWatcher::Status)),
                this, SLOT(watcherStatusChanged(QtJsonDb::QJsonDbWatcher::Status)));
 
@@ -519,7 +523,7 @@ void TestHelper::watcherLastStateNumberChanged(int stateNumber)
 
 void TestHelper::watcherError(QtJsonDb::QJsonDbWatcher::ErrorCode code, QString msg)
 {
-    qWarning() << "Watcher error:" << code << msg;
+    Q_UNUSED(msg);
     mReceivedError = code;
     if (code == mExpectedError)
         mEventLoop.quit();

@@ -870,6 +870,59 @@ void TestQJsonDbWatcher::invalid()
     mConnection->addWatcher(&watcher3);
     QVERIFY(waitForError(&watcher3, QJsonDbWatcher::InvalidPartition));
     mConnection->removeWatcher(&watcher3);
+
+    // invalid initial state number
+    QJsonDbWatcher watcher4;
+    watcher4.setQuery(QStringLiteral("[?_type=\"Contact\"]"));
+    watcher4.setInitialStateNumber(1234567);
+    mConnection->addWatcher(&watcher4);
+    QVERIFY(waitForError(&watcher4, QJsonDbWatcher::InvalidStateNumber));
+    mConnection->removeWatcher(&watcher4);
+
+    // unavailable partition
+    QJsonDbWatcher watcher5;
+    watcher5.setQuery(QStringLiteral("[?_type=\"Contact\"]"));
+    watcher5.setPartition(QStringLiteral("com.qt-project.removable"));
+    mConnection->addWatcher(&watcher5);
+    QVERIFY(waitForError(&watcher5, QJsonDbWatcher::InvalidPartition));
+    mConnection->removeWatcher(&watcher5);
+
+    // watcher over multiple object tables
+    {
+        static const char schemaJson[] =
+"{ \
+    \"_type\": \"_schemaType\", \
+    \"name\": \"invalidMapType\", \
+    \"schema\": { \
+        \"type\": \"object\", \
+        \"extends\": {\"$ref\": \"View\"} \
+     } \
+}";
+        QJsonDbObject schema = QJsonDocument::fromJson(QByteArray(schemaJson)).object();
+
+        QJsonDbObject map;
+        map.insert(QLatin1String("_type"), QLatin1String("Map"));
+        map.insert(QLatin1String("targetType"), QLatin1String("invalidMapType"));
+        QJsonObject submap;
+        submap.insert(QLatin1String("com.test.indextest"), QLatin1String("function (o) { jsondb.emit(o); }"));
+        map.insert(QLatin1String("join"), submap);
+
+        QJsonDbCreateRequest request(QList<QJsonObject>() << schema << map);
+        QVERIFY(mConnection->send(&request));
+        QVERIFY(waitForResponse(&request));
+        QJsonDbWatcher watcher6;
+        watcher6.setQuery(QStringLiteral("[?_type=\"Contact\" | _type = \"invalidMapType\"]"));
+        mConnection->addWatcher(&watcher6);
+        QVERIFY(waitForError(&watcher6, QJsonDbWatcher::MissingQuery));
+        mConnection->removeWatcher(&watcher6);
+    }
+
+    // watcher over multiple types in the same object table
+    QJsonDbWatcher watcher7;
+    watcher7.setQuery(QStringLiteral("[?_type in [\"Contact\", \"AnotherContact\"]]"));
+    mConnection->addWatcher(&watcher7);
+    QVERIFY(waitForStatus(&watcher7, QJsonDbWatcher::Active));
+    mConnection->removeWatcher(&watcher7);
 }
 
 void TestQJsonDbWatcher::privatePartition()

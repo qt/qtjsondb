@@ -1,3 +1,4 @@
 [
-  { "name" :"com.qt-project.shared", "path":".", "default" : true }
+  { "name" :"com.qt-project.shared", "path":".", "default" : true },
+  { "name" :"com.qt-project.removable", "path":"/nonexistentdir", "removable" : true }
 ]
