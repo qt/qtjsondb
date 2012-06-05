@@ -62,8 +62,8 @@ distinct from its propertyName.
 
 \row
 \li propertyName
-\li A string or array of strings, naming the properties to be
-indexed. Mutually exclusive with propertyFunction.
+\li A string naming the property to be indexed. Mutually exclusive with
+propertyFunction.
 
 \row
 \li propertyFunction
@@ -73,16 +73,9 @@ propertyName.
 
 \row
 \li propertyType
-\li A string or array of strings, naming the types of the values to be
-indexed.
+\li A string naming the type of the value to be indexed.
 
-If propertyName is specified, propertyType must have the same number
-of elements as propertyName.
-
-If propertyFunction is specified, propertyType must match the number
-of elements emitted by the propertyFunction.
-
-Defaults to "string".
+Valid types are "string" (the default) and "number".
 
 \row
 \li locale
