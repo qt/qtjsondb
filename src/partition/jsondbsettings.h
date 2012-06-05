@@ -75,6 +75,7 @@ class Q_JSONDB_PARTITION_EXPORT JsonDbSettings : public QObject
     Q_PROPERTY(int minimumRequiredSpace READ minimumRequiredSpace WRITE setMinimumRequiredSpace)
     Q_PROPERTY(int changeLogCacheVersions READ changeLogCacheVersions WRITE setChangeLogCacheVersions)
     Q_PROPERTY(bool useStrictMode READ useStrictMode WRITE setUseStrictMode)
+    Q_PROPERTY(QString injectionScript READ injectionScript WRITE setInjectionScript)
 
 public:
     static JsonDbSettings *instance();
@@ -139,6 +140,9 @@ public:
     inline bool useStrictMode() const { return mUseStrictMode; }
     inline void setUseStrictMode(bool useStrictMode) { mUseStrictMode = useStrictMode; }
 
+    inline QString injectionScript() const { return mInjectionScript; }
+    inline void setInjectionScript(const QString &script) { mInjectionScript = script; }
+
     JsonDbSettings();
 
 private:
@@ -163,6 +167,7 @@ private:
     int mMinimumRequiredSpace;
     int mChangeLogCacheVersions;
     bool mUseStrictMode;
+    QString mInjectionScript;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

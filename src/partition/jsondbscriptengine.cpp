@@ -44,6 +44,7 @@
 #include <QJSValue>
 #include <QJSEngine>
 #include <QDebug>
+#include <QFile>
 
 #include "jsondbsettings.h"
 #include "jsondbproxy.h"
@@ -51,6 +52,32 @@
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
 static QJSEngine *sScriptEngine;
+
+static void injectScript()
+{
+    QString fileName =jsondbSettings->injectionScript();
+    if (fileName.isEmpty())
+        return;
+
+    QFile scriptFile(fileName);
+    if (!scriptFile.exists()) {
+        if (jsondbSettings->verbose())
+            qDebug() << "QtJsonDb::Partition::injectScript file does not exist:" << fileName;
+        return;
+    }
+
+    if (!scriptFile.open(QIODevice::ReadOnly)) {
+        if (jsondbSettings->verbose())
+            qDebug() << "QtJsonDb::Partition::injectScript can't open file:" << fileName;
+        return;
+    }
+    QString contents = QString::fromUtf8(scriptFile.readAll());
+    scriptFile.close();
+
+    QJSValue result = sScriptEngine->evaluate(contents, fileName);
+    if (result.isError() && jsondbSettings->verbose())
+        qDebug() << "QtJsonDb::Partition::injectScript error evaluating script:" << fileName;
+}
 
 QJSEngine *JsonDbScriptEngine::scriptEngine()
 {
@@ -64,6 +91,7 @@ QJSEngine *JsonDbScriptEngine::scriptEngine()
         sScriptEngine = new QJSEngine();
         QJSValue globalObject = sScriptEngine->globalObject();
         globalObject.setProperty(QStringLiteral("console"), sScriptEngine->newQObject(new Console()));
+        injectScript();
     }
     return sScriptEngine;
 }
@@ -75,6 +103,5 @@ void JsonDbScriptEngine::releaseScriptEngine()
     delete sScriptEngine;
     sScriptEngine = 0;
 }
-
 
 QT_END_NAMESPACE_JSONDB_PARTITION

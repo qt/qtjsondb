@@ -11,6 +11,7 @@ SUBDIRS = \
     jsondbpartition \
     jsondbnotification \
     jsondbqueryobject \
+    jsondbscriptengine \
     queries \
     qjsondbrequest \
     qjsondbwatcher \
