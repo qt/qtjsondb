@@ -1,0 +1,28 @@
+[
+  {
+    "_type": "_schemaType",
+    "name": "MultiMapView1",
+    "schema": {
+      "type": "object",
+      "extends": {"$ref": "View"}
+    }
+  },
+  {
+    "_type": "_schemaType",
+    "name": "MultiMapView2",
+    "schema": {
+      "type": "object",
+      "extends": {"$ref": "View"}
+    }
+  },
+  {
+    "_type": "Map",
+    "targetType": "MultiMapView1",
+    "map": {"MultiMapSourceType": "function (o) { jsondb.emit({key: o }); }"}
+  },
+  {
+    "_type": "Map",
+    "targetType": "MultiMapView2",
+    "map": {"MultiMapSourceType": "function (o) { jsondb.emit({key: o }); }"}
+  }
+]

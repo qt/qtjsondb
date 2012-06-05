@@ -89,6 +89,7 @@ private slots:
     void currentState();
     void notificationTriggersView();
     void notificationTriggersMapReduce();
+    void notificationTriggersMultiViews();
     void typeChangeEagerViewSource();
     void invalid();
     void privatePartition();
@@ -686,6 +687,78 @@ void TestQJsonDbWatcher::notificationTriggersMapReduce()
         int numNotifications = watcher.takeNotifications().size();
         QCOMPARE(numNotifications, 1);
     }
+
+    QJsonDbRemoveRequest remove(toDelete);
+    mConnection->send(&remove);
+    QVERIFY(waitForResponse(&remove));
+}
+
+void TestQJsonDbWatcher::notificationTriggersMultiViews()
+{
+    QVERIFY(mConnection);
+
+    QLatin1String query1("[?_type=\"MultiMapView1\"]");
+    QLatin1String query2("[?_type=\"MultiMapView2\"]");
+    QJsonArray array(readJsonFile(":/partition/json/multi-map.json").array());
+
+    QList<QJsonObject> objects;
+    foreach (const QJsonValue v, array)
+        objects.append(v.toObject());
+
+    // create the objects
+    QJsonDbCreateRequest request(objects);
+    mConnection->send(&request);
+    QVERIFY(waitForResponse(&request));
+    QList<QJsonObject> toDelete;
+    foreach (const QJsonObject result, request.takeResults())
+        toDelete.prepend(result);
+
+    {
+        QJsonDbReadRequest read(query1);
+        mConnection->send(&read);
+        QVERIFY(waitForResponse(&read));
+        QList<QJsonObject> objects = read.takeResults();
+        int numObjects = objects.size();
+        QCOMPARE(numObjects, 0);
+    }
+
+    // create two watchers
+    QJsonDbWatcher watcher1;
+    watcher1.setWatchedActions(QJsonDbWatcher::All);
+    watcher1.setQuery(QLatin1String(query1));
+    mConnection->addWatcher(&watcher1);
+    QVERIFY(waitForStatus(&watcher1, QJsonDbWatcher::Active));
+
+    QJsonDbWatcher watcher2;
+    watcher2.setWatchedActions(QJsonDbWatcher::All);
+    watcher2.setQuery(QLatin1String(query2));
+    mConnection->addWatcher(&watcher2);
+    QVERIFY(waitForStatus(&watcher2, QJsonDbWatcher::Active));
+
+    {
+        QJsonObject item;
+        item.insert(JsonDbStrings::Property::type(), QLatin1String("MultiMapSourceType"));
+        QJsonDbCreateRequest request(item);
+        mConnection->send(&request);
+        QVERIFY(waitForResponseAndNotifications(&request, &watcher1, 1));
+
+        QList<QJsonDbNotification> notifications = watcher1.takeNotifications();
+        QCOMPARE(notifications.size(), 1);
+        QJsonDbNotification n = notifications[0];
+        QJsonObject o = n.object();
+        // make sure we got notified on the right object
+        //QCOMPARE(o.value(JsonDbStrings::Property::uuid()), info.value(JsonDbStrings::Property::uuid()));
+
+        // make sure watcher2 got one also
+        notifications = watcher2.takeNotifications();
+        QCOMPARE(notifications.size(), 1);
+
+    }
+    mConnection->removeWatcher(&watcher1);
+    mConnection->removeWatcher(&watcher2);
+
+    foreach (const QJsonObject &object, request.takeResults())
+        toDelete.prepend(object);
 
     QJsonDbRemoveRequest remove(toDelete);
     mConnection->send(&remove);

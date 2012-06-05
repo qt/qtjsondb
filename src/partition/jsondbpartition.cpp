@@ -386,7 +386,7 @@ void JsonDbPartitionPrivate::_q_objectsUpdated(bool viewUpdated, const JsonDbUpd
                             eagerViewTypes.insert(it.key());
                             if (mEagerViewSourceGraph.contains(updatedObjectType)) {
                                 neededUpdate = true;
-                                break;
+                                // need to continue collecting all the eager view types that should be updated based on the updatedObjectType
                             }
                         }
                     }
