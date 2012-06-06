@@ -218,8 +218,8 @@ Client::Client( QObject *parent ) :
 
 Client::~Client()
 {
-    if (mInputThread) {
-        mInputThread->terminate();
+    if (mInputThread && mInputThread->isRunning()) {
+        mInputThread->quit();
         mInputThread->wait(1000);
         delete mInputThread;
         mInputThread = 0;
