@@ -42,7 +42,6 @@
 //#define JSONDB_LISTMODEL_DEBUG
 //#define JSONDB_LISTMODEL_BENCHMARK
 
-#include "qjsondbquerymodel_p.h"
 #include "qjsondbquerymodel_p_p.h"
 #include "qjsondbconnection.h"
 #include <QDebug>
@@ -1327,6 +1326,7 @@ void QJsonDbQueryModelPrivate::clearPartitions()
 /*!
     \class QJsonDbQueryModel
     \inmodule QtJsonDb
+    \internal
 
     The QJsonDbQueryModel provides a read-only QAbstractListModel usable with views such as
     ListView or GridView displaying data items matching a query. The sorting is done using
@@ -1353,7 +1353,7 @@ void QJsonDbQueryModelPrivate::clearPartitions()
     \sa setQueryRoleNames(), appendPartition(), setQuery(), populate()
 */
 /*!
-    \enum QJsonDbQueryModel::state
+    \enum QJsonDbQueryModel::State
 
     This enum describes current model state.
 
@@ -1421,7 +1421,7 @@ int QJsonDbQueryModel::rowCount(const QModelIndex &parent) const
 /*!
   Returns the \a role of the object at \a modelIndex.
 
-  \sa setQueryRoleNames()
+  \sa QJsonDbQueryModel::setQueryRoleNames()
  */
 QVariant QJsonDbQueryModel::data(const QModelIndex &modelIndex, int role) const
 {
@@ -1466,7 +1466,7 @@ QHash<int, QByteArray> QJsonDbQueryModel::roleNames() const
 }
 
 /*!
-    \property QJsonDbQueryModel::queryRoleNames
+    \property QJsonDbQueryModel::roleNames
 
     Controls which properties to expose from the objects matching the query.
 
@@ -1539,10 +1539,7 @@ void QJsonDbQueryModel::setQueryRoleNames(const QVariant &vroles)
     The query string in JsonQuery format used by the model to fetch
     items from the database. Setting an empty query clears all the elements
 
-    In the following example, the JsonDbCachingListModel would contain all
-    the objects with \a _type "CONTACT" from partition called "com.nokia.shared"
-
-    \sa QtJsonDb::QJsonDbQueryModel::bindings
+    \sa QJsonDbQueryModel::bindings
  */
 QString QJsonDbQueryModel::query() const
 {
@@ -1591,12 +1588,12 @@ void QJsonDbQueryModel::setQuery(const QString &newQuery)
 }
 
 /*!
-    \property QJsonDbQueryModel::bindings()
+    \property QJsonDbQueryModel::bindings
 
     Holds the bindings for the placeholders used in the query string. Note that
     the placeholder marker '%' should not be included as part of the keys.
 
-    \sa QtJsonDb::QJsonDbQueryModel::query()
+    \sa QJsonDbQueryModel::query()
  */
 QVariantMap QJsonDbQueryModel::bindings() const
 {
@@ -1668,21 +1665,7 @@ void QJsonDbQueryModel::setCacheSize(int newCacheSize)
     is a matching Index in the database for this sortOrder. This has to be
     specified in the JsonQuery format.
 
-    In the following example, the QJsonDbQueryModel would contain all
-    the objects of type \a "Contact" sorted by their \a firstName field
-
-    \qml
-    JsonDb.JsonDbCachingListModel {
-        id: listModel
-        query: "[?_type=\"Contact\"]"
-        partitions:[ JsonDb.Partition {
-            name:"com.nokia.shared"
-        }]
-        sortOrder: "[/firstName]"
-    }
-    \endqml
-
-    \sa QtJsonDb::QJsonDbQueryModel::bindings
+    \sa QJsonDbQueryModel::bindings
 */
 QString QJsonDbQueryModel::sortOrder() const
 {
@@ -1736,8 +1719,6 @@ QJsonDbQueryModel::State QJsonDbQueryModel::state() const
 
     Becaues the model caches all uuids the index can be returned
     immediately.
-
-    \sa QJsonDbQueryModel::uuid()
 */
 int QJsonDbQueryModel::indexOf(const QString &uuid) const
 {
@@ -1756,7 +1737,6 @@ int QJsonDbQueryModel::indexOf(const QString &uuid) const
     object, and the name of the partition containing the object.
 
     \sa QJsonDbQueryModel::objectAvailable()
-    \sa QJsonDbQueryModel::uuid()
 */
 void QJsonDbQueryModel::fetchObject(int index)
 {

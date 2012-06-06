@@ -62,7 +62,7 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
     \qmlclass JsonDbListModel JsonDbListModel
-    \inqmlmodule QtJsonDb
+    \inqmlmodule QtJsonDb 1.0
     \since 1.0
 
     The JsonDbListModel provides a read-only ListModel usable with views such as
@@ -117,7 +117,7 @@ void JsonDbListModel::componentComplete()
 }
 
 /*!
-    \qmlmethod  QtJsonDb::JsonDbListModel::get(int index, function callback)
+    \qmlmethod  QtJsonDb1::JsonDbListModel::get(int index, function callback)
     Calls the callback with object at the specified \a index in the model. The result.object property
     contains the object in its raw form as returned by the query, the rolenames
     are not applied. The object.partition is the partition for the returned.
@@ -153,7 +153,7 @@ void JsonDbListModel::get(int index, const QJSValue &callback)
 }
 
 /*!
-    \qmlmethod int QtJsonDb::JsonDbListModel::indexOf(string uuid)
+    \qmlmethod int QtJsonDb1::JsonDbListModel::indexOf(string uuid)
 
     Returns the index of the object with the \a uuid in the model. If the object is
     not found it returns -1
@@ -164,7 +164,7 @@ int JsonDbListModel::indexOf(const QString &uuid) const
 }
 
 /*!
-    \qmlmethod object QtJsonDb::JsonDbListModel::getPartition(int index)
+    \qmlmethod object QtJsonDb1::JsonDbListModel::getPartition(int index)
 
     Returns the partition object at the specified \a index in the model. If
     the index is out of range it returns an empty object.
@@ -247,7 +247,7 @@ void JsonDbListModel::setLowWaterMark(int newLowWaterMark)
 //---------------- PROPERTIES------------------------------
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbListModel::bindings
+    \qmlproperty object QtJsonDb1::JsonDbListModel::bindings
     Holds the bindings for the placeholders used in the query string. Note that
     the placeholder marker '%' should not be included as part of the keys.
 
@@ -262,17 +262,17 @@ void JsonDbListModel::setLowWaterMark(int newLowWaterMark)
     }
     \endqml
 
-    \sa QtJsonDb::JsonDbListModel::query
+    \sa {QtJsonDb1::JsonDbListModel::query} {query}
 
 */
 
 /*!
-    \qmlproperty int QtJsonDb::JsonDbListModel::cacheSize
+    \qmlproperty int QtJsonDb1::JsonDbListModel::cacheSize
     Holds the maximum number of items cached by the model.
 */
 
 /*!
-    \qmlproperty object QtJsonDb::JsonDbListModel::error
+    \qmlproperty object QtJsonDb1::JsonDbListModel::error
     \readonly
 
     This property holds the current error information for the object. It contains:
@@ -283,7 +283,7 @@ void JsonDbListModel::setLowWaterMark(int newLowWaterMark)
 */
 
 /*!
-    \qmlproperty string QtJsonDb::JsonDbListModel::query
+    \qmlproperty string QtJsonDb1::JsonDbListModel::query
 
     The query string in JsonQuery format used by the model to fetch
     items from the database. Setting an empty query clears all the elements
@@ -362,7 +362,7 @@ void JsonDbListModel::setLowWaterMark(int newLowWaterMark)
 */
 
 /*!
-    \qmlproperty string QtJsonDb::JsonDbListModel::sortOrder
+    \qmlproperty string QtJsonDb1::JsonDbListModel::sortOrder
 
     The order used by the model to sort the items. Make sure that there
     is a matching Index in the database for this sortOrder. This has to be
@@ -375,7 +375,6 @@ void JsonDbListModel::setLowWaterMark(int newLowWaterMark)
     JsonDb.JsonDbListModel {
         id: listModel
         query: "[?_type=\"CONTACT\"]"
-    Q_D(const JsonDbListModel);
         partitions:[ JsonDb.Partition {
             name:"com.nokia.shared"
         }]
@@ -383,18 +382,19 @@ void JsonDbListModel::setLowWaterMark(int newLowWaterMark)
     }
     \endqml
 
-    \sa QtJsonDb1::JsonDbListModel::bindings
+    \sa {QtJsonDb1::JsonDbListModel::bindings} {bindings}
 
 */
 
 /*!
-    \qmlproperty Status QtJsonDb::JsonDbListModel::status
-    The current status of the model.
+    \qmlproperty State QtJsonDb1::JsonDbListModel::state
+    \readonly
+    The current state of the model.
     \list
-    \li Status.None - The model is not initialized
-    \li Status.Querying - It is querying the results from server
-    \li Status.Ready - Results are ready
-    \li Status.Error - Cannot find a matching index on the server
+    \li State.None - The model is not initialized
+    \li State.Querying - It is querying the results from server
+    \li State.Ready - Results are ready
+    \li State.Error - Cannot find a matching index on the server
     \endlist
 */
 
