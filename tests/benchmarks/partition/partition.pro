@@ -4,8 +4,6 @@ QT = network qml testlib jsondbpartition jsondbpartition-private
 CONFIG -= app_bundle
 CONFIG += testcase
 
-LIBS += -L$$QT.jsondb.libs
-
 DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
 RESOURCES+=../../json.qrc partition.qrc

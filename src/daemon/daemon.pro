@@ -5,8 +5,6 @@ INSTALLS += target
 
 include($$PWD/../jsonstream/jsonstream.pri)
 
-LIBS += -L$$QT.jsondb.libs
-
 QT = core network qml jsondbpartition jsondbpartition-private
 
 mac:CONFIG -= app_bundle
