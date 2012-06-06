@@ -116,7 +116,6 @@ public:
     void updateBuiltInTypes(const JsonDbObject &object, const JsonDbObject &oldObject);
     void setSchema(const QString &schemaName, const QJsonObject &schema);
     void removeSchema(const QString &schemaName);
-    void updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path=QStringList());
     void updateSpaceStatus();
     bool hasSpace();
 

@@ -1896,8 +1896,6 @@ void JsonDbPartitionPrivate::setSchema(const QString &schemaName, const QJsonObj
                 qDebug() << "viewTypes" << mViewTypes;
         }
     }
-    if (schema.contains(QStringLiteral("properties")))
-        updateSchemaIndexes(schemaName, schema);
 }
 
 void JsonDbPartitionPrivate::removeSchema(const QString &schemaName)
@@ -1922,18 +1920,6 @@ void JsonDbPartitionPrivate::removeSchema(const QString &schemaName)
                 removeView(schemaName);
             }
         }
-    }
-}
-
-void JsonDbPartitionPrivate::updateSchemaIndexes(const QString &schemaName, QJsonObject object, const QStringList &path)
-{
-    QJsonObject properties = object.value(QStringLiteral("properties")).toObject();
-    const QList<QString> keys = properties.keys();
-    for (int i = 0; i < keys.size(); i++) {
-        const QString &k = keys[i];
-        QJsonObject propertyInfo = properties.value(k).toObject();
-        if (propertyInfo.contains(QStringLiteral("properties")))
-            updateSchemaIndexes(schemaName, propertyInfo, path + (QStringList() << k));
     }
 }
 
