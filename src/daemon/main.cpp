@@ -104,10 +104,11 @@ void daemonize()
 
 /***************************************************************************/
 
-using namespace std;
-
-static void usage()
+static void usage(const char *errorMessage = 0)
 {
+    using namespace std;
+    if (errorMessage)
+        cout << "Error: " << errorMessage << endl << endl;
     cout << "Usage: " << qPrintable(progname) << " [OPTIONS]" << endl
          << endl
 #ifdef Q_OS_LINUX
@@ -187,8 +188,10 @@ int main(int argc, char * argv[])
             port = args.takeFirst().toInt();
         } else if (arg == "-config-path") {
             if (!args.size())
-                usage();
+                usage("argument to -config-path is missing");
             searchPath = args.takeFirst();
+            if (!QDir(searchPath).exists())
+                usage("-config-path should point to a valid directory");
         } else if (arg == "-limit") {
             if (!args.size())
                 usage();
@@ -240,7 +243,7 @@ int main(int argc, char * argv[])
         } else if (arg == "-log-file") {
             logFileName = args.takeFirst();
         } else {
-            cout << "Unknown argument " << qPrintable(arg) << endl << endl;
+            std::cout << "Unknown argument " << qPrintable(arg) << std::endl << std::endl;
             usage();
         }
     }
@@ -306,7 +309,7 @@ int main(int argc, char * argv[])
     if (!server.start())
         return -2;
 
-    cout << "Ready" << endl << flush;
+    std::cout << "Ready" << std::endl << std::flush;
 
     if (detach)
         daemonize();
