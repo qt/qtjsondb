@@ -45,7 +45,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
-#include <QMessageHandler>
+#include <QtMessageHandler>
 #include <QTime>
 #include <QUuid>
 
