@@ -50,6 +50,11 @@
 QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
+  \internal
+  \class JsonDatabase
+*/
+
+/*!
     \qmlclass JsonDatabase JsonDatabase
     \inqmlmodule QtJsonDb 1.0
     \since 1.0
@@ -58,17 +63,11 @@ QT_BEGIN_NAMESPACE_JSONDB
     as a QML module, so that it can be used without creating a QML element.
 */
 
-/*!
-    \internal
- */
 JsonDatabase::JsonDatabase(QObject *parent)
     :QObject(parent)
 {
 }
 
-/*!
-    \internal
- */
 JsonDatabase::~JsonDatabase()
 {
 }
