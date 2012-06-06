@@ -228,6 +228,7 @@ bool DBServer::clear()
 void DBServer::close()
 {
     foreach (JsonDbPartition *partition, mPartitions.values()) {
+        removeNotificationsByPartition(partition);
         if (mCompactOnClose)
             partition->compact();
         partition->close();
