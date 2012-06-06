@@ -37,4 +37,5 @@ src/partition/qtjsondbpartitionversion.h
 config.log
 config.tests/icu/icu
 config.tests/libedit/libedit
-
+/doc/html
+/doc/ditaxml
