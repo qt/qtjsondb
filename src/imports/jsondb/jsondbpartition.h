@@ -61,6 +61,7 @@ class JsonDbQueryObject;
 class JsonDbPartition: public QObject
 {
     Q_OBJECT
+    Q_ENUMS(State)
 public:
 
     enum ConflictResolutionMode {
