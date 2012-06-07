@@ -1243,9 +1243,33 @@ void JsonDbPartitionPrivate::doIndexQuery(const JsonDbOwner *owner, JsonDbObject
 
     bool countOnly = (indexQuery->aggregateOperation() == QLatin1String("count"));
     int count = 0;
-    for (JsonDbObject object = indexQuery->first();
+    JsonDbObject object;
+    QByteArray indexKey;
+    int cacheOffset = 0;
+    JsonDbIndex *index = indexQuery->objectTable()->index(indexQuery->propertyName());
+    if (index && offset > 0) {
+        int cacheMatchOffset = offset;
+        indexKey = index->lowerBoundKey(indexQuery->query().query, cacheMatchOffset);
+        if (!indexKey.isEmpty()) {
+            if (jsondbSettings->debugQuery())
+                qDebug() << Q_FUNC_INFO << "Found" << indexQuery->query().query << "from cache" << cacheMatchOffset << indexKey;
+            object = indexQuery->seek(indexKey);
+            if (object.isEmpty())
+                object = indexQuery->first(&indexKey);
+            else {
+                cacheOffset = cacheMatchOffset;
+                Q_ASSERT(offset >= cacheOffset);
+                offset -= cacheMatchOffset;
+            }
+        }
+        else
+            object  = indexQuery->first(&indexKey);
+    }
+    else
+        object  = indexQuery->first(&indexKey);
+    for (;
          !object.isEmpty();
-         object = indexQuery->next()) {
+         object = indexQuery->next(&indexKey)) {
         if (!owner->isAllowed(object, indexQuery->partition(), QStringLiteral("read")))
             continue;
         if (limit && (offset <= 0)) {
@@ -1261,7 +1285,14 @@ void JsonDbPartitionPrivate::doIndexQuery(const JsonDbOwner *owner, JsonDbObject
         offset--;
         if (limit == 0)
             break;
+        // Add every 50th offset to cache
+        // Speeds up bottom to top type of iterating with clear cache at the start
+        if (index && cacheOffset && (cacheOffset % 50) == 0)
+            index->addOffsetToCache(indexQuery->query().query, cacheOffset, indexKey);
+        cacheOffset++;
     }
+    if (index)
+        index->addOffsetToCache(indexQuery->query().query, cacheOffset, indexKey);
     if (countOnly) {
         QJsonObject countObject;
         countObject.insert(QLatin1String("count"), count);

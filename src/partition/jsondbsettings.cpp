@@ -71,6 +71,8 @@ JsonDbSettings::JsonDbSettings() :
   , mMinimumRequiredSpace(16384) // By default we resort to 16K, which is the minimum needed by HBTree.
   , mChangeLogCacheVersions(10)  // 10 versions more than compulsory
   , mUseStrictMode(false)
+  , mOffsetCacheSize(512)
+  , mMaxQueriesInOffsetCache(16)
 {
     loadEnvironment();
 }

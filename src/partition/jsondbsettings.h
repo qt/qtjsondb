@@ -77,6 +77,8 @@ class Q_JSONDB_PARTITION_EXPORT JsonDbSettings : public QObject
     Q_PROPERTY(int changeLogCacheVersions READ changeLogCacheVersions WRITE setChangeLogCacheVersions)
     Q_PROPERTY(bool useStrictMode READ useStrictMode WRITE setUseStrictMode)
     Q_PROPERTY(QString injectionScript READ injectionScript WRITE setInjectionScript)
+    Q_PROPERTY(int offsetCacheSize READ offsetCacheSize WRITE setOffsetCacheSize)
+    Q_PROPERTY(int maxQueriesInOffsetCache READ maxQueriesInOffsetCache WRITE setMaxQueriesInOffsetCache)
 
 public:
     static JsonDbSettings *instance();
@@ -147,6 +149,12 @@ public:
     inline QString injectionScript() const { return mInjectionScript; }
     inline void setInjectionScript(const QString &script) { mInjectionScript = script; }
 
+    inline int offsetCacheSize() const { return mOffsetCacheSize; }
+    inline void setOffsetCacheSize(int size) { mOffsetCacheSize = size; }
+
+    inline int maxQueriesInOffsetCache() const { return mMaxQueriesInOffsetCache; }
+    inline void setMaxQueriesInOffsetCache(int size) { mMaxQueriesInOffsetCache = size; }
+
     JsonDbSettings();
 
 private:
@@ -173,6 +181,8 @@ private:
     int mChangeLogCacheVersions;
     bool mUseStrictMode;
     QString mInjectionScript;
+    int mOffsetCacheSize;
+    int mMaxQueriesInOffsetCache;
 };
 
 QT_END_NAMESPACE_JSONDB_PARTITION

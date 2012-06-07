@@ -108,6 +108,68 @@ bool JsonDbIndexPrivate::initScriptEngine()
     return true;
 }
 
+QByteArray JsonDbIndexPrivate::lowerBoundKey (const QString &query, int &offset) const
+{
+    QByteArray ret;
+    if (offset == 0)
+        return ret;
+    OffsetCacheMap offs = mOffsetCache[query];
+    if (!offs.isEmpty()) {
+        OffsetCacheMap::const_iterator it = offs.lowerBound(offset);
+        if (it.key() == offset)
+            ret = it.value();
+        else if (it != offs.begin()) {
+            ret = (--it).value();
+            offset = it.key();
+        }
+    }
+    return ret;
+}
+
+void JsonDbIndexPrivate::addOffsetToCache (const QString &query, int &offset, QByteArray &key)
+{
+    if (offset == 0) return;
+    OffsetCacheMap &offs = mOffsetCache[query];
+    if (!offs.isEmpty()) {
+        int length = offs.count();
+        if (offs.contains(offset)) return;
+        if (length >= jsondbSettings->offsetCacheSize()) {
+            if (jsondbSettings->debugQuery())
+                qDebug() << Q_FUNC_INFO  << "Cache full, making more room";
+            // Delete every other object
+            // This ensures that all offsets have quite close lowerBoundKey
+            // even after this clean up
+            OffsetCacheMap::iterator i = offs.begin();
+            bool erase = false;
+            while (i != offs.end()) {
+                OffsetCacheMap::iterator prev = i;
+                ++i;
+                if (erase) {
+                    erase = false;
+                    offs.erase(prev);
+                }
+                else
+                    erase = true;
+            }
+        }
+        offs.insert(offset, key);
+    }
+    else {
+        if (mOffsetCache.count() >= jsondbSettings->maxQueriesInOffsetCache()) {
+            // Clear all queries from cache
+            // LRU for queries in mOffsetCache would be better, but also
+            // this works quite well and 16 active different queries for
+            // a single index in one given time is quite a lot
+            mOffsetCache.clear();
+            if (jsondbSettings->debugQuery())
+                qDebug() << Q_FUNC_INFO << "Cache cleared";
+        }
+        OffsetCacheMap newOffs;
+        newOffs[offset] = key;
+        mOffsetCache[query] = newOffs;
+    }
+}
+
 static const int collationStringsCount = 13;
 static const char * const collationStrings[collationStringsCount] = {
     "default",
@@ -423,6 +485,7 @@ bool JsonDbIndex::indexObject(JsonDbObject &object, quint32 objectStateNumber)
     }
     if (jsondbSettings->debug() && (objectStateNumber < stateNumber()))
         qDebug() << "JsonDbIndex::indexObject" << "stale update" << objectStateNumber << stateNumber() << d->mBdb.fileName();
+    d->mOffsetCache.clear();
     return true;
 }
 
@@ -463,7 +526,19 @@ bool JsonDbIndex::deindexObject(JsonDbObject &object, quint32 objectStateNumber)
     }
     if (jsondbSettings->verbose() && (objectStateNumber < stateNumber()))
         qDebug() << "JsonDbIndex::deindexObject" << "stale update" << objectStateNumber << stateNumber() << d->mBdb.fileName();
+    d->mOffsetCache.clear();
     return true;
+}
+
+QByteArray JsonDbIndex::lowerBoundKey (const QString &query, int &offset) const
+{
+    return d_func()->lowerBoundKey (query, offset);
+}
+
+void JsonDbIndex::addOffsetToCache (const QString &query, int &offset, QByteArray &key)
+{
+    Q_D(JsonDbIndex);
+    d->addOffsetToCache (query, offset, key);
 }
 
 quint32 JsonDbIndex::stateNumber() const

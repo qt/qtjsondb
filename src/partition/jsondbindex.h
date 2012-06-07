@@ -117,6 +117,9 @@ public:
 
     QString fileName() const;
 
+    QByteArray lowerBoundKey (const QString &query, int &offset) const;
+    void addOffsetToCache (const QString &query, int &offset, QByteArray &key);
+
 private:
     Q_DECLARE_PRIVATE(JsonDbIndex)
     Q_DISABLE_COPY(JsonDbIndex)

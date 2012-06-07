@@ -97,6 +97,9 @@ public:
 
     JsonDbObject first(); // returns first matching object
     JsonDbObject next(); // returns next matching object
+    JsonDbObject first(QByteArray *key); // returns first matching object and its key
+    JsonDbObject next(QByteArray *key); // returns next matching object and its keyb
+    JsonDbObject seek(const QByteArray &key); // returns the object matching key
     bool matches(const QJsonValue &value);
     QJsonValue fieldValue() const { return mFieldValue; }
 
@@ -116,7 +119,10 @@ public:
 
 protected:
     virtual bool seekToStart(QJsonValue &fieldValue);
+    virtual bool seekToStart(QJsonValue &fieldValue, QByteArray *key);
     virtual bool seekToNext(QJsonValue &fieldValue);
+    virtual bool seekToNext(QJsonValue &fieldValue, QByteArray *key);
+    virtual bool seekTo(const QByteArray &key, QJsonValue &fieldValue);
     virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
 
 protected:
@@ -152,7 +158,10 @@ protected:
                     const QString &propertyName, const JsonDbOwner *owner,
                     const JsonDbQuery &query);
     virtual bool seekToStart(QJsonValue &fieldValue);
+    virtual bool seekToStart(QJsonValue &fieldValue, QByteArray *key);
     virtual bool seekToNext(QJsonValue &fieldValue);
+    virtual bool seekToNext(QJsonValue &fieldValue, QByteArray *key);
+    virtual bool seekTo(const QByteArray &key, QJsonValue &fieldValue) { return false; }
     virtual JsonDbObject currentObjectAndTypeNumber(ObjectKey &objectKey);
     virtual quint32 stateNumber() const;
     friend class JsonDbIndexQuery;

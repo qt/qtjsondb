@@ -234,7 +234,7 @@ void JsonDbIndexQuery::setMax(const QJsonValue &value)
         JsonDbIndexPrivate::truncateFieldValue(&mMax, mPropertyType);
 }
 
-bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
+bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue, QByteArray *key)
 {
     QByteArray forwardKey;
     if (mQuery.isAscending()) {
@@ -262,24 +262,45 @@ bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
         ok = mCursor->last();
     }
     if (ok) {
-        QByteArray baKey;
-        mCursor->current(&baKey, 0);
-        JsonDbIndexPrivate::forwardKeySplit(baKey, fieldValue);
+        mCursor->current(key, 0);
+        JsonDbIndexPrivate::forwardKeySplit(*key, fieldValue);
     }
     //qDebug() << "IndexQuery::seekToStart" << (mAscending ? mMin : mMax) << "ok" << ok << fieldValue;
     return ok;
 }
 
-bool JsonDbIndexQuery::seekToNext(QJsonValue &fieldValue)
+bool JsonDbIndexQuery::seekToStart(QJsonValue &fieldValue)
+{
+    QByteArray baKey;
+    return seekToStart(fieldValue, &baKey);
+}
+
+bool JsonDbIndexQuery::seekToNext(QJsonValue &fieldValue, QByteArray *key)
 {
     bool ok = mQuery.isAscending() ? mCursor->next() : mCursor->previous();
     if (ok) {
-        QByteArray baKey;
-        mCursor->current(&baKey, 0);
-        JsonDbIndexPrivate::forwardKeySplit(baKey, fieldValue);
+        mCursor->current(key, 0);
+        JsonDbIndexPrivate::forwardKeySplit(*key, fieldValue);
     }
     //qDebug() << "IndexQuery::seekToNext" << "ok" << ok << fieldValue;
     return ok;
+}
+
+bool JsonDbIndexQuery::seekToNext(QJsonValue &fieldValue)
+{
+    QByteArray baKey;
+    return seekToNext(fieldValue, &baKey);
+}
+
+bool JsonDbIndexQuery::seekTo(const QByteArray &key, QJsonValue &fieldValue)
+{
+   bool ok = mCursor->seek(key);
+   if (ok) {
+       QByteArray baKey;
+       mCursor->current(&baKey, 0);
+       JsonDbIndexPrivate::forwardKeySplit(key, fieldValue);
+   }
+   return ok;
 }
 
 JsonDbObject JsonDbIndexQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
@@ -336,6 +357,12 @@ bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue)
     return ok;
 }
 
+bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue, QByteArray *key)
+{
+    *key = QByteArray();
+    return seekToStart (fieldValue);
+}
+
 bool JsonDbUuidQuery::seekToNext(QJsonValue &fieldValue)
 {
     bool ok = mQuery.isAscending() ? mCursor->next() : mCursor->previous();
@@ -355,6 +382,12 @@ bool JsonDbUuidQuery::seekToNext(QJsonValue &fieldValue)
         fieldValue = objectKey.key.toString();
     }
     return ok;
+}
+
+bool JsonDbUuidQuery::seekToNext(QJsonValue &fieldValue, QByteArray *key)
+{
+    *key = QByteArray();
+    return seekToNext (fieldValue);
 }
 
 JsonDbObject JsonDbUuidQuery::currentObjectAndTypeNumber(ObjectKey &objectKey)
@@ -387,7 +420,7 @@ void JsonDbIndexQuery::setResultExpressionList(const QStringList &resultExpressi
     }
 }
 
-JsonDbObject JsonDbIndexQuery::first()
+JsonDbObject JsonDbIndexQuery::first(QByteArray *key)
 {
     mSparseMatchPossible = false;
     for (int i = 0; i < mQueryConstraints.size(); i++) {
@@ -395,10 +428,10 @@ JsonDbObject JsonDbIndexQuery::first()
     }
 
     QJsonValue fieldValue;
-    bool ok = seekToStart(fieldValue);
+    bool ok = seekToStart(fieldValue, key);
     if (jsondbSettings->debugQuery())
         qDebug() << "IndexQuery::first" << __LINE__ << "ok after first/last()" << ok;
-    for (; ok; ok = seekToNext(fieldValue)) {
+    for (; ok; ok = seekToNext(fieldValue, key)) {
         mFieldValue = fieldValue;
         if (jsondbSettings->debugQuery())
             qDebug() << "IndexQuery::first()"
@@ -436,10 +469,62 @@ JsonDbObject JsonDbIndexQuery::first()
     return QJsonObject();
 }
 
-JsonDbObject JsonDbIndexQuery::next()
+JsonDbObject JsonDbIndexQuery::first()
+{
+    QByteArray key;
+    return first (&key);
+}
+
+JsonDbObject JsonDbIndexQuery::seek(const QByteArray &key)
+{
+    mSparseMatchPossible = false;
+    for (int i = 0; i < mQueryConstraints.size(); i++) {
+        mSparseMatchPossible |= mQueryConstraints[i]->sparseMatchPossible();
+    }
+
+    QJsonValue fieldValue;
+    bool ok = seekTo(key, fieldValue);
+    if (jsondbSettings->debugQuery())
+        qDebug() << "IndexQuery::seek" << __LINE__ << "ok after seekTo()" << ok;
+    while (ok && matches(fieldValue)) {
+        mFieldValue = fieldValue;
+        if (jsondbSettings->debugQuery())
+            qDebug() << "IndexQuery::seek()"
+                     << "mPropertyName" << mPropertyName
+                     << "fieldValue" << fieldValue
+                     << (mQuery.isAscending() ? "ascending" : "descending");
+
+        if (jsondbSettings->debugQuery())
+            qDebug() << "IndexQuery::seek()" << "matches(fieldValue)" << matches(fieldValue);
+
+        ObjectKey objectKey;
+        JsonDbObject object(currentObjectAndTypeNumber(objectKey));
+        if (jsondbSettings->debugQuery())
+            qDebug() << "IndexQuery::first()" << __LINE__ << "objectKey" << objectKey << object.value(JsonDbString::kDeletedStr).toBool();
+        if (object.contains(JsonDbString::kDeletedStr) && object.value(JsonDbString::kDeletedStr).toBool())
+            break;
+
+        if (!mTypeNames.isEmpty() && !mTypeNames.contains(object.value(JsonDbString::kTypeStr).toString()))
+            break;
+        if (jsondbSettings->debugQuery())
+            qDebug() << "mTypeName" << mTypeNames << "!contains" << object << "->" << object.value(JsonDbString::kTypeStr);
+
+        if (!mResidualQuery.isEmpty() && !mResidualQuery.match(object, &mObjectCache, mPartition))
+            break;
+
+        if (jsondbSettings->debugQuery())
+            qDebug() << "IndexQuery::first()" << "returning objectKey" << objectKey;
+
+        return object;
+    }
+    mUuid.clear();
+    return QJsonObject();
+}
+
+JsonDbObject JsonDbIndexQuery::next(QByteArray *key)
 {
     QJsonValue fieldValue;
-    while (seekToNext(fieldValue)) {
+    while (seekToNext(fieldValue, key)) {
         mFieldValue = fieldValue;
         if (jsondbSettings->debugQuery()) {
             qDebug() << "IndexQuery::next()" << "mPropertyName" << mPropertyName
@@ -472,6 +557,12 @@ JsonDbObject JsonDbIndexQuery::next()
     }
     mUuid.clear();
     return QJsonObject();
+}
+
+JsonDbObject JsonDbIndexQuery::next()
+{
+    QByteArray key;
+    return next (&key);
 }
 
 void JsonDbIndexQuery::compileOrQueryTerm(const JsonDbQueryTerm &queryTerm)

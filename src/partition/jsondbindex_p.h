@@ -46,6 +46,7 @@
 #include <QJSEngine>
 #include <QPointer>
 #include <QStringList>
+#include <QHash>
 
 #include <qjsonarray.h>
 #include <qjsonobject.h>
@@ -85,6 +86,12 @@ public:
     QJSValue   mPropertyFunction;
     QList<QJsonValue> mFieldValues;
     quint32 mCacheSize;
+
+    // query --> {offset, key} cache to speed up offset queries
+    typedef QMap<int, QByteArray> OffsetCacheMap; // offset -> key
+    QHash<QString, OffsetCacheMap> mOffsetCache; // query -> offset map
+    QByteArray lowerBoundKey (const QString &query, int &offset) const;
+    void addOffsetToCache (const QString &query, int &offset, QByteArray &key);
 
     QString fileName() const;
     bool initScriptEngine();
