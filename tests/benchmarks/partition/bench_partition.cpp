@@ -114,6 +114,7 @@ private slots:
     void benchmarkFirst10();
     void benchmarkFind10();
     void benchmarkFind20();
+    void benchmarkIteratePageByPage();
     void benchmarkFirstByUuid();
     void benchmarkLastByUuid();
     void benchmarkFirst10ByUuid();
@@ -846,6 +847,38 @@ void TestPartition::benchmarkFind20()
         JsonDbQuery parsedQuery = parser.result();
         JsonDbQueryResult queryResult =  mJsonDbPartition->queryObjects(mOwner, parsedQuery, 20);
         verifyGoodQueryResult(queryResult);
+    }
+}
+
+void TestPartition::benchmarkIteratePageByPage()
+{
+    // Simulate JsonDbListModel hammering the database
+    // Scroll bottom up and then down and up
+    int count = mContactList.size();
+    if (!count)
+        return;
+
+    QBENCHMARK {
+        QString query = QString("[?%1=\"%2\"][?name.last exists][/name.first]")
+                .arg(JsonDbString::kTypeStr)
+                .arg("contact");
+        JsonDbQueryParser parser;
+        parser.setQuery(query);
+        QVERIFY(parser.parse());
+        JsonDbQuery parsedQuery = parser.result();
+        int pageSize = 10;
+        for (int offset = count-pageSize; offset >= 0; offset -= pageSize) {
+            JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, pageSize, offset < 0 ? 0 : offset);
+            verifyGoodQueryResult(queryResult);
+        }
+        for (int offset = 0; offset < count; offset += pageSize) {
+            JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, pageSize, offset);
+            verifyGoodQueryResult(queryResult);
+        }
+        for (int offset = count-pageSize; offset >= 0; offset -= pageSize) {
+            JsonDbQueryResult queryResult = mJsonDbPartition->queryObjects(mOwner, parsedQuery, pageSize, offset < 0 ? 0 : offset);
+            verifyGoodQueryResult(queryResult);
+        }
     }
 }
 
