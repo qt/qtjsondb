@@ -596,7 +596,7 @@ void DBServer::processRead(ClientJsonStream *stream, JsonDbOwner *owner, const Q
                 partition->queryObjects(owner, parsedQuery, limit, offset);
 
     if (jsondbSettings->debug())
-        debugQuery(parsedQuery, limit, offset, queryResult);
+        debugQuery(partitionName, parsedQuery, limit, offset, queryResult);
 
     if (queryResult.code != JsonDbError::NoError) {
         sendError(stream, queryResult.code, queryResult.message, id);
@@ -712,13 +712,15 @@ void DBServer::processLog(ClientJsonStream *stream, const QString &message, int 
      stream->send(result);
 }
 
-void DBServer::debugQuery(const JsonDbQuery &query, int limit, int offset, const JsonDbQueryResult &result)
+void DBServer::debugQuery(const QString partitionName , const JsonDbQuery &query, int limit, int offset, const JsonDbQueryResult &result)
 {
     const QList<JsonDbOrQueryTerm> &orQueryTerms = query.queryTerms;
     if (jsondbSettings->verbose()) {
         qDebug() << JSONDB_INFO << "query:" <<  query.query;
         if (orQueryTerms.size())
             qDebug() << JSONDB_INFO << "query terms:" <<  query.query;
+        if (!partitionName.isEmpty())
+            qDebug() <<  JSONDB_INFO << "partition:" <<  partitionName;
     }
     for (int i = 0; i < orQueryTerms.size(); i++) {
         const JsonDbOrQueryTerm &orQueryTerm = orQueryTerms[i];
@@ -1208,6 +1210,10 @@ void DBServer::receiveMessage(const QJsonObject &message)
             additionalInfo = object.toObject().value("query").toString();
         } else if (object.type() == QJsonValue::Array) {
             additionalInfo = QString::fromLatin1("%1 objects").arg(object.toArray().size());
+            QSet<QString> types;
+            foreach (const QJsonValue v, object.toArray())
+                types.insert(JsonDbObject(v.toObject()).type());
+            additionalInfo += QStringLiteral(" types: %1").arg(QStringList(types.toList()).join(QStringLiteral(", ")));
         } else {
             additionalInfo = object.toObject().value(JsonDbString::kTypeStr).toString();
         }
