@@ -74,6 +74,7 @@ public:
     void launchJsonDbDaemon(const QStringList &args, const char *sourceFile, bool skipConnection = false);
     qint64 launchJsonDbDaemonDetached(const QStringList &args, const char *sourceFile, bool skipConnection = false);
     void stopDaemon();
+    void sighupDaemon();
 
     void connectToServer();
     void disconnectFromServer();
@@ -137,7 +138,6 @@ private:
 
     QString mWorkingDirectory;
     int mRequestsPending;
-    static int mProcessIndex;
     QtJsonDb::QJsonDbWatcher::Status mReceivedStatus;
     QtJsonDb::QJsonDbWatcher::Status mExpectedStatus;
     QtJsonDb::QJsonDbWatcher::ErrorCode mReceivedError;

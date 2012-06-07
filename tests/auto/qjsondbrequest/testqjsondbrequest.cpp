@@ -113,13 +113,10 @@ private slots:
     void multiplerequests();
     void defaultConnection();
     void privatePartitionFlushRequest();
-    void dontAllowDefaultAndRemovablePartition_data();
-    void dontAllowDefaultAndRemovablePartition();
+    void defaultPartition();
 
 private:
     bool writeTestObject(QObject* parent, const QString &type, int value, const QString &partition = QString());
-
-    QByteArray primaryJsonDbSocket;
 };
 
 void TestQJsonDbRequest::initTestCase()
@@ -143,21 +140,13 @@ void TestQJsonDbRequest::cleanupTestCase()
 
 void TestQJsonDbRequest::init()
 {
-    if (qstrcmp(QTest::currentTestFunction(), "dontAllowDefaultAndRemovablePartition") == 0) {
-        primaryJsonDbSocket = qgetenv("JSONDB_SOCKET"); // save original
-    } else {
-        clearHelperData();
-        connectToServer();
-    }
+    clearHelperData();
+    connectToServer();
 }
 
 void TestQJsonDbRequest::cleanup()
 {
-    if (qstrcmp(QTest::currentTestFunction(), "dontAllowDefaultAndRemovablePartition") == 0) {
-        qputenv("JSONDB_SOCKET", primaryJsonDbSocket); // restore original
-    } else {
-        disconnectFromServer();
-    }
+    disconnectFromServer();
 }
 
 void TestQJsonDbRequest::modifyPartitions()
@@ -195,7 +184,7 @@ void TestQJsonDbRequest::modifyPartitions()
     defs.append(def1);
     defs.append(def2);
 
-    // ensure that the new file is written to the directory as the main partitions.json
+    // ensure that the new file is written to the same directory as the main partitions.json
     QFile partitionsFile(QFileInfo(QFINDTESTDATA("partitions.json")).absoluteDir().absoluteFilePath(QLatin1String("partitions-test.json")));
     partitionsFile.open(QFile::WriteOnly);
     partitionsFile.write(QJsonDocument(defs).toJson());
@@ -344,7 +333,7 @@ void TestQJsonDbRequest::removablePartition()
     QJsonArray defs;
     defs.append(def);
 
-    // ensure that the new file is written to the directory as the main partitions.json
+    // ensure that the new file is written to the same directory as the main partitions.json
     QFile partitionsFile(QFileInfo(QFINDTESTDATA("partitions.json")).absoluteDir().absoluteFilePath(QLatin1String("partitions-test.json")));
     partitionsFile.open(QFile::WriteOnly);
     partitionsFile.write(QJsonDocument(defs).toJson());
@@ -1301,115 +1290,215 @@ void TestQJsonDbRequest::bindings()
     }
 }
 
-// Helper class for dontAllowDefaultAndRemovablePartition().
-class DaemonStarter : public TestHelper
+class defaultPartition_helper
 {
 public:
-    DaemonStarter(const QString &cfgPath, int msecs = 30000) {
-        QStringList args = QStringList() << "-config-path" << cfgPath;
-        launchJsonDbDaemon(args, __FILE__, true);
-        mProcess->waitForFinished(msecs);
+    defaultPartition_helper(TestHelper *testHelper)
+        : mTestHelper(testHelper)
+    {
+        // temporarily rename config files
+        renameFiles(false);
+
+        // add a Partitions watcher
+        mWatcher.setPartition(QLatin1String("Ephemeral"));
+        mWatcher.setQuery("[?_type=\"Partition\"]");
+        mTestHelper->connection()->addWatcher(&mWatcher);
+        mTestHelper->waitForStatus(&mWatcher, QtJsonDb::QJsonDbWatcher::Active);
     }
 
-    ~DaemonStarter() {
-        stopDaemon();
+    ~defaultPartition_helper()
+    {
+        // restore original config file names
+        renameFiles(true);
+
+        // remove the Partitions watcher
+        mTestHelper->connection()->removeWatcher(&mWatcher);
+        mTestHelper->waitForStatus(&mWatcher, QtJsonDb::QJsonDbWatcher::Inactive);
     }
 
-    bool isRunning() const {
-        return mProcess->state() == QProcess::Running;
+    // Replaces the current partition defs in the daemon with new ones. Returns the final partition defs as seen by the daemon.
+    QList<QJsonObject> loadAndQueryPartitionDefs(const QJsonArray &defs)
+    {
+        // ensure that the new file is written to the same directory as the original partitions.json (which is now renamed!)
+        QFile partitionsFile(QFileInfo(QFINDTESTDATA("partitions.json.bak")).absoluteDir().absoluteFilePath(QLatin1String("partitions-test.json")));
+        partitionsFile.open(QFile::WriteOnly);
+        partitionsFile.write(QJsonDocument(defs).toJson());
+        partitionsFile.close();
+
+        // make daemon reload partition defs
+        mTestHelper->sighupDaemon();
+        if (!mTestHelper->waitForResponseAndNotifications(0, &mWatcher, defs.size())) {
+            QWARN(qPrintable(QLatin1String("reloading partition defs failed")));
+            return QList<QJsonObject>();
+        }
+        partitionsFile.remove();
+
+        // retrieve current partition defs
+        QJsonDbReadRequest partitionQuery;
+        partitionQuery.setPartition(QLatin1String("Ephemeral"));
+        partitionQuery.setQuery(QLatin1String("[?_type=%type]"));
+        partitionQuery.bindValue(QLatin1String("type"), QLatin1String("Partition"));
+        mTestHelper->connection()->send(&partitionQuery);
+        if (!mTestHelper->waitForResponse(&partitionQuery)) {
+            QWARN(qPrintable(QLatin1String("retrieving partition defs failed")));
+            return QList<QJsonObject>();
+        }
+
+        return partitionQuery.takeResults();
     }
+
+    QtJsonDb::QJsonDbWatcher mWatcher;
+
+private:
+    void renameFiles(bool restoring)
+    {
+        const QString refFile = restoring ? QStringLiteral("partitions.json.bak") : QStringLiteral("partitions.json");
+        QFileInfoList fileInfos1 = QFileInfo(QFINDTESTDATA(refFile)).absoluteDir().entryInfoList(
+                    QStringList() << (restoring ? QStringLiteral("partitions*.json.bak") : QStringLiteral("partitions*json")),
+                    QDir::Files | QDir::Readable);
+        foreach (const QFileInfo &fileInfo1, fileInfos1) {
+            const QString fileName1 = fileInfo1.absoluteFilePath();
+            const QString fileName2 = restoring
+                    ? fileName1.left(fileName1.lastIndexOf(QStringLiteral(".bak")))
+                    : QString("%1.bak").arg(fileName1);
+            if (!QFile::rename(fileName1, fileName2))
+                QFAIL(qPrintable(QString("failed to rename %1 to %2 (restoring = %3)").arg(fileName1).arg(fileName2).arg(restoring)));
+        }
+    }
+
+    TestHelper *mTestHelper;
 };
 
-void TestQJsonDbRequest::dontAllowDefaultAndRemovablePartition_data()
+
+void TestQJsonDbRequest::defaultPartition()
 {
-    // Partition 1:
-    QTest::addColumn<QString>("default1"); // an empty string indicates that the property is not explicitly set
-    QTest::addColumn<QString>("removable1"); // ditto
-    // Partition 2:
-    QTest::addColumn<QString>("default2"); // ditto
-    QTest::addColumn<QString>("removable2"); // ditto
+    defaultPartition_helper helper(this);
 
-    // Whether the daemon should accept the combined definition of Partition 1 and 2, and
-    // not terminate after loading the definition:
-    QTest::addColumn<bool>("valid");
+    int index = 0; // to avoid duplicate partition names
 
-    // *** Valid combinations: ***
-    // Case 1 (both partitions neither default nor removable):
-    QTest::newRow("valid 1.1") << "false" << "false" << "false" << "false" << true;
-    QTest::newRow("valid 1.2") << "false" << "false" << "false" << "" << true;
-    QTest::newRow("valid 1.3") << "false" << "false" << "" << "" << true;
-    QTest::newRow("valid 1.4") << "false" << "" << "" << "" << true;
-    QTest::newRow("valid 1.5") << "" << "" << "" << "" << true;
-    // Case 2 (neither partition default, only one of them removable):
-    QTest::newRow("valid 2.1") << "false" << "true" << "false" << "false" << true;
-    QTest::newRow("valid 2.2") << "false" << "true" << "false" << "" << true;
-    QTest::newRow("valid 2.3") << "false" << "true" << "" << "" << true;
-    QTest::newRow("valid 2.4") << "" << "true" << "" << "" << true;
+    // *** Case 1: two partitions, neither of which is marked as default or removable
+    // *** Expected result: exactly one of the partitions gets set as default
+    {
+        QJsonArray defs;
 
-    // *** Invalid combinations: ***
-    // Case 1 (at least one partition both default and removable):
-    QTest::newRow("invalid 1.1") << "true" << "true" << "false" << "false" << false;
-    QTest::newRow("invalid 1.2") << "true" << "true" << "" << "false" << false;
-    QTest::newRow("invalid 1.3") << "true" << "true" << "" << "" << false;
-    // Case 2 (both partitions removable):
-    QTest::newRow("invalid 2.1") << "false" << "true" << "false" << "true" << false;
-    QTest::newRow("invalid 2.2") << "false" << "true" << "" << "true" << false;
-    QTest::newRow("invalid 2.3") << "" << "true" << "" << "true" << false;
-}
+        QJsonObject def1;
+        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(index++));
+        def1.insert(QLatin1String("path"), QLatin1String("."));
+        defs.append(def1);
 
-/*!
-    Verify that the server terminates immediately when at least one partition is specified (explicitly or implicitly)
-    as both default and removable.
-*/
-void TestQJsonDbRequest::dontAllowDefaultAndRemovablePartition()
-{
-    QFETCH(QString, default1);
-    QFETCH(QString, removable1);
-    QFETCH(QString, default2);
-    QFETCH(QString, removable2);
-    QFETCH(bool, valid);
+        QJsonObject def2;
+        def2.insert(QLatin1String("name"), QString("com.qt-project.test2_%1").arg(index));
+        def2.insert(QLatin1String("path"), QLatin1String("."));
+        defs.append(def2);
 
-    QTemporaryDir cfgDir;
-    if (!cfgDir.isValid())
-        QSKIP("failed to create temporary config dir");
+        QList<QJsonObject> results = helper.loadAndQueryPartitionDefs(defs);
+        QCOMPARE(results.count(), 2);
 
-    QFile file(QString("%1/partitions.json").arg(cfgDir.path()));
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        QSKIP("failed to create temporary config file");
+        int defaultCount = 0;
+        foreach (const QJsonObject &object, results)
+            defaultCount += (object.value(QLatin1String("default")).toBool() ? 1 : 0);
+        QCOMPARE(defaultCount, 1);
+    }
 
-    QJsonArray jarr;
+    // *** Case 2: two non-removable partitions, exactly one of which is marked as default
+    // *** Expected result: the original default partition is still the only one set as default
+    {
+        QJsonArray defs;
 
-#define IS_TRUE(s) (s == "true")
+        QJsonObject def1;
+        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(index++));
+        def1.insert(QLatin1String("path"), QLatin1String("."));
+        defs.append(def1);
 
-    // Partition 1:
-    QJsonObject jobj1;
-    jobj1.insert(QLatin1String("name"), QLatin1String("dummy1"));
-    jobj1.insert(QLatin1String("path"), QLatin1String("."));
-    if (!default1.isEmpty())
-        jobj1.insert(QLatin1String("default"), IS_TRUE(default1));
-    if (!removable1.isEmpty())
-        jobj1.insert(QLatin1String("removable"), IS_TRUE(removable1));
-    jarr.append(jobj1);
-    // Partition 2:
-    QJsonObject jobj2;
-    jobj2.insert(QLatin1String("name"), QLatin1String("dummy2"));
-    jobj2.insert(QLatin1String("path"), QLatin1String("."));
-    if (!default2.isEmpty())
-        jobj2.insert(QLatin1String("default"), IS_TRUE(default2));
-    if (!removable2.isEmpty())
-        jobj2.insert(QLatin1String("removable"), IS_TRUE(removable2));
-    jarr.append(jobj2);
+        QJsonObject def2;
+        const QString expectedDefaultName = QString("com.qt-project.test2_%1").arg(index);
+        def2.insert(QLatin1String("name"), expectedDefaultName);
+        def2.insert(QLatin1String("path"), QLatin1String("."));
+        def2.insert(QLatin1String("default"), true);
+        defs.append(def2);
 
-    QTextStream out(&file);
-    out << QJsonDocument(jarr).toJson();
-    file.close();
+        QList<QJsonObject> results = helper.loadAndQueryPartitionDefs(defs);
+        QCOMPARE(results.count(), 2);
 
-    // Assume the daemon will always terminate within the following timeout. (Note the tradeoff between
-    // reliability and test execution time!)
-    const int timeoutMillisecs = 1000;
+        int defaultCount = 0;
+        foreach (const QJsonObject &object, results) {
+            if (object.value(QLatin1String("default")).toBool()) {
+                QCOMPARE(object.value(QLatin1String("removable")).toBool(), false);
+                QCOMPARE(object.value(QLatin1String("name")).toString(), expectedDefaultName);
+                defaultCount++;
+            }
+        }
+        QCOMPARE(defaultCount, 1);
+    }
 
-    DaemonStarter starter(cfgDir.path(), timeoutMillisecs);
-    QCOMPARE(starter.isRunning(), valid);
+    // *** Case 3: exactly one non-removable partition, no default ones
+    // *** Expected result: the non-removable partition is automatically set as default
+    {
+        QJsonArray defs;
+
+        QJsonObject def1;
+        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(index++));
+        def1.insert(QLatin1String("path"), QLatin1String("."));
+        def1.insert(QLatin1String("removable"), true);
+        defs.append(def1);
+
+        QJsonObject def2;
+        const QString expectedDefaultName = QString("com.qt-project.test2_%1").arg(index);
+        def2.insert(QLatin1String("name"), expectedDefaultName);
+        def2.insert(QLatin1String("path"), QLatin1String("."));
+        // def2.insert(QLatin1String("removable"), false); // false by default
+        defs.append(def2);
+
+        QJsonObject def3;
+        def3.insert(QLatin1String("name"), QString("com.qt-project.test3_%1").arg(index));
+        def3.insert(QLatin1String("path"), QLatin1String("."));
+        def3.insert(QLatin1String("removable"), true);
+        defs.append(def3);
+
+        QList<QJsonObject> results = helper.loadAndQueryPartitionDefs(defs);
+        QCOMPARE(results.count(), 3);
+
+        int defaultCount = 0;
+        foreach (const QJsonObject &object, results) {
+            if (object.value(QLatin1String("default")).toBool()) {
+                QCOMPARE(object.value(QLatin1String("removable")).toBool(), false);
+                QCOMPARE(object.value(QLatin1String("name")).toString(), expectedDefaultName);
+                defaultCount++;
+            }
+        }
+        QCOMPARE(defaultCount, 1);
+    }
+
+    // *** Case 4: only removable partitions
+    // *** Expected response: an extra partition is created (in CWD) to act as the default one
+    {
+        QJsonArray defs;
+
+        QJsonObject def1;
+        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(index++));
+        def1.insert(QLatin1String("path"), QLatin1String("."));
+        def1.insert(QLatin1String("removable"), true);
+        defs.append(def1);
+
+        QJsonObject def2;
+        const QString expectedDefaultName = QString("com.qt-project.test2_%1").arg(index);
+        def2.insert(QLatin1String("name"), expectedDefaultName);
+        def2.insert(QLatin1String("path"), QLatin1String("."));
+        def2.insert(QLatin1String("removable"), true);
+        defs.append(def2);
+
+        QList<QJsonObject> results = helper.loadAndQueryPartitionDefs(defs);
+        QCOMPARE(results.count(), 3); // expect an extra partition
+
+        int defaultCount = 0;
+        foreach (const QJsonObject &object, results) {
+            if (object.value(QLatin1String("default")).toBool()) {
+                QCOMPARE(object.value(QLatin1String("removable")).toBool(), false);
+                defaultCount++;
+            }
+        }
+        QCOMPARE(defaultCount, 1);
+    }
 }
 
 QTEST_MAIN(TestQJsonDbRequest)

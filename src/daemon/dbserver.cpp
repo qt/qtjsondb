@@ -243,8 +243,6 @@ bool DBServer::loadPartitions()
 
     QHash<QString, JsonDbPartition*> partitions;
     QList<JsonDbPartitionSpec> definitions = findPartitionDefinitions();
-    if (definitions.isEmpty())
-        return false;
     QString defaultPartitionName;
 
     foreach (const JsonDbPartitionSpec &definition, definitions) {
@@ -1041,7 +1039,7 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
                              << "'default' property should be a boolean";
                 if (isDefault.toBool()) {
                     if (defaultSpecified) {
-                        qDebug() << JSONDB_WARN << partitionFile.fileName() << ": parition" << name.toString()
+                        qDebug() << JSONDB_WARN << partitionFile.fileName() << ": partition" << name.toString()
                                  << "unset as default. Default already specified.";
                         isDefault = QJsonValue(false);
                     } else {
@@ -1055,9 +1053,10 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
                              << "'removable' property should be a boolean";
 
                 if (isDefault.toBool() && isRemovable.toBool()) {
-                    qCritical() << QString("error: a removable partition cannot be default (in file %1)")
-                                   .arg(partitionFile.fileName());
-                    return QList<JsonDbPartitionSpec>();
+                    qDebug() << JSONDB_WARN << partitionFile.fileName() << ": partition" << name.toString()
+                                << "unset as default. A removable partition cannot be default.";
+                    isDefault = QJsonValue(false);
+                    defaultSpecified = false;
                 }
 
                 JsonDbPartitionSpec spec;
@@ -1067,7 +1066,7 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
                 spec.isRemovable = isRemovable.toBool();
 
                 if (names.contains(spec.name)) {
-                    qDebug() << partitionFile.fileName() << ": parition" << name.toString()
+                    qDebug() << partitionFile.fileName() << ": partition" << name.toString()
                              << "is a duplicate definition, skipping.";
                     continue;
                 }
@@ -1087,22 +1086,8 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
             break;
     }
 
-    // if no partitions are specified just make a partition in the current working
-    // directory (assumed to be on a non-removable medium!) and call it "default"
-    if (partitions.isEmpty()) {
-        if (jsondbSettings->debug())
-            qDebug() << JSONDB_INFO << "no partitions were defined, creating partition spec \"default\" at"
-                     << QDir::currentPath();
-        JsonDbPartitionSpec defaultPartition;
-        defaultPartition.name = QStringLiteral("default");
-        defaultPartition.path = QDir::currentPath();
-        defaultPartition.isDefault = true;
-        partitions.append(defaultPartition);
-        defaultSpecified = true;
-    }
-
-    // ensure that at least one non-removable partition is marked as default
     if (!defaultSpecified) {
+        // try to mark a non-removable partition as default
         for (int i = 0; i < partitions.count(); ++i) {
             if (!partitions[i].isRemovable) {
                 partitions[i].isDefault = true;
@@ -1112,10 +1097,19 @@ QList<JsonDbPartitionSpec> DBServer::findPartitionDefinitions() const
                 break;
             }
         }
-        if (!defaultSpecified) {
-            qCritical() << "error: failed to find a non-removable partition to use as the default partition";
-            return QList<JsonDbPartitionSpec>();
-        }
+    }
+
+    if (!defaultSpecified) {
+        // create a default partition in the current working directory (assumed to be on a non-removable medium!)
+        if (jsondbSettings->debug())
+            qDebug() << JSONDB_INFO << "no non-removable partitions were defined, creating partition spec \"default\" at"
+                     << QDir::currentPath();
+        JsonDbPartitionSpec defaultPartition;
+        defaultPartition.name = QStringLiteral("default");
+        defaultPartition.path = QDir::currentPath();
+        defaultPartition.isDefault = true;
+        partitions.append(defaultPartition);
+        defaultSpecified = true;
     }
 
     return partitions;

@@ -51,13 +51,14 @@
 #include <QTimer>
 #include <QJsonArray>
 
+#include <signal.h>
+
 #ifdef Q_OS_UNIX
 #include <unistd.h>
 #endif
 
-QT_USE_NAMESPACE_JSONDB
 
-int TestHelper::mProcessIndex = 0;
+QT_USE_NAMESPACE_JSONDB
 
 TestHelper::TestHelper(QObject *parent) :
     QObject(parent)
@@ -146,7 +147,7 @@ qint64 TestHelper::launchJsonDbDaemon_helper(const QStringList &args, const char
                 this, SLOT(processFinished(int,QProcess::ExitStatus)));
     }
 
-    QString socketName = QString("testjsondb_%1_%2").arg(getpid()).arg(mProcessIndex++);
+    QString socketName = QString("testjsondb_%1").arg(getpid());
 
     const QString effectiveWorkingDir = mWorkingDirectory.isEmpty() ? QDir::currentPath() : mWorkingDirectory;
 
@@ -214,6 +215,12 @@ void TestHelper::stopDaemon()
         delete mProcess;
         mProcess = 0;
     }
+}
+
+void TestHelper::sighupDaemon()
+{
+    if (mProcess)
+        kill(mProcess->pid(), SIGHUP);
 }
 
 void TestHelper::connectToServer()

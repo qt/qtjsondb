@@ -110,8 +110,12 @@ starting the JSON DB daemon. If the directories don't exist, the daemon will
 not start. The exception to this is \l {Removable Partitions}.
 
 A removable partition is not allowed to be a default partition. If the \e removable
-and \e default properties are both true for the same partition, the daemon
-will not start.
+and \e default properties are both true for the same partition, the \e default property
+is automatically set to false.
+
+If only removable partitions are specified, an extra partition is automatically created
+in the current working directory to act as the default partition. The current working
+directory is assumed to be located on a non-removable medium in that case.
 
 \section1 Querying Available Partitions
 
