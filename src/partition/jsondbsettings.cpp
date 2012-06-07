@@ -54,6 +54,7 @@ Q_GLOBAL_STATIC(JsonDbSettings, staticInstance)
 JsonDbSettings::JsonDbSettings() :
     mRejectStaleUpdates(false)
   , mDebug(false)
+  , mDebugIndexes(false)
   , mVerbose(false)
   , mVerboseErrors(false)
   , mPerformanceLog(false)

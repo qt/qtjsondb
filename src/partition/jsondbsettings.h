@@ -58,6 +58,7 @@ class Q_JSONDB_PARTITION_EXPORT JsonDbSettings : public QObject
     Q_OBJECT
     Q_PROPERTY(bool rejectStaleUpdates READ rejectStaleUpdates WRITE setRejectStaleUpdates)
     Q_PROPERTY(bool debug READ debug WRITE setDebug)
+    Q_PROPERTY(bool debugIndexes READ debugIndexes WRITE setDebugIndexes)
     Q_PROPERTY(bool verbose READ verbose WRITE setVerbose)
     Q_PROPERTY(bool verboseErrors READ verboseErrors WRITE setVerboseErrors)
     Q_PROPERTY(bool performanceLog READ performanceLog WRITE setPerformanceLog)
@@ -87,6 +88,9 @@ public:
 
     inline bool debug() const { return mDebug; }
     inline void setDebug(bool debug) { mDebug = debug; }
+
+    inline bool debugIndexes() const { return mDebugIndexes; }
+    inline void setDebugIndexes(bool debugIndexes) { mDebugIndexes = debugIndexes; }
 
     inline bool verbose() const { return mVerbose; }
     inline void setVerbose(bool verbose) { mVerbose = verbose; }
@@ -150,6 +154,7 @@ private:
 
     bool mRejectStaleUpdates;
     bool mDebug;
+    bool mDebugIndexes;
     bool mVerbose;
     bool mVerboseErrors;
     bool mPerformanceLog;

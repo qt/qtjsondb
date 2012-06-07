@@ -411,8 +411,8 @@ bool JsonDbIndex::indexObject(JsonDbObject &object, quint32 objectStateNumber)
         QByteArray forwardKey = JsonDbIndexPrivate::makeForwardKey(fieldValue, objectKey);
         QByteArray forwardValue = JsonDbIndexPrivate::makeForwardValue(objectKey);
 
-        if (jsondbSettings->debug())
-            qDebug() << "indexing" << objectKey << d->mSpec.propertyName << fieldValue
+        if (jsondbSettings->debugIndexes())
+            qDebug() << "indexing" << objectKey.toString() << d->mSpec.propertyName << fieldValue
                      << "forwardIndex" << "key" << forwardKey.toHex()
                      << "forwardIndex" << "value" << forwardValue.toHex()
                      << object;
@@ -453,8 +453,8 @@ bool JsonDbIndex::deindexObject(JsonDbObject &object, quint32 objectStateNumber)
         if (fieldValue.isUndefined())
             continue;
         d->truncateFieldValue(&fieldValue, d->mSpec.propertyType);
-        if (jsondbSettings->debug())
-            qDebug() << "deindexing" << objectKey << d->mSpec.propertyName << fieldValue;
+        if (jsondbSettings->debugIndexes())
+            qDebug() << "deindexing" << objectKey.toString() << d->mSpec.propertyName << fieldValue;
         QByteArray forwardKey = JsonDbIndexPrivate::makeForwardKey(fieldValue, objectKey);
         if (!txn->remove(forwardKey)) {
             qCritical() << d->mSpec.name << "deindexing failed" << d->mBdb.errorMessage();
