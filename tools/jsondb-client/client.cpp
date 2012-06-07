@@ -327,6 +327,12 @@ void Client::error(QtJsonDb::QJsonDbConnection::ErrorCode error, const QString &
     }
 }
 
+void Client::onPushedRequestFinished()
+{
+    popRequest();
+    onRequestFinished();
+}
+
 void Client::onRequestFinished()
 {
     quint32 stateNumber;
@@ -355,7 +361,6 @@ void Client::onRequestFinished()
 
 void Client::aboutToRemove(void)
 {
-
     QtJsonDb::QJsonDbRequest *queryRequest = qobject_cast<QtJsonDb::QJsonDbRequest *>(sender());
     Q_ASSERT(queryRequest != 0);
     if (!queryRequest)
@@ -379,14 +384,19 @@ void Client::aboutToRemove(void)
     QtJsonDb::QJsonDbRemoveRequest* request = new QtJsonDb::QJsonDbRemoveRequest(objects);
     request->setPartition(queryRequest->partition());
 
-    connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
-    connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+    connect(request, SIGNAL(finished()), this, SLOT(onPushedRequestFinished()));
     connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
-            this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+            this, SLOT(onPushedRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
     pushRequest(request);
     mConnection->send(request);
 }
 
+void Client::onPushedRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
+{
+    Q_UNUSED(code);
+    popRequest();
+    onRequestError(code,message);
+}
 void Client::onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message)
 {
     Q_UNUSED(code);
@@ -400,6 +410,8 @@ void Client::pushRequest(QtJsonDb::QJsonDbRequest *request)
 
 void Client::popRequest()
 {
+    if (mDebug)
+        qDebug() << "popRequest:" << mRequests[0];
     mRequests.takeFirst()->deleteLater();
     if (mRequests.isEmpty() && mTerminate)
         emit terminate();
@@ -489,13 +501,10 @@ bool Client::processCommand(const QString &command)
             connect(request, SIGNAL(finished()), this, SLOT(aboutToRemove()));
         }
         else {
-            connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
-            connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+            connect(request, SIGNAL(finished()), this, SLOT(onPushedRequestFinished()));
         }
         connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
-            this, SLOT(popRequest()));
-        connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
-                this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+                this, SLOT(onPushedRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
         pushRequest(request);
         mConnection->send(request);
     } else if (cmd == "notify") {
@@ -577,10 +586,9 @@ bool Client::processCommand(const QString &command)
         else
             Q_ASSERT(false);
         request->setPartition(partition);
-        connect(request, SIGNAL(finished()), this, SLOT(onRequestFinished()));
-        connect(request, SIGNAL(finished()), this, SLOT(popRequest()));
+        connect(request, SIGNAL(finished()), this, SLOT(onPushedRequestFinished()));
         connect(request, SIGNAL(error(QtJsonDb::QJsonDbRequest::ErrorCode,QString)),
-                this, SLOT(onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
+                this, SLOT(onPushedRequestError(QtJsonDb::QJsonDbRequest::ErrorCode,QString)));
         pushRequest(request);
         mConnection->send(request);
     } else if (cmd == "load") {

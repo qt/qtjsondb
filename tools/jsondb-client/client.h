@@ -100,7 +100,9 @@ protected slots:
     void onNotificationError(QtJsonDb::QJsonDbWatcher::ErrorCode, const QString &);
 
     void onRequestFinished();
+    void onPushedRequestFinished();
     void onRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
+    void onPushedRequestError(QtJsonDb::QJsonDbRequest::ErrorCode code, const QString &message);
     void aboutToRemove();
 
     void pushRequest(QtJsonDb::QJsonDbRequest *);
