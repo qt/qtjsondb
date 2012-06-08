@@ -1328,7 +1328,7 @@ public:
         // make daemon reload partition defs
         mTestHelper->sighupDaemon();
         if (!mTestHelper->waitForResponseAndNotifications(0, &mWatcher, defs.size())) {
-            QWARN(qPrintable(QLatin1String("reloading partition defs failed")));
+            QWARN("reloading partition defs failed");
             return QList<QJsonObject>();
         }
         partitionsFile.remove();
@@ -1340,7 +1340,7 @@ public:
         partitionQuery.bindValue(QLatin1String("type"), QLatin1String("Partition"));
         mTestHelper->connection()->send(&partitionQuery);
         if (!mTestHelper->waitForResponse(&partitionQuery)) {
-            QWARN(qPrintable(QLatin1String("retrieving partition defs failed")));
+            QWARN("retrieving partition defs failed");
             return QList<QJsonObject>();
         }
 
