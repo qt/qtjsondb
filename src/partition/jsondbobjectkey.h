@@ -67,6 +67,8 @@ public:
     {
         return key.toRfc4122();
     }
+    inline bool isValid() const
+    { return !key.isNull(); }
     inline bool operator==(const ObjectKey &rhs) const
     { return key == rhs.key; }
 

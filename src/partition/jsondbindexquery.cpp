@@ -327,6 +327,8 @@ bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue)
     if (mQuery.isAscending()) {
         if (!mMin.isUndefined()) {
             ObjectKey objectKey(mMin.toString());
+            if (!objectKey.isValid())
+                return false;
             ok = mCursor->seekRange(objectKey.toByteArray());
         } else {
             ok = mCursor->first();
@@ -334,6 +336,8 @@ bool JsonDbUuidQuery::seekToStart(QJsonValue &fieldValue)
     } else {
         if (!mMax.isUndefined()) {
             ObjectKey objectKey(mMax.toString());
+            if (objectKey.isValid())
+                return false;
             ok = mCursor->seekRange(objectKey.toByteArray());
         } else {
             ok = mCursor->last();
