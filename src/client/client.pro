@@ -9,7 +9,7 @@ DESTDIR = $$QT.jsondb.libs
 VERSION = $$QT.jsondb.VERSION
 DEFINES += QT_JSONDB_LIB
 
-QT = core network jsondbpartition
+QT = core network qml jsondbpartition
 
 CONFIG += module create_prl
 MODULE_PRI = ../../modules/qt_jsondb.pri
