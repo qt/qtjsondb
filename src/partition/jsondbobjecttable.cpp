@@ -103,6 +103,7 @@ bool JsonDbObjectTable::open(const QString &fileName)
 void JsonDbObjectTable::close()
 {
     mBdb->close();
+    closeIndexes();
 }
 
 bool JsonDbObjectTable::begin()
