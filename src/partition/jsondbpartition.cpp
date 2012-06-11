@@ -403,7 +403,6 @@ void JsonDbPartitionPrivate::_q_objectsUpdated(bool viewUpdated, const JsonDbUpd
             notificationKeys << object.value(JsonDbString::kUuidStr).toString();
         notificationKeys << QStringLiteral("__generic_notification__");
 
-        QHash<QString, JsonDbObject> objectCache;
         for (int i = 0; i < notificationKeys.size(); i++) {
             QString key = notificationKeys[i];
             for (QMultiHash<QString, QPointer<JsonDbNotification> >::const_iterator it = mKeyedNotifications.find(key);
@@ -779,6 +778,9 @@ void JsonDbPartition::addNotification(JsonDbNotification *notification)
         }
 
         notification->setObjectTable(objectTable);
+    } else {
+        // assume it is the main object table :(
+        notification->setObjectTable(d->mObjectTable);
     }
 
     bool generic = true;

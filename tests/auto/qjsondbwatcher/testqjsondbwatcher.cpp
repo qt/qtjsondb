@@ -95,6 +95,7 @@ private slots:
     void privatePartition();
     void addAndRemove();
     void removeWatcherStatus();
+    void uuidQuery();
 };
 
 TestQJsonDbWatcher::TestQJsonDbWatcher()
@@ -966,6 +967,37 @@ void TestQJsonDbWatcher::removeWatcherStatus()
         QVERIFY(mConnection->removeWatcher(&watcher));
         QVERIFY(waitForStatus(&watcher, QJsonDbWatcher::Inactive));
     }
+}
+
+void TestQJsonDbWatcher::uuidQuery()
+{
+    QUuid uuid = QUuid::createUuid();
+    QJsonDbWatcher watcher;
+    watcher.setQuery(QStringLiteral("[?_uuid=%uuid]"));
+    watcher.bindValue(QStringLiteral("uuid"), uuid.toString());
+    QVERIFY(mConnection->addWatcher(&watcher));
+    QVERIFY(waitForStatus(&watcher, QJsonDbWatcher::Active));
+
+    // create the object
+    QJsonObject object;
+    object.insert(QLatin1String("_uuid"), uuid.toString());
+    object.insert(QLatin1String("_type"), QLatin1String("uuidQuery"));
+    QJsonDbWriteRequest request;
+    request.setObject(object);
+    QVERIFY(mConnection->send(&request));
+    QVERIFY(waitForResponseAndNotifications(&request, &watcher, 1));
+    QList<QJsonObject> results = request.takeResults();
+    QCOMPARE(results.size(), 1);
+    object.insert(QLatin1String("_version"), results.at(0).value(QLatin1String("_version")));
+
+    // update the object
+    object.insert(QLatin1String("foo"), QLatin1String("bar"));
+    request.setObject(object);
+    QVERIFY(mConnection->send(&request));
+    QVERIFY(waitForResponseAndNotifications(&request, &watcher, 1));
+
+    QVERIFY(mConnection->removeWatcher(&watcher));
+    QVERIFY(waitForStatus(&watcher, QJsonDbWatcher::Inactive));
 }
 
 QTEST_MAIN(TestQJsonDbWatcher)
