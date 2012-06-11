@@ -54,8 +54,9 @@ Item {
     JsonDb.JsonDbListModel {
         id: contacts
         query: '[?_type="Contact"]'
+        sortOrder: '[/lastName]'
         roleNames: ["firstName", "lastName", "_uuid"]
-        limit: 40
+        cacheSize: 40
     }
 
     function checkForPartitions(error, result) {
@@ -90,7 +91,7 @@ Item {
                 };
                 nokiaPartition.create(indexDefinition2);
 
-                contacts.partition = nokiaPartition;
+                contacts.partitions = [nokiaPartition];
             }
         }
     }
@@ -138,7 +139,7 @@ Item {
         text: "Sort firstName"
 
         onClicked: {
-            contacts.query = ("[?_type=\"Contact\"][/firstName]")
+            contacts.sortOrder = '[/firstName]'
         }
     }
 
@@ -150,7 +151,7 @@ Item {
         text: "Sort lastName"
 
         onClicked: {
-            contacts.query = ("[?_type=\"Contact\"][/lastName]")
+            contacts.sortOrder = '[/lastName]'
         }
     }
 
@@ -187,7 +188,7 @@ Item {
         color:  "lightgray"
         Text {
             anchors.centerIn: parent
-            text: "limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
+            text: "cache size : " + contacts.cacheSize + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
         }
     }
 }

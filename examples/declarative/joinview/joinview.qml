@@ -68,15 +68,22 @@ Rectangle {
 //! [Installing the View Schema]
                 var schema = {"_type": "_schemaType", "name": "ContactLogView", "schema": {"extends": "View"}};
                 systemPartition.create(schema, installMap);
-//! [Installing the View Schema]
-                var indexDefinition = {
-                    "_type": "Index",
-                    "name": "number",
-                    "propertyName": "number",
-                    "propertyType": "string"
-                };
+                //! [Installing the View Schema]
+                var indexDefinitions = [{
+                                            "_type": "Index",
+                                            "name": "number",
+                                            "propertyName": "number",
+                                            "propertyType": "string"
+                                        },
+                                        {
+                                            "_type": "Index",
+                                            "name": "logDate",
+                                            "objectType": "ContactLogView",
+                                            "propertyName": "date",
+                                            "propertyType": "string"
+                                        }];
 //! [Installing the Join Object]
-                systemPartition.create(indexDefinition);
+                systemPartition.create(indexDefinitions);
 //! [Installing the Join Object]
             }
         }
@@ -95,7 +102,7 @@ Rectangle {
             if (results.length > 0) {
                 // Map object exists, set partition
                 console.log("Map Created");
-                contacts.partition = systemPartition;
+                contacts.partitions = [systemPartition];
             } else {
                 systemPartition.create(createJoinDefinition(), installMap);
             }
@@ -156,8 +163,8 @@ Rectangle {
 
     JsonDb.JsonDbListModel {
         id: contacts
-        partition: systemPartition
-        query: '[?_type="ContactLogView"][/date]'
+        query: '[?_type="ContactLogView"]'
+        sortOrder: "[/logDate]"
         roleNames: ["date", "name", "number"]
     }
 

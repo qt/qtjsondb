@@ -86,7 +86,7 @@ Rectangle {
             var results = reduceTypeQuery.takeResults();
             if (results.length > 0) {
                 // Reduce object exists, set partition
-                contacts.partition = systemPartition;
+                contacts.partitions = [systemPartition];
             } else {
                 // Create Map Object
                 var reduceDefinition = {
@@ -140,9 +140,10 @@ Rectangle {
 
     JsonDb.JsonDbListModel {
         id: contacts
-        query: '[?_type="ReducedPhoneView"][/key]'
+        query: '[?_type="ReducedPhoneView"]'
+        sortOrder: '[/key]'
         roleNames: ["key", "value"]
-        limit: 100
+        cacheSize: 100
     }
 
     Component.onCompleted: { schemaTypeQuery.start(); }
@@ -179,7 +180,7 @@ Rectangle {
         Text {
             anchors.centerIn: parent
             font.pointSize: fontsize-4
-            text: "Cache limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
+            text: "Cache size : " + contacts.cacheSize + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
         }
     }
     Rectangle {

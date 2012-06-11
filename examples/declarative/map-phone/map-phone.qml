@@ -87,7 +87,7 @@ Rectangle {
             var results = mapTypeQuery.takeResults();
             if (results.length > 0) {
                 // Map object exists, set partition
-                contacts.partition = systemPartition;
+                contacts.partitions = [systemPartition];
             } else {
 //! [Creating a Map Object]
                 var mapDefinition = { "_type": "Map", "targetType": "PhoneView",
@@ -125,9 +125,10 @@ Rectangle {
 
     JsonDb.JsonDbListModel {
         id: contacts
-        query: '[?_type="PhoneView"][/phoneNumber]'
+        query: '[?_type="PhoneView"]'
+        sortOrder: '[/phoneNumber]'
         roleNames: ["phoneNumber", "firstName", "lastName"]
-        limit: 100
+        cacheSize: 100
     }
     Component.onCompleted: { schemaTypeQuery.start(); }
     Rectangle {
@@ -200,7 +201,7 @@ Rectangle {
         Text {
             anchors.centerIn: parent
             font.pointSize: fontsize-4
-            text: "Cache Limit : " + contacts.limit + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
+            text: "Cache size : " + contacts.cacheSize + "  rowCount : " + contacts.rowCount + "  state : " + contacts.state
         }
     }
     Rectangle {
