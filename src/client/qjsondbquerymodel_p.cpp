@@ -445,7 +445,6 @@ void QJsonDbQueryModelPrivate::emitDataChanged(int from, int to)
 
 void QJsonDbQueryModelPrivate::generateCustomData(QJsonObject &val)
 {
-    Q_Q(QJsonDbQueryModel);
     QJSValueList args;
     args << injectCallback.engine()->toScriptValue(val);
     QJSValue retVal = injectCallback.call(args);
@@ -573,9 +572,19 @@ void QJsonDbQueryModelPrivate::reset()
     for (int i = 0; i < partitionObjectUuids.count(); i++) {
         partitionObjectUuids[i].clear();
     }
+    for (int i = 0; i < indexRequests.count(); i++) {
+        indexRequests[i]->resetRequest();
+    }
+    for (int i = 0; i < keyRequests.count(); i++) {
+        keyRequests[i]->resetRequest();
+    }
+    for (int i = 0; i < valueRequests.count(); i++) {
+        valueRequests[i]->resetRequest();
+    }
 
     objectCache.clear();
     objectUuids.clear();
+    tmpObjects.clear();
     objectSortValues.clear();
     currentCacheRequest.clear();
     cacheMiss.clear();
@@ -652,11 +661,29 @@ void QJsonDbQueryModelPrivate::initializeModel(bool reset)
         objectCache.clear();
         objectUuids.clear();
         objectSortValues.clear();
+        tmpObjects.clear();
+        currentCacheRequest.clear();
+        cacheMiss.clear();
+        requestQueue.clear();
+
         for (int i = 0; i < partitionObjectUuids.count(); i++) {
             partitionObjectUuids[i].clear();
         }
         for (int i = 0; i < partitionIndexDetails.count(); i++) {
             partitionIndexDetails[i].clear();
+        }
+        for (int i = 0; i < partitionKeyRequestDetails.count(); i++) {
+            partitionKeyRequestDetails[i].clear();
+        }
+
+        for (int i = 0; i < indexRequests.count(); i++) {
+            indexRequests[i]->resetRequest();
+        }
+        for (int i = 0; i < keyRequests.count(); i++) {
+            keyRequests[i]->resetRequest();
+        }
+        for (int i = 0; i < valueRequests.count(); i++) {
+            valueRequests[i]->resetRequest();
         }
     }
     for (int i = 0; i < partitionObjects.count(); i++) {
@@ -1572,9 +1599,8 @@ void QJsonDbQueryModel::setQuery(const QString &newQuery)
         return;
 
     d->query = l_query;
-    if (rowCount() && d->query.isEmpty()) {
+    if (d->query.isEmpty())
         d->reset();
-    }
 
     if (!d->componentComplete || d->query.isEmpty() || !d->partitionObjects.count() || !d->partitionsReady())
         return;

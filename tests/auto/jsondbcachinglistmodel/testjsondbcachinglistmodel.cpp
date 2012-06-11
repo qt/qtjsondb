@@ -1609,6 +1609,66 @@ void TestJsonDbCachingListModel::useDataToGetUuidAndIndexValue()
     delete queryModel;
 }
 
+void TestJsonDbCachingListModel::changeQueryWhileQuerying()
+{
+    resetWaitFlags();
+
+    createIndex("anotherNumber2", "number");
+
+    for (int i=0; i < 1000; i++) {
+        QVariantMap item;
+        item.insert("_type", __FUNCTION__);
+        item.insert("anotherNumber2", i);
+        int id = i%2 ? create(item, "com.nokia.shared.1") : create(item, "com.nokia.shared.2");
+        waitForResponse1(id);
+    }
+
+    QJsonDbQueryModel *queryModel = new QJsonDbQueryModel(QJsonDbConnection::defaultConnection(), this);
+    queryModel->setSortOrder(QString("[/anotherNumber2]"));
+    queryModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+    queryModel->setCacheSize(100);
+    queryModel->setPartitionNames(QStringList() << "com.nokia.shared.1" << "com.nokia.shared.2");
+    queryModel->setQueryRoleNames(QStringList() << "_type" << "_uuid" << "_indexValue" << "anotherNumber2");
+    connectListModel(queryModel);
+
+    queryModel->populate();
+
+    mWaitingForQueryingState = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForQueryingState, false);
+
+    queryModel->setQuery(QString("[?_type=\"foo\"]"));
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    QCOMPARE(queryModel->rowCount(), 0);
+
+    queryModel->setQuery(QString("[?_type=\"%1\"]").arg(__FUNCTION__));
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    QCOMPARE(queryModel->rowCount(), 1000);
+
+    // Make a query that does not hit cache
+    // Should put the model into querying state and send the requests
+    (void)queryModel->data (980, 3);
+
+    // Reset the model by changing the query
+    queryModel->setQuery(QString("[?_type=\"foo\"]"));
+
+    mWaitingForReset = true;
+    waitForExitOrTimeout();
+    QCOMPARE(mWaitingForReset, false);
+
+    QCOMPARE(queryModel->rowCount(), 0);
+
+    delete queryModel;
+}
+
 QStringList TestJsonDbCachingListModel::getOrderValues(QAbstractListModel *listModel)
 {
     QStringList vals;
@@ -1679,6 +1739,9 @@ void TestJsonDbCachingListModel::stateChanged()
     QAbstractListModel *model = qobject_cast<QAbstractListModel *>(sender());
     if (model->property("state").toInt() == 2 && mWaitingForStateChanged) {
         mWaitingForStateChanged = false;
+        eventLoop1.exit(0);
+    } else if (model->property("state").toInt() == 1 && mWaitingForQueryingState) {
+        mWaitingForQueryingState = false;
         eventLoop1.exit(0);
     }
 }
@@ -1773,6 +1836,7 @@ void TestJsonDbCachingListModel::resetWaitFlags()
     mWaitingForReset = false;
     mWaitingForChanged = false;
     mWaitingForRemoved = false;
+    mWaitingForQueryingState = false;
 }
 
 void TestJsonDbCachingListModel::waitForItemChanged(bool waitForRemove)

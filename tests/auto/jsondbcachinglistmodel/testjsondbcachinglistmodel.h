@@ -103,6 +103,7 @@ private slots:
     void roleNames();
     void getItemNotInCache();
     void useDataToGetUuidAndIndexValue();
+    void changeQueryWhileQuerying();
 public:
     void timeout();
 private:
@@ -134,6 +135,7 @@ private:
     int mItemsUpdated;
     int mItemsRemoved;
     bool mWaitingForStateChanged;
+    bool mWaitingForQueryingState;
     bool mWaitingForRowsInserted;
     bool mWaitingForReset;
     bool mWaitingForChanged;
