@@ -118,11 +118,9 @@ void JsonDbMapDefinition::definitionRemoved(JsonDbPartition *partition, JsonDbOb
                                                            definitionUuid,
                                                            targetType);
     JsonDbObjectList objects = getObjectResponse.data;
-    for (int i = 0; i < objects.size(); i++) {
-        JsonDbObject o = objects[i];
-        o.markDeleted();
-        partition->updateObject(partition->defaultOwner(), o, JsonDbPartition::ViewObject);
-    }
+    for (int i = 0; i < objects.size(); i++)
+        objects[i].markDeleted();
+    partition->updateObjects(partition->defaultOwner(), objects, JsonDbPartition::ViewObject);
 }
 
 void JsonDbMapDefinition::initScriptEngine()
