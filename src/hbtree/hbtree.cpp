@@ -110,13 +110,12 @@ HBtreePrivate::~HBtreePrivate()
 
 bool HBtreePrivate::open(int fd)
 {
-    close();
+    Q_ASSERT(fd_ == -1);
+    Q_ASSERT(fd != -1);
 
     Q_Q(HBtree);
     q->stats_ = HBtree::Stat();
 
-    if (fd == -1)
-        return false;
     fd_ = fd;
 
     if (::flock(fd_, LOCK_EX | LOCK_NB) != 0) {
@@ -2892,7 +2891,9 @@ QString HBtree::fileName() const
 
 bool HBtree::open()
 {
-    close();
+    if (isOpen())
+        return true;
+
     Q_D(HBtree);
 
     if (d->fileName_.isEmpty())
