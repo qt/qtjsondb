@@ -1557,7 +1557,7 @@ void TestQJsonDbRequest::defaultPartition()
         QJsonArray defs;
 
         QJsonObject def1;
-        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(index++));
+        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(++index));
         def1.insert(QLatin1String("path"), QLatin1String("."));
         defs.append(def1);
 
@@ -1581,7 +1581,7 @@ void TestQJsonDbRequest::defaultPartition()
         QJsonArray defs;
 
         QJsonObject def1;
-        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(index++));
+        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(++index));
         def1.insert(QLatin1String("path"), QLatin1String("."));
         defs.append(def1);
 
@@ -1612,7 +1612,7 @@ void TestQJsonDbRequest::defaultPartition()
         QJsonArray defs;
 
         QJsonObject def1;
-        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(index++));
+        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(++index));
         def1.insert(QLatin1String("path"), QLatin1String("."));
         def1.insert(QLatin1String("removable"), true);
         defs.append(def1);
@@ -1650,7 +1650,7 @@ void TestQJsonDbRequest::defaultPartition()
         QJsonArray defs;
 
         QJsonObject def1;
-        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(index++));
+        def1.insert(QLatin1String("name"), QString("com.qt-project.test1_%1").arg(++index));
         def1.insert(QLatin1String("path"), QLatin1String("."));
         def1.insert(QLatin1String("removable"), true);
         defs.append(def1);
