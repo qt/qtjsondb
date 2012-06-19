@@ -50,6 +50,7 @@ QT_BEGIN_NAMESPACE_JSONDB
     \qmlclass Notification JsonDbNotify
     \inqmlmodule QtJsonDb 1.0
     \since 1.0
+    \brief Allows registration for notifications matching a query in a partition.
 
     This allows to register for different notifications that matches a query in a Partition.
     Users can connect to onNotification signal which is fired for objects matching the query.

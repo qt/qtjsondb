@@ -56,6 +56,7 @@ QT_BEGIN_NAMESPACE_JSONDB
     \qmlclass Partition JsonDbPartition
     \inqmlmodule QtJsonDb 1.0
     \since 1.0
+    \brief Find, create, update, or remove objects in a partition.
 
     The partition object allows you find, create, update, or remove objects from JsonDb.
     It also allows to create query, notification  and changesSince objects, query. A partition

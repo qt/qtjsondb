@@ -500,6 +500,7 @@ static QVariantMap updateProperty(QVariantMap item, const QStringList &propertyC
     \inqmlmodule QtAddOn.JsonDb 1.0
     \inherits ListModel
     \since 1.0
+    \brief Provides a ListModel displaying data items matching a query.
 
     The JsonDbListModel provides a ListModel usable with views such as
     ListView or GridView displaying data items matching a query.

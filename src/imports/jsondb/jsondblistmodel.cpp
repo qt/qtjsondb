@@ -64,6 +64,7 @@ QT_BEGIN_NAMESPACE_JSONDB
     \qmlclass JsonDbListModel JsonDbListModel
     \inqmlmodule QtJsonDb 1.0
     \since 1.0
+    \brief Provides a ListModel displaying data matching a query
 
     The JsonDbListModel provides a read-only ListModel usable with views such as
     ListView or GridView displaying data items matching a query. The sorting is done using
