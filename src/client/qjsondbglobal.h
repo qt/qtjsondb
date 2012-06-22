@@ -44,10 +44,14 @@
 
 #include "QtCore/qglobal.h"
 
-#if defined(QT_BUILD_JSONDB_LIB)
+#ifndef QT_STATIC
+# if defined(QT_BUILD_JSONDB_LIB)
 #  define Q_JSONDB_EXPORT Q_DECL_EXPORT
-#else
+# else
 #  define Q_JSONDB_EXPORT Q_DECL_IMPORT
+# endif
+#else
+# define Q_JSONDB_EXPORT
 #endif
 
 #if defined(QT_NAMESPACE)
