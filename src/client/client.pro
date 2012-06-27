@@ -1,17 +1,14 @@
-TEMPLATE = lib
-TARGET = $$QT.jsondb.name
-MODULE = jsondb
-
 load(qt_module)
-load(qt_module_config)
 
-DESTDIR = $$QT.jsondb.libs
-VERSION = $$QT.jsondb.VERSION
+MODULE = jsondb
+TARGET = QtJsonDb
+VERSION = 1.0.0
 
-QT = core network qml jsondbpartition
+QT = core
+QT_PRIVATE = network qml jsondbpartition
 
 CONFIG += module create_prl
-MODULE_PRI = ../../modules/qt_jsondb.pri
+load(qt_module_config)
 
 include(../jsonstream/jsonstream.pri)
 INCLUDEPATH += $$PWD/../common

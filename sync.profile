@@ -13,11 +13,6 @@
     "core" => "#include <QtCore/QtCore>\n",
     "network" => "#include <QtNetwork/QtNetwork>\n",
 );
-%modulepris = (
-    "QtJsonDb" => "$basedir/modules/qt_jsondb.pri",
-    "QtJsonDbPartition" => "$basedir/modules/qt_jsondbpartition.pri",
-    "QtJsonDbCompat" => "$basedir/modules/qt_jsondbcompat.pri",
-);
 $publicclassregexp = "QJsonDb.+";
 # Module dependencies.
 # Every module that is required to build this module should have one entry.

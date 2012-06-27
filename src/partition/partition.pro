@@ -1,17 +1,12 @@
-TEMPLATE = lib
-TARGET = $$QT.jsondbpartition.name
-MODULE = jsondbpartition
-
 load(qt_module)
-load(qt_module_config)
 
-DESTDIR = $$QT.jsondbpartition.libs
-VERSION = $$QT.jsondbpartition.VERSION
-
-QT = core network qml
+MODULE = jsondbpartition
+TARGET = QtJsonDbPartition
+VERSION = 1.0.0
+QT = core qml
 
 CONFIG += module create_prl
-MODULE_PRI = ../../modules/qt_jsondbpartition.pri
+load(qt_module_config)
 
 include(../3rdparty/btree/btree.pri)
 include(../hbtree/hbtree.pri)
