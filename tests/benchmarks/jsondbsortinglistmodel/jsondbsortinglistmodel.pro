@@ -1,7 +1,4 @@
-TEMPLATE = app
 TARGET = tst_bench_jsondbsortinglistmodel
-DEPENDPATH += .
-INCLUDEPATH += .
 
 QT = core network testlib gui qml jsondb
 CONFIG -= app_bundle

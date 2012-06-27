@@ -45,7 +45,7 @@
 #include "jsondbpartitionglobal.h"
 #include "jsondbstrings.h"
 
-#include "schema-validation/jsondbschema_p.h"
+#include "jsondbschema_p.h"
 
 #include <QPair>
 

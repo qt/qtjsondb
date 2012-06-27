@@ -6,17 +6,7 @@
 %moduleheaders = ( # restrict the module headers to those found in relative path
 );
 %classnames = (
-    "qtjsondbversion.h" => "QtJsonDbVersion",
     "qjsondbglobal.h" => "QtJsonDbGlobal",
-);
-%mastercontent = (
-    "core" => "#include <QtCore/QtCore>\n",
-    "network" => "#include <QtNetwork/QtNetwork>\n",
-);
-%modulepris = (
-    "QtJsonDb" => "$basedir/modules/qt_jsondb.pri",
-    "QtJsonDbPartition" => "$basedir/modules/qt_jsondbpartition.pri",
-    "QtJsonDbCompat" => "$basedir/modules/qt_jsondbcompat.pri",
 );
 $publicclassregexp = "QJsonDb.+";
 # Module dependencies.
@@ -30,8 +20,4 @@ $publicclassregexp = "QJsonDb.+";
         "qtdeclarative" => "refs/heads/master",
         "qtjsbackend" => "refs/heads/master",
         "qtxmlpatterns" => "refs/heads/master",
-);
-%configtests = (
-        "icu" => {},
-        "libedit" => {}
 );

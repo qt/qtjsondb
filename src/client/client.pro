@@ -1,23 +1,16 @@
-TEMPLATE = lib
-TARGET = $$QT.jsondb.name
+load(qt_build_config)
+
 MODULE = jsondb
+TARGET = QtJsonDb
+VERSION = 1.0.0
 
-load(qt_module)
+QT = core
+QT_PRIVATE = network qml jsondbpartition
+
 load(qt_module_config)
-
-DESTDIR = $$QT.jsondb.libs
-VERSION = $$QT.jsondb.VERSION
-DEFINES += QT_JSONDB_LIB
-
-QT = core network qml jsondbpartition
-
-CONFIG += module create_prl
-MODULE_PRI = ../../modules/qt_jsondb.pri
 
 include(../jsonstream/jsonstream.pri)
 INCLUDEPATH += $$PWD/../common
-
-HEADERS += qtjsondbversion.h
 
 HEADERS += \
     qjsondbglobal.h \
@@ -59,5 +52,3 @@ SOURCES += \
     qjsondbmodelcache_p.cpp \
     qjsondbmodelutils_p.cpp \
     qjsondbquerymodel_p.cpp
-
-mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondb.name

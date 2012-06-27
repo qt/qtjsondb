@@ -44,7 +44,7 @@
 
 #include "QtCore/qglobal.h"
 
-#if defined(QT_JSONDB_LIB)
+#if defined(QT_BUILD_JSONDB_LIB)
 #  define Q_JSONDB_EXPORT Q_DECL_EXPORT
 #else
 #  define Q_JSONDB_EXPORT Q_DECL_IMPORT

@@ -1,18 +1,11 @@
-TEMPLATE = lib
-TARGET = $$QT.jsondbpartition.name
+load(qt_build_config)
+
 MODULE = jsondbpartition
+TARGET = QtJsonDbPartition
+VERSION = 1.0.0
+QT = core qml
 
-load(qt_module)
 load(qt_module_config)
-
-DESTDIR = $$QT.jsondbpartition.libs
-VERSION = $$QT.jsondbpartition.VERSION
-DEFINES += QT_JSONDB_PARTITION_LIB
-
-QT = core network qml
-
-CONFIG += module create_prl
-MODULE_PRI = ../../modules/qt_jsondbpartition.pri
 
 include(../3rdparty/btree/btree.pri)
 include(../hbtree/hbtree.pri)
@@ -52,8 +45,8 @@ HEADERS += \
     jsondbpartitionspec.h \
     jsondbquerytokenizer_p.h \
     jsondbqueryparser.h \
-    schema-validation/jsondbschema_p.h \
-    schema-validation/jsondbcheckpoints_p.h
+    jsondbschema_p.h \
+    jsondbcheckpoints_p.h
 
 SOURCES += \
     jsondbowner.cpp \
@@ -77,9 +70,7 @@ SOURCES += \
     jsondbquerytokenizer.cpp \
     jsondbqueryparser.cpp
 
-mac:QMAKE_FRAMEWORK_BUNDLE_NAME = $$QT.jsondbpartition.name
-
-contains(config_test_icu, yes) {
+config_icu {
     LIBS += -licuuc -licui18n
 } else {
     DEFINES += NO_COLLATION_SUPPORT

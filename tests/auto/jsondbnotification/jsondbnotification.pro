@@ -1,7 +1,7 @@
-TEMPLATE = app
 TARGET = tst_jsondbnotification
-DEPENDPATH += .
-INCLUDEPATH += . ../../shared/
+
+DEPENDPATH += ../../shared/
+INCLUDEPATH += ../../shared/
 
 QT = core network testlib gui qml jsondb
 CONFIG -= app_bundle
