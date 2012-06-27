@@ -53,7 +53,6 @@
 #include "jsondbowner.h"
 #include "jsondbpartitionspec.h"
 #include "jsondbstat.h"
-#include "jsondbschemamanager_p.h"
 
 QT_BEGIN_HEADER
 
