@@ -52,8 +52,8 @@ HEADERS += \
     jsondbpartitionspec.h \
     jsondbquerytokenizer_p.h \
     jsondbqueryparser.h \
-    schema-validation/jsondbschema_p.h \
-    schema-validation/jsondbcheckpoints_p.h
+    jsondbschema_p.h \
+    jsondbcheckpoints_p.h
 
 SOURCES += \
     jsondbowner.cpp \

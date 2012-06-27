@@ -48,7 +48,7 @@
 #include <QtCore/qpair.h>
 #include <QtCore/qmap.h>
 
-#include "schema-validation/jsondbschema_p.h"
+#include "jsondbschema_p.h"
 #include "jsondbobjecttypes_p.h"
 #include "jsondbobject.h"
 
