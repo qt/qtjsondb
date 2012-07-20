@@ -1,6 +1,7 @@
 TEMPLATE = subdirs
 SUBDIRS = \
     client \
+    cmake \
     partition \
     accesscontrol \
     qbtree \
