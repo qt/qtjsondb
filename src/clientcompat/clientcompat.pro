@@ -6,6 +6,7 @@ VERSION = 1.0.0
 
 QT = core
 QT_PRIVATE = network
+CONFIG += internal_module
 
 load(qt_module_config)
 

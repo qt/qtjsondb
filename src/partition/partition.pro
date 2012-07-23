@@ -4,6 +4,7 @@ MODULE = jsondbpartition
 TARGET = QtJsonDbPartition
 VERSION = 1.0.0
 QT = core qml
+CONFIG += internal_module
 
 load(qt_module_config)
 
