@@ -39,3 +39,4 @@ config.tests/icu/icu
 config.tests/libedit/libedit
 /doc/html
 /doc/ditaxml
+tests/auto/cmake/build
