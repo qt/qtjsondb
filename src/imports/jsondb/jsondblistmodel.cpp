@@ -61,7 +61,8 @@ QT_BEGIN_NAMESPACE_JSONDB
 
 
 /*!
-    \qmlclass JsonDbListModel JsonDbListModel
+    \qmltype JsonDbListModel
+    \instantiates JsonDbListModel
     \inqmlmodule QtJsonDb 1.0
     \since 1.0
     \brief Provides a ListModel displaying data matching a query

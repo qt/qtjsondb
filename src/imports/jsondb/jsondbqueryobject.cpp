@@ -49,7 +49,8 @@
 QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
-    \qmlclass Query JsonDbQueryObject
+    \qmltype Query
+    \instantiates JsonDbQueryObject
     \inqmlmodule QtJsonDb 1.0
     \since 1.0
     \brief Allows querying for objects in a partition.

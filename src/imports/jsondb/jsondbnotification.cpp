@@ -47,7 +47,8 @@
 QT_BEGIN_NAMESPACE_JSONDB
 
 /*!
-    \qmlclass Notification JsonDbNotify
+    \qmltype Notification
+    \instantiates JsonDbNotify
     \inqmlmodule QtJsonDb 1.0
     \since 1.0
     \brief Allows registration for notifications matching a query in a partition.

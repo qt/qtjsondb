@@ -53,7 +53,8 @@
 
 QT_BEGIN_NAMESPACE_JSONDB
 /*!
-    \qmlclass Partition JsonDbPartition
+    \qmltype Partition
+    \instantiates JsonDbPartition
     \inqmlmodule QtJsonDb 1.0
     \since 1.0
     \brief Find, create, update, or remove objects in a partition.

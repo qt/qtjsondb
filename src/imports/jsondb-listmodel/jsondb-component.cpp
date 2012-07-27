@@ -90,7 +90,8 @@ void JsonDbNotificationHandle::remove()
 }
 
 /*!
-    \qmlclass JsonDbComponent JsonDbComponent
+    \qmltype JsonDbComponent
+    \instantiates JsonDbComponent
     \inqmlmodule QtAddOn.JsonDb 1.0
     \since 1.0
 
