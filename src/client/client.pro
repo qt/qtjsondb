@@ -52,3 +52,5 @@ SOURCES += \
     qjsondbmodelcache_p.cpp \
     qjsondbmodelutils_p.cpp \
     qjsondbquerymodel_p.cpp
+
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

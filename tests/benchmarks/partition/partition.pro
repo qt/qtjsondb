@@ -14,3 +14,5 @@ include(../../../src/hbtree/hbtree.pri)
 
 SOURCES += \
     bench_partition.cpp \
+
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

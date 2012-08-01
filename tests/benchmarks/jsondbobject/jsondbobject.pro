@@ -12,3 +12,5 @@ include(../../../src/hbtree/hbtree.pri)
 
 SOURCES += \
     bench_jsondbobject.cpp \
+
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0
