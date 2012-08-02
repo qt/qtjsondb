@@ -330,16 +330,17 @@ void TestJsonDbClient::initTestCase()
         QByteArray app2NameBA = app2Name.toLocal8Bit();
         if (!errno) {
             // Add primary groups
+            char *members[] = { NULL };
             struct group grp;
             grp.gr_name = appNameBA.data();
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
-            grp.gr_mem = (char *[]){NULL};
+            grp.gr_mem = members;
             struct group grp2;
             grp2.gr_name = app2NameBA.data();
             grp2.gr_passwd = NULL;
             grp2.gr_gid = gid2;
-            grp2.gr_mem = (char *[]){NULL};
+            grp2.gr_mem = members;
             QByteArray etcigrBA = etcigr.toLocal8Bit();
             FILE *grfile = ::fopen (etcigrBA.data(), "a");
             ::putgrent(&grp, grfile);
@@ -371,13 +372,14 @@ void TestJsonDbClient::initTestCase()
             ::putpwent(&pwd2, pwdfile);
             ::fclose (pwdfile);
 
+            char *members2[] = { appNameBA.data(), NULL };
             // Add 'User' supplementary group
             gid = nextFreeGid(gid2+1);
             grp.gr_name = const_cast<char *>("User");
             grp.gr_passwd = NULL;
             grp.gr_gid = gid;
             // Add only the first user to it
-            grp.gr_mem = (char *[]){appNameBA.data(), NULL};
+            grp.gr_mem = members2;
             grfile = ::fopen (etcigrBA.data(), "a");
             ::putgrent(&grp, grfile);
             ::fclose (grfile);
