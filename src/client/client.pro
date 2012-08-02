@@ -5,7 +5,7 @@ TARGET = QtJsonDb
 VERSION = 1.0.0
 
 QT = core
-QT_PRIVATE = network qml jsondbpartition
+QT_FOR_PRIVATE = network qml jsondbpartition
 
 load(qt_module_config)
 
