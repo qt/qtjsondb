@@ -8,7 +8,7 @@ QT = core
 QT_FOR_PRIVATE = network
 CONFIG += internal_module
 
-load(qt_module_config)
+load(qt_module)
 
 include(../jsonstream/jsonstream.pri)
 

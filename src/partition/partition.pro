@@ -6,7 +6,7 @@ VERSION = 1.0.0
 QT = core qml
 CONFIG += internal_module
 
-load(qt_module_config)
+load(qt_module)
 
 include(../3rdparty/btree/btree.pri)
 include(../hbtree/hbtree.pri)

@@ -7,7 +7,7 @@ VERSION = 1.0.0
 QT = core
 QT_FOR_PRIVATE = network qml jsondbpartition
 
-load(qt_module_config)
+load(qt_module)
 
 include(../jsonstream/jsonstream.pri)
 INCLUDEPATH += $$PWD/../common
