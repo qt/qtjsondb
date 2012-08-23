@@ -391,7 +391,7 @@ void QJsonDbReadObjectRequestPrivate::_q_onFinished()
 
     This is just a convenience signal that can be used instead of finished().
 
-    \sa objectUnavailable() error()
+    \sa objectUnavailable(), error()
 */
 
 /*!
@@ -402,7 +402,7 @@ void QJsonDbReadObjectRequestPrivate::_q_onFinished()
 
     This is just a convenience signal that can be used instead of finished().
 
-    \sa objectAvailable() error()
+    \sa objectAvailable(), error()
 */
 
 #include "moc_qjsondbreadrequest.cpp"
