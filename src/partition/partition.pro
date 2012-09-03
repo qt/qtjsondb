@@ -1,5 +1,3 @@
-load(qt_build_config)
-
 MODULE = jsondbpartition
 TARGET = QtJsonDbPartition
 VERSION = 1.0.0

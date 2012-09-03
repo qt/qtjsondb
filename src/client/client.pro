@@ -1,5 +1,3 @@
-load(qt_build_config)
-
 MODULE = jsondb
 TARGET = QtJsonDb
 VERSION = 1.0.0
