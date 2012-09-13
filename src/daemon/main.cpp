@@ -136,22 +136,22 @@ static void usage(const char *errorMessage = 0)
 }
 
 static FILE *logstream = 0;
-void logMessageOutput(QtMsgType type, const char *msg)
+void logMessageOutput(QtMsgType type, const QMessageLogContext &, const QString &msg)
 {
     if (!logstream)
         return;
     switch (type) {
     case QtDebugMsg:
-        fprintf(logstream, "Debug: %s\n", msg);
+        fprintf(logstream, "Debug: %s\n", qPrintable(msg));
         break;
     case QtWarningMsg:
-        fprintf(logstream, "Warning: %s\n", msg);
+        fprintf(logstream, "Warning: %s\n", qPrintable(msg));
         break;
     case QtCriticalMsg:
-        fprintf(logstream, "Critical: %s\n", msg);
+        fprintf(logstream, "Critical: %s\n", qPrintable(msg));
         break;
     case QtFatalMsg:
-        fprintf(logstream, "Fatal: %s\n", msg);
+        fprintf(logstream, "Fatal: %s\n", qPrintable(msg));
         abort();
     }
 }
@@ -275,7 +275,7 @@ int main(int argc, char * argv[])
             return errno;
         }
         ::setbuf(logstream, 0);
-        qInstallMsgHandler(logMessageOutput);
+        qInstallMessageHandler(logMessageOutput);
     }
 
     DBServer server(searchPath);
