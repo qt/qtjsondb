@@ -53,7 +53,11 @@
 #include <QSharedPointer>
 #include <QStack>
 
+#ifndef Q_OS_WIN32
 #define HBTREE_ATTRIBUTE_PACKED __attribute__((packed))
+#else
+#define HBTREE_ATTRIBUTE_PACKED
+#endif
 
 class HBtreePrivate
 {
@@ -217,7 +221,9 @@ public:
             quint32 size; // size of file at time of commit
             quint32 flags; // If marker has this, it was synced.
         } HBTREE_ATTRIBUTE_PACKED;
+#ifndef Q_OS_WIN32
         Q_STATIC_ASSERT(sizeof(Meta) == 28);
+#endif
         Meta meta;
         QSet<quint32> residueHistory; // history nodes that don't have a home. usable after sync.
         quint32 overflowPage;

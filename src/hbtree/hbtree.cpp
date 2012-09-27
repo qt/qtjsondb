@@ -89,6 +89,38 @@
 
 const quint32 HBtreePrivate::PageInfo::INVALID_PAGE = 0xFFFFFFFF;
 
+
+
+#ifdef Q_OS_WIN32
+ssize_t pread(int fd, void *buf, size_t count, off_t offset)
+{
+    lseek(fd, offset, SEEK_SET);
+    return read(fd, buf, count);
+}
+
+ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset)
+{
+    lseek(fd, offset, SEEK_SET);
+    return write(fd, buf, count);
+}
+
+int fsync(int fd)
+{
+    return 0;
+}
+
+#define LOCK_UN 0
+#define LOCK_EX 22
+#define LOCK_NB 23
+
+int flock(int fd, int operation)
+{
+    return 0;
+}
+
+#endif
+
+
 // ######################################################################
 // ### Creation destruction
 // ######################################################################
@@ -324,7 +356,12 @@ bool HBtreePrivate::writeSpec()
     Spec spec;
     spec.version = HBTREE_VERSION;
     spec.keySize = 255;
+#ifndef Q_OS_WIN32
     spec.pageSize = spec_.pageSize ? spec_.pageSize : (sb.st_blksize > HBTREE_DEFAULT_PAGE_SIZE ? sb.st_blksize : HBTREE_DEFAULT_PAGE_SIZE);
+#else
+    spec.pageSize = spec_.pageSize ? spec_.pageSize : HBTREE_DEFAULT_PAGE_SIZE;
+#endif
+
 
     pageBuffer_.fill((char)0, spec.pageSize);
 
