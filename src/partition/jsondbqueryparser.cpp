@@ -43,8 +43,8 @@
 #include <QString>
 
 #include "jsondbqueryparser.h"
-#include "private/jsondbquerytokenizer_p.h"
-#include "private/jsondbutils_p.h"
+#include "jsondbquerytokenizer_p.h"
+#include "jsondbutils_p.h"
 #include "jsondbstrings.h"
 #include "jsondbsettings.h"
 

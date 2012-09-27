@@ -58,7 +58,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#ifndef Q_OS_WIN32
 #include <sys/statvfs.h>
+#endif
 #include <errno.h>
 
 #include "jsondbstrings.h"
@@ -1961,6 +1963,7 @@ void JsonDbPartitionPrivate::removeSchema(const QString &schemaName)
 
 void JsonDbPartitionPrivate::updateSpaceStatus()
 {
+#ifndef Q_OS_WIN32
     mDiskSpaceStatus = JsonDbPartition::UnknownStatus;
     struct statvfs status;
 
@@ -1976,6 +1979,7 @@ void JsonDbPartitionPrivate::updateSpaceStatus()
         mDiskSpaceStatus = JsonDbPartition::OutOfSpace;
         return;
     }
+#endif
     mDiskSpaceStatus = JsonDbPartition::HasSpace;
 }
 

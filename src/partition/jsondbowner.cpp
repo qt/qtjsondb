@@ -249,6 +249,7 @@ bool JsonDbOwner::setOwnerCapabilities(QString username, JsonDbPartition *partit
 #endif
 }
 
+#ifndef Q_OS_WIN32
 bool JsonDbOwner::setOwnerCapabilities(uid_t uid, JsonDbPartition *partition)
 {
     if (!jsondbSettings->enforceAccessControl()) {
@@ -270,6 +271,7 @@ bool JsonDbOwner::setOwnerCapabilities(uid_t uid, JsonDbPartition *partition)
     return true;
 #endif
 }
+#endif
 
 #include "moc_jsondbowner.cpp"
 

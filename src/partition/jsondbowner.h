@@ -78,7 +78,9 @@ public:
     void setAllowAll(bool allowAll) { mAllowAll = allowAll; }
 
     bool isAllowed(JsonDbObject &object, const QString &partition, const QString &op) const;
+#ifndef Q_OS_WIN32
     bool setOwnerCapabilities(uid_t uid, JsonDbPartition *partition);
+#endif
     bool setOwnerCapabilities(QString username, JsonDbPartition *partition);
 
 private:
