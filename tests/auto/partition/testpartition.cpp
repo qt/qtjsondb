@@ -4370,18 +4370,18 @@ void TestPartition::settings()
     jsondbSettings->setDebugQuery(false);
 
     // then with environment variables
-    ::setenv("JSONDB_REJECT_STALE_UPDATES", "true", true);
-    ::setenv("JSONDB_DEBUG", "false", true);
-    ::setenv("JSONDB_VERBOSE", "false", true);
-    ::setenv("JSONDB_PERFORMANCE_LOG", "true", true);
-    ::setenv("JSONDB_CACHE_SIZE", "256", true);
-    ::setenv("JSONDB_COMPACT_RATE", "1500", true);
-    ::setenv("JSONDB_ENFORCE_ACCESS_CONTROL", "true", true);
-    ::setenv("JSONDB_TRANSACTION_SIZE", "75", true);
-    ::setenv("JSONDB_VALIDATE_SCHEMAS", "true", true);
-    ::setenv("JSONDB_SYNC_INTERVAL", "6000", true);
-    ::setenv("JSONDB_INDEX_SYNC_INTERVAL", "17000", true);
-    ::setenv("JSONDB_DEBUG_QUERY", "true", true);
+    qputenv("JSONDB_REJECT_STALE_UPDATES", "true");
+    qputenv("JSONDB_DEBUG", "false");
+    qputenv("JSONDB_VERBOSE", "false");
+    qputenv("JSONDB_PERFORMANCE_LOG", "true");
+    qputenv("JSONDB_CACHE_SIZE", "256");
+    qputenv("JSONDB_COMPACT_RATE", "1500");
+    qputenv("JSONDB_ENFORCE_ACCESS_CONTROL", "true");
+    qputenv("JSONDB_TRANSACTION_SIZE", "75");
+    qputenv("JSONDB_VALIDATE_SCHEMAS", "true");
+    qputenv("JSONDB_SYNC_INTERVAL", "6000");
+    qputenv("JSONDB_INDEX_SYNC_INTERVAL", "17000");
+    qputenv("JSONDB_DEBUG_QUERY", "true");
     jsondbSettings->reload();
 
     QVERIFY(jsondbSettings->rejectStaleUpdates());

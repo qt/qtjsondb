@@ -119,7 +119,7 @@ inline QProcess *launchJsonDbDaemon(const char *prefix, const QString &socketNam
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert("JSONDB_SOCKET", socketName);
     process->setProcessEnvironment(env);
-    ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
+    qputenv("JSONDB_SOCKET", qPrintable(socketName));
 
     QStringList argList(args);
     argList << QLatin1String("-reject-stale-updates");
@@ -169,7 +169,7 @@ inline qint64 launchJsonDbDaemonDetached(const char *prefix, const QString &sock
     if (!QFile::exists(jsondb_app))
         jsondb_app = QLatin1String("jsondb"); // rely on the PATH
 
-    ::setenv("JSONDB_SOCKET", qPrintable(socketName), 1);
+    qputenv("JSONDB_SOCKET", qPrintable(socketName));
     QStringList argList(args);
     argList << QLatin1String("-reject-stale-updates");
     argList << QLatin1String("-config-path") << QFileInfo(configfile).absolutePath().toLocal8Bit();
