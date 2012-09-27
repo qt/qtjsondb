@@ -51,9 +51,6 @@ QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 JsonDbBtree::JsonDbBtree()
     : mBtree(new Btree())
 {
-#ifndef JSONDB_USE_HBTREE
-    mBtree->setAutoCompactRate(jsondbSettings->compactRate());
-#endif
 }
 
 JsonDbBtree::~JsonDbBtree()
@@ -74,18 +71,11 @@ QString JsonDbBtree::fileName() const
 
 bool JsonDbBtree::open(OpenFlags flags)
 {
-#ifdef JSONDB_USE_HBTREE
     HBtree::OpenMode mode = HBtree::ReadWrite;
     if (flags & ReadOnly)
         mode = HBtree::ReadOnly;
     mBtree->setOpenMode(mode);
     return mBtree->open();
-#else
-    QBtree::DbFlags dbFlags = QBtree::UseSyncMarker | QBtree::NoSync;
-    if (flags & ReadOnly)
-        dbFlags |= QBtree::ReadOnly;
-    return mBtree->open(flags);
-#endif
 }
 
 void JsonDbBtree::close()
@@ -137,27 +127,13 @@ bool JsonDbBtree::removeOne(const QByteArray &key)
 bool JsonDbBtree::clearData()
 {
     Q_ASSERT(isWriting() == false);
-#ifdef JSONDB_USE_HBTREE
     return mBtree->clearData();
-#else
-    QString fileName = mBtree->fileName();
-    if (QFile::exists(fileName)) {
-        close();
-        QFile::remove(fileName);
-        return mBtree->open();
-    }
-    return true;
-#endif
 }
 
 bool JsonDbBtree::compact()
 {
     Q_ASSERT(mBtree);
-#ifdef JSONDB_USE_HBTREE
     return true;
-#else
-    return mBtree->compact();
-#endif
 }
 
 bool JsonDbBtree::rollback()
@@ -169,11 +145,7 @@ bool JsonDbBtree::rollback()
 void JsonDbBtree::setAutoCompactRate(int rate) const
 {
     Q_ASSERT(mBtree);
-#ifdef JSONDB_USE_HBTREE
     Q_UNUSED(rate);
-#else
-    mBtree->setAutoCompactRate(rate);
-#endif
 }
 
 JsonDbBtree::Stat JsonDbBtree::stats() const

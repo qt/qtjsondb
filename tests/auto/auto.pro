@@ -4,7 +4,6 @@ SUBDIRS = \
     cmake \
     partition \
     accesscontrol \
-    qbtree \
     jsondblistmodel \
     jsondbsortinglistmodel \
     jsondbcachinglistmodel \

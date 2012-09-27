@@ -47,9 +47,6 @@
 #include "jsondbpartition_p.h"
 #include "jsondbsettings.h"
 #include "jsondbutils_p.h"
-#include "qbtree.h"
-#include "qbtreecursor.h"
-#include "qbtreetxn.h"
 
 #include <QJsonDocument>
 #include <QRegExp>

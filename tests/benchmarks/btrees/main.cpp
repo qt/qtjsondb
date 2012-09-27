@@ -47,10 +47,7 @@
 
 #include "hbtree.h"
 #include "hbtree_p.h"
-#include "qbtree.h"
 #include "hbtreetransaction.h"
-#include "qbtreetxn.h"
-#include "qbtreecursor.h"
 
 class TestBtrees: public QObject
 {
@@ -99,7 +96,6 @@ private slots:
 private:
 
     HBtree *hybridDb;
-    QBtree *appendOnlyDb;
     const HBtreePrivate *hybridPrivate;
 
     struct SizeStat {
@@ -115,14 +111,12 @@ private:
 };
 
 TestBtrees::TestBtrees()
-    : hybridDb(0), appendOnlyDb(0)
+    : hybridDb(0)
 {
 }
 
 static const char hybridDbFileName[] = "tst_hbtree.db";
-static const char appendOnlyDbFileName[] = "tst_aobtree.db";
 static const char hybridDataTag[] = "Hybrid";
-static const char appendOnlyDataTag[] = "Append-Only";
 
 const char * sizeStr(size_t sz)
 {
@@ -158,18 +152,11 @@ void TestBtrees::cleanupTestCase()
 void TestBtrees::init()
 {
     QFile::remove(hybridDbFileName);
-    QFile::remove(appendOnlyDbFileName);
 
     hybridDb = new HBtree(hybridDbFileName);
-    appendOnlyDb = new QBtree(appendOnlyDbFileName);
 
     if (!hybridDb->open(HBtree::ReadWrite))
         Q_ASSERT(false);
-
-    if (!appendOnlyDb->open(QBtree::NoSync | QBtree::UseSyncMarker))
-        Q_ASSERT(false);
-
-    appendOnlyDb->setAutoCompactRate(1000);
 
     hybridPrivate = hybridDb->d_func();
 }
@@ -185,19 +172,11 @@ void TestBtrees::cleanup()
         SizeStat &ss = sizeStats_[QTest::currentTestFunction()];
         ss.hybridSize = qMax(file.size(), ss.hybridSize);
         ss.numCollectible = qMax(hybridPrivate->collectiblePages_.size(), ss.numCollectible);
-    } else if (tag == appendOnlyDataTag) {
-        QFile file(appendOnlyDbFileName);
-        file.open(QFile::ReadOnly);
-        SizeStat &ss = sizeStats_[QTest::currentTestFunction()];
-        ss.appendOnlySize = qMax(file.size(), ss.appendOnlySize);
     }
 
     delete hybridDb;
-    delete appendOnlyDb;
-    appendOnlyDb = 0;
     hybridDb = 0;
     QFile::remove(hybridDbFileName);
-    QFile::remove(appendOnlyDbFileName);
 
 }
 
@@ -205,7 +184,6 @@ void TestBtrees::openClose_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::openClose()
@@ -217,11 +195,6 @@ void TestBtrees::openClose()
             hybridDb->close();
             QVERIFY(hybridDb->open());
         }
-    } else {
-        QBENCHMARK {
-            appendOnlyDb->close();
-            QVERIFY(appendOnlyDb->open());
-        }
     }
 }
 
@@ -229,7 +202,6 @@ void TestBtrees::insertItem_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::insertItem()
@@ -246,16 +218,6 @@ void TestBtrees::insertItem()
             QVERIFY(txn->put(key, value));
             QVERIFY(txn->commit(i));
         }
-    } else {
-        QBENCHMARK {
-            ++i;
-            QByteArray key = QByteArray::number(i);
-            QByteArray value = QByteArray::number(i);
-            QBtreeTxn *txn = appendOnlyDb->beginWrite();
-            QVERIFY(txn);
-            QVERIFY(txn->put(key, value));
-            QVERIFY(txn->commit(i));
-        }
     }
 }
 
@@ -263,7 +225,6 @@ void TestBtrees::insert1000Items_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::insert1000Items()
@@ -282,17 +243,6 @@ void TestBtrees::insert1000Items()
                 QVERIFY(txn->commit(i));
             }
         }
-    } else {
-        QBENCHMARK {
-            for (int i = 0; i < numItems; ++i) {
-                QByteArray key = QByteArray::number(i);
-                QByteArray value = QByteArray::number(i);
-                QBtreeTxn *txn = appendOnlyDb->beginWrite();
-                QVERIFY(txn);
-                QVERIFY(txn->put(key, value));
-                QVERIFY(txn->commit(i));
-            }
-        }
     }
 }
 
@@ -300,7 +250,6 @@ void TestBtrees::insert1000ItemsInOneTransaction_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::insert1000ItemsInOneTransaction()
@@ -319,24 +268,12 @@ void TestBtrees::insert1000ItemsInOneTransaction()
             }
             QVERIFY(txn->commit(42));
         }
-    } else {
-        QBENCHMARK {
-            QBtreeTxn *txn = appendOnlyDb->beginWrite();
-            QVERIFY(txn);
-            for (int i = 0; i < numItems; ++i) {
-                QByteArray key = QByteArray::number(i);
-                QByteArray value = QByteArray::number(i);
-                QVERIFY(txn->put(key, value));
-            }
-            QVERIFY(txn->commit(42));
-        }
     }
 }
 void TestBtrees::delete1000Items_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::delete1000Items()
@@ -346,15 +283,6 @@ void TestBtrees::delete1000Items()
 
     if (btreeType == Hybrid) {
         HBtreeTransaction *txn = hybridDb->beginWrite();
-        QVERIFY(txn);
-        for (int i = 0; i < numItems; ++i) {
-            QByteArray key = QByteArray::number(i);
-            QByteArray value = QByteArray::number(i);
-            QVERIFY(txn->put(key, value));
-        }
-        QVERIFY(txn->commit(0));
-    } else if (btreeType == AppendOnly) {
-        QBtreeTxn *txn = appendOnlyDb->beginWrite();
         QVERIFY(txn);
         for (int i = 0; i < numItems; ++i) {
             QByteArray key = QByteArray::number(i);
@@ -374,16 +302,6 @@ void TestBtrees::delete1000Items()
                 QVERIFY(txn->commit(i));
             }
         }
-    } else if (btreeType == AppendOnly) {
-        QBENCHMARK_ONCE {
-            for (int i = 0; i < numItems; ++i) {
-                QByteArray key = QByteArray::number(i);
-                QBtreeTxn *txn = appendOnlyDb->beginWrite();
-                QVERIFY(txn);
-                QVERIFY(txn->remove(key));
-                QVERIFY(txn->commit(i));
-            }
-        }
     }
 }
 
@@ -391,7 +309,6 @@ void TestBtrees::find1000Items_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::find1000Items()
@@ -401,15 +318,6 @@ void TestBtrees::find1000Items()
 
     if (btreeType == Hybrid) {
         HBtreeTransaction *txn = hybridDb->beginWrite();
-        QVERIFY(txn);
-        for (int i = 0; i < numItems; ++i) {
-            QByteArray key = QByteArray::number(i);
-            QByteArray value = QByteArray::number(i);
-            QVERIFY(txn->put(key, value));
-        }
-        QVERIFY(txn->commit(0));
-    } else if (btreeType == AppendOnly) {
-        QBtreeTxn *txn = appendOnlyDb->beginWrite();
         QVERIFY(txn);
         for (int i = 0; i < numItems; ++i) {
             QByteArray key = QByteArray::number(i);
@@ -430,19 +338,6 @@ void TestBtrees::find1000Items()
                 txn->abort();
             }
         }
-    } else if (btreeType == AppendOnly) {
-        QBENCHMARK {
-            for (int i = 0; i < numItems; ++i) {
-                QByteArray key = QByteArray::number(i);
-                QByteArray value = QByteArray::number(i);
-                QByteArray baOut;
-                QBtreeTxn *txn = appendOnlyDb->beginRead();
-                QVERIFY(txn);
-                QVERIFY(txn->get(key, &baOut));
-                QCOMPARE(baOut, value);
-                txn->abort();
-            }
-        }
     }
 }
 
@@ -450,7 +345,6 @@ void TestBtrees::searchRange_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::searchRange()
@@ -468,17 +362,7 @@ void TestBtrees::searchRange()
             QVERIFY(txn->put(key, value));
         }
         QVERIFY(txn->commit(0));
-    } else if (btreeType == AppendOnly) {
-        QBtreeTxn *txn = appendOnlyDb->beginWrite();
-        QVERIFY(txn);
-        for (int i = 0; i < numItems * gapLength; i += gapLength) {
-            QByteArray key = QByteArray::number(i);
-            QByteArray value = QByteArray::number(i);
-            QVERIFY(txn->put(key, value));
-        }
-        QVERIFY(txn->commit(0));
     }
-
 
     if (btreeType == Hybrid) {
         QBENCHMARK {
@@ -491,17 +375,6 @@ void TestBtrees::searchRange()
                 txn->abort();
             }
         }
-    } else if (btreeType == AppendOnly) {
-        QBENCHMARK {
-            for (int i = 0; i < (numItems * gapLength) - (gapLength); i += (gapLength / 10)) {
-                QByteArray key = QByteArray::number(i);
-                QByteArray baOut;
-                QBtreeTxn *txn = appendOnlyDb->beginRead();
-                QBtreeCursor cursor(txn);
-                QVERIFY(cursor.seekRange(key));
-                txn->abort();
-            }
-        }
     }
 }
 
@@ -509,7 +382,6 @@ void TestBtrees::cursorNext_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::cursorNext()
@@ -528,18 +400,7 @@ void TestBtrees::cursorNext()
             values.insert(key, value);
         }
         QVERIFY(txn->commit(0));
-    } else if (btreeType == AppendOnly) {
-        QBtreeTxn *txn = appendOnlyDb->beginWrite();
-        QVERIFY(txn);
-        for (int i = 0; i < numItems; i++) {
-            QByteArray key = QByteArray::number(i);
-            QByteArray value = QByteArray::number(i);
-            QVERIFY(txn->put(key, value));
-            values.insert(key, value);
-        }
-        QVERIFY(txn->commit(0));
     }
-
 
     if (btreeType == Hybrid) {
         QBENCHMARK {
@@ -549,18 +410,6 @@ void TestBtrees::cursorNext()
                 QCOMPARE(cursor.key(), values[cursor.key()]);
             txn->abort();
         }
-    } else if (btreeType == AppendOnly) {
-        QBENCHMARK {
-            QBtreeTxn *txn = appendOnlyDb->beginRead();
-            QBtreeCursor cursor(txn);
-            while (cursor.next()) {
-                QByteArray key;
-                QByteArray val;
-                cursor.current(&key, &val);
-                QCOMPARE(val, values[key]);
-            }
-            txn->abort();
-        }
     }
 }
 
@@ -568,7 +417,6 @@ void TestBtrees::cursorPrevious_data()
 {
     QTest::addColumn<int>("btreeType");
     QTest::newRow(hybridDataTag) << (int)Hybrid;
-    QTest::newRow(appendOnlyDataTag) << (int)AppendOnly;
 }
 
 void TestBtrees::cursorPrevious()
@@ -587,18 +435,7 @@ void TestBtrees::cursorPrevious()
             values.insert(key, value);
         }
         QVERIFY(txn->commit(0));
-    } else if (btreeType == AppendOnly) {
-        QBtreeTxn *txn = appendOnlyDb->beginWrite();
-        QVERIFY(txn);
-        for (int i = 0; i < numItems; i++) {
-            QByteArray key = QByteArray::number(i);
-            QByteArray value = QByteArray::number(i);
-            QVERIFY(txn->put(key, value));
-            values.insert(key, value);
-        }
-        QVERIFY(txn->commit(0));
     }
-
 
     if (btreeType == Hybrid) {
         QBENCHMARK {
@@ -606,18 +443,6 @@ void TestBtrees::cursorPrevious()
             HBtreeCursor cursor(txn);
             while (cursor.previous())
                 QCOMPARE(cursor.key(), values[cursor.key()]);
-            txn->abort();
-        }
-    } else if (btreeType == AppendOnly) {
-        QBENCHMARK {
-            QBtreeTxn *txn = appendOnlyDb->beginRead();
-            QBtreeCursor cursor(txn);
-            while (cursor.previous()) {
-                QByteArray key;
-                QByteArray val;
-                cursor.current(&key, &val);
-                QCOMPARE(val, values[key]);
-            }
             txn->abort();
         }
     }

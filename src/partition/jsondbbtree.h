@@ -46,15 +46,9 @@
 
 #include "jsondbpartitionglobal.h"
 
-#ifndef JSONDB_USE_HBTREE
-#include "qbtree.h"
-#include "qbtreecursor.h"
-#include "qbtreetxn.h"
-#else
 #include "hbtree.h"
 #include "hbtreecursor.h"
 #include "hbtreetransaction.h"
-#endif
 
 QT_BEGIN_HEADER
 
@@ -70,11 +64,7 @@ public:
     };
     Q_DECLARE_FLAGS(OpenFlags, OpenFlag)
 
-#ifdef JSONDB_USE_HBTREE
     typedef HBtree Btree;
-#else
-    typedef QBtree Btree;
-#endif
 
     typedef Btree::CursorType Cursor;
     typedef Btree::TransactionType Transaction;
