@@ -94,14 +94,48 @@ const quint32 HBtreePrivate::PageInfo::INVALID_PAGE = 0xFFFFFFFF;
 #ifdef Q_OS_WIN32
 ssize_t pread(int fd, void *buf, size_t count, off_t offset)
 {
-    lseek(fd, offset, SEEK_SET);
-    return read(fd, buf, count);
+    off_t seekOffset = lseek(fd, offset, SEEK_SET);
+    if (seekOffset != offset) {
+        fprintf(stderr, "pread lseek failed offset=%ld result=%ld\n", offset, seekOffset);
+        return -1;
+    }
+    size_t bytesRead = 0;
+    size_t readCount = count;
+    char *readBuf = (char *)buf;
+    do {
+        int rc = read(fd, readBuf, readCount);
+        if (rc <= 0) {
+            fprintf(stderr, "pread offset=%ld readCount=%d bytesRead=%d count=%d rc=%d\n", offset, readCount, bytesRead, count, rc);
+            return rc;
+        }
+        bytesRead += rc;
+        readBuf += rc;
+        readCount -= rc;
+    } while (readCount > 0);
+    return bytesRead;
 }
 
 ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset)
 {
-    lseek(fd, offset, SEEK_SET);
-    return write(fd, buf, count);
+    off_t seekOffset = lseek(fd, offset, SEEK_SET);
+    if (seekOffset != offset) {
+        fprintf(stderr, "pwrite lseek failed: seekOffset=%ld offset=%ld\n", seekOffset, offset);
+    }
+    size_t bytesWritten = 0;
+    size_t writeCount = count;
+    char *writeBuf = (char *)buf;
+    do {
+        int rc = write(fd, writeBuf, writeCount);
+        if (rc <= 0) {
+            fprintf(stderr, "pwrite offset=%ld writeCount=%d bytesWritten=%d count=%d rc=%d\n",
+                    offset, writeCount, bytesWritten, count, rc);
+            return rc;
+        }
+        writeBuf += rc;
+        writeCount -= rc;
+        bytesWritten+=rc;
+    } while (writeCount > 0);
+    return bytesWritten;
 }
 
 int fsync(int fd)
@@ -727,12 +761,7 @@ QByteArray HBtreePrivate::readPage(quint32 pageNumber)
     pageBuffer_.resize(spec_.pageSize);
 
     const off_t offset = pageNumber * spec_.pageSize;
-    if (lseek(fd_, offset, SEEK_SET) != offset) {
-        HBTREE_DEBUG("failed to see to offset" << offset << "for page" << pageNumber);
-        return QByteArray();
-    }
-
-    ssize_t rc = read(fd_, (void *)pageBuffer_.data(), spec_.pageSize);
+    ssize_t rc = pread(fd_, (void *)pageBuffer_.data(), spec_.pageSize, offset);
     if (rc != spec_.pageSize) {
         lastReadError_ = errno;
         HBTREE_DEBUG("failed to read @" << offset << "for page" << pageNumber << "- rc:" << rc);
@@ -1218,6 +1247,8 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
             q->stats_.numEntries--;
         }
     }
+    HBTREE_ASSERT(page != 0);
+    fprintf(stderr, "page=%ld\n", (long)page);
 
     bool ok = false;
     if (spaceNeededForNode(keyData, valueData) <= spaceLeft(page))
@@ -1889,7 +1920,7 @@ quint16 HBtreePrivate::headerSize(const Page *page) const
 
 quint16 HBtreePrivate::spaceLeft(const Page *page) const
 {
-    HBTREE_ASSERT(spaceUsed(page) <= capacity(page))(capacity(page))(spaceUsed(page))(*page);
+    //HBTREE_ASSERT(spaceUsed(page) <= capacity(page))(capacity(page))(spaceUsed(page))(*page);
     return capacity(page) - spaceUsed(page);
 }
 
