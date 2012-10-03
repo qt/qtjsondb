@@ -55,6 +55,15 @@ QT_BEGIN_NAMESPACE_JSONDB
 */
 
 /*!
+    \qmlmodule QtAddOn.JsonDb 1.0
+    \title JSON Database QML Types
+    \ingroup qmlmodules
+    \brief Provides QML types that communicate with a JSON database
+
+    These QML types provide an interface to a JSON database.
+*/
+
+/*!
     \qmltype JsonDatabase
     \instantiates JsonDatabase
     \inqmlmodule QtJsonDb 1.0
