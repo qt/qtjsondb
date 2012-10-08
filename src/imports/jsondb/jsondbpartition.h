@@ -92,9 +92,9 @@ public:
                          const QJSValue &options = QJSValue(QJSValue::UndefinedValue),
                          const QJSValue &callback = QJSValue(QJSValue::UndefinedValue));
 
-    Q_INVOKABLE JsonDbNotify* createNotification(const QString &query);
+    Q_INVOKABLE QT_PREPEND_NAMESPACE_JSONDB(JsonDbNotify)* createNotification(const QString &query);
 
-    Q_INVOKABLE JsonDbQueryObject* createQuery(const QString &query, int limit, QVariantMap bindings);
+    Q_INVOKABLE QT_PREPEND_NAMESPACE_JSONDB(JsonDbQueryObject)* createQuery(const QString &query, int limit, QVariantMap bindings);
 
     QString name() const;
     void setName(const QString &partitionName);

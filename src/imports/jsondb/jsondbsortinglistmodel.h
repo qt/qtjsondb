@@ -79,7 +79,7 @@ public:
     Q_PROPERTY(QVariant roleNames READ scriptableRoleNames WRITE setScriptableRoleNames)
     Q_PROPERTY(int queryLimit READ queryLimit WRITE setQueryLimit)
     Q_PROPERTY(bool overflow READ overflow)
-    Q_PROPERTY(QQmlListProperty<JsonDbPartition> partitions READ partitions)
+    Q_PROPERTY(QQmlListProperty<QT_PREPEND_NAMESPACE_JSONDB(JsonDbPartition)> partitions READ partitions)
     Q_PROPERTY(QVariantMap error READ error NOTIFY errorChanged)
     Q_PROPERTY(QJSValue propertyInjector READ propertyInjector WRITE setPropertyInjector)
 
@@ -99,7 +99,7 @@ public:
     QVariantMap bindings() const;
     void setBindings(const QVariantMap &newBindings);
 
-    QQmlListProperty<JsonDbPartition> partitions();
+    QQmlListProperty<QtJsonDb::JsonDbPartition> partitions();
 
     int queryLimit() const;
     void setQueryLimit(int newQueryLimit);
@@ -119,7 +119,7 @@ public:
     Q_INVOKABLE int indexOf(const QString &uuid) const;
     Q_INVOKABLE QJSValue get(int index) const;
     Q_INVOKABLE QVariant get(int index, const QString &property) const;
-    Q_INVOKABLE JsonDbPartition* getPartition(int index) const;
+    Q_INVOKABLE QT_PREPEND_NAMESPACE_JSONDB(JsonDbPartition)* getPartition(int index) const;
     QVariantMap error() const;
 
 signals:

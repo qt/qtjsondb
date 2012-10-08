@@ -58,12 +58,12 @@
 #  define QT_BEGIN_NAMESPACE_JSONDB namespace QT_NAMESPACE { namespace QtJsonDb {
 #  define QT_END_NAMESPACE_JSONDB } }
 #  define QT_USE_NAMESPACE_JSONDB using namespace QT_NAMESPACE::QtJsonDb;
-#  define QT_PREPEND_NAMESPACE_JSONDB(name) ::QT_NAMESPACE::QtJsonDb::name
+#  define QT_PREPEND_NAMESPACE_JSONDB(name) QT_NAMESPACE::QtJsonDb::name
 #else
 #  define QT_BEGIN_NAMESPACE_JSONDB namespace QtJsonDb {
 #  define QT_END_NAMESPACE_JSONDB }
 #  define QT_USE_NAMESPACE_JSONDB using namespace QtJsonDb;
-#  define QT_PREPEND_NAMESPACE_JSONDB(name) ::QtJsonDb::name
+#  define QT_PREPEND_NAMESPACE_JSONDB(name) QtJsonDb::name
 #endif
 
 // a workaround for moc - if there is a header file that doesn't use jsondb

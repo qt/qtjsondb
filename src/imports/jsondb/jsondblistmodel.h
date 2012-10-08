@@ -62,12 +62,12 @@ public:
     JsonDbListModel(QObject *parent = 0);
     virtual ~JsonDbListModel();
 
-    Q_PROPERTY(QQmlListProperty<JsonDbPartition> partitions READ partitions)
+    Q_PROPERTY(QQmlListProperty<QT_PREPEND_NAMESPACE_JSONDB(JsonDbPartition)> partitions READ partitions)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
     Q_PROPERTY(int limit READ limit WRITE setLimit)
     Q_PROPERTY(int chunkSize READ chunkSize WRITE setChunkSize)
     Q_PROPERTY(int lowWaterMark READ lowWaterMark WRITE setLowWaterMark)
-    Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
+      Q_PROPERTY(QT_PREPEND_NAMESPACE_JSONDB(JsonDbPartition)* partition READ partition WRITE setPartition)
 
     virtual void classBegin();
     virtual void componentComplete();
@@ -75,7 +75,7 @@ public:
     QQmlListProperty<JsonDbPartition> partitions();
 
     Q_INVOKABLE void get(int index, const QJSValue &callback);
-    Q_INVOKABLE JsonDbPartition* getPartition(int index);
+    Q_INVOKABLE QT_PREPEND_NAMESPACE_JSONDB(JsonDbPartition)* getPartition(int index);
     Q_INVOKABLE int indexOf(const QString &uuid) const;
     static void partitions_append(QQmlListProperty<JsonDbPartition> *p, JsonDbPartition *v);
     static int partitions_count(QQmlListProperty<JsonDbPartition> *p);
@@ -84,9 +84,9 @@ public:
 
     // Offered for backwards compatibility with JsonDbListModel only
     // Deprecated
-    JsonDbPartition* partition();
+    QtJsonDb::JsonDbPartition* partition();
     int count() const;
-    void setPartition(JsonDbPartition *newPartition);
+    void setPartition(QtJsonDb::JsonDbPartition *newPartition);
     int limit() const;
     void setLimit(int newCacheSize);
     int chunkSize() const;

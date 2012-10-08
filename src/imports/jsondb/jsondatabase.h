@@ -60,7 +60,7 @@ public:
     JsonDatabase(QObject *parent = 0);
     ~JsonDatabase();
 
-    Q_INVOKABLE JsonDbPartition* partition(const QString &partitionName);
+    Q_INVOKABLE QT_PREPEND_NAMESPACE_JSONDB(JsonDbPartition)* partition(const QString &partitionName);
     Q_INVOKABLE void listPartitions(const QJSValue &callback);
     Q_INVOKABLE QString uuidFromString(const QString &identifier);
 

@@ -65,7 +65,7 @@ public:
     enum Status { Null, Loading, Ready, Error };
 
     Q_PROPERTY(QString query READ query WRITE setQuery)
-    Q_PROPERTY(JsonDbPartition* partition READ partition WRITE setPartition)
+    Q_PROPERTY(QT_PREPEND_NAMESPACE_JSONDB(JsonDbPartition)* partition READ partition WRITE setPartition)
     Q_PROPERTY(quint32 stateNumber READ stateNumber)
 
     Q_PROPERTY(int limit READ limit WRITE setLimit)
@@ -79,8 +79,8 @@ public:
     QString query();
     void setQuery(const QString &newQuery);
 
-    JsonDbPartition* partition();
-    void setPartition(JsonDbPartition* newPartition);
+    QtJsonDb::JsonDbPartition* partition();
+    void setPartition(QT_PREPEND_NAMESPACE_JSONDB(JsonDbPartition)* newPartition);
 
     quint32 stateNumber() const;
 
