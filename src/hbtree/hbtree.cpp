@@ -1248,7 +1248,6 @@ bool HBtreePrivate::put(HBtreeTransaction *transaction, const QByteArray &keyDat
         }
     }
     HBTREE_ASSERT(page != 0);
-    fprintf(stderr, "page=%ld\n", (long)page);
 
     bool ok = false;
     if (spaceNeededForNode(keyData, valueData) <= spaceLeft(page))
