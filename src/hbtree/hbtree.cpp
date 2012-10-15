@@ -2967,6 +2967,9 @@ bool HBtree::open()
         return false;
 
     int oflags = d->openMode_ == ReadOnly ? O_RDONLY : O_RDWR | O_CREAT;
+#ifdef Q_OS_WIN32
+    oflags |= _O_BINARY; // otherwise write() does crlf conversions
+#endif
     int fd = ::open(d->fileName_.toLatin1(), oflags, 0644);
 
     if (fd == -1) {
