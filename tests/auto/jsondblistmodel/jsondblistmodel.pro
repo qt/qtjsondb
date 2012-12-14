@@ -1,6 +1,5 @@
 TARGET = tst_jsondblistmodel
 
-DEPENDPATH += ../../shared/
 INCLUDEPATH += ../../shared/
 
 QT = core network testlib gui qml jsondb

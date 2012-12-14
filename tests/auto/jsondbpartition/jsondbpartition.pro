@@ -1,6 +1,5 @@
 TARGET = tst_jsondbpartition
 
-DEPENDPATH += ../../shared/
 INCLUDEPATH += ../../shared/
 
 QT = core network testlib gui qml jsondb
