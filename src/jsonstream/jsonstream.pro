@@ -1,7 +1,7 @@
 TARGET = QtJsonDbJsonStream
 
 TEMPLATE = lib
-CONFIG += qt static
+CONFIG += static
 
 QT = core network
 
