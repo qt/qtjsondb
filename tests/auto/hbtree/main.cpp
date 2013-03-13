@@ -54,6 +54,8 @@
 #include "hbtree_p.h"
 #include "orderedlist_p.h"
 
+QT_BEGIN_NAMESPACE_HBTREE
+
 const int numTable[] = {
     848189692, 10993076, 645053843, 409500027, 984193993, 476551019, 863168763,
     189550775, 620531785, 882318228, 974619333, 104980108, 429916131, 425358349,
@@ -2843,5 +2845,7 @@ void TestHBtree::failedCommits()
     txn->abort();
 }
 
-QTEST_MAIN(TestHBtree)
+QT_END_NAMESPACE_HBTREE
+
+QTEST_MAIN(QT_PREPEND_NAMESPACE_HBTREE(TestHBtree))
 #include "main.moc"

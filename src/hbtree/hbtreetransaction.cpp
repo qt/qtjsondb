@@ -43,6 +43,8 @@
 #include "hbtree.h"
 #include "hbtreetransaction.h"
 
+QT_BEGIN_NAMESPACE_HBTREE
+
 HBtreeTransaction::HBtreeTransaction(HBtree *btree, HBtreeTransaction::Type type)
     : btree_(btree), type_(type), rootPage_(0xFFFFFFFF), tag_(0), revision_(0)
 {
@@ -97,3 +99,5 @@ void HBtreeTransaction::abort()
     Q_ASSERT(btree_);
     btree_->abort(this);
 }
+
+QT_END_NAMESPACE_HBTREE

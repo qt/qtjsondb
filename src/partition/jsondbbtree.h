@@ -64,7 +64,7 @@ public:
     };
     Q_DECLARE_FLAGS(OpenFlags, OpenFlag)
 
-    typedef HBtree Btree;
+    typedef QT_PREPEND_NAMESPACE_HBTREE(HBtree) Btree;
 
     typedef Btree::CursorType Cursor;
     typedef Btree::TransactionType Transaction;

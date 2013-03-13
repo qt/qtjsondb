@@ -42,8 +42,12 @@
 #ifndef HBTREECURSOR_H
 #define HBTREECURSOR_H
 
+#include "hbtreeglobal.h"
+
 #include <QByteArray>
 #include <QStack>
+
+QT_BEGIN_NAMESPACE_HBTREE
 
 class HBtree;
 class HBtreeTransaction;
@@ -97,5 +101,7 @@ private:
 
     bool doOp(Op op, const QByteArray &key = QByteArray());
 };
+
+QT_END_NAMESPACE_HBTREE
 
 #endif // HBTREECURSOR_H

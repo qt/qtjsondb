@@ -49,6 +49,9 @@
 
 #include "hbtreetransaction.h"
 #include "hbtreecursor.h"
+#include "hbtreeglobal.h"
+
+QT_BEGIN_NAMESPACE_HBTREE
 
 extern bool gDebugHBtree;
 
@@ -198,5 +201,7 @@ inline QDebug operator << (QDebug dbg, const HBtree::Stat &stats)
                   << "]";
     return dbg.space();
 }
+
+QT_END_NAMESPACE_HBTREE
 
 #endif // HBTREE_H

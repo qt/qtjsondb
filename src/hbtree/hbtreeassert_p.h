@@ -42,11 +42,15 @@
 #ifndef HBTREEASSERT_P_H
 #define HBTREEASSERT_P_H
 
+#include "hbtreeglobal.h"
+
 #include <QDebug>
 
 #if !defined(QT_NO_DEBUG) || defined(QT_FORCE_ASSERTS)
 #   define USE_HBTREE_ASSERT
 #endif
+
+QT_BEGIN_NAMESPACE_HBTREE
 
 class HBtreeAssert
 {
@@ -101,5 +105,7 @@ private:
     if (!(expr)) \
         HBtreeAssert __hbtree_assert = HBtreeAssert()(#expr, __FILE__, __FUNCTION__, __LINE__).HBTREE_ASSERT_A
 #endif
+
+QT_END_NAMESPACE_HBTREE
 
 #endif

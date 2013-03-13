@@ -3,6 +3,7 @@ INCLUDEPATH += $$PWD/
 include($$PWD/../3rdparty/zlib/zlib.pri)
 
 HEADERS += \
+    $$PWD/hbtreeglobal.h \
     $$PWD/orderedlist_p.h \
     $$PWD/hbtree.h \
     $$PWD/hbtreetransaction.h \

@@ -48,6 +48,8 @@
 
 QT_BEGIN_NAMESPACE_JSONDB_PARTITION
 
+QT_USE_NAMESPACE_HBTREE
+
 JsonDbBtree::JsonDbBtree()
     : mBtree(new Btree())
 {

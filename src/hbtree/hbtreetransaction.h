@@ -42,8 +42,12 @@
 #ifndef HBtreeTRANSACTION_H
 #define HBtreeTRANSACTION_H
 
+#include "hbtreeglobal.h"
+
 #include <QByteArray>
 #include <QScopedPointer>
+
+QT_BEGIN_NAMESPACE_HBTREE
 
 class HBtree;
 class HBtreeTransactionPrivate;
@@ -87,5 +91,7 @@ private:
     quint64 tag_;
     quint32 revision_;
 };
+
+QT_END_NAMESPACE_HBTREE
 
 #endif // HBtreeTRANSACTION_H

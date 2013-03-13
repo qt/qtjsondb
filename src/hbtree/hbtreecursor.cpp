@@ -44,6 +44,8 @@
 #include "hbtreecursor.h"
 
 
+QT_BEGIN_NAMESPACE_HBTREE
+
 HBtreeCursor::HBtreeCursor()
     : transaction_(0), btree_(0), lastLeaf_(0xFFFFFFFF), valid_(false)
 {
@@ -127,3 +129,5 @@ bool HBtreeCursor::seekRange(const QByteArray &key, RangePolicy policy)
     Q_ASSERT(btree_);
     return btree_->doCursorOp(this, FuzzyMatch, key, policy);
 }
+
+QT_END_NAMESPACE_HBTREE

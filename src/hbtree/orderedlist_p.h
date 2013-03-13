@@ -42,10 +42,14 @@
 #ifndef ORDERED_LIST_P_H
 #define ORDERED_LIST_P_H
 
+#include "hbtreeglobal.h"
+
 #include <QList>
 #include <QPair>
 #include <QtAlgorithms>
 #include <QDebug>
+
+QT_BEGIN_NAMESPACE_HBTREE
 
 template <typename Key, typename Value, typename LessThan = qLess<Key> >
 class OrderedList
@@ -235,5 +239,7 @@ inline QDebug operator << (QDebug dbg, const OrderedList<Key, Value, LessThan> &
     dbg.nospace() << list.rawList();
     return dbg.space();
 }
+
+QT_END_NAMESPACE_HBTREE
 
 #endif // ORDERED_LIST_P_H

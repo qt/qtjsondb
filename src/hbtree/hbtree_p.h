@@ -46,6 +46,7 @@
 #include "hbtreetransaction.h"
 #include "hbtreecursor.h"
 #include "orderedlist_p.h"
+#include "hbtreeglobal.h"
 
 #include <QDebug>
 #include <QMap>
@@ -58,6 +59,8 @@
 #else
 #define HBTREE_ATTRIBUTE_PACKED
 #endif
+
+QT_BEGIN_NAMESPACE_HBTREE
 
 class HBtreePrivate
 {
@@ -416,10 +419,6 @@ public:
     mutable QString lastErrorMessage_;
 };
 
-QT_BEGIN_NAMESPACE
-Q_DECLARE_TYPEINFO(HBtreePrivate::NodeKey, Q_MOVABLE_TYPE);
-QT_END_NAMESPACE
-
 QDebug operator << (QDebug dbg, const HBtreePrivate::Spec &p);
 QDebug operator << (QDebug dbg, const HBtreePrivate::PageInfo &pi);
 QDebug operator << (QDebug dbg, const HBtreePrivate::Page &page);
@@ -478,5 +477,11 @@ bool HBtreePrivate::NodeKey::operator > (const HBtreePrivate::NodeKey &rhs) cons
 {
     return compare(rhs) > 0;
 }
+
+QT_END_NAMESPACE_HBTREE
+
+QT_BEGIN_NAMESPACE
+Q_DECLARE_TYPEINFO(QT_PREPEND_NAMESPACE_HBTREE(HBtreePrivate::NodeKey), Q_MOVABLE_TYPE);
+QT_END_NAMESPACE
 
 #endif // HBTREE_P_H

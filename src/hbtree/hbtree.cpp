@@ -75,6 +75,8 @@
 #define HBTREE_ERROR_LAST(msg) do {lastErrorMessage_ = QLatin1String(msg); (qCritical().nospace() << "ERROR! HBtree(" << fileName_ << ") " << __FUNCTION__ << " =>").space() << msg;} while (0)
 
 
+QT_BEGIN_NAMESPACE_HBTREE
+
 // NOTES:
 
 // What happens when marker revision overflows? Maybe you need to reset revisions from time to time?
@@ -3288,3 +3290,5 @@ void HBtreePrivate::NodePage::clearHistory()
     history.clear();
     meta.historySize = 0;
 }
+
+QT_END_NAMESPACE_HBTREE

@@ -49,6 +49,8 @@
 #include "hbtree_p.h"
 #include "hbtreetransaction.h"
 
+QT_BEGIN_NAMESPACE_HBTREE
+
 class TestBtrees: public QObject
 {
     Q_OBJECT
@@ -448,5 +450,7 @@ void TestBtrees::cursorPrevious()
     }
 }
 
-QTEST_MAIN(TestBtrees)
+QT_END_NAMESPACE_HBTREE
+
+QTEST_MAIN(QT_PREPEND_NAMESPACE_HBTREE(TestBtrees))
 #include "main.moc"

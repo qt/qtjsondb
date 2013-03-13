@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of the QtAddOn.JsonDb module of the Qt Toolkit.
@@ -39,35 +39,27 @@
 **
 ****************************************************************************/
 
-#include "hbtreeassert_p.h"
+#ifndef HBTREE_GLOBAL_H
+#define HBTREE_GLOBAL_H
 
-#undef HBTREE_ASSERT_A
-#undef HBTREE_ASSERT_B
+#include <QtCore/qglobal.h>
 
+#if defined(QT_NAMESPACE)
+#  define QT_BEGIN_NAMESPACE_HBTREE namespace QT_NAMESPACE { namespace HbTree {
+#  define QT_END_NAMESPACE_HBTREE } }
+#  define QT_USE_NAMESPACE_HBTREE using namespace QT_NAMESPACE::HbTree;
+#  define QT_PREPEND_NAMESPACE_HBTREE(name) QT_NAMESPACE::HbTree::name
+#else
+#  define QT_BEGIN_NAMESPACE_HBTREE namespace HbTree {
+#  define QT_END_NAMESPACE_HBTREE }
+#  define QT_USE_NAMESPACE_HBTREE using namespace HbTree;
+#  define QT_PREPEND_NAMESPACE_HBTREE(name) HbTree::name
+#endif
+
+// a workaround for moc - if there is a header file that doesn't use jsondb
+// namespace, we still force moc to do "using namespace" but the namespace have to
+// be defined, so let's define an empty namespace here
 QT_BEGIN_NAMESPACE_HBTREE
-
-HBtreeAssert::~HBtreeAssert()
-{
-    if (copied_)
-        return;
-    if (!ignore_) {
-        if (message_.size())
-            assertStr_ += QLatin1String(" [Message]: ") + message_;
-        qFatal("%s", assertStr_.toLatin1().constData());
-    } else {
-        QString str = QLatin1String("\tSILENT ") + assertStr_;
-        qDebug("%s", str.toLatin1().constData());
-        if (message_.size())
-            qDebug().nospace() << "\n\t[Message]: " << message_;
-    }
-}
-
-HBtreeAssert &HBtreeAssert::operator ()(const char *expr, const char *file, const char *func, int line)
-{
-    assertStr_ = QString(QLatin1String("ASSERT: %1 in file %2, line %3, from function '%4'"))
-            .arg(QLatin1String(expr)).arg(QLatin1String(file)).arg(line).arg(QLatin1String(func));
-    qDebug().nospace() << "CONDITION FAILURE: ";
-    return *this;
-}
-
 QT_END_NAMESPACE_HBTREE
+
+#endif // HBTREE_GLOBAL_H
