@@ -94,7 +94,7 @@ QVariant SortingKey::value() const
     return ret;
 }
 
-static bool operator<(const QVariant& lhs, const QVariant& rhs)
+static bool lessThan(const QVariant& lhs, const QVariant& rhs)
 {
     if ((lhs.type() == QVariant::Int) && (rhs.type() == QVariant::Int))
         return lhs.toInt() < rhs.toInt();
@@ -134,7 +134,7 @@ bool SortingKey::operator <(const SortingKey &rhs) const
                 return (dLhs->directions[i] ? (cmp < 0) : (cmp > 0));
             }
         } else if (lhsValue != rhsValue) {
-            return (dLhs->directions[i] ? lhsValue < rhsValue : rhsValue < lhsValue);
+            return (dLhs->directions[i] ? lessThan(lhsValue, rhsValue) : lessThan(rhsValue, lhsValue));
         }
     }
     int cmp = memcmp(dLhs->uuid.constData(), dRhs->uuid.constData(), qMin(dLhs->uuid.size(), dRhs->uuid.size()));
