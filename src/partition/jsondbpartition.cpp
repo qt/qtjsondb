@@ -58,8 +58,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
-#ifndef Q_OS_WIN32
-#include <sys/statvfs.h>
+#if !defined (Q_OS_WIN32)
+# if !defined(Q_OS_ANDROID)
+#   include <sys/statvfs.h>
+# else
+#   include <sys/vfs.h>
+#   define statvfs statfs
+#   define fstatvfs fstatfs
+# endif
 #endif
 #include <errno.h>
 
